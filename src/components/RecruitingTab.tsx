@@ -344,10 +344,10 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
           event: "*",
           schema: "public",
           table: "recruiter_salary_payments",
-          filter: `month=eq.${selectedMonth}`,
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["recruiter-salary-payments", selectedMonth] });
+          queryClient.invalidateQueries({ queryKey: ["recruiter-prior-base-salaries"] });
         },
       )
       .subscribe();
