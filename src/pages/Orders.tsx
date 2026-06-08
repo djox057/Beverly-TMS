@@ -364,6 +364,7 @@ const Orders = () => {
     loadMore: loadMoreFiltered,
     search: searchFiltered,
     reset: resetFiltered,
+    summary: filteredSummary,
   } = useFilteredOrdersSearch();
 
   // Debounce search term for server-side search
@@ -824,6 +825,18 @@ const Orders = () => {
     invoicedFilter,
   ]);
 
+  // When filters are active, auto-fetch the next server batch as the user paginates
+  // beyond what's already loaded. Prevents "load more" clicks and keeps pagination accurate.
+  useEffect(() => {
+    if (!hasActiveFilter) return;
+    if (isFilteredLoading) return;
+    if (!hasMoreFiltered) return;
+    const rowsNeeded = currentPage * ORDERS_PER_PAGE;
+    if (filteredServerOrders && rowsNeeded > filteredServerOrders.length) {
+      loadMoreFiltered();
+    }
+  }, [hasActiveFilter, currentPage, filteredServerOrders, hasMoreFiltered, isFilteredLoading, loadMoreFiltered]);
+
   // Clear selection when filters change or selection mode is toggled off
   useEffect(() => {
     setSelectedOrderIds(new Set());
@@ -1004,8 +1017,17 @@ const Orders = () => {
   // For search/filter modes: use filtered results count
   // For normal mode: use server's total count (all unlocked orders)
   const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
-  const effectiveTotalCount =
-    !hasActiveFilter && !isActiveSearch && totalUnlockedCount ? totalUnlockedCount : filteredOrders.length;
+  // Prefer authoritative server counts:
+  //  - No filter / no search → use the progressive hook's unlocked total
+  //  - Filters active → use the orders-summary RPC total (accurate even when only the first batch is loaded)
+  //  - Search active → fall back to loaded results length (search is capped at 100 rows)
+  const effectiveTotalCount = !hasActiveFilter && !isActiveSearch && totalUnlockedCount
+    ? totalUnlockedCount
+    : hasActiveFilter && filteredSummary
+      ? filteredSummary.totalCount
+      : hasActiveFilter && typeof filteredTotalCount === "number"
+        ? filteredTotalCount
+        : filteredOrders.length;
   const totalPages =
     !hasActiveFilter && !isActiveSearch && serverTotalPages
       ? serverTotalPages
@@ -1482,9 +1504,26 @@ const Orders = () => {
             <div className="flex items-center justify-between gap-4">
               <div className="relative shrink-0">
                 <CardTitle className="shrink-0 whitespace-nowrap">All Loads</CardTitle>
-                <div className="absolute left-0 top-full mt-1 h-6 flex items-center">
+                <div className="absolute left-0 top-full mt-1 h-6 flex items-center gap-1.5 whitespace-nowrap">
                   {isFilteredLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                  {hasActiveFilter && filteredOrders.length > 0 && !isFilteredLoading && (
+                  {hasActiveFilter && !isFilteredLoading && filteredSummary && (
+                    <>
+                      <Badge variant="secondary" title="Total matching loads">
+                        {filteredSummary.totalCount.toLocaleString()} total
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="border-warning text-warning-foreground bg-warning/10"
+                        title="Unlocked matching loads"
+                      >
+                        {filteredSummary.unlockedCount.toLocaleString()} unlocked
+                      </Badge>
+                      <Badge variant="outline" title="Locked matching loads">
+                        {filteredSummary.lockedCount.toLocaleString()} locked
+                      </Badge>
+                    </>
+                  )}
+                  {hasActiveFilter && !isFilteredLoading && !filteredSummary && filteredOrders.length > 0 && (
                     <Badge variant="secondary">{filteredOrders.length}</Badge>
                   )}
                 </div>
