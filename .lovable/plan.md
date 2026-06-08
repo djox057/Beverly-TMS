@@ -1,54 +1,60 @@
 # Goal
 
-When a filter is active on `/orders`, the list must show **every unlocked order first**, in stable order, then continue into locked orders — across pages 1..N. No toggle. The summary badges (already correct) stay as-is.
+On `/bg-loads`, only load orders whose `booked_by_company_id` = BG Prime from the database. Today the data hook silently ignores the `bookedByCompanyId` key BgLoads passes, so the page fetches the full unlocked + locked dataset (or the dispatcher's slice) and the BG filter is only applied in client-side rendering. `/orders` must remain unchanged.
 
 # Root cause
 
-`search-orders` returns `.order("locked", asc).order("created_at", desc)`. That keeps unlocked-first within a single 500-row batch, but as soon as the UI auto-fetches batch 2 (offset 500–999) the boundary lands inside the locked section, so all "remaining" unlocked rows that the client expected on later UI pages don't exist — they were never in batch 2.
+`BgLoads.tsx` already builds:
+```
+orderFilterOptions = { bookedBy, dispatcherUserId, bookedByCompanyId: BG_PRIME_COMPANY_ID }
+```
+and passes it to `useOrdersProgressive`. But the hook's `UseOrdersProgressiveOptions` only knows `bookedBy`, `dispatcherUserId`, `currentPage`, and `excludeBookedByCompanyId`. The `bookedByCompanyId` key is dropped, so:
 
-For the Jan 1 – Jun 7 filter: 239 unlocked → fits in batch 1 → pages 1–4 (50/page) show unlocked, page 5 shows 39 unlocked + 11 locked. That matches what you're seeing ("page 3 ~20, page 4 = 0 unlocked"). It looks broken because the client page indices don't line up with the unlocked tail.
+- The counts query counts every order in the system.
+- The per-page edge-function calls (`get-all-unlocked-orders` / `get-all-locked-orders`) fetch every order.
+- The filtered-search path (`useFilteredOrdersSearch`) already accepts `companyId`, so once any extra filter is touched it works — the bug is the default no-filter view.
 
-The reported "~120ish loads total" symptom comes from the UI calling `loadMore` only when the *next* client page is requested, so pages 3+ paint before batch 2 arrives — table looks empty.
+# Scope guarantee — `/orders` is not affected
+
+- `/orders` (`src/pages/Orders.tsx`) never passes `bookedByCompanyId` — it only uses `excludeBookedByCompanyId`. We only **add** a new optional option; existing call sites that don't set it keep current behavior.
+- Both edge functions treat the new body field as optional (`null` = no extra `.eq`), so any caller (Orders, sync-google-sheets, etc.) that doesn't pass it is unchanged.
+- We do not touch `Orders.tsx`, `useFilteredOrdersSearch.ts`, `useOrders.ts`, or `useOrdersSearch.ts`.
 
 # Fix
 
-## 1. `search-orders/index.ts` — keep `locked asc` but make it deterministic and faster
+## 1. `src/hooks/useOrdersProgressive.ts`
 
-- Keep `.order("locked", { ascending: true })` (this is what guarantees unlocked-first globally).
-- Add `.order("id", { ascending: true })` as the tiebreaker so pagination is stable across batches (no row skipped/duplicated when two rows share `created_at`).
-- Drop the `created_at desc` secondary sort — it conflicts with stable keyset behavior and isn't what the user asked for.
-- Cap `limit` at 1000 (already done). No other behavior change.
+- Add `bookedByCompanyId?: string | null` to `UseOrdersProgressiveOptions`.
+- Include it in the `hasFilters` boolean.
+- In the counts query and `fetchPage`, when set, apply `.eq("booked_by_company_id", bookedByCompanyId)`. Composes with existing `bookedBy` / `dispatcherDriverIds` / `excludeBookedByCompanyId` clauses.
+- Pass `bookedByCompanyId` into both `supabase.functions.invoke("get-all-unlocked-orders", { body })` and `get-all-locked-orders` bodies.
+- Include `bookedByCompanyId` in all React Query keys (`orders-counts`, `["orders","page",pageNumber,...]`) and in the `updateOrderLocally` cache write, so `/bg-loads` and `/orders` never share cache.
 
-## 2. `useFilteredOrdersSearch.ts` — eagerly pre-fetch enough batches to cover all unlocked
+## 2. Edge functions: `get-all-unlocked-orders` and `get-all-locked-orders`
 
-After `search` finishes and the `orders-summary` response arrives:
+- Parse optional `bookedByCompanyId` from the request body next to the existing `excludeBookedByCompanyId`.
+- In both the count query and the batch fetch loop, when set, add `.eq("booked_by_company_id", bookedByCompanyId)` after the `bookedBy`/`dispatcherDriverIds` block.
+- No change to default behavior when the field is absent.
 
-- Read `summary.unlockedCount`.
-- If `summary.unlockedCount > orders.length` (i.e. unlocked spill past batch 1), loop `loadMore()` in the background until `orders.length >= summary.unlockedCount`. Cap at 10 batches (5,000 rows) as a safety net so a pathological filter can't runaway.
-- Expose an `isPrefetchingUnlocked` flag the page can show as a small spinner next to the summary badges.
+## 3. `src/pages/BgLoads.tsx`
 
-This is the key change: it guarantees every unlocked row is in the client cache before the user clicks page 2/3/4.
-
-## 3. `Orders.tsx` — remove the "Unlocked only" toggle and the page-driven autoload
-
-- Delete the toggle UI/state added in the previous step.
-- Delete the `useEffect` that calls `loadMoreFiltered()` when `currentPage * ORDERS_PER_PAGE > filteredServerOrders.length` — the hook now front-loads unlocked itself, so this is redundant. Keep ordinary "load next batch" only when the user pages past the loaded set into locked territory.
-- Keep summary badges as-is (totals come from `orders-summary` and are already correct).
-- Keep `ORDERS_PER_PAGE = 50`.
+- No edits expected. It already passes `bookedByCompanyId` to the progressive hook and `companyId: BG_PRIME_COMPANY_ID` into `useFilteredOrdersSearch` via its `serverFilters` builder. If a quick re-read of the `serverFilters` block shows `companyId` isn't already injected on the filtered path, add it there — single line.
 
 ## 4. Verification
 
-- Manual: apply Jan 1 – Jun 7 / exclude BG Prime filter. Within ~1s after the spinner stops, paging through pages 1–5 should show 50/50/50/50/39 unlocked, then locked starts on page 5 row 40. Total unlocked across pages = 239. Page 6+ are pure locked.
-- Extend `search-orders/index_test.ts`: call `search-orders` with that filter, `offset=0 limit=500` → assert the first 239 rows have `locked=false`, the rest `locked=true`. Then call `offset=500 limit=500` → assert all rows `locked=true`.
+- Open `/bg-loads` with no other filter. Network: `get-all-unlocked-orders` and `get-all-locked-orders` bodies must include `bookedByCompanyId: "238a7acf-cbb5-4718-be7a-130d8d971a90"`. Pagination total must equal BG Prime load count, not global count.
+- Apply a date filter on `/bg-loads`. Network: `search-orders` body must include `companyId: "238a7acf-…"` and `orders-summary` totals must match.
+- Open `/orders`. Network: same calls fire with **no** `bookedByCompanyId` field; counts and pages must match the pre-change behavior (full dataset minus BG Prime via `excludeBookedByCompanyId`).
 
 # Files touched
 
-- `supabase/functions/search-orders/index.ts` — tiebreaker change only.
-- `src/hooks/useFilteredOrdersSearch.ts` — add eager unlocked-prefetch loop + `isPrefetchingUnlocked` flag.
-- `src/pages/Orders.tsx` — remove "Unlocked only" toggle and the page-driven autoload effect.
-- `supabase/functions/search-orders/index_test.ts` — assert global unlocked-first ordering across two batches.
+- `src/hooks/useOrdersProgressive.ts`
+- `supabase/functions/get-all-unlocked-orders/index.ts`
+- `supabase/functions/get-all-locked-orders/index.ts`
+- `src/pages/BgLoads.tsx` — only if its `serverFilters` doesn't already set `companyId`; otherwise untouched.
 
 # Out of scope
 
-- Replacing `locked asc` with a keyset/cursor scheme (would let us skip prefetching entirely; bigger refactor).
-- Default-path (no-filter) changes.
+- Any change to `/orders` or shared orders hooks beyond the additive `bookedByCompanyId` option.
+- Refactoring the three-path orders data layer.
+- UI changes on `/bg-loads`.

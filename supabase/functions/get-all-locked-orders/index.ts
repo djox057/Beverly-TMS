@@ -133,6 +133,7 @@ Deno.serve(async (req) => {
     let limit = 1000;
     let fields: "full" | "analytics" = "full";
     let excludeBookedByCompanyId: string | null = null;
+    let bookedByCompanyId: string | null = null;
     
     if (req.method === "POST") {
       try {
@@ -145,6 +146,7 @@ Deno.serve(async (req) => {
         limit = Math.min(body.limit || 1000, 1000);
         if (body.fields === "analytics") fields = "analytics";
         excludeBookedByCompanyId = body.excludeBookedByCompanyId || null;
+        bookedByCompanyId = body.bookedByCompanyId || null;
       } catch {
         // No body or invalid JSON
       }
@@ -173,6 +175,9 @@ Deno.serve(async (req) => {
         countQuery = countQuery.or(
           `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
         );
+      }
+      if (bookedByCompanyId) {
+        countQuery = countQuery.eq("booked_by_company_id", bookedByCompanyId);
       }
 
       const { count, error: countError } = await countQuery;
@@ -207,6 +212,9 @@ Deno.serve(async (req) => {
       query = query.or(
         `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
       );
+    }
+    if (bookedByCompanyId) {
+      query = query.eq("booked_by_company_id", bookedByCompanyId);
     }
 
     const { data: orders, error: fetchError } = await query;
