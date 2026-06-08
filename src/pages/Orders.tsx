@@ -825,6 +825,18 @@ const Orders = () => {
     invoicedFilter,
   ]);
 
+  // When filters are active, auto-fetch the next server batch as the user paginates
+  // beyond what's already loaded. Prevents "load more" clicks and keeps pagination accurate.
+  useEffect(() => {
+    if (!hasActiveFilter) return;
+    if (isFilteredLoading) return;
+    if (!hasMoreFiltered) return;
+    const rowsNeeded = currentPage * ORDERS_PER_PAGE;
+    if (filteredServerOrders && rowsNeeded > filteredServerOrders.length) {
+      loadMoreFiltered();
+    }
+  }, [hasActiveFilter, currentPage, filteredServerOrders, hasMoreFiltered, isFilteredLoading, loadMoreFiltered]);
+
   // Clear selection when filters change or selection mode is toggled off
   useEffect(() => {
     setSelectedOrderIds(new Set());
