@@ -1005,8 +1005,17 @@ const Orders = () => {
   // For search/filter modes: use filtered results count
   // For normal mode: use server's total count (all unlocked orders)
   const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
-  const effectiveTotalCount =
-    !hasActiveFilter && !isActiveSearch && totalUnlockedCount ? totalUnlockedCount : filteredOrders.length;
+  // Prefer authoritative server counts:
+  //  - No filter / no search → use the progressive hook's unlocked total
+  //  - Filters active → use the orders-summary RPC total (accurate even when only the first batch is loaded)
+  //  - Search active → fall back to loaded results length (search is capped at 100 rows)
+  const effectiveTotalCount = !hasActiveFilter && !isActiveSearch && totalUnlockedCount
+    ? totalUnlockedCount
+    : hasActiveFilter && filteredSummary
+      ? filteredSummary.totalCount
+      : hasActiveFilter && typeof filteredTotalCount === "number"
+        ? filteredTotalCount
+        : filteredOrders.length;
   const totalPages =
     !hasActiveFilter && !isActiveSearch && serverTotalPages
       ? serverTotalPages
