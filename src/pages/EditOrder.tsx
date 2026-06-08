@@ -122,6 +122,7 @@ const EditOrder = () => {
   const [returnToReports, setReturnToReports] = useState(false);
   const [returnToTrips, setReturnToTrips] = useState(false);
   const [returnToAnalytics, setReturnToAnalytics] = useState(false);
+  const [salaryChargeOpen, setSalaryChargeOpen] = useState(false);
 
   // Check on mount if we should return to reports, trips, or analytics
   useEffect(() => {
