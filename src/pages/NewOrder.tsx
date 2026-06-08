@@ -1450,6 +1450,14 @@ const NewOrder = () => {
       setConfirmationGenerated(true); // Enable the email toggle
       setEmailSent(false); // Reset email sent state
 
+      // Auto-populate the email-to-driver file field with the generated PDF
+      try {
+        const generatedFile = new File([blob], filename, { type: "application/pdf" });
+        setEmailFiles([generatedFile]);
+      } catch (e) {
+        console.error("Failed to attach generated confirmation to email field:", e);
+      }
+
       // Download the PDF
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
