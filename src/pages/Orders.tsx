@@ -1492,9 +1492,26 @@ const Orders = () => {
             <div className="flex items-center justify-between gap-4">
               <div className="relative shrink-0">
                 <CardTitle className="shrink-0 whitespace-nowrap">All Loads</CardTitle>
-                <div className="absolute left-0 top-full mt-1 h-6 flex items-center">
+                <div className="absolute left-0 top-full mt-1 h-6 flex items-center gap-1.5 whitespace-nowrap">
                   {isFilteredLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                  {hasActiveFilter && filteredOrders.length > 0 && !isFilteredLoading && (
+                  {hasActiveFilter && !isFilteredLoading && filteredSummary && (
+                    <>
+                      <Badge variant="secondary" title="Total matching loads">
+                        {filteredSummary.totalCount.toLocaleString()} total
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="border-warning text-warning-foreground bg-warning/10"
+                        title="Unlocked matching loads"
+                      >
+                        {filteredSummary.unlockedCount.toLocaleString()} unlocked
+                      </Badge>
+                      <Badge variant="outline" title="Locked matching loads">
+                        {filteredSummary.lockedCount.toLocaleString()} locked
+                      </Badge>
+                    </>
+                  )}
+                  {hasActiveFilter && !isFilteredLoading && !filteredSummary && filteredOrders.length > 0 && (
                     <Badge variant="secondary">{filteredOrders.length}</Badge>
                   )}
                 </div>
