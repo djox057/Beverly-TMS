@@ -24,6 +24,7 @@ import { HosRequestDialog } from "@/components/HosRequestDialog";
 import { DriverProblemDialog } from "@/components/DriverProblemDialog";
 import { AllProblemsDialog } from "@/components/AllProblemsDialog";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
+import { AddOrderSalaryChargeDialog } from "@/components/AddOrderSalaryChargeDialog";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useCompanies } from "@/hooks/useCompanies";
