@@ -62,7 +62,6 @@ Deno.serve(async (req) => {
     let filters: SearchFilters = {};
     let offset = 0;
     let limit = 500; // Default batch size for filtered results
-    let fetchAllUnlocked = false;
 
     if (req.method === "POST") {
       try {
@@ -70,7 +69,6 @@ Deno.serve(async (req) => {
         filters = body.filters || {};
         offset = body.offset || 0;
         limit = Math.min(body.limit || 500, 1000); // Cap at 1000
-        fetchAllUnlocked = body.fetchAllUnlocked === true;
       } catch {
         // No body or invalid JSON - proceed with defaults
       }
@@ -301,49 +299,26 @@ Deno.serve(async (req) => {
       query = query.lte("pickup_datetime", filters.pickupDateTo);
     }
 
-    // Order
-    query = query.order("created_at", { ascending: false });
+    // Order and paginate
+    query = query
+      .order("locked", { ascending: true })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
-    let filteredOrders: any[] = [];
-    let count: number | null = null;
-    let hasMore = false;
+    const { data: orders, error: fetchError, count } = await query;
 
-    if (fetchAllUnlocked) {
-      // Fetch ALL matching rows in chunks of 1000 (PostgREST hard cap), up to a safety ceiling.
-      const CHUNK = 1000;
-      const CEILING = 5000;
-      let cursor = 0;
-      let totalCount: number | null = null;
-      while (cursor < CEILING) {
-        const { data, error, count: c } = await query.range(cursor, cursor + CHUNK - 1);
-        if (error) {
-          console.error(`[search-orders] Fetch error (chunk @${cursor}):`, error);
-          throw error;
-        }
-        if (totalCount === null) totalCount = c ?? 0;
-        const batch = data || [];
-        filteredOrders.push(...batch);
-        if (batch.length < CHUNK) break;
-        cursor += CHUNK;
-      }
-      count = totalCount;
-      hasMore = false;
-      if (count !== null && filteredOrders.length < count) {
-        console.warn(`[search-orders] fetchAllUnlocked hit safety ceiling: returned ${filteredOrders.length} of ${count}`);
-      }
-    } else {
-      const { data: orders, error: fetchError, count: c } = await query.range(offset, offset + limit - 1);
-      if (fetchError) {
-        console.error(`[search-orders] Fetch error:`, fetchError);
-        throw fetchError;
-      }
-      filteredOrders = orders || [];
-      count = c ?? null;
-      hasMore = filteredOrders.length === limit;
+    if (fetchError) {
+      console.error(`[search-orders] Fetch error:`, fetchError);
+      throw fetchError;
     }
+
+    // No post-processing needed; all DB-backed filters are applied server-side.
+    const filteredOrders = orders || [];
 
     const fetchTime = Date.now() - startTime;
     console.log(`[search-orders] Found ${filteredOrders.length} orders (total: ${count}) in ${fetchTime}ms`);
+
+    const hasMore = orders && orders.length === limit;
 
     return new Response(
       JSON.stringify({
