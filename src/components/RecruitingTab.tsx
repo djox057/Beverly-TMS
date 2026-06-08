@@ -437,6 +437,22 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       toast.error("Failed to save: " + error.message);
       return false;
     }
+    // Propagate base_salary to all later months when allowed (current, last, or future month edits).
+    if (pendingBasePropagation.current[row.user_id]) {
+      delete pendingBasePropagation.current[row.user_id];
+      if (canPropagateBaseSalary(row.month)) {
+        const { error: propErr } = await supabase
+          .from("recruiter_salary_payments" as any)
+          .update({ base_salary: row.base_salary })
+          .eq("user_id", row.user_id)
+          .gt("month", row.month);
+        if (propErr) {
+          toast.error("Failed to propagate base salary: " + propErr.message);
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["recruiter-prior-base-salaries"] });
+        }
+      }
+    }
     return true;
   };
 
