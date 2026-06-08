@@ -85,6 +85,31 @@ const blankRow = (user_id: string, month: string, name: string, role: string): P
   is_checked: false,
 });
 
+// Current YYYY-MM in Chicago timezone
+const getChicagoYearMonth = (): string => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  return `${y}-${m}`;
+};
+
+// How many whole months `month` (YYYY-MM) is before the current Chicago month.
+// 0 = current, 1 = last month, negative = future.
+const monthsBeforeNow = (month: string): number => {
+  const cur = getChicagoYearMonth();
+  const [cy, cm] = cur.split("-").map(Number);
+  const [my, mm] = month.split("-").map(Number);
+  return (cy - my) * 12 + (cm - mm);
+};
+
+// Propagation is allowed only when editing current month, previous month,
+// or any future month. Anything 2+ months in the past stays isolated.
+const canPropagateBaseSalary = (month: string): boolean => monthsBeforeNow(month) <= 1;
+
 export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOption[] }) {
   const queryClient = useQueryClient();
   const defaultMonth = monthOptions[0]?.value ?? "all";
