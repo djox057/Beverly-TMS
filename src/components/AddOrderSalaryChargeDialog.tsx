@@ -209,7 +209,29 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
                 max={100}
                 step="1"
                 value={percent}
-                onChange={(e) => setPercent(e.target.value)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setPercent("");
+                    return;
+                  }
+                  const n = parseFloat(raw);
+                  if (isNaN(n)) return;
+                  const clamped = Math.max(0, Math.min(100, n));
+                  setPercent(String(clamped));
+                }}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  const txt = e.clipboardData.getData("text").trim();
+                  const n = parseFloat(txt);
+                  if (isNaN(n)) return;
+                  setPercent(String(Math.max(0, Math.min(100, n))));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+") {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
 
