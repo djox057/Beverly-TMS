@@ -58,6 +58,7 @@ import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidateOrderFilesCacheForOrder } from "@/hooks/useReportsDateWindowAdapter";
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
+import { AddOrderSalaryChargeDialog } from "@/components/AddOrderSalaryChargeDialog";
 import { parseAddress } from "@/utils/addressParser";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import { WeightBolDialog, getWeightDiscrepancyWarning, SCALE_TICKET_THRESHOLD_LBS } from "@/components/WeightBolDialog";
@@ -121,6 +122,7 @@ const EditOrder = () => {
   const [returnToReports, setReturnToReports] = useState(false);
   const [returnToTrips, setReturnToTrips] = useState(false);
   const [returnToAnalytics, setReturnToAnalytics] = useState(false);
+  const [salaryChargeOpen, setSalaryChargeOpen] = useState(false);
 
   // Check on mount if we should return to reports, trips, or analytics
   useEffect(() => {
@@ -3322,6 +3324,15 @@ const EditOrder = () => {
                   🔒 Locked - View Only
                 </Badge>
               )}
+              {(hasRole("admin") || hasRole("manager")) && id && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSalaryChargeOpen(true)}
+                >
+                  Add Salary Charge
+                </Button>
+              )}
             </div>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
@@ -5246,6 +5257,11 @@ const EditOrder = () => {
           setWeightBol(w);
           setWeightBolDialogOpen(false);
         }}
+      />
+      <AddOrderSalaryChargeDialog
+        open={salaryChargeOpen}
+        onOpenChange={setSalaryChargeOpen}
+        orderId={id || null}
       />
     </div>
   );

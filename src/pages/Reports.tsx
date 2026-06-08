@@ -24,6 +24,7 @@ import { HosRequestDialog } from "@/components/HosRequestDialog";
 import { DriverProblemDialog } from "@/components/DriverProblemDialog";
 import { AllProblemsDialog } from "@/components/AllProblemsDialog";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
+import { AddOrderSalaryChargeDialog } from "@/components/AddOrderSalaryChargeDialog";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -848,6 +849,7 @@ const Reports = () => {
   const [forceCompleteConfirm, setForceCompleteConfirm] = useState<{ type: "BOL" | "POD"; orderId: string } | null>(
     null,
   );
+  const [salaryChargeOpen, setSalaryChargeOpen] = useState(false);
 
   // Proximity search state
   const [proximityAddress, setProximityAddress] = useState("");
@@ -6859,6 +6861,15 @@ const Reports = () => {
                 <Edit3 className="h-4 w-4 mr-2" />
                 Edit Order
               </Button>
+              {(hasRole("admin") || hasRole("manager")) && zoomedLoad?.orderId && (
+                <Button
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => setSalaryChargeOpen(true)}
+                >
+                  Add Salary Charge
+                </Button>
+              )}
             </DialogTitle>
             <DialogDescription className="sr-only">View load details, pickup and delivery stops</DialogDescription>
           </DialogHeader>
@@ -8275,6 +8286,11 @@ const Reports = () => {
             queryClient.invalidateQueries({ queryKey: ["orders"], exact: false });
           }
         }}
+      />
+      <AddOrderSalaryChargeDialog
+        open={salaryChargeOpen}
+        onOpenChange={setSalaryChargeOpen}
+        orderId={zoomedLoad?.orderId || null}
       />
     </>
   );

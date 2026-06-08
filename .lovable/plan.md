@@ -1,66 +1,51 @@
 ## Salary Charge from Orders (Managers/Admins)
 
-Add the ability to mark an order to create a "Charge" entry on the booker's monthly salary, available from Load Info (Reports) and from Edit Order. Visible/usable to admin and manager only.
+A way for admins/managers to add a "Charge" entry to a user's monthly salary based on an order's freight and driver pay. The order itself is not modified.
 
 ### Behavior
 
-- A "Mark for Salary Charge" button appears next to load info (in the Reports Load Info dialog and at the top of the Edit Order page) for admins and managers only.
-- Clicking opens a popup that shows:
-  - Booked by (the user name from the order's `booked_by`)
-  - Delivery date (`delivery_datetime`, Chicago tz)
-  - Freight Amount, Driver Pay, and a live preview of the computed Charge
-  - Percentage input (0 – 100, default 50)
-  - Reason text (required)
-- Save:
-  - Resolves the booker name to a `user_id` via `profiles.full_name` (same mapping Analytics already uses). If it can't be resolved, show an error and abort.
-  - Determines the month as `YYYY-MM` of the order's delivery date in Chicago time.
-  - Computes the charge: `(freight * 0.01 + (freight - driver_pay) * 0.05) * percent / 100`. Negative results clamp to 0 (defensive only).
-  - Upserts a row in `dispatcher_salary_payments` for `(user_id, month)` and adds/updates a single entry in the `additionals` JSONB array of shape `{ type: 'charge', amount, reason, order_id, percent, source: 'order_charge' }`. Existing entry for the same `order_id` is replaced rather than duplicated.
-  - The order itself stores a marker (`salary_charge_percent`, `salary_charge_reason`, `salary_charge_user_id`, `salary_charge_month`) so the button shows the current state and supports edit/unmark.
-- If the order is already marked, the popup is pre-filled and shows an "Unmark" button that:
-  - Removes the matching `order_id` entry from `additionals` on that salary row.
-  - Clears the marker columns on the order.
-- If freight or driver pay is later edited on the order, the next time someone opens/saves the marker it recomputes. (No automatic background recalculation in this pass — keeps scope narrow.)
+- A "Add Salary Charge" button appears in:
+  - The Reports Load Info popup
+  - The Edit Order page header
+  Visible only to users with `admin` or `manager` role.
+- Clicking opens a popup that shows (read-only):
+  - Booked by: the user from the order's `booked_by`
+  - Delivery date: `delivery_datetime` (Chicago tz)
+  - Freight Amount and Driver Pay from the order
+  - Live preview of computed Charge
+- Inputs:
+  - Percentage (0 – 100, default 50)
+  - Reason (required)
+- On Save:
+  - Resolves `booked_by` → `user_id` via `profiles.full_name` (same lookup Analytics already does). Show error toast and abort if unresolved.
+  - Determines the target month as `YYYY-MM` of `delivery_datetime` in Chicago time.
+  - Computes charge: `(freight * 0.01 + (freight - driver_pay) * 0.05) * percent / 100`. Clamp negatives to 0.
+  - Upserts a row in `dispatcher_salary_payments` for `(user_id, month)` and appends a new entry to the `additionals` JSONB array of shape:
+    ```
+    { type: 'charge', amount, reason, order_id, percent, source: 'order_charge' }
+    ```
+  - Each click adds a new charge entry (no dedupe on `order_id`), since the user explicitly clicked "Add". The `order_id`/`source` are stored for traceability only.
+  - Closes the popup and shows a success toast like "Charge of $X added to <user> for <month>".
+- The order is NOT updated. No new columns on `orders`.
 
-### UI placement
+### Where the charge appears
 
-- Reports → Load Info dialog (existing dialog used to view a load): add a button row at the bottom, visible only to admin/manager.
-- Edit Order page: small button in the header area near other order actions, same visibility rule.
-- Existing Analytics → Payroll dialog already renders charges from `additionals`; no changes needed there — the new entry will appear automatically under "Charges" with the reason shown, contributing as a deduction (matches user's request).
+The Analytics Payroll dialog already renders `additionals` charges (type `charge`) as deductions with the reason shown. The new entries surface there automatically.
 
-### Technical details
+### Files
 
-Database migration:
+New:
+- `src/components/AddOrderSalaryChargeDialog.tsx` — the popup (form, preview, save).
+- `src/hooks/useAddOrderSalaryCharge.ts` — resolve user, compute month, upsert/append into `additionals`.
 
-```text
-ALTER TABLE public.orders
-  ADD COLUMN salary_charge_percent numeric,
-  ADD COLUMN salary_charge_reason  text,
-  ADD COLUMN salary_charge_user_id uuid,
-  ADD COLUMN salary_charge_month   text;
-```
+Modified (button mount + visibility gate via `useAuthContext().hasRole('admin') || hasRole('manager')`):
+- Reports Load Info dialog (located by searching for its render site in `src/pages/Reports.tsx` / `src/pages/Reports/`).
+- `src/pages/EditOrder.tsx` header.
 
-No new RLS policies for `orders` (existing policies cover it). The trigger `prevent_manager_supervisor_restricted_fields` already excludes these new columns, so manager/admin updates work as-is.
+### Edge cases
 
-Frontend:
-
-- New component `src/components/MarkSalaryChargeDialog.tsx` — popup with percent (0–100, default 50), reason, computed preview, Save / Unmark / Cancel.
-- New hook `src/hooks/useOrderSalaryCharge.ts` — handles resolve-user, upsert into `dispatcher_salary_payments`, and merging/removing the `order_id`-tagged entry in `additionals`.
-- Mount the trigger button in:
-  - `src/pages/Reports.tsx` Load Info dialog (or wherever the load info popup is rendered — found by searching for the dialog used on the Reports page).
-  - `src/pages/EditOrder.tsx` header.
-- Visibility gate: `useAuthContext().hasRole('admin') || hasRole('manager')`.
-
-Edge cases handled:
-
-- `booked_by` missing → button disabled with tooltip "No booker on order".
-- Booker can't be resolved to a profile (deleted user with no historical mapping) → save shows an error toast.
-- `delivery_datetime` missing → button disabled with tooltip "Set delivery date first".
-- Freight or driver pay missing → treated as 0 in the formula.
-- Concurrent edits: the upsert reads `additionals`, removes any prior entry with the same `order_id`, appends the new one, and writes back atomically per row.
-
-### Out of scope
-
-- Auto-recompute when freight/driver pay on the order changes later.
-- Bulk marking multiple orders at once.
-- Showing the per-order list of charges inside the payroll dialog (the charges already appear; per-order drill-down can come later if needed).
+- Missing `booked_by` → button disabled with tooltip "No booker on order".
+- Missing `delivery_datetime` → disabled with tooltip "Set delivery date first".
+- Booker name doesn't match any profile (deleted user with no historical mapping) → error toast on save.
+- Missing freight or driver pay → treated as 0 in the formula.
+- No database migration needed.
