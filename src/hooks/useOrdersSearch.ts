@@ -30,8 +30,9 @@ function getSearchQueryKey(
   bookedBy?: string | null,
   dispatcherUserId?: string | null,
   excludeBookedByCompanyId?: string | null,
+  bookedByCompanyId?: string | null,
 ): (string | null | undefined)[] {
-  return ["orders", "search", searchTerm, bookedBy, dispatcherUserId, excludeBookedByCompanyId];
+  return ["orders", "search", searchTerm, bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId];
 }
 
 /** Collect unique non-null values from a field across orders */
@@ -63,7 +64,7 @@ export function useOrdersSearch() {
   const queryClient = useQueryClient();
   
   const [activeSearchTerm, setActiveSearchTerm] = useState<string | null>(null);
-  const [activeOptions, setActiveOptions] = useState<{ bookedBy?: string | null; dispatcherUserId?: string | null; excludeBookedByCompanyId?: string | null } | null>(null);
+  const [activeOptions, setActiveOptions] = useState<{ bookedBy?: string | null; dispatcherUserId?: string | null; excludeBookedByCompanyId?: string | null; bookedByCompanyId?: string | null } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<Error | null>(null);
   const latestSearchKeyRef = useRef<string>("");
@@ -79,6 +80,7 @@ export function useOrdersSearch() {
       bookedBy?: string | null;
       dispatcherUserId?: string | null;
       excludeBookedByCompanyId?: string | null;
+      bookedByCompanyId?: string | null;
     }
   ) => {
     if (!searchTerm || searchTerm.trim().length < 2) {
@@ -94,7 +96,7 @@ export function useOrdersSearch() {
     }
 
     const term = searchTerm.trim().toLowerCase();
-    const searchKey = `${term}|${options?.bookedBy || ''}|${options?.dispatcherUserId || ''}|${options?.excludeBookedByCompanyId || ''}`;
+    const searchKey = `${term}|${options?.bookedBy || ''}|${options?.dispatcherUserId || ''}|${options?.excludeBookedByCompanyId || ''}|${options?.bookedByCompanyId || ''}`;
     
     // Clear failed terms when user types a different term
     if (term !== activeSearchTermRef.current) {
@@ -112,7 +114,7 @@ export function useOrdersSearch() {
     
     setActiveSearchTerm(term);
     setActiveOptions(options || null);
-    const newQueryKey = getSearchQueryKey(term, options?.bookedBy, options?.dispatcherUserId, options?.excludeBookedByCompanyId);
+    const newQueryKey = getSearchQueryKey(term, options?.bookedBy, options?.dispatcherUserId, options?.excludeBookedByCompanyId, options?.bookedByCompanyId);
     activeQueryKeyRef.current = newQueryKey;
     
     console.log("[useOrdersSearch] Starting search for:", term);
@@ -162,6 +164,11 @@ export function useOrdersSearch() {
         query = query.or(
           `booked_by_company_id.neq.${options.excludeBookedByCompanyId},booked_by_company_id.is.null`
         );
+      }
+
+      // Restrict to a specific booked-by company
+      if (options?.bookedByCompanyId) {
+        query = query.eq("booked_by_company_id", options.bookedByCompanyId);
       }
 
       const { data: flatOrders, error } = await query;
@@ -334,7 +341,7 @@ export function useOrdersSearch() {
   // Derive query key from state so useQuery subscribes to cache changes
   const searchQueryKey = useMemo(() => {
     if (!activeSearchTerm) return ["orders", "search", "__disabled__"];
-    return getSearchQueryKey(activeSearchTerm, activeOptions?.bookedBy, activeOptions?.dispatcherUserId, activeOptions?.excludeBookedByCompanyId);
+    return getSearchQueryKey(activeSearchTerm, activeOptions?.bookedBy, activeOptions?.dispatcherUserId, activeOptions?.excludeBookedByCompanyId, activeOptions?.bookedByCompanyId);
   }, [activeSearchTerm, activeOptions]);
 
   // useQuery subscribes to cache updates (setQueryData) even with enabled: false
