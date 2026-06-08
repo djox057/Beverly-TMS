@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
       .from("orders")
       .delete()
       .lt("created_at", cutoff)
+      .eq("canceled", true)
       .or("freight_amount.is.null,freight_amount.eq.0")
       .or("driver_price.is.null,driver_price.eq.0")
       .or("loaded_miles.is.null,loaded_miles.eq.0")
