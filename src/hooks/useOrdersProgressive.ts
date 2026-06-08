@@ -21,6 +21,7 @@ interface UseOrdersProgressiveOptions {
   dispatcherUserId?: string | null;
   currentPage?: number;
   excludeBookedByCompanyId?: string | null;
+  bookedByCompanyId?: string | null;
 }
 
 /**
@@ -39,8 +40,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const dispatcherUserId = options?.dispatcherUserId ?? null;
   const currentPage = options?.currentPage ?? 1;
   const excludeBookedByCompanyId = options?.excludeBookedByCompanyId ?? null;
+  const bookedByCompanyId = options?.bookedByCompanyId ?? null;
 
-  const hasFilters = Boolean(bookedBy || dispatcherUserId || excludeBookedByCompanyId);
+  const hasFilters = Boolean(
+    bookedBy || dispatcherUserId || excludeBookedByCompanyId || bookedByCompanyId
+  );
   
   // Subscribe to real-time updates
   useOrdersRealtime();
@@ -96,6 +100,13 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         return query;
       };
 
+      const applyInclusion = (query: any) => {
+        if (bookedByCompanyId) {
+          return query.eq("booked_by_company_id", bookedByCompanyId);
+        }
+        return query;
+      };
+
       // Get unlocked count
       let unlockedCountQuery = supabase
         .from("orders")
@@ -103,6 +114,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         .eq("locked", false);
       unlockedCountQuery = buildFilter(unlockedCountQuery);
       unlockedCountQuery = applyExclusion(unlockedCountQuery);
+      unlockedCountQuery = applyInclusion(unlockedCountQuery);
       
       // Get locked count
       let lockedCountQuery = supabase
@@ -111,6 +123,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
         .eq("locked", true);
       lockedCountQuery = buildFilter(lockedCountQuery);
       lockedCountQuery = applyExclusion(lockedCountQuery);
+      lockedCountQuery = applyInclusion(lockedCountQuery);
 
       const [unlockedResult, lockedResult] = await Promise.all([
         unlockedCountQuery,
