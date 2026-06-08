@@ -233,6 +233,7 @@ const Orders = () => {
   const [brokerFilter, setBrokerFilter] = useState("all-brokers");
   const [lockedNotInvoicedFilter, setLockedNotInvoicedFilter] = useState(false);
   const [invoicedFilter, setInvoicedFilter] = useState(false);
+  const [unlockedOnly, setUnlockedOnly] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [pickupDateRange, setPickupDateRange] = useState<DateRange | undefined>();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
