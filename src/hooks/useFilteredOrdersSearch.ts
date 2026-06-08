@@ -27,6 +27,17 @@ interface FilteredSearchResult {
   loadMore: () => Promise<void>;
   search: (filters: SearchFilters) => Promise<void>;
   reset: () => void;
+  summary: OrdersSummary | null;
+}
+
+export interface OrdersSummary {
+  totalCount: number;
+  unlockedCount: number;
+  lockedCount: number;
+  invoicedCount: number;
+  notInvoicedCount: number;
+  freightSum: number;
+  driverPaySum: number;
 }
 
 const BATCH_SIZE = 500;
@@ -66,6 +77,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeFilterKey, setActiveFilterKey] = useState<(string | boolean | undefined)[] | null>(null);
+  const [summary, setSummary] = useState<OrdersSummary | null>(null);
   
   const offsetRef = useRef(0);
   const isLoadingRef = useRef(false);
@@ -89,16 +101,23 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     console.log("[FilteredSearch] Starting search with filters:", filters);
     
     try {
-      const { data: response, error } = await supabase.functions.invoke(
-        "search-orders",
-        {
-          body: {
-            filters,
-            offset: 0,
-            limit: BATCH_SIZE,
-          },
-        }
-      );
+      // Fetch rows (page 1) and aggregates in parallel.
+      const [rowsRes, summaryRes] = await Promise.all([
+        supabase.functions.invoke("search-orders", {
+          body: { filters, offset: 0, limit: BATCH_SIZE },
+        }),
+        supabase.functions.invoke("orders-summary", {
+          body: { filters },
+        }),
+      ]);
+      const { data: response, error } = rowsRes;
+
+      if (summaryRes.error) {
+        console.error("[FilteredSearch] Summary error:", summaryRes.error);
+        setSummary(null);
+      } else if (summaryRes.data) {
+        setSummary(summaryRes.data as OrdersSummary);
+      }
 
       if (error) {
         console.error("[FilteredSearch] Search error:", error);
@@ -122,6 +141,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
       queryClient.setQueryData(newQueryKey, []);
       setTotalCount(null);
       hasMoreRef.current = false;
+      setSummary(null);
     } finally {
       isLoadingRef.current = false;
     }
@@ -193,6 +213,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     setTotalCount(null);
     setActiveFilterKey(null);
     offsetRef.current = 0;
+    setSummary(null);
   }, [queryClient]);
 
   // Subscribe to cache updates using useQuery with enabled: false
@@ -215,5 +236,6 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     loadMore,
     search,
     reset,
+    summary,
   };
 }
