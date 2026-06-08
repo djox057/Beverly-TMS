@@ -1520,10 +1520,14 @@ const Orders = () => {
                       </Badge>
                       <Badge
                         variant="outline"
-                        className="border-warning text-warning-foreground bg-warning/10"
-                        title="Unlocked matching loads"
+                        className={`border-warning text-warning-foreground bg-warning/10 cursor-pointer select-none ${unlockedOnly ? "ring-2 ring-warning" : ""}`}
+                        title={unlockedOnly ? "Showing only unlocked — click to show all" : "Click to show only unlocked loads"}
+                        onClick={() => {
+                          setUnlockedOnly((v) => !v);
+                          setCurrentPage(1);
+                        }}
                       >
-                        {filteredSummary.unlockedCount.toLocaleString()} unlocked
+                        {filteredSummary.unlockedCount.toLocaleString()} unlocked{unlockedOnly ? " ✓" : ""}
                       </Badge>
                       <Badge variant="outline" title="Locked matching loads">
                         {filteredSummary.lockedCount.toLocaleString()} locked
