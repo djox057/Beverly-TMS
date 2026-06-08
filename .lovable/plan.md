@@ -1,33 +1,58 @@
-# Verify search-orders returns all unlocked rows in the first batch
+# Two-query parallel fetch for filtered orders
 
 ## Goal
-Lock in the fix so a wide delivery-date filter on `/orders` always returns every unlocked order in the first 500-row batch, matching the totals you'd get from summing narrower date ranges.
 
-## DB-verified baseline (Jan 1 – Jun 7, 2026)
-Run against production right now:
-- unlocked: 239
-- locked: 25,034
-- total: 25,273
+When filters are applied on `/orders`, guarantee every unlocked order appears at the top, regardless of how many locked orders exist — without the current hack of relying on `ORDER BY locked ASC` inside a single 500-row page (which can still mis-rank when offsets/orderings shift, and forces over-fetching).
 
-These are the numbers the `/orders` UI should display with this filter once the edge function change is deployed.
+## Approach
 
-## Automated test
-Add `supabase/functions/search-orders/index_test.ts` with a Deno test that:
+Run **two queries in parallel** on the first search:
 
-1. Invokes the deployed `search-orders` function with:
-   - `deliveryDateFrom: 2026-01-01 00:00:00`
-   - `deliveryDateTo:   2026-06-07 23:59:59`
-   - `excludeBookedByCompanyId`: the BG Prime company id (looked up once at test start)
-   - `limit: 500`, `offset: 0`
-2. Asserts:
-   - `response.totalCount === 25273` (allowing a small tolerance, e.g. ±50, since new orders may be created)
-   - Every order in the first batch with `locked === false` is present — i.e. `orders.filter(o => !o.locked).length` equals the live DB unlocked count (queried via a `supabase-js` client inside the test for tolerance).
-   - The first N rows of the response are all `locked === false` (proves server-side `order by locked asc` is in effect).
-3. Uses `SUPABASE_SERVICE_ROLE_KEY` from env so the test can both call the function and query the DB for the reference count.
+1. **Unlocked query** — fetch ALL unlocked orders matching the filters (one shot, no pagination from the user's POV).
+2. **Locked query** — fetch the first page of locked orders only; paginated via "Load more" as today.
 
-## Manual UI check (one-time)
-After deploy, open `/orders`, apply the Jan 1 → Jun 7 2026 delivery filter, and confirm the "unlocked" count at the top is 239 (±a few) and the total matches ~25,273.
+Merge in the client: `[...unlocked, ...lockedPage1, ...lockedPage2, ...]`.
 
-## Files
-- New: `supabase/functions/search-orders/index_test.ts`
-- No production code changes — the edge function fix is already in place.
+## Changes
+
+### `supabase/functions/search-orders/index.ts`
+- Accept a new body field `lockedOnly?: boolean` (server-side filter on `locked = true/false`). The existing `filters.locked` field already exists — reuse it.
+- Remove the `.order("locked", ascending: true)` hack; order purely by `created_at DESC`.
+- When the caller asks for unlocked-only, support fetching beyond the 1000 cap by internally looping in chunks of 1000 until exhausted, and return them all in one response (cap at a safety ceiling, e.g. 5000, with a warning if exceeded). Unlocked counts are small in practice (~hundreds).
+- Locked-only requests stay paginated as today (500/page).
+
+### `src/hooks/useFilteredOrdersSearch.ts`
+- On `search(filters)`:
+  - Fire two `supabase.functions.invoke("search-orders", ...)` calls in parallel via `Promise.all`:
+    - Call A: `{ filters: {...filters, locked: false}, offset: 0, limit: 5000, fetchAllUnlocked: true }`
+    - Call B: `{ filters: {...filters, locked: true}, offset: 0, limit: 500 }`
+  - Skip Call A if the user explicitly filtered `lockedNotInvoiced` or `invoiced` (those imply locked-only).
+  - Skip Call B if filters explicitly request unlocked-only.
+  - Combine: `orders = [...unlocked, ...lockedPage1]`. Store in React Query cache.
+  - `totalCount = unlocked.length + lockedCount`.
+  - Track locked offset separately for `loadMore`.
+- `loadMore()`:
+  - Only paginates the locked query (unlocked is already complete).
+  - Appends new locked rows after the existing list.
+
+### State refs
+- Add `lockedOffsetRef`, `lockedHasMoreRef`, `unlockedCountRef` alongside existing refs.
+- `hasMore` returned to UI = `lockedHasMoreRef.current`.
+
+## Edge cases
+
+- Filter combination `lockedNotInvoiced=true` → only Call B (locked + invoiced=false).
+- Filter `invoiced=true` → only Call B.
+- No filters at all: hook isn't used (Orders.tsx uses a different code path); no change needed.
+- Real-time patching: existing React Query cache update logic continues to work because we still write to the same `queryKey`.
+
+## Out of scope
+
+- No changes to `Orders.tsx`, `BgLoads.tsx`, or `BeverlyHeatmapDeepSearch.tsx` UI — the hook's contract (`orders`, `totalCount`, `hasMore`, `loadMore`) stays identical.
+- No DB migrations.
+
+## Verification
+
+- Apply Jan 1 – Jun 7 2026 delivery-date filter on /orders → unlocked count at top should equal 239 (matches DB), total = 25,273, "Load more" pulls additional locked pages.
+- Apply a narrow filter (e.g. one company) → both queries return small results, merged correctly.
+- Apply `lockedNotInvoiced` filter → only locked query runs.
