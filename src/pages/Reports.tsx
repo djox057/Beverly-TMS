@@ -8287,6 +8287,11 @@ const Reports = () => {
           }
         }}
       />
+      <AddOrderSalaryChargeDialog
+        open={salaryChargeOpen}
+        onOpenChange={setSalaryChargeOpen}
+        orderId={zoomedLoad?.orderId || null}
+      />
     </>
   );
 };
