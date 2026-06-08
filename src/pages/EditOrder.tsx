@@ -5258,6 +5258,11 @@ const EditOrder = () => {
           setWeightBolDialogOpen(false);
         }}
       />
+      <AddOrderSalaryChargeDialog
+        open={salaryChargeOpen}
+        onOpenChange={setSalaryChargeOpen}
+        orderId={id || null}
+      />
     </div>
   );
 };
