@@ -6861,15 +6861,6 @@ const Reports = () => {
                 <Edit3 className="h-4 w-4 mr-2" />
                 Edit Order
               </Button>
-              {(hasRole("admin") || hasRole("manager")) && zoomedLoad?.orderId && (
-                <Button
-                  variant="outline"
-                  className="shrink-0"
-                  onClick={() => setSalaryChargeOpen(true)}
-                >
-                  Add Salary Charge
-                </Button>
-              )}
             </DialogTitle>
             <DialogDescription className="sr-only">View load details, pickup and delivery stops</DialogDescription>
           </DialogHeader>
@@ -7386,6 +7377,15 @@ const Reports = () => {
 
                 {/* Lumper Request and Cancel Button */}
                 <div className="ml-auto flex gap-2">
+                  {(hasRole("admin") || hasRole("manager")) && zoomedLoad?.orderId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSalaryChargeOpen(true)}
+                    >
+                      Add charge
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
