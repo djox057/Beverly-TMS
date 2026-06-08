@@ -322,13 +322,16 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
             is_checked: server.is_checked ?? false,
           };
         } else {
-          next[r.user_id] = blankRow(r.user_id, selectedMonth, r.full_name, selectedRole);
+          const blank = blankRow(r.user_id, selectedMonth, r.full_name, selectedRole);
+          const inherited = priorBaseSalaries[r.user_id];
+          if (inherited && inherited > 0) blank.base_salary = inherited;
+          next[r.user_id] = blank;
         }
       });
       rowsRef.current = next;
       return next;
     });
-  }, [recruiters, paymentsData, selectedMonth]);
+  }, [recruiters, paymentsData, selectedMonth, priorBaseSalaries]);
 
   // Realtime: refresh server data when anyone updates recruiter salaries.
   useEffect(() => {
