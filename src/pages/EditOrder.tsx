@@ -3324,15 +3324,6 @@ const EditOrder = () => {
                   🔒 Locked - View Only
                 </Badge>
               )}
-              {(hasRole("admin") || hasRole("manager")) && id && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSalaryChargeOpen(true)}
-                >
-                  Add Salary Charge
-                </Button>
-              )}
             </div>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
@@ -4951,6 +4942,15 @@ const EditOrder = () => {
                 >
                   Cancel
                 </Button>
+                {(hasRole("admin") || hasRole("manager")) && id && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setSalaryChargeOpen(true)}
+                  >
+                    Add charge
+                  </Button>
+                )}
                 {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) &&
                   !isRecovery &&
                   !isLocked && (
