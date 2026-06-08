@@ -143,7 +143,7 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
         amount: Number(computedAmount.toFixed(2)),
         reason: reason.trim(),
         order_id: order.id,
-        percent: pct,
+        order_percent: pct,
         source: "order_charge",
         created_at: new Date().toISOString(),
       };
