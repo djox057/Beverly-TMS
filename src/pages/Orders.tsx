@@ -161,7 +161,10 @@ const Orders = () => {
         : undefined,
       currentPage,
     };
-    localStorage.setItem("ordersFilterState", JSON.stringify(filterState));
+    localStorage.setItem(
+      "ordersFilterState",
+      JSON.stringify({ ...filterState, unlockedOnly }),
+    );
     localStorage.setItem("returnToOrders", "true");
     const targetUrl = `/edit-order/${orderId}`;
     console.log("Target URL:", targetUrl);
