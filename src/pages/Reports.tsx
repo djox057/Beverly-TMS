@@ -905,6 +905,11 @@ const Reports = () => {
     // Skip recompute while data is loading or unavailable so previously matched
     // trucks aren't cleared on date carousel changes / background refetches.
     if (!groupedReports || groupedReports.length === 0) return;
+    // While a background refetch is in flight (e.g. dispatcher date carousel
+    // navigation), individual trucks can briefly have empty allOrders, which
+    // would drop them from the matched set. Keep the previous matches until
+    // the refetch completes.
+    if (isFetchingBackground) return;
     const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
       const R = 3959;
       const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -939,7 +944,7 @@ const Reports = () => {
     }
     setProximityMatchedTrucks(matched);
     setProximitySearching(false);
-  }, [proximityCoords, groupedReports, proximityAddress]);
+  }, [proximityCoords, groupedReports, proximityAddress, isFetchingBackground]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
 
