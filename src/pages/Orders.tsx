@@ -364,6 +364,7 @@ const Orders = () => {
     loadMore: loadMoreFiltered,
     search: searchFiltered,
     reset: resetFiltered,
+    summary: filteredSummary,
   } = useFilteredOrdersSearch();
 
   // Debounce search term for server-side search
