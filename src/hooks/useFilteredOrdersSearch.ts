@@ -101,7 +101,9 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     setActiveFilterKey(newQueryKey);
     
     console.log("[FilteredSearch] Starting search with filters:", filters);
-    
+
+    let summaryData: OrdersSummary | null = null;
+
     try {
       // Fetch rows (page 1) and aggregates in parallel.
       const [rowsRes, summaryRes] = await Promise.all([
@@ -118,7 +120,8 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
         console.error("[FilteredSearch] Summary error:", summaryRes.error);
         setSummary(null);
       } else if (summaryRes.data) {
-        setSummary(summaryRes.data as OrdersSummary);
+        summaryData = summaryRes.data as OrdersSummary;
+        setSummary(summaryData);
       }
 
       if (error) {
@@ -152,7 +155,6 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     // client cache. The server returns rows in `locked asc` order, so once
     // loaded.length >= summary.unlockedCount we know all unlocked are present.
     // Cap at 10 batches (5,000 rows) as a safety net.
-    const summaryData = summaryRes.data as OrdersSummary | null;
     if (
       summaryData &&
       typeof summaryData.unlockedCount === "number" &&
