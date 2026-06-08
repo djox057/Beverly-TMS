@@ -489,15 +489,20 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   };
 
   const scheduleSave = (userId: string, delay = 200) => {
-    const existing = saveTimers.current[userId];
+    // Capture the row's month NOW so the save targets the edited month,
+    // even if the user switches to another month before the debounce fires.
+    const snapshot = rowsRef.current[userId];
+    const month = snapshot?.month;
+    if (!month) return;
+    const timerKey = `${userId}|${month}`;
+    const existing = saveTimers.current[timerKey];
     if (existing) clearTimeout(existing);
-    saveTimers.current[userId] = setTimeout(async () => {
-      delete saveTimers.current[userId];
+    saveTimers.current[timerKey] = setTimeout(async () => {
+      delete saveTimers.current[timerKey];
       const latest = rowsRef.current[userId];
-      if (latest) {
-        const ok = await saveRow(latest);
-        if (ok) lastSavedAt.current[userId] = Date.now();
-      }
+      const toSave = latest && latest.month === month ? latest : snapshot;
+      const ok = await saveRow(toSave);
+      if (ok) lastSavedAt.current[userId] = Date.now();
     }, delay);
   };
 
