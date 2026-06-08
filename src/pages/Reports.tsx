@@ -849,6 +849,7 @@ const Reports = () => {
   const [forceCompleteConfirm, setForceCompleteConfirm] = useState<{ type: "BOL" | "POD"; orderId: string } | null>(
     null,
   );
+  const [salaryChargeOpen, setSalaryChargeOpen] = useState(false);
 
   // Proximity search state
   const [proximityAddress, setProximityAddress] = useState("");
