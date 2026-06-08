@@ -223,6 +223,8 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     activeQueryKeyRef.current = null;
     activeFiltersRef.current = null;
     hasMoreRef.current = false;
+    unlockedCountRef.current = 0;
+    lockedCountRef.current = null;
     setTotalCount(null);
     setActiveFilterKey(null);
     offsetRef.current = 0;
