@@ -115,7 +115,7 @@ const EditOrder = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { profile, hasRole } = useAuthContext();
+  const { profile, hasRole, roles } = useAuthContext();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -4942,7 +4942,7 @@ const EditOrder = () => {
                 >
                   Cancel
                 </Button>
-                {(hasRole("admin") || hasRole("manager")) && id && (
+                {(roles.includes("admin") || roles.includes("manager")) && id && (
                   <Button
                     type="button"
                     variant="outline"

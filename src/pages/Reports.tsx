@@ -7377,7 +7377,7 @@ const Reports = () => {
 
                 {/* Lumper Request and Cancel Button */}
                 <div className="ml-auto flex gap-2">
-                  {(hasRole("admin") || hasRole("manager")) && zoomedLoad?.orderId && (
+                  {(roles.includes("admin") || roles.includes("manager")) && zoomedLoad?.orderId && (
                     <Button
                       variant="outline"
                       size="sm"
