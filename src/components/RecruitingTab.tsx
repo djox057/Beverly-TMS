@@ -438,8 +438,9 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       return false;
     }
     // Propagate base_salary to all later months when allowed (current, last, or future month edits).
-    if (pendingBasePropagation.current[row.user_id]) {
-      delete pendingBasePropagation.current[row.user_id];
+    const propKey = `${row.user_id}|${row.month}`;
+    if (pendingBasePropagation.current[propKey]) {
+      delete pendingBasePropagation.current[propKey];
       if (canPropagateBaseSalary(row.month)) {
         const { error: propErr } = await supabase
           .from("recruiter_salary_payments" as any)
@@ -449,6 +450,7 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
         if (propErr) {
           toast.error("Failed to propagate base salary: " + propErr.message);
         } else {
+          queryClient.invalidateQueries({ queryKey: ["recruiter-salary-payments"] });
           queryClient.invalidateQueries({ queryKey: ["recruiter-prior-base-salaries"] });
         }
       }
