@@ -90,6 +90,9 @@ verify_jwt = false
 [functions.cleanup-yard-arrivals]
 verify_jwt = false
 
+[functions.cleanup-empty-orders]
+verify_jwt = false
+
 [functions.void-efs-request]
 verify_jwt = false
 
