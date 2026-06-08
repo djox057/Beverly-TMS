@@ -28,6 +28,7 @@ interface FilteredSearchResult {
   search: (filters: SearchFilters) => Promise<void>;
   reset: () => void;
   summary: OrdersSummary | null;
+  isPrefetchingUnlocked: boolean;
 }
 
 export interface OrdersSummary {
@@ -78,6 +79,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [activeFilterKey, setActiveFilterKey] = useState<(string | boolean | undefined)[] | null>(null);
   const [summary, setSummary] = useState<OrdersSummary | null>(null);
+  const [isPrefetchingUnlocked, setIsPrefetchingUnlocked] = useState(false);
   
   const offsetRef = useRef(0);
   const isLoadingRef = useRef(false);
@@ -144,6 +146,64 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
       setSummary(null);
     } finally {
       isLoadingRef.current = false;
+    }
+
+    // Eagerly prefetch additional batches until every unlocked row is in the
+    // client cache. The server returns rows in `locked asc` order, so once
+    // loaded.length >= summary.unlockedCount we know all unlocked are present.
+    // Cap at 10 batches (5,000 rows) as a safety net.
+    const summaryData = summaryRes.data as OrdersSummary | null;
+    if (
+      summaryData &&
+      typeof summaryData.unlockedCount === "number" &&
+      summaryData.unlockedCount > 0
+    ) {
+      const cached = (queryClient.getQueryData(newQueryKey) as any[] | undefined) ?? [];
+      if (cached.length < summaryData.unlockedCount && hasMoreRef.current) {
+        setIsPrefetchingUnlocked(true);
+        try {
+          let safety = 0;
+          while (
+            // Bail if a newer search has started
+            activeQueryKeyRef.current === newQueryKey &&
+            hasMoreRef.current &&
+            safety < 10
+          ) {
+            const currentCached =
+              (queryClient.getQueryData(newQueryKey) as any[] | undefined) ?? [];
+            if (currentCached.length >= summaryData.unlockedCount) break;
+
+            const { data: more, error: moreErr } = await supabase.functions.invoke(
+              "search-orders",
+              {
+                body: {
+                  filters,
+                  offset: offsetRef.current,
+                  limit: BATCH_SIZE,
+                },
+              }
+            );
+            if (moreErr || !more?.orders) {
+              console.error("[FilteredSearch] Unlocked prefetch error:", moreErr);
+              break;
+            }
+            const transformed = transformOrders(more.orders);
+            queryClient.setQueryData(newQueryKey, (old: any[] | undefined) => [
+              ...(old || []),
+              ...transformed,
+            ]);
+            hasMoreRef.current = more.hasMore;
+            offsetRef.current += more.orders.length;
+            safety += 1;
+          }
+        } finally {
+          if (activeQueryKeyRef.current === newQueryKey) {
+            setIsPrefetchingUnlocked(false);
+          } else {
+            setIsPrefetchingUnlocked(false);
+          }
+        }
+      }
     }
   }, [queryClient]);
 
@@ -214,6 +274,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     setActiveFilterKey(null);
     offsetRef.current = 0;
     setSummary(null);
+    setIsPrefetchingUnlocked(false);
   }, [queryClient]);
 
   // Subscribe to cache updates using useQuery with enabled: false
@@ -237,5 +298,6 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     search,
     reset,
     summary,
+    isPrefetchingUnlocked,
   };
 }
