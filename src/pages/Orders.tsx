@@ -161,7 +161,10 @@ const Orders = () => {
         : undefined,
       currentPage,
     };
-    localStorage.setItem("ordersFilterState", JSON.stringify(filterState));
+    localStorage.setItem(
+      "ordersFilterState",
+      JSON.stringify({ ...filterState, unlockedOnly }),
+    );
     localStorage.setItem("returnToOrders", "true");
     const targetUrl = `/edit-order/${orderId}`;
     console.log("Target URL:", targetUrl);
@@ -233,6 +236,7 @@ const Orders = () => {
   const [brokerFilter, setBrokerFilter] = useState("all-brokers");
   const [lockedNotInvoicedFilter, setLockedNotInvoicedFilter] = useState(false);
   const [invoicedFilter, setInvoicedFilter] = useState(false);
+  const [unlockedOnly, setUnlockedOnly] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [pickupDateRange, setPickupDateRange] = useState<DateRange | undefined>();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -293,6 +297,7 @@ const Orders = () => {
           setBrokerFilter(state.brokerFilter || "all-brokers");
           setLockedNotInvoicedFilter(state.lockedNotInvoicedFilter || false);
           setInvoicedFilter(state.invoicedFilter || false);
+          setUnlockedOnly(state.unlockedOnly || false);
           if (state.dateRange) {
             setDateRange({
               from: state.dateRange.from ? new Date(state.dateRange.from) : undefined,
@@ -493,6 +498,7 @@ const Orders = () => {
       brokerId,
       lockedNotInvoiced: lockedNotInvoicedFilter || undefined,
       invoiced: invoicedFilter || undefined,
+      locked: unlockedOnly ? false : undefined,
       deliveryDateFrom: dateRange?.from ? formatDateNoTz(dateRange.from) : undefined,
       deliveryDateTo: dateRange?.to ? formatDateNoTz(dateRange.to, true) : undefined,
       pickupDateFrom: pickupDateRange?.from ? formatDateNoTz(pickupDateRange.from) : undefined,
@@ -509,6 +515,7 @@ const Orders = () => {
     brokerFilter,
     lockedNotInvoicedFilter,
     invoicedFilter,
+    unlockedOnly,
     dateRange,
     pickupDateRange,
     companies,
@@ -1513,10 +1520,14 @@ const Orders = () => {
                       </Badge>
                       <Badge
                         variant="outline"
-                        className="border-warning text-warning-foreground bg-warning/10"
-                        title="Unlocked matching loads"
+                        className={`border-warning text-warning-foreground bg-warning/10 cursor-pointer select-none ${unlockedOnly ? "ring-2 ring-warning" : ""}`}
+                        title={unlockedOnly ? "Showing only unlocked — click to show all" : "Click to show only unlocked loads"}
+                        onClick={() => {
+                          setUnlockedOnly((v) => !v);
+                          setCurrentPage(1);
+                        }}
                       >
-                        {filteredSummary.unlockedCount.toLocaleString()} unlocked
+                        {filteredSummary.unlockedCount.toLocaleString()} unlocked{unlockedOnly ? " ✓" : ""}
                       </Badge>
                       <Badge variant="outline" title="Locked matching loads">
                         {filteredSummary.lockedCount.toLocaleString()} locked

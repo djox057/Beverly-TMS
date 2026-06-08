@@ -17,6 +17,7 @@ interface SearchFilters {
   pickupDateFrom?: string;
   pickupDateTo?: string;
   excludeBookedByCompanyId?: string;
+  locked?: boolean;
 }
 
 interface FilteredSearchResult {
@@ -63,6 +64,7 @@ function getFilterQueryKey(filters: SearchFilters): (string | boolean | undefine
     filters.pickupDateFrom,
     filters.pickupDateTo,
     filters.excludeBookedByCompanyId,
+    filters.locked,
   ];
 }
 
