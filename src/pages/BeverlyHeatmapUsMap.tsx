@@ -66,13 +66,21 @@ function chicagoMondayOf(d: Date): Date {
   return base; // date-only UTC midnight representing Chicago Monday
 }
 
+const RATING_COLORS: Record<number, string> = {
+  1: "#000000",
+  2: "#2B0000",
+  3: "#5A0000",
+  4: "#8B0000",
+  5: "#CC3300",
+  6: "#FF6600",
+  7: "#FFAA00",
+  8: "#B6D900",
+  9: "#66CC33",
+  10: "#00A000",
+};
+
 function interpolateColor(rating: number): string {
-  // 1 = black (#000), 10 = dark green (#064e3b)
-  const t = (rating - 1) / 9;
-  const r = Math.round(0 + (6 - 0) * t);
-  const g = Math.round(0 + (78 - 0) * t);
-  const b = Math.round(0 + (59 - 0) * t);
-  return `rgb(${r}, ${g}, ${b})`;
+  return RATING_COLORS[rating] || "#000000";
 }
 
 function useStateRatings(direction: Direction) {
