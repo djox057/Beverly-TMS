@@ -4,6 +4,8 @@ import { geoCentroid } from "d3-geo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
 
@@ -25,8 +27,166 @@ const STATE_ABBR: Record<string, string> = {
 
 type Direction = "inbound" | "outbound";
 
+interface StateAgg {
+  count: number;
+  freight: number;
+  loadedMiles: number;
+  dhMiles: number;
+}
+
+// Compute Monday (Chicago time) of the week containing `d`.
+function chicagoMondayOf(d: Date): Date {
+  // Get Chicago wall-clock parts
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric", month: "2-digit", day: "2-digit", weekday: "short",
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value || "";
+  const y = Number(get("year"));
+  const m = Number(get("month"));
+  const day = Number(get("day"));
+  const wk = get("weekday"); // Mon, Tue, ...
+  const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const dow = map[wk] ?? 1;
+  const offsetToMon = dow === 0 ? 6 : dow - 1;
+  const base = new Date(Date.UTC(y, m - 1, day));
+  base.setUTCDate(base.getUTCDate() - offsetToMon);
+  return base; // date-only UTC midnight representing Chicago Monday
+}
+
+function interpolateColor(rating: number): string {
+  // 1 = black (#000), 10 = dark green (#064e3b)
+  const t = (rating - 1) / 9;
+  const r = Math.round(0 + (6 - 0) * t);
+  const g = Math.round(0 + (78 - 0) * t);
+  const b = Math.round(0 + (59 - 0) * t);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function useStateRatings(direction: Direction) {
+  return useQuery({
+    queryKey: ["state-ratings", direction],
+    queryFn: async () => {
+      const now = new Date();
+      const currentMon = chicagoMondayOf(now);
+      const lastMon = new Date(currentMon);
+      lastMon.setUTCDate(lastMon.getUTCDate() - 7);
+      const fromIso = lastMon.toISOString();
+
+      // Fetch orders with pickup in last+current week
+      const { data: orders, error } = await supabase
+        .from("orders")
+        .select("id, freight_amount, loaded_miles, dh_miles")
+        .eq("canceled", false)
+        .gte("pickup_datetime", fromIso)
+        .limit(5000);
+      if (error) throw error;
+      if (!orders || orders.length === 0) return {} as Record<string, number>;
+
+      const orderIds = orders.map((o: any) => o.id);
+      const wantedType = direction === "inbound" ? "delivery" : "pickup";
+
+      // Pick the relevant stop per order: for inbound use last delivery, for outbound use first pickup
+      const stopsByOrder = new Map<string, string>();
+      for (let i = 0; i < orderIds.length; i += 200) {
+        const chunk = orderIds.slice(i, i + 200);
+        const { data: pds } = await supabase
+          .from("pickup_drops")
+          .select("order_id, state, type, sequence_number")
+          .in("order_id", chunk)
+          .eq("type", wantedType)
+          .not("state", "is", null);
+        if (!pds) continue;
+        const grouped = new Map<string, any[]>();
+        for (const pd of pds) {
+          if (!grouped.has(pd.order_id)) grouped.set(pd.order_id, []);
+          grouped.get(pd.order_id)!.push(pd);
+        }
+        for (const [oid, arr] of grouped) {
+          arr.sort((a, b) => (a.sequence_number ?? 0) - (b.sequence_number ?? 0));
+          const chosen = wantedType === "delivery" ? arr[arr.length - 1] : arr[0];
+          if (chosen?.state) {
+            stopsByOrder.set(oid, String(chosen.state).toUpperCase().trim());
+          }
+        }
+      }
+
+      const agg = new Map<string, StateAgg>();
+      const validAbbrs = new Set(Object.values(STATE_ABBR));
+      for (const o of orders as any[]) {
+        const st = stopsByOrder.get(o.id);
+        if (!st || !validAbbrs.has(st)) continue;
+        const cur = agg.get(st) || { count: 0, freight: 0, loadedMiles: 0, dhMiles: 0 };
+        cur.count += 1;
+        cur.freight += Number(o.freight_amount) || 0;
+        cur.loadedMiles += Number(o.loaded_miles) || 0;
+        cur.dhMiles += Number(o.dh_miles) || 0;
+        agg.set(st, cur);
+      }
+
+      if (agg.size === 0) return {} as Record<string, number>;
+
+      // Compute metrics per state
+      type Metrics = { st: string; count: number; rpm: number; dhPerLoad: number; avgGross: number };
+      const metrics: Metrics[] = [];
+      for (const [st, a] of agg) {
+        metrics.push({
+          st,
+          count: a.count,
+          rpm: a.loadedMiles > 0 ? a.freight / a.loadedMiles : 0,
+          dhPerLoad: a.count > 0 ? a.dhMiles / a.count : 0,
+          avgGross: a.count > 0 ? a.freight / a.count : 0,
+        });
+      }
+
+      const minMax = (vals: number[]) => {
+        const min = Math.min(...vals);
+        const max = Math.max(...vals);
+        return { min, max };
+      };
+      const norm = (v: number, min: number, max: number, invert = false) => {
+        if (max === min) return 0.5;
+        const n = (v - min) / (max - min);
+        return invert ? 1 - n : n;
+      };
+
+      const c = minMax(metrics.map((m) => m.count));
+      const r = minMax(metrics.map((m) => m.rpm));
+      const d = minMax(metrics.map((m) => m.dhPerLoad));
+      const g = minMax(metrics.map((m) => m.avgGross));
+
+      // Weights in order of importance: count(0.4), rpm(0.3), dh inverted(0.2), avgGross(0.1)
+      const ratings: Record<string, number> = {};
+      const scores = metrics.map((m) => {
+        const score =
+          0.4 * norm(m.count, c.min, c.max) +
+          0.3 * norm(m.rpm, r.min, r.max) +
+          0.2 * norm(m.dhPerLoad, d.min, d.max, true) +
+          0.1 * norm(m.avgGross, g.min, g.max);
+        return { st: m.st, score };
+      });
+
+      const sMin = Math.min(...scores.map((s) => s.score));
+      const sMax = Math.max(...scores.map((s) => s.score));
+      for (const s of scores) {
+        const n = sMax === sMin ? 0.5 : (s.score - sMin) / (sMax - sMin);
+        ratings[s.st] = Math.max(1, Math.min(10, Math.round(1 + n * 9)));
+      }
+      return ratings;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export default function BeverlyHeatmapUsMap() {
   const [direction, setDirection] = useState<Direction>("inbound");
+  const { data: ratings = {} } = useStateRatings(direction);
+
+  const fillForAbbr = (abbr: string): string => {
+    const r = ratings[abbr];
+    if (!r) return "hsl(var(--muted))";
+    return interpolateColor(r);
+  };
 
   return (
     <Card>
@@ -64,26 +224,31 @@ export default function BeverlyHeatmapUsMap() {
                   .map((geo) => {
                     const abbr = STATE_ABBR[String(geo.id)] || "";
                     const centroid = geoCentroid(geo);
+                    const fillColor = fillForAbbr(abbr);
+                    const rating = ratings[abbr];
+                    const hasRating = !!rating;
+                    const labelFill = hasRating ? "#ffffff" : "hsl(var(--foreground))";
                     return (
                       <g key={geo.rsmKey}>
                         <Geography
                           geography={geo}
                           style={{
                             default: {
-                              fill: "hsl(var(--muted))",
+                              fill: fillColor,
                               stroke: "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
                             },
                             hover: {
-                              fill: "hsl(var(--accent))",
+                              fill: fillColor,
+                              opacity: 0.85,
                               stroke: "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
                               cursor: "pointer",
                             },
                             pressed: {
-                              fill: "hsl(var(--primary))",
+                              fill: fillColor,
                               outline: "none",
                             },
                           }}
@@ -98,11 +263,11 @@ export default function BeverlyHeatmapUsMap() {
                               fontFamily: "inherit",
                               fontSize: 10,
                               fontWeight: 600,
-                              fill: "hsl(var(--foreground))",
+                              fill: labelFill,
                               pointerEvents: "none",
                             }}
                           >
-                            {abbr}
+                            {hasRating ? `${abbr} ${rating}` : abbr}
                           </text>
                         )}
                       </g>
