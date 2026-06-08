@@ -71,7 +71,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   // Fetch both unlocked and locked counts
   const countsQuery = useQuery({
     queryKey: hasFilters 
-      ? ["orders-counts", "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId]
+      ? ["orders-counts", "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
       : ["orders-counts"],
     queryFn: async () => {
       console.log("[OrdersProgressive] Fetching total counts...");
@@ -214,6 +214,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
               limit: unlockedLimit,
               offset: globalOffset,
               excludeBookedByCompanyId,
+              bookedByCompanyId,
             },
           }).then(result => ({ type: 'unlocked', ...result }))
         );
@@ -232,6 +233,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
               limit: lockedLimit,
               offset: lockedOffset,
               excludeBookedByCompanyId,
+              bookedByCompanyId,
             },
           }).then(result => ({ type: 'locked', ...result }))
         );
@@ -261,12 +263,12 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     } finally {
       setIsLoadingPage(false);
     }
-  }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds, excludeBookedByCompanyId]);
+  }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds, excludeBookedByCompanyId, bookedByCompanyId]);
 
   // Query for the current page - dynamically loads the page the user is viewing
   const currentPageQuery = useQuery({
     queryKey: hasFilters 
-      ? ["orders", "page", currentPage, "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId]
+      ? ["orders", "page", currentPage, "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
       : ["orders", "page", currentPage],
     queryFn: () => fetchPage(currentPage, unlockedCount, lockedCount),
     refetchOnWindowFocus: false,
@@ -354,13 +356,13 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       // Also update the TanStack Query cache for this page so the memo picks it up
       const updatedPageData = loadedPagesRef.current.get(foundPage);
       const pageQueryKey = hasFilters
-        ? ["orders", "page", foundPage, "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId]
+        ? ["orders", "page", foundPage, "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
         : ["orders", "page", foundPage];
       queryClient.setQueryData(pageQueryKey, updatedPageData);
       // Trigger re-render by bumping loadedPages state
       setLoadedPages(prev => new Set(prev));
     }
-  }, [hasFilters, bookedBy, dispatcherUserId, queryClient, excludeBookedByCompanyId]);
+  }, [hasFilters, bookedBy, dispatcherUserId, queryClient, excludeBookedByCompanyId, bookedByCompanyId]);
 
   return {
     data: currentPageOrders,
