@@ -647,8 +647,9 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
                             }
                             setBaseSalaryEditing((prev) => ({ ...prev, [r.user_id]: raw }));
                             const num = raw === "" || raw === "." ? 0 : Number(raw) || 0;
-                            if (rowsRef.current[r.user_id]?.base_salary !== num) {
-                              pendingBasePropagation.current[r.user_id] = true;
+                            const curRow = rowsRef.current[r.user_id];
+                            if (curRow && curRow.base_salary !== num) {
+                              pendingBasePropagation.current[`${r.user_id}|${curRow.month}`] = true;
                             }
                             updateField(r.user_id, { base_salary: num });
                           }}
