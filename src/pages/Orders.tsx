@@ -297,6 +297,7 @@ const Orders = () => {
           setBrokerFilter(state.brokerFilter || "all-brokers");
           setLockedNotInvoicedFilter(state.lockedNotInvoicedFilter || false);
           setInvoicedFilter(state.invoicedFilter || false);
+          setUnlockedOnly(state.unlockedOnly || false);
           if (state.dateRange) {
             setDateRange({
               from: state.dateRange.from ? new Date(state.dateRange.from) : undefined,
