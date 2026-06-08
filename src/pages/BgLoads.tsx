@@ -195,16 +195,19 @@ const BgLoads = () => {
   // This includes orders they booked AND orders for drivers assigned to them
   // Use null instead of undefined to prevent double fetch when profile loads
   const shouldFilterByUser = individualMode || isDispatchOnly;
+  const BG_PRIME_COMPANY_ID = "238a7acf-cbb5-4718-be7a-130d8d971a90";
   const orderFilterOptions = useMemo(
     () =>
       shouldFilterByUser
         ? {
             bookedBy: profile?.full_name || null,
             dispatcherUserId: profile?.user_id || null,
+            bookedByCompanyId: BG_PRIME_COMPANY_ID,
           }
         : {
             bookedBy: null,
             dispatcherUserId: null,
+            bookedByCompanyId: BG_PRIME_COMPANY_ID,
           },
     [shouldFilterByUser, profile?.full_name, profile?.user_id],
   );
