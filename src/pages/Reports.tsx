@@ -860,6 +860,41 @@ const Reports = () => {
     groupedReportsRef.current = groupedReports;
   }, [groupedReports]);
 
+  // Accumulated per-truck last delivery across date-carousel navigation and
+  // background refetches. We keep the entry with the most recent pickup so
+  // that switching dates does not cause matched trucks to disappear just
+  // because their relevant order is outside the current date window.
+  const truckLastDeliveryRef = useRef<Map<string, { lat: number; lon: number; date: string }>>(new Map());
+  const [truckLastDeliveryVersion, setTruckLastDeliveryVersion] = useState(0);
+  useEffect(() => {
+    if (!groupedReports || groupedReports.length === 0) return;
+    let changed = false;
+    const map = truckLastDeliveryRef.current;
+    for (const group of groupedReports) {
+      for (const truck of group.trucks) {
+        const sortedOrders = (truck.allOrders || [])
+          .filter((o: any) => !o.canceled && o.notes !== "GAME|OVER")
+          .sort((a: any, b: any) => {
+            const aDate = a.pickupStops?.[0]?.datetime || a.pickup_datetime || "";
+            const bDate = b.pickupStops?.[0]?.datetime || b.pickup_datetime || "";
+            return aDate.localeCompare(bDate);
+          });
+        const lastOrder = sortedOrders[sortedOrders.length - 1];
+        if (!lastOrder) continue;
+        const deliveryStops = lastOrder.deliveryStops || [];
+        const lastDrop = deliveryStops[deliveryStops.length - 1];
+        if (!lastDrop?.latitude || !lastDrop?.longitude) continue;
+        const date = lastOrder.pickupStops?.[0]?.datetime || lastOrder.pickup_datetime || "";
+        const existing = map.get(truck.id);
+        if (!existing || date >= existing.date) {
+          map.set(truck.id, { lat: lastDrop.latitude, lon: lastDrop.longitude, date });
+          changed = true;
+        }
+      }
+    }
+    if (changed) setTruckLastDeliveryVersion((v) => v + 1);
+  }, [groupedReports]);
+
   // Proximity search effect - debounced 500ms, geocodes the address into coords
   useEffect(() => {
     if (proximityDebounceRef.current) clearTimeout(proximityDebounceRef.current);
@@ -902,14 +937,6 @@ const Reports = () => {
       if (!proximityAddress.trim()) setProximityMatchedTrucks(null);
       return;
     }
-    // Skip recompute while data is loading or unavailable so previously matched
-    // trucks aren't cleared on date carousel changes / background refetches.
-    if (!groupedReports || groupedReports.length === 0) return;
-    // While a background refetch is in flight (e.g. dispatcher date carousel
-    // navigation), individual trucks can briefly have empty allOrders, which
-    // would drop them from the matched set. Keep the previous matches until
-    // the refetch completes.
-    if (isFetchingBackground) return;
     const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
       const R = 3959;
       const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -920,31 +947,19 @@ const Reports = () => {
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     };
     const matched = new Map<string, number>();
-    const allGroups = groupedReports || [];
-    for (const group of allGroups) {
-      for (const truck of group.trucks) {
-        const sortedOrders = (truck.allOrders || [])
-          .filter((o: any) => !o.canceled && o.notes !== "GAME|OVER")
-          .sort((a: any, b: any) => {
-            const aDate = a.pickupStops?.[0]?.datetime || a.pickup_datetime || "";
-            const bDate = b.pickupStops?.[0]?.datetime || b.pickup_datetime || "";
-            return aDate.localeCompare(bDate);
-          });
-        const lastOrder = sortedOrders[sortedOrders.length - 1];
-        if (!lastOrder) continue;
-        const deliveryStops = lastOrder.deliveryStops || [];
-        const lastDrop = deliveryStops[deliveryStops.length - 1];
-        if (!lastDrop?.latitude || !lastDrop?.longitude) continue;
-        const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, lastDrop.latitude, lastDrop.longitude);
-        const roadMiles = Math.round(straightLine * 1.3);
-        if (roadMiles <= 150) {
-          matched.set(truck.id, roadMiles);
-        }
+    // Match against the accumulated per-truck last-delivery map so trucks
+    // remain matched even when the visible date window shifts away from the
+    // order that produced the coordinates.
+    for (const [truckId, entry] of truckLastDeliveryRef.current.entries()) {
+      const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, entry.lat, entry.lon);
+      const roadMiles = Math.round(straightLine * 1.3);
+      if (roadMiles <= 150) {
+        matched.set(truckId, roadMiles);
       }
     }
     setProximityMatchedTrucks(matched);
     setProximitySearching(false);
-  }, [proximityCoords, groupedReports, proximityAddress, isFetchingBackground]);
+  }, [proximityCoords, proximityAddress, truckLastDeliveryVersion]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
 
