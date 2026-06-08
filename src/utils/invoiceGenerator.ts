@@ -307,30 +307,39 @@ export const generateInvoicePDF = async (
       const baseFilename = `${invoiceNumber}.pdf`;
       console.log(`Preparing invoice ${baseFilename} for company ${companyName}`);
 
+      const isBgPrimeInvoice = derivedCompany === "BG Prime Inc";
+
       doc.rect(130, 40, 30, 8);
       doc.rect(160, 40, 30, 8);
       doc.rect(130, 48, 30, 8);
       doc.rect(160, 48, 30, 8);
-      doc.rect(130, 56, 30, 8);
-      doc.rect(160, 56, 30, 8);
-      doc.rect(130, 64, 30, 8);
-      doc.rect(160, 64, 30, 8);
+      if (!isBgPrimeInvoice) {
+        doc.rect(130, 56, 30, 8);
+        doc.rect(160, 56, 30, 8);
+        doc.rect(130, 64, 30, 8);
+        doc.rect(160, 64, 30, 8);
+      }
 
       doc.setFont("helvetica", "bold");
       doc.text("Invoice Date", 132, 46);
       doc.text("Invoice #", 132, 54);
-      doc.text("Terms", 132, 62);
-      doc.text("Due Date", 132, 70);
+      if (!isBgPrimeInvoice) {
+        doc.text("Terms", 132, 62);
+        doc.text("Due Date", 132, 70);
+      }
 
       doc.setFont("helvetica", "normal");
       doc.text(currentDate, 162, 46);
       doc.text(invoiceNumber.toString(), 162, 54);
-      doc.text("NET 30", 162, 62);
+      if (!isBgPrimeInvoice) {
+        doc.text("NET 30", 162, 62);
 
-      // Calculate due date (30 days from now)
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 30);
-      doc.text(dueDate.toLocaleDateString(), 162, 70);
+        // Calculate due date (30 days from now)
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
+        doc.text(dueDate.toLocaleDateString(), 162, 70);
+      }
+
 
       // Main table headers
       let yPosition = 90;
