@@ -346,11 +346,16 @@ export default function BeverlyHeatmapUsMap() {
   const fmtMoney = (v: number) => `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   const fmtNum = (v: number, digits = 0) => v.toLocaleString("en-US", { maximumFractionDigits: digits });
 
+  // 60-mile radius in SVG units for the geoAlbersUsa projection at scale=1000.
+  // ~3000 miles continental US ≈ 900 svg units across → 1 mile ≈ 0.30 svg units.
+  const MILE_TO_SVG = 0.30;
+  const BLOB_RADIUS = 60 * MILE_TO_SVG; // ≈ 18 svg units
   const maxCityCount = cityMetrics.reduce((m, c) => Math.max(m, c.count), 0);
-  const radiusFor = (count: number) => {
-    if (maxCityCount <= 0) return 4;
+  // Center opacity scales with load volume so dense cities show through stronger
+  const centerOpacityFor = (count: number) => {
+    if (maxCityCount <= 0) return 0.55;
     const n = count / maxCityCount;
-    return 4 + Math.sqrt(n) * 16; // 4..20
+    return 0.35 + Math.sqrt(n) * 0.45; // 0.35 .. 0.80
   };
 
   return (
@@ -457,30 +462,51 @@ export default function BeverlyHeatmapUsMap() {
                   })
               }
             </Geographies>
-            {viewMode === "cities" &&
-              cityMetrics.map((c) => {
-                const key = `${c.city}|${c.state}`;
-                return (
-                  <Marker
-                    key={key}
-                    coordinates={[c.lng, c.lat]}
-                    onClick={() => setSelectedCityKey(key)}
-                    style={{
-                      default: { cursor: "pointer" },
-                      hover: { cursor: "pointer" },
-                      pressed: { cursor: "pointer" },
-                    }}
-                  >
-                    <circle
-                      r={radiusFor(c.count)}
-                      fill={interpolateColor(c.rating)}
-                      stroke="#ffffff"
-                      strokeWidth={0.75}
-                      opacity={0.9}
-                    />
-                  </Marker>
-                );
-              })}
+            {viewMode === "cities" && (
+              <>
+                {/* One radial gradient per rating, fading to transparent at the 60-mile edge */}
+                <defs>
+                  {Object.entries(RATING_COLORS).map(([r, color]) => (
+                    <radialGradient key={r} id={`blob-${r}`} cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stopColor={color} stopOpacity={1} />
+                      <stop offset="60%" stopColor={color} stopOpacity={0.55} />
+                      <stop offset="100%" stopColor={color} stopOpacity={0} />
+                    </radialGradient>
+                  ))}
+                </defs>
+                {/* Watercolor layer — soft blobs that blend where they overlap */}
+                <g style={{ mixBlendMode: "multiply" as any, pointerEvents: "none" }}>
+                  {cityMetrics.map((c) => (
+                    <Marker key={`blob-${c.city}|${c.state}`} coordinates={[c.lng, c.lat]}>
+                      <circle
+                        r={BLOB_RADIUS}
+                        fill={`url(#blob-${c.rating})`}
+                        opacity={centerOpacityFor(c.count)}
+                      />
+                    </Marker>
+                  ))}
+                </g>
+                {/* Tiny invisible hit targets so each city remains clickable */}
+                {cityMetrics.map((c) => {
+                  const key = `${c.city}|${c.state}`;
+                  return (
+                    <Marker
+                      key={`hit-${key}`}
+                      coordinates={[c.lng, c.lat]}
+                      onClick={() => setSelectedCityKey(key)}
+                      style={{
+                        default: { cursor: "pointer" },
+                        hover: { cursor: "pointer" },
+                        pressed: { cursor: "pointer" },
+                      }}
+                    >
+                      <circle r={3} fill="hsl(var(--foreground))" opacity={0.85} />
+                      <circle r={BLOB_RADIUS} fill="transparent" />
+                    </Marker>
+                  );
+                })}
+              </>
+            )}
           </ComposableMap>
         </div>
       </CardContent>
