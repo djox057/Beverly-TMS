@@ -337,6 +337,10 @@ const TruckSales = () => {
 
       {isLoading && <p className="text-muted-foreground">Loading…</p>}
 
+      {!isLoading && filteredGrouped.length === 0 && (
+        <p className="text-muted-foreground">No trucks match your filters.</p>
+      )}
+
       {!isLoading && filteredGrouped.length > 0 && (() => {
         const active =
           filteredGrouped.find((g) => g.name === selectedCompany) || filteredGrouped[0];
