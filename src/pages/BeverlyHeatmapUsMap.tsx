@@ -133,49 +133,23 @@ function useStateRatings(direction: Direction) {
       lastMon.setUTCDate(lastMon.getUTCDate() - 7);
       const fromIso = lastMon.toISOString();
 
-      // Fetch orders with pickup in last+current week
-      const orders = await fetchAllOrdersInWindow(fromIso);
-      if (!orders || orders.length === 0) return { ratings: {}, metrics: {} } as { ratings: Record<string, number>; metrics: Record<string, StateMetrics> };
-
-      const orderIds = orders.map((o: any) => o.id);
-      const wantedType = direction === "inbound" ? "delivery" : "pickup";
-
-      // Pick the relevant stop per order: for inbound use last delivery, for outbound use first pickup
-      const stopsByOrder = new Map<string, string>();
-      for (let i = 0; i < orderIds.length; i += 200) {
-        const chunk = orderIds.slice(i, i + 200);
-        const { data: pds } = await supabase
-          .from("pickup_drops")
-          .select("order_id, state, type, sequence_number")
-          .in("order_id", chunk)
-          .eq("type", wantedType)
-          .not("state", "is", null);
-        if (!pds) continue;
-        const grouped = new Map<string, any[]>();
-        for (const pd of pds) {
-          if (!grouped.has(pd.order_id)) grouped.set(pd.order_id, []);
-          grouped.get(pd.order_id)!.push(pd);
-        }
-        for (const [oid, arr] of grouped) {
-          arr.sort((a, b) => (a.sequence_number ?? 0) - (b.sequence_number ?? 0));
-          const chosen = wantedType === "delivery" ? arr[arr.length - 1] : arr[0];
-          if (chosen?.state) {
-            stopsByOrder.set(oid, String(chosen.state).toUpperCase().trim());
-          }
-        }
-      }
-
+      // Server-side aggregation via RPC (1 round trip)
+      const { data: rows, error } = await supabase.rpc("get_us_map_state_stats", {
+        p_direction: direction,
+        p_from: fromIso,
+      });
+      if (error) throw error;
       const agg = new Map<string, StateAgg>();
       const validAbbrs = new Set(Object.values(STATE_ABBR));
-      for (const o of orders as any[]) {
-        const st = stopsByOrder.get(o.id);
-        if (!st || !validAbbrs.has(st)) continue;
-        const cur = agg.get(st) || { count: 0, freight: 0, loadedMiles: 0, dhMiles: 0 };
-        cur.count += 1;
-        cur.freight += Number(o.freight_amount) || 0;
-        cur.loadedMiles += Number(o.loaded_miles) || 0;
-        cur.dhMiles += Number(o.dh_miles) || 0;
-        agg.set(st, cur);
+      for (const row of (rows as any[]) || []) {
+        const st = String(row.state).toUpperCase().trim();
+        if (!validAbbrs.has(st)) continue;
+        agg.set(st, {
+          count: Number(row.count) || 0,
+          freight: Number(row.freight) || 0,
+          loadedMiles: Number(row.loaded_miles) || 0,
+          dhMiles: Number(row.dh_miles) || 0,
+        });
       }
 
       if (agg.size === 0) return { ratings: {}, metrics: {} } as { ratings: Record<string, number>; metrics: Record<string, StateMetrics> };
