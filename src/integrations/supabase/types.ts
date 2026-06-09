@@ -4826,6 +4826,29 @@ export type Database = {
         }[]
       }
       get_orders_summary: { Args: { p_filters?: Json }; Returns: Json }
+      get_us_map_city_stats: {
+        Args: { p_direction: string; p_from: string; p_min_loads?: number }
+        Returns: {
+          city: string
+          count: number
+          dh_miles: number
+          freight: number
+          latitude: number
+          loaded_miles: number
+          longitude: number
+          state: string
+        }[]
+      }
+      get_us_map_state_stats: {
+        Args: { p_direction: string; p_from: string }
+        Returns: {
+          count: number
+          dh_miles: number
+          freight: number
+          loaded_miles: number
+          state: string
+        }[]
+      }
       has_any_role: {
         Args: { roles: Database["public"]["Enums"]["app_role"][] }
         Returns: boolean
