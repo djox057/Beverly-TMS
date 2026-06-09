@@ -7488,6 +7488,9 @@ const Reports = () => {
                   <span className="font-medium text-foreground">Road Ranger</span> locations. Scale tickets are charged
                   at standard location rates — there is currently no discount program for scale services.
                 </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Our fuel card can be used at any <span className="font-medium text-foreground">CAT scale</span> location.
+                </p>
               </div>
             </div>
 
