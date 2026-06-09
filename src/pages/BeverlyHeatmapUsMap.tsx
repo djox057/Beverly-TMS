@@ -441,6 +441,36 @@ export default function BeverlyHeatmapUsMap() {
             height={MAP_H}
             style={{ width: "100%", height: "auto" }}
           >
+            {viewMode === "cities" && (
+              <defs>
+                <clipPath id="us-clip">
+                  <path d={usClipPath} />
+                </clipPath>
+                <filter id="heat-blur" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="14" />
+                </filter>
+              </defs>
+            )}
+
+            {viewMode === "cities" && (
+              <g clipPath="url(#us-clip)">
+                {/* Base muted fill so areas without data still read as land. */}
+                <path d={usClipPath} fill="hsl(var(--muted))" />
+                <g filter="url(#heat-blur)">
+                  {projectedCities.map((c) => (
+                    <circle
+                      key={`heat-${c.city}-${c.state}`}
+                      cx={c.x}
+                      cy={c.y}
+                      r={c.radius}
+                      fill={interpolateColor(c.rating)}
+                      fillOpacity={0.9}
+                    />
+                  ))}
+                </g>
+              </g>
+            )}
+
             <Geographies geography={GEO_DATA}>
               {({ geographies }) =>
                 geographies
@@ -453,6 +483,7 @@ export default function BeverlyHeatmapUsMap() {
                     const hasRating = viewMode === "states" && !!rating;
                     const labelFill = hasRating ? "#ffffff" : "hsl(var(--muted-foreground))";
                     const interactive = viewMode === "states";
+                    const stateFill = viewMode === "cities" ? "transparent" : fillColor;
                     return (
                       <g key={geo.rsmKey}>
                         <Geography
@@ -460,22 +491,22 @@ export default function BeverlyHeatmapUsMap() {
                           onClick={() => interactive && abbr && setSelectedState(abbr)}
                           style={{
                             default: {
-                              fill: fillColor,
-                              stroke: viewMode === "cities" ? "rgba(0,0,0,0.35)" : "hsl(var(--border))",
+                              fill: stateFill,
+                              stroke: viewMode === "cities" ? "rgba(255,255,255,0.5)" : "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
                               cursor: interactive ? "pointer" : "default",
                             },
                             hover: {
-                              fill: fillColor,
+                              fill: stateFill,
                               opacity: interactive ? 0.85 : 1,
-                              stroke: viewMode === "cities" ? "rgba(0,0,0,0.35)" : "hsl(var(--border))",
+                              stroke: viewMode === "cities" ? "rgba(255,255,255,0.5)" : "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
                               cursor: interactive ? "pointer" : "default",
                             },
                             pressed: {
-                              fill: fillColor,
+                              fill: stateFill,
                               outline: "none",
                             },
                           }}
@@ -511,11 +542,8 @@ export default function BeverlyHeatmapUsMap() {
                   key={`${c.city}-${c.state}`}
                   cx={c.x}
                   cy={c.y}
-                  r={c.radius}
-                  fill={interpolateColor(c.rating)}
-                  fillOpacity={0.75}
-                  stroke="#ffffff"
-                  strokeWidth={1}
+                  r={10}
+                  fill="transparent"
                   style={{ cursor: "pointer" }}
                   onMouseEnter={(e) => {
                     const rect = overlayRef.current?.getBoundingClientRect();
