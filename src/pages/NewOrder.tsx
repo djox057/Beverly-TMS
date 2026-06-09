@@ -3469,6 +3469,58 @@ const NewOrder = () => {
           }
         }
       />
+
+      {/* BF Prime LLC Booking Note Dialog */}
+      <AlertDialog open={showBfPrimeNoteDialog} onOpenChange={setShowBfPrimeNoteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Note Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              You're booking a load for <strong>{driverCompanyName}</strong> with{" "}
+              <strong>BF Prime LLC</strong> as the Booked by Company. Please add a note explaining
+              why this booking is being made under BF Prime LLC.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Textarea
+              value={bfPrimeNote}
+              onChange={(ev) => setBfPrimeNote(ev.target.value)}
+              placeholder="Enter reason / note..."
+              rows={4}
+              autoFocus
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowBfPrimeNoteDialog(false);
+                setPendingBfPrimeSubmitEvent(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!bfPrimeNote.trim() || isSubmitting}
+              onClick={(ev) => {
+                if (!bfPrimeNote.trim()) {
+                  ev.preventDefault();
+                  return;
+                }
+                setShowBfPrimeNoteDialog(false);
+                if (pendingBfPrimeSubmitEvent) {
+                  handleSubmit(
+                    pendingBfPrimeSubmitEvent,
+                    pendingBfPrimeSkipDuplicate,
+                    pendingBfPrimeSkipDuplicateStops,
+                  );
+                }
+              }}
+            >
+              Save Note & Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
