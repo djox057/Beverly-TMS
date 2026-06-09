@@ -222,6 +222,112 @@ function useStateRatings(direction: Direction) {
   });
 }
 
+// ---------------- Cities (kernel-density heatmap) ----------------
+
+interface CityRow {
+  city: string;
+  state: string;
+  count: number;
+  freight: number;
+  loadedMiles: number;
+  dhMiles: number;
+  latitude: number;
+  longitude: number;
+  rpm: number;
+  dhPerLoad: number;
+  avgGross: number;
+  rating: number;
+}
+
+async function fetchCityRatings(direction: Direction): Promise<CityRow[]> {
+  const fromIso = fromIsoForWindow();
+  const { data: rows, error } = await supabase.rpc("get_us_map_city_stats", {
+    p_direction: direction,
+    p_from: fromIso,
+    p_min_loads: 1,
+  });
+  if (error) throw error;
+  const raw = ((rows as any[]) || [])
+    .map((r) => ({
+      city: String(r.city || ""),
+      state: String(r.state || "").toUpperCase().trim(),
+      count: Number(r.count) || 0,
+      freight: Number(r.freight) || 0,
+      loadedMiles: Number(r.loaded_miles) || 0,
+      dhMiles: Number(r.dh_miles) || 0,
+      latitude: Number(r.latitude),
+      longitude: Number(r.longitude),
+    }))
+    .filter(
+      (r) => r.count > 0 && Number.isFinite(r.latitude) && Number.isFinite(r.longitude),
+    );
+
+  if (raw.length === 0) return [];
+
+  const derived = raw.map((r) => ({
+    ...r,
+    rpm: r.loadedMiles > 0 ? r.freight / r.loadedMiles : 0,
+    dhPerLoad: r.count > 0 ? r.dhMiles / r.count : 0,
+    avgGross: r.count > 0 ? r.freight / r.count : 0,
+  }));
+
+  const minMax = (vals: number[]) => ({ min: Math.min(...vals), max: Math.max(...vals) });
+  const norm = (v: number, min: number, max: number, invert = false) => {
+    if (max === min) return 0.5;
+    const n = (v - min) / (max - min);
+    return invert ? 1 - n : n;
+  };
+
+  const c = minMax(derived.map((m) => m.count));
+  const rr = minMax(derived.map((m) => m.rpm));
+  const d = minMax(derived.map((m) => m.dhPerLoad));
+  const g = minMax(derived.map((m) => m.avgGross));
+
+  const eps = 0.01;
+  const scored = derived.map((m) => {
+    const nC = Math.max(eps, norm(m.count, c.min, c.max));
+    const nR = Math.max(eps, norm(m.rpm, rr.min, rr.max));
+    const nD = Math.max(eps, norm(m.dhPerLoad, d.min, d.max, true));
+    const nG = Math.max(eps, norm(m.avgGross, g.min, g.max));
+    const score =
+      Math.pow(nC, 0.4) * Math.pow(nR, 0.3) * Math.pow(nD, 0.2) * Math.pow(nG, 0.1);
+    return { m, score };
+  });
+  const sMin = Math.min(...scored.map((s) => s.score));
+  const sMax = Math.max(...scored.map((s) => s.score));
+  return scored.map(({ m, score }) => {
+    const n = sMax === sMin ? 0.5 : (score - sMin) / (sMax - sMin);
+    const rating = Math.max(1, Math.min(10, Math.round(1 + n * 9)));
+    return { ...m, rating };
+  });
+}
+
+function useCityRatings(direction: Direction, enabled: boolean) {
+  return useQuery({
+    queryKey: ["city-ratings", direction],
+    queryFn: () => fetchCityRatings(direction),
+    enabled,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+  });
+}
+
+// Map canvas dimensions (must match the <ComposableMap> width/height below).
+const MAP_W = 975;
+const MAP_H = 610;
+
+// Color ramp: red → orange → yellow → light green → green → strong green.
+const HEAT_COLOR_RANGE: [number, number, number][] = [
+  [139, 0, 0],
+  [255, 102, 0],
+  [255, 170, 0],
+  [182, 217, 0],
+  [102, 204, 51],
+  [0, 160, 0],
+];
+
 
 export default function BeverlyHeatmapUsMap() {
   const [direction, setDirection] = useState<Direction>("inbound");
