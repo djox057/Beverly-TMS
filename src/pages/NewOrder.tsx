@@ -171,6 +171,14 @@ const NewOrder = () => {
   // Duplicate stops warning
   const [showDuplicateStopsDialog, setShowDuplicateStopsDialog] = useState(false);
   const [duplicateStops, setDuplicateStops] = useState<any[]>([]);
+
+  // BF Prime LLC note requirement (for Beverly Freight Inc / BG Prime Inc operating company)
+  const [showBfPrimeNoteDialog, setShowBfPrimeNoteDialog] = useState(false);
+  const [bfPrimeNote, setBfPrimeNote] = useState("");
+  const [pendingBfPrimeSubmitEvent, setPendingBfPrimeSubmitEvent] = useState<React.FormEvent | null>(null);
+  const [pendingBfPrimeSkipDuplicate, setPendingBfPrimeSkipDuplicate] = useState(false);
+  const [pendingBfPrimeSkipDuplicateStops, setPendingBfPrimeSkipDuplicateStops] = useState(false);
+
   const { toast } = useToast();
   const { profile, hasRole } = useAuthContext();
   const queryClient = useQueryClient();
