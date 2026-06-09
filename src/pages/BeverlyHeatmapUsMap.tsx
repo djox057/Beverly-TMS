@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-import { geoCentroid, geoContains } from "d3-geo";
+import { geoCentroid } from "d3-geo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin } from "lucide-react";
@@ -359,20 +359,64 @@ export default function BeverlyHeatmapUsMap() {
     loadedMiles: number;
     dhMiles: number;
   };
+  // Planar ray-casting point-in-polygon. Required because d3-geo's spherical
+  // geoContains misclassifies clockwise-wound ZIP3 polygons (treats them as
+  // the polygon's complement), so every point matches the first feature.
+  const pointInRing = (pt: [number, number], ring: number[][]): boolean => {
+    let inside = false;
+    const [x, y] = pt;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0], yi = ring[i][1];
+      const xj = ring[j][0], yj = ring[j][1];
+      const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi + 1e-15) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  };
+  const featureContains = (feature: any, pt: [number, number]): boolean => {
+    const geom = feature?.geometry;
+    if (!geom) return false;
+    const polys: number[][][][] = geom.type === "Polygon" ? [geom.coordinates] : geom.type === "MultiPolygon" ? geom.coordinates : [];
+    for (const poly of polys) {
+      if (poly.length === 0) continue;
+      if (!pointInRing(pt, poly[0])) continue;
+      let inHole = false;
+      for (let h = 1; h < poly.length; h++) {
+        if (pointInRing(pt, poly[h])) { inHole = true; break; }
+      }
+      if (!inHole) return true;
+    }
+    return false;
+  };
   const zoneByZip3: Record<string, ZoneAgg & { rating: number; rpm: number; dhPerLoad: number; avgGross: number }> = (() => {
     const out: Record<string, any> = {};
     if (!zip3Geo || cityMetrics.length === 0) return out;
     const features = (zip3Geo.features || []) as any[];
     // Build a lat-band index for faster point-in-polygon scans.
+    // Precompute per-feature bbox once.
+    const featBbox = (f: any): [number, number, number, number] => {
+      if (f.__bbox) return f.__bbox;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      const visit = (ring: number[][]) => {
+        for (const [x, y] of ring) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+      };
+      const geom = f.geometry;
+      if (geom?.type === "Polygon") for (const r of geom.coordinates) visit(r);
+      else if (geom?.type === "MultiPolygon") for (const p of geom.coordinates) for (const r of p) visit(r);
+      f.__bbox = [minX, minY, maxX, maxY];
+      return f.__bbox;
+    };
     const byZip: Record<string, ZoneAgg> = {};
     for (const c of cityMetrics) {
-      // Quick bbox prefilter then geoContains.
       const pt: [number, number] = [c.lng, c.lat];
       let hit: any = null;
       for (const f of features) {
-        const bbox = f.bbox as number[] | undefined;
-        if (bbox && (pt[0] < bbox[0] || pt[0] > bbox[2] || pt[1] < bbox[1] || pt[1] > bbox[3])) continue;
-        if (geoContains(f, pt)) { hit = f; break; }
+        const bb = featBbox(f);
+        if (pt[0] < bb[0] || pt[0] > bb[2] || pt[1] < bb[1] || pt[1] > bb[3]) continue;
+        if (featureContains(f, pt)) { hit = f; break; }
       }
       if (!hit) continue;
       const zip3 = String(hit.properties?.ZCTA3 || hit.properties?.zip3 || "");
