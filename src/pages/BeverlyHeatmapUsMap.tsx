@@ -134,14 +134,8 @@ function useStateRatings(direction: Direction) {
       const fromIso = lastMon.toISOString();
 
       // Fetch orders with pickup in last+current week
-      const { data: orders, error } = await supabase
-        .from("orders")
-        .select("id, freight_amount, loaded_miles, dh_miles")
-        .eq("canceled", false)
-        .gte("pickup_datetime", fromIso)
-        .limit(5000);
-      if (error) throw error;
-      if (!orders || orders.length === 0) return {} as Record<string, number>;
+      const orders = await fetchAllOrdersInWindow(fromIso);
+      if (!orders || orders.length === 0) return { ratings: {}, metrics: {} } as { ratings: Record<string, number>; metrics: Record<string, StateMetrics> };
 
       const orderIds = orders.map((o: any) => o.id);
       const wantedType = direction === "inbound" ? "delivery" : "pickup";
@@ -271,13 +265,7 @@ function useCityRatings(direction: Direction, enabled: boolean) {
       lastMon.setUTCDate(lastMon.getUTCDate() - 7);
       const fromIso = lastMon.toISOString();
 
-      const { data: orders, error } = await supabase
-        .from("orders")
-        .select("id, freight_amount, loaded_miles, dh_miles")
-        .eq("canceled", false)
-        .gte("pickup_datetime", fromIso)
-        .limit(5000);
-      if (error) throw error;
+      const orders = await fetchAllOrdersInWindow(fromIso);
       if (!orders || orders.length === 0) return { metrics: [] as CityMetrics[] };
 
       const orderIds = (orders as any[]).map((o) => o.id);
