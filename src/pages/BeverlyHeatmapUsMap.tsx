@@ -44,6 +44,12 @@ interface StateMetrics {
   totalLoadedMiles: number;
   totalDhMiles: number;
   rating: number;
+  // Normalized 0..1 component values used in the weighted average
+  nCount: number;
+  nRpm: number;
+  nDh: number; // already inverted (higher = better)
+  nGross: number;
+  weightedAvg: number; // 0..1
 }
 
 // Compute Monday (Chicago time) of the week containing `d`.
@@ -175,27 +181,25 @@ function useStateRatings(direction: Direction) {
       const d = minMax(metrics.map((m) => m.dhPerLoad));
       const g = minMax(metrics.map((m) => m.avgGross));
 
-      // Weights in order of importance: count(0.4), rpm(0.3), dh inverted(0.2), avgGross(0.1)
+      // Weights in order of importance: count(0.4), rpm(0.3), dh inverted(0.2), avgGross(0.1).
+      // Weights sum to 1.0, so the score IS a weighted average of normalized (0..1) components.
+      // Rating = 1 + weightedAvg * 9, rounded (so absolute, not re-normalized across states).
       const ratings: Record<string, number> = {};
-      const scores = metrics.map((m) => {
-        const score =
-          0.4 * norm(m.count, c.min, c.max) +
-          0.3 * norm(m.rpm, r.min, r.max) +
-          0.2 * norm(m.dhPerLoad, d.min, d.max, true) +
-          0.1 * norm(m.avgGross, g.min, g.max);
-        return { st: m.st, score };
-      });
-
-      const sMin = Math.min(...scores.map((s) => s.score));
-      const sMax = Math.max(...scores.map((s) => s.score));
-      for (const s of scores) {
-        const n = sMax === sMin ? 0.5 : (s.score - sMin) / (sMax - sMin);
-        ratings[s.st] = Math.max(1, Math.min(10, Math.round(1 + n * 9)));
+      const components = new Map<string, { nCount: number; nRpm: number; nDh: number; nGross: number; weightedAvg: number }>();
+      for (const m of metrics) {
+        const nCount = norm(m.count, c.min, c.max);
+        const nRpm = norm(m.rpm, r.min, r.max);
+        const nDh = norm(m.dhPerLoad, d.min, d.max, true);
+        const nGross = norm(m.avgGross, g.min, g.max);
+        const weightedAvg = 0.4 * nCount + 0.3 * nRpm + 0.2 * nDh + 0.1 * nGross;
+        components.set(m.st, { nCount, nRpm, nDh, nGross, weightedAvg });
+        ratings[m.st] = Math.max(1, Math.min(10, Math.round(1 + weightedAvg * 9)));
       }
 
       const metricsMap: Record<string, StateMetrics> = {};
       for (const m of metrics) {
         const a = agg.get(m.st)!;
+        const cmp = components.get(m.st)!;
         metricsMap[m.st] = {
           count: m.count,
           rpm: m.rpm,
@@ -205,6 +209,11 @@ function useStateRatings(direction: Direction) {
           totalLoadedMiles: a.loadedMiles,
           totalDhMiles: a.dhMiles,
           rating: ratings[m.st],
+          nCount: cmp.nCount,
+          nRpm: cmp.nRpm,
+          nDh: cmp.nDh,
+          nGross: cmp.nGross,
+          weightedAvg: cmp.weightedAvg,
         };
       }
       return { ratings, metrics: metricsMap };
