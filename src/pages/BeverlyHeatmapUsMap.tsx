@@ -103,6 +103,26 @@ function interpolateColor(rating: number): string {
   return RATING_COLORS[rating] || "#000000";
 }
 
+// Supabase REST API caps each response at ~1000 rows. Paginate to fetch all matching orders.
+async function fetchAllOrdersInWindow(fromIso: string): Promise<any[]> {
+  const pageSize = 1000;
+  const all: any[] = [];
+  for (let from = 0; from < 20000; from += pageSize) {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id, freight_amount, loaded_miles, dh_miles")
+      .eq("canceled", false)
+      .gte("pickup_datetime", fromIso)
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+  }
+  return all;
+}
+
 function useStateRatings(direction: Direction) {
   return useQuery({
     queryKey: ["state-ratings", direction],
@@ -114,14 +134,8 @@ function useStateRatings(direction: Direction) {
       const fromIso = lastMon.toISOString();
 
       // Fetch orders with pickup in last+current week
-      const { data: orders, error } = await supabase
-        .from("orders")
-        .select("id, freight_amount, loaded_miles, dh_miles")
-        .eq("canceled", false)
-        .gte("pickup_datetime", fromIso)
-        .limit(5000);
-      if (error) throw error;
-      if (!orders || orders.length === 0) return {} as Record<string, number>;
+      const orders = await fetchAllOrdersInWindow(fromIso);
+      if (!orders || orders.length === 0) return { ratings: {}, metrics: {} } as { ratings: Record<string, number>; metrics: Record<string, StateMetrics> };
 
       const orderIds = orders.map((o: any) => o.id);
       const wantedType = direction === "inbound" ? "delivery" : "pickup";
@@ -251,13 +265,7 @@ function useCityRatings(direction: Direction, enabled: boolean) {
       lastMon.setUTCDate(lastMon.getUTCDate() - 7);
       const fromIso = lastMon.toISOString();
 
-      const { data: orders, error } = await supabase
-        .from("orders")
-        .select("id, freight_amount, loaded_miles, dh_miles")
-        .eq("canceled", false)
-        .gte("pickup_datetime", fromIso)
-        .limit(5000);
-      if (error) throw error;
+      const orders = await fetchAllOrdersInWindow(fromIso);
       if (!orders || orders.length === 0) return { metrics: [] as CityMetrics[] };
 
       const orderIds = (orders as any[]).map((o) => o.id);
