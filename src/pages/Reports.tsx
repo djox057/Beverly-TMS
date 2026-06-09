@@ -6166,7 +6166,12 @@ const Reports = () => {
                                                 </span>
                                               </div>
                                               {canSeeWeekRevenue(truck) && (
-                                                <TruckWeekRevenuePopover orders={truck.allOrders} referenceDate={startDate} />
+                                                <TruckWeekRevenuePopover
+                                                  orders={truck.allOrders}
+                                                  referenceDate={startDate}
+                                                  driverId={truck.driverId}
+                                                  driver2Id={truck.driver2Id}
+                                                />
                                               )}
                                             </div>
                                             <div className="h-8 p-0 w-full">
