@@ -370,6 +370,44 @@ export default function BeverlyHeatmapUsMap() {
                   <span className="font-medium">{fmtMoney(selectedMetrics.avgGross)}</span>
                 </div>
               </div>
+              <div className="border-t pt-3 space-y-1">
+                <div className="text-xs font-medium mb-1">Weighted average breakdown</div>
+                <div className="text-[11px] text-muted-foreground mb-2">
+                  Each metric is normalized to 0..1 across all states (min → 0, max → 1; DH is inverted so lower DH = 1), then multiplied by its weight. The sum is the weighted average, mapped to 1..10.
+                </div>
+                {[
+                  { label: "Loads", w: 0.4, n: selectedMetrics.nCount },
+                  { label: "RPM", w: 0.3, n: selectedMetrics.nRpm },
+                  { label: "DH/load (inv)", w: 0.2, n: selectedMetrics.nDh },
+                  { label: "Avg gross", w: 0.1, n: selectedMetrics.nGross },
+                ].map((row) => (
+                  <div key={row.label} className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      {row.label} — norm {row.n.toFixed(2)} × {row.w}
+                    </span>
+                    <span className="font-mono">{(row.n * row.w).toFixed(3)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between text-xs font-medium border-t pt-1 mt-1">
+                  <span>Weighted avg</span>
+                  <span className="font-mono">{selectedMetrics.weightedAvg.toFixed(3)}</span>
+                </div>
+                <div className="flex justify-between text-xs font-medium">
+                  <span>Rating = round(1 + {selectedMetrics.weightedAvg.toFixed(3)} × 9)</span>
+                  <span className="font-mono">{selectedMetrics.rating}</span>
+                </div>
+              </div>
+              <div className="border-t pt-3 text-[11px] text-muted-foreground space-y-1">
+                <div className="font-medium text-foreground">Example</div>
+                <div>
+                  State A has the most loads (norm 1.0), avg RPM (0.5), worst DH (inv 0.0), best gross (1.0):
+                  0.4·1 + 0.3·0.5 + 0.2·0 + 0.1·1 = 0.65 → round(1 + 0.65·9) = <b>7/10</b>.
+                </div>
+                <div>
+                  State B is the worst on every metric (all norms 0):
+                  0 → round(1 + 0) = <b>1/10</b>.
+                </div>
+              </div>
               <div className="border-t pt-3 space-y-2 text-xs text-muted-foreground">
                 <div className="flex justify-between">
                   <span>Total freight</span>
