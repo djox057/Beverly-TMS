@@ -1,44 +1,84 @@
-## Goal
+# Cities heatmap (weighted density surface)
 
-Replace the current "Cities" view watercolor/blob rendering with a DAT-style choropleth: every 3-digit ZIP zone in the lower 48 is a flat-shaded polygon. Each city's loads are attributed (point-in-polygon, by avg lat/lng) to its containing ZIP3 zone, and the zone is colored by the existing 1–10 rating. Zones with no data render light grey. State borders stay overlaid on top.
+Add a second view to `BeverlyHeatmapUsMap` that renders a smooth, topographic-style freight density surface from city-level stats — like an elevation map of market strength — instead of bubbles per city.
 
-## What changes
+## UX
 
-Only `src/pages/BeverlyHeatmapUsMap.tsx` (Cities tab rendering) plus one bundled GeoJSON asset. No DB changes, no RPC changes, no changes to state view, rating formula, or rating colors.
+- Add a view toggle next to the existing Inbound/Outbound toggle: **States** | **Cities**.
+- States view stays exactly as is.
+- Cities view renders the same US base map, but with the state choropleth replaced by a smooth heat surface. Tooltip on hover shows the nearest city's stats (count, freight, RPM, rating).
+- Color scale (low → high):
+  ```text
+  red → orange → yellow → light green → green
+  ```
+- Legend updates to match.
 
-## User-visible behavior
+## Data
 
-- Cities tab renders ~920 ZIP3 polygons covering the lower 48.
-- Each polygon is one flat color from the existing `RATING_COLORS` palette (1–10) — no gradients, no blur, no bleed.
-- Zones containing at least one city's centroid → colored by aggregated rating of cities falling inside them.
-- Zones with no cities → light grey (`hsl(var(--muted))`).
-- State borders remain drawn on top in a thin contrast line so DAT-style boundaries are still visible.
-- Hover a zone → tooltip shows zone code + aggregated metrics (count, freight, rating).
-- Click a zone → opens existing city dialog, scoped to cities inside that zone (reuses the dialog component already wired to city data).
-- Legend (1–10 color scale) stays as-is.
+Use the existing `get_us_map_city_stats` RPC (same Mon→now Chicago window, same Inbound/Outbound semantics as states). Per row: `city, state, count, freight, loaded_miles, dh_miles, latitude, longitude`.
 
-## How it works
+Compute per-city derived metrics client-side (cheap, < a few hundred cities):
+- `rpm = freight / max(loaded_miles, 1)`
+- `dhPerLoad = dh_miles / count`
+- `avgGross = freight / count`
+- `rating` — reuse the same 1–10 composite scoring used for states so the scales are comparable.
 
-1. **Bundle ZIP3 polygons.** Add `src/assets/us-zip3.geojson` (US 3-digit ZIP boundary file, ~2 MB, lower 48 only, simplified to keep size down). Imported statically so it ships in the bundle.
-2. **Aggregate cities → ZIP3.** On city data load, for each city run point-in-polygon (`d3-geo`'s `geoContains`) against the ZIP3 feature collection using the city's avg lat/lng. Accumulate `count`, `freight`, `loaded_miles`, `dh_miles` per ZIP3.
-3. **Compute per-zone rating.** Reuse the existing rating function on the aggregated zone totals (same weighted geometric mean used today for cities), producing a 1–10 integer per zone.
-4. **Render.** Replace the `<g>` containing the watercolor `<defs>` + blob circles + center dots with a single `<g>` of `<path>` elements — one per ZIP3 feature — generated via `geoPath(projection)`. Fill = `RATING_COLORS[rating]` for zones with data, `hsl(var(--muted))` otherwise. Stroke = very thin neutral border so adjacent zones are distinguishable (DAT-style).
-5. **Keep state overlay.** The existing state `<path>` layer is re-rendered above the ZIP3 layer with a slightly thicker stroke and no fill, so state boundaries remain the dominant geographic reference.
-6. **Hover / click.** `onMouseEnter` / `onClick` on each ZIP3 path drives the existing tooltip + dialog. Dialog receives the list of cities inside that zone (already in memory from step 2).
+Heatmap weight per city:
+```ts
+weight = rating * Math.log(count + 1)
+```
+This is what gets fed into the density layer (so one lucky $5k load on a single order can't paint a region green).
 
-## Technical details
+## Rendering approach
 
-- New file: `src/assets/us-zip3.geojson` (sourced from a public ZIP3 boundary dataset, simplified with `mapshaper` to ~2 MB, lower 48 only).
-- `BeverlyHeatmapUsMap.tsx`:
-  - Remove: `MILE_TO_SVG`, `BLOB_RADIUS`, `centerOpacityFor`, `<defs>` radial gradients, watercolor `<g>` with `mixBlendMode: "multiply"`, per-city center `<circle>` markers.
-  - Add: `useMemo` that builds `Map<zip3, { cities: City[], totals, rating }>` from the city array.
-  - Add: ZIP3 `<g>` rendered before the state overlay `<g>`.
-  - Reuse: existing `projection`, `geoPath`, `RATING_COLORS`, rating function, and city dialog component.
-- No new dependencies — `d3-geo` is already used.
-- Performance: ~920 simple paths render in well under one frame; one-time point-in-polygon over ~hundreds of cities is negligible.
+Use **deck.gl `HeatmapLayer`** overlaid on the existing `react-simple-maps` SVG via a `DeckGL` canvas matched to the same Albers USA projection. Why deck.gl:
+- Built-in GPU kernel density, smooth blending between nearby cities (Dallas+Houston corridor effect).
+- Configurable `radiusPixels`, `intensity`, `threshold`, custom `colorRange`.
+- Handles a few thousand weighted points trivially.
 
-## Out of scope
+Add deps: `deck.gl @deck.gl/react @deck.gl/aggregation-layers @deck.gl/core`.
 
-- State view, rating formula, RPCs, DB schema, other heatmap tabs.
-- KMA market areas or county fallback (rejected — user chose ZIP3).
-- 60-mile radius spread across zones (rejected — user chose point-in-polygon).
+Projection alignment:
+- Continue using `react-simple-maps` `geoAlbersUsa` for the state outlines underneath.
+- Mount a `DeckGL` canvas absolutely positioned over the SVG with an orthographic/identity view, projecting each city's `[lng, lat]` through the same `geoAlbersUsa` projection (using `d3-geo`) to screen-space `[x, y]` before passing into `HeatmapLayer`. This avoids needing Mapbox/tiles entirely (no tokens, no postMessage origin issue).
+
+`HeatmapLayer` config:
+```ts
+new HeatmapLayer({
+  data: cities,
+  getPosition: c => [c.screenX, c.screenY], // pre-projected
+  getWeight: c => c.rating * Math.log(c.count + 1),
+  radiusPixels: 60,
+  intensity: 1,
+  threshold: 0.03,
+  colorRange: [
+    [139,0,0],     // red
+    [255,102,0],   // orange
+    [255,170,0],   // yellow
+    [182,217,0],   // light green
+    [102,204,51],  // green
+    [0,160,0],     // strong green
+  ],
+})
+```
+
+State borders remain visible on top with low-opacity strokes so users still see geography.
+
+## Interaction
+
+- Hover: small floating tooltip showing the closest city within ~80 px (computed from the same screen-projected points) with `city, state, rating, count, freight, RPM`.
+- Click optional (skip for v1).
+- Direction toggle continues to work; prefetch opposite direction in background like states.
+
+## Performance
+
+- Server aggregation already done by `get_us_map_city_stats`. One RPC call per direction.
+- React Query: 10 min `staleTime`, `keepPreviousData`, background prefetch of opposite direction.
+- City projection runs once per `(direction, container size)` change; HeatmapLayer is GPU.
+
+## Files
+
+- `src/pages/BeverlyHeatmapUsMap.tsx` — add view toggle, cities data hook (`useCityRatings`), composite rating fn shared with states (extract to local helper), deck.gl overlay, tooltip, updated legend.
+- `package.json` — add deck.gl deps.
+
+No new tables or RPCs; no edge functions.
