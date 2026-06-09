@@ -552,8 +552,11 @@ const BgLoads = () => {
     // (Never show unfiltered local orders, even while loading.)
     if (hasActiveFilter) {
       const results = filteredServerOrders || [];
-      // Sort by creation date descending (newest first)
+      // Unlocked first, then by creation date descending (newest first)
       return [...results].sort((a, b) => {
+        const aLocked = a.locked ? 1 : 0;
+        const bLocked = b.locked ? 1 : 0;
+        if (aLocked !== bLocked) return aLocked - bLocked;
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return bTime - aTime;
