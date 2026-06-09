@@ -550,7 +550,7 @@ export default function BeverlyHeatmapUsMap() {
                 width="100%"
                 height="100%"
                 layers={heatmapLayer ? [heatmapLayer] : []}
-                style={{ position: "absolute", inset: 0 }}
+                style={{ position: "absolute", inset: "0" }}
                 getCursor={() => "default"}
               />
             </div>
