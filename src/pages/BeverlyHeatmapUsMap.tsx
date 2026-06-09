@@ -552,50 +552,61 @@ export default function BeverlyHeatmapUsMap() {
                   })
               }
             </Geographies>
-            {viewMode === "cities" && (
-              <>
-                {/* One radial gradient per rating, fading to transparent at the 60-mile edge */}
-                <defs>
-                  {Object.entries(RATING_COLORS).map(([r, color]) => (
-                    <radialGradient key={r} id={`blob-${r}`} cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor={color} stopOpacity={1} />
-                      <stop offset="60%" stopColor={color} stopOpacity={0.55} />
-                      <stop offset="100%" stopColor={color} stopOpacity={0} />
-                    </radialGradient>
-                  ))}
-                </defs>
-                {/* Watercolor layer — soft blobs that blend where they overlap */}
-                <g style={{ mixBlendMode: "multiply" as any, pointerEvents: "none" }}>
-                  {cityMetrics.map((c) => (
-                    <Marker key={`blob-${c.city}|${c.state}`} coordinates={[c.lng, c.lat]}>
-                      <circle
-                        r={BLOB_RADIUS}
-                        fill={`url(#blob-${c.rating})`}
-                        opacity={centerOpacityFor(c.count)}
+            {viewMode === "cities" && zip3Geo && (
+              <Geographies geography={zip3Geo}>
+                {({ geographies }) =>
+                  geographies.map((geo) => {
+                    const zip3 = String(geo.properties?.ZCTA3 || geo.properties?.zip3 || "");
+                    const zone = zoneByZip3[zip3];
+                    const fill = zone ? interpolateColor(zone.rating) : "hsl(var(--muted))";
+                    return (
+                      <Geography
+                        key={geo.rsmKey}
+                        geography={geo}
+                        onClick={() => zone && setSelectedZip3(zip3)}
+                        style={{
+                          default: {
+                            fill,
+                            stroke: "hsl(var(--background))",
+                            strokeWidth: 0.15,
+                            outline: "none",
+                            cursor: zone ? "pointer" : "default",
+                          },
+                          hover: {
+                            fill,
+                            opacity: zone ? 0.8 : 1,
+                            stroke: "hsl(var(--background))",
+                            strokeWidth: 0.15,
+                            outline: "none",
+                            cursor: zone ? "pointer" : "default",
+                          },
+                          pressed: { fill, outline: "none" },
+                        }}
                       />
-                    </Marker>
-                  ))}
-                </g>
-                {/* Tiny invisible hit targets so each city remains clickable */}
-                {cityMetrics.map((c) => {
-                  const key = `${c.city}|${c.state}`;
-                  return (
-                    <Marker
-                      key={`hit-${key}`}
-                      coordinates={[c.lng, c.lat]}
-                      onClick={() => setSelectedCityKey(key)}
-                      style={{
-                        default: { cursor: "pointer" },
-                        hover: { cursor: "pointer" },
-                        pressed: { cursor: "pointer" },
-                      }}
-                    >
-                      <circle r={3} fill="hsl(var(--foreground))" opacity={0.85} />
-                      <circle r={BLOB_RADIUS} fill="transparent" />
-                    </Marker>
-                  );
-                })}
-              </>
+                    );
+                  })
+                }
+              </Geographies>
+            )}
+            {viewMode === "cities" && (
+              /* State borders overlay on top of zip3 choropleth, no fill */
+              <Geographies geography={GEO_URL}>
+                {({ geographies }) =>
+                  geographies
+                    .filter((geo) => !EXCLUDED_STATE_IDS.has(String(geo.id)))
+                    .map((geo) => (
+                      <Geography
+                        key={`overlay-${geo.rsmKey}`}
+                        geography={geo}
+                        style={{
+                          default: { fill: "transparent", stroke: "hsl(var(--foreground))", strokeWidth: 0.6, outline: "none", pointerEvents: "none" },
+                          hover: { fill: "transparent", stroke: "hsl(var(--foreground))", strokeWidth: 0.6, outline: "none", pointerEvents: "none" },
+                          pressed: { fill: "transparent", outline: "none", pointerEvents: "none" },
+                        }}
+                      />
+                    ))
+                }
+              </Geographies>
             )}
           </ComposableMap>
         </div>
