@@ -228,11 +228,51 @@ const TruckSales = () => {
     );
   }, [data]);
 
+  // Compute effective status for a truck (same logic as row render)
+  const getEffectiveStatus = (t: TruckRow) => {
+    const hasDriver = !!t.driver1;
+    const storedPriority =
+      t.truck_sales_status && PRIORITY_SET.has(t.truck_sales_status)
+        ? STATUS_MAP.get(t.truck_sales_status) || null
+        : null;
+    const autoStatus = hasDriver
+      ? STATUS_MAP.get("DRIVERS_ON_ROAD")!
+      : STATUS_MAP.get("READY")!;
+    return storedPriority ?? autoStatus;
+  };
+
+  const filteredGrouped = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return grouped.map((g) => {
+      const trucks = g.trucks.filter((t) => {
+        const status = getEffectiveStatus(t);
+        const statusMatch = statusFilter === "ALL" || status.value === statusFilter;
+        if (!statusMatch) return false;
+        if (!q) return true;
+        const driverName = [t.driver1?.first_name, t.driver1?.last_name]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return (
+          t.truck_number.toLowerCase().includes(q) ||
+          (t.make || "").toLowerCase().includes(q) ||
+          (t.model || "").toLowerCase().includes(q) ||
+          (t.engine || "").toLowerCase().includes(q) ||
+          driverName.includes(q)
+        );
+      });
+      return { ...g, trucks };
+    }).filter((g) => g.trucks.length > 0);
+  }, [grouped, searchQuery, statusFilter]);
+
+  // Auto-switch company tab when search/filter changes
   useEffect(() => {
-    if (!selectedCompany && grouped.length > 0) {
-      setSelectedCompany(grouped[0].name);
+    if (filteredGrouped.length === 0) return;
+    const current = filteredGrouped.find((g) => g.name === selectedCompany);
+    if (!current) {
+      setSelectedCompany(filteredGrouped[0].name);
     }
-  }, [grouped, selectedCompany]);
+  }, [filteredGrouped, selectedCompany]);
 
   const updateTruck = async (id: string, patch: Partial<TruckRow>) => {
     // Optimistic
