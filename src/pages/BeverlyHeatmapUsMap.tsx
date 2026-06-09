@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-import { geoCentroid, geoAlbersUsa } from "d3-geo";
+import { geoCentroid, geoAlbersUsa, geoPath } from "d3-geo";
+import { feature } from "topojson-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin } from "lucide-react";
@@ -364,21 +365,36 @@ export default function BeverlyHeatmapUsMap() {
     if (viewMode !== "cities" || cities.length === 0) return [];
     const proj = geoAlbersUsa().scale(1000).translate([MAP_W / 2, MAP_H / 2]);
     const out: Array<CityRow & { x: number; y: number; radius: number }> = [];
-    // Scale circle radius by load count (log) so big markets dominate without dwarfing the rest.
-    const maxCount = Math.max(1, ...cities.map((c) => c.count));
-    const maxLog = Math.log(maxCount + 1);
     for (const c of cities) {
       const p = proj([c.longitude, c.latitude]);
       if (!p) continue;
       const [x, y] = p;
-      // Drop anything that projected outside the lower-48 frame.
       if (x < 0 || x > MAP_W || y < 0 || y > MAP_H) continue;
-      const t = maxLog > 0 ? Math.log(c.count + 1) / maxLog : 0;
-      const radius = 6 + t * 22; // 6px floor, up to 28px for top market
+      // Fixed ~60 mile radius footprint in projected pixel space.
+      // The Albers projection at scale 1000 yields ~0.55 px per mile across the lower-48.
+      const radius = 60 * 0.55;
       out.push({ ...c, x, y, radius });
     }
     return out;
   }, [cities, viewMode]);
+
+  // Build a US-shaped clip path so the colored blobs never spill outside the map.
+  const usClipPath = useMemo(() => {
+    if (viewMode !== "cities") return "";
+    try {
+      const topo: any = GEO_DATA;
+      const obj = topo.objects?.states || Object.values(topo.objects || {})[0];
+      const fc: any = feature(topo, obj);
+      const features = (fc.features || []).filter(
+        (f: any) => !EXCLUDED_STATE_IDS.has(String(f.id)),
+      );
+      const proj = geoAlbersUsa().scale(1000).translate([MAP_W / 2, MAP_H / 2]);
+      const path = geoPath(proj);
+      return features.map((f: any) => path(f) || "").join(" ");
+    } catch {
+      return "";
+    }
+  }, [viewMode]);
 
   return (
     <Card>
@@ -425,6 +441,36 @@ export default function BeverlyHeatmapUsMap() {
             height={MAP_H}
             style={{ width: "100%", height: "auto" }}
           >
+            {viewMode === "cities" && (
+              <defs>
+                <clipPath id="us-clip">
+                  <path d={usClipPath} />
+                </clipPath>
+                <filter id="heat-blur" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="14" />
+                </filter>
+              </defs>
+            )}
+
+            {viewMode === "cities" && (
+              <g clipPath="url(#us-clip)">
+                {/* Base muted fill so areas without data still read as land. */}
+                <path d={usClipPath} fill="hsl(var(--muted))" />
+                <g filter="url(#heat-blur)">
+                  {projectedCities.map((c) => (
+                    <circle
+                      key={`heat-${c.city}-${c.state}`}
+                      cx={c.x}
+                      cy={c.y}
+                      r={c.radius}
+                      fill={interpolateColor(c.rating)}
+                      fillOpacity={0.9}
+                    />
+                  ))}
+                </g>
+              </g>
+            )}
+
             <Geographies geography={GEO_DATA}>
               {({ geographies }) =>
                 geographies
@@ -437,6 +483,7 @@ export default function BeverlyHeatmapUsMap() {
                     const hasRating = viewMode === "states" && !!rating;
                     const labelFill = hasRating ? "#ffffff" : "hsl(var(--muted-foreground))";
                     const interactive = viewMode === "states";
+                    const stateFill = viewMode === "cities" ? "transparent" : fillColor;
                     return (
                       <g key={geo.rsmKey}>
                         <Geography
@@ -444,22 +491,22 @@ export default function BeverlyHeatmapUsMap() {
                           onClick={() => interactive && abbr && setSelectedState(abbr)}
                           style={{
                             default: {
-                              fill: fillColor,
-                              stroke: viewMode === "cities" ? "rgba(0,0,0,0.35)" : "hsl(var(--border))",
+                              fill: stateFill,
+                              stroke: viewMode === "cities" ? "rgba(255,255,255,0.5)" : "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
                               cursor: interactive ? "pointer" : "default",
                             },
                             hover: {
-                              fill: fillColor,
+                              fill: stateFill,
                               opacity: interactive ? 0.85 : 1,
-                              stroke: viewMode === "cities" ? "rgba(0,0,0,0.35)" : "hsl(var(--border))",
+                              stroke: viewMode === "cities" ? "rgba(255,255,255,0.5)" : "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
                               cursor: interactive ? "pointer" : "default",
                             },
                             pressed: {
-                              fill: fillColor,
+                              fill: stateFill,
                               outline: "none",
                             },
                           }}
@@ -495,11 +542,8 @@ export default function BeverlyHeatmapUsMap() {
                   key={`${c.city}-${c.state}`}
                   cx={c.x}
                   cy={c.y}
-                  r={c.radius}
-                  fill={interpolateColor(c.rating)}
-                  fillOpacity={0.75}
-                  stroke="#ffffff"
-                  strokeWidth={1}
+                  r={10}
+                  fill="transparent"
                   style={{ cursor: "pointer" }}
                   onMouseEnter={(e) => {
                     const rect = overlayRef.current?.getBoundingClientRect();
