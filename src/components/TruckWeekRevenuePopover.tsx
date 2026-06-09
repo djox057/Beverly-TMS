@@ -86,6 +86,15 @@ function getOrderPickupDate(order: any): string | null {
   );
 }
 
+function getOrderLastDeliveryDate(order: any): string | null {
+  const stops = order?.deliveryStops;
+  if (Array.isArray(stops) && stops.length > 0) {
+    const last = stops[stops.length - 1];
+    if (last?.datetime) return last.datetime;
+  }
+  return order?.delivery_datetime || order?.deliveryDatetime || null;
+}
+
 export const TruckWeekRevenuePopover = ({ orders }: Props) => {
   const stats = useMemo(() => {
     const { start, end } = getChicagoWeekRange();
@@ -111,9 +120,25 @@ export const TruckWeekRevenuePopover = ({ orders }: Props) => {
       0,
     );
     const comm = freight - pay;
-    const chicagoNow = getChicagoNow();
-    const isoDay = chicagoNow.getDay() === 0 ? 7 : chicagoNow.getDay(); // Mon=1 ... Sun=7
-    const days = isoDay;
+    // Find latest delivery date among the orders picked up this week
+    let latestDelivery = -Infinity;
+    for (const o of inWeek) {
+      const raw = getOrderLastDeliveryDate(o);
+      if (!raw) continue;
+      const t = new Date(typeof raw === "string" ? raw.replace(" ", "T") : raw).getTime();
+      if (Number.isFinite(t) && t > latestDelivery) latestDelivery = t;
+    }
+    let days = 0;
+    if (Number.isFinite(latestDelivery)) {
+      // Chicago weekday of latest delivery date (Mon=1 ... Sun=7)
+      const wd = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Chicago",
+        weekday: "short",
+      }).format(new Date(latestDelivery));
+      const wdIdx = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd);
+      const isoWd = wdIdx === 0 ? 7 : wdIdx; // Mon=1..Sun=7
+      days = Math.max(1, isoWd - 1);
+    }
     return {
       count: inWeek.length,
       freight,
@@ -166,7 +191,7 @@ export const TruckWeekRevenuePopover = ({ orders }: Props) => {
             <span className="font-semibold text-amber-600 dark:text-amber-400">
               {Math.round(stats.miles).toLocaleString()}
               <span className="ml-1 text-[11px] text-muted-foreground">
-                ({stats.miles > 0 ? Math.round(stats.miles / stats.days).toLocaleString() : "—"})
+                ({stats.miles > 0 && stats.days > 0 ? Math.round(stats.miles / stats.days).toLocaleString() : "—"})
               </span>
             </span>
           </div>
