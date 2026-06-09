@@ -113,7 +113,7 @@ export const TruckWeekRevenuePopover = ({ orders }: Props) => {
     const comm = freight - pay;
     const chicagoNow = getChicagoNow();
     const isoDay = chicagoNow.getDay() === 0 ? 7 : chicagoNow.getDay(); // Mon=1 ... Sun=7
-    const daysPlusOne = isoDay + 1;
+    const days = isoDay;
     return {
       count: inWeek.length,
       freight,
@@ -123,7 +123,7 @@ export const TruckWeekRevenuePopover = ({ orders }: Props) => {
       freightRpm: miles > 0 ? freight / miles : 0,
       payRpm: miles > 0 ? pay / miles : 0,
       commPct: freight > 0 ? (comm / freight) * 100 : 0,
-      daysPlusOne,
+      days,
     };
   }, [orders]);
 
@@ -166,7 +166,7 @@ export const TruckWeekRevenuePopover = ({ orders }: Props) => {
             <span className="font-semibold text-amber-600 dark:text-amber-400">
               {Math.round(stats.miles).toLocaleString()}
               <span className="ml-1 text-[11px] text-muted-foreground">
-                ({stats.miles > 0 ? Math.round(stats.miles / stats.daysPlusOne).toLocaleString() : "—"})
+                ({stats.miles > 0 ? Math.round(stats.miles / stats.days).toLocaleString() : "—"})
               </span>
             </span>
           </div>
