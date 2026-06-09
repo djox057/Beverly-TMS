@@ -447,20 +447,22 @@ const Reports = () => {
 
   const canSeeWeekRevenue = useCallback(
     (truck: any) => {
-      if (hasRole("admin") || hasRole("manager")) return true;
-      if (hasRole("supervisor")) {
+      // Use raw roles check so accounting/safety (which get dispatch-like access
+      // via hasRole) cannot see the $ revenue popover.
+      if (roles.includes("admin") || roles.includes("manager")) return true;
+      if (roles.includes("supervisor")) {
         if (!truck?.dispatcherId) return false;
         return (
           truck.dispatcherId === profile?.id ||
           supervisedDispatcherIds.includes(truck.dispatcherId)
         );
       }
-      if (hasRole("dispatch")) {
+      if (roles.includes("dispatch")) {
         return !!truck?.dispatcherId && truck.dispatcherId === profile?.id;
       }
       return false;
     },
-    [hasRole, profile?.id, supervisedDispatcherIds],
+    [roles, profile?.id, supervisedDispatcherIds],
   );
 
   // Temporary plate upload dialog state
