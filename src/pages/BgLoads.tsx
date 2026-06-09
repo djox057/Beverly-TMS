@@ -540,10 +540,11 @@ const BgLoads = () => {
     if (isActiveSearch) {
       // LOCKED into server mode - never fall back to local orders during active search
       const results = searchResults || [];
-      // Sort unlocked orders first
+      // Sort by creation date descending (newest first)
       return [...results].sort((a, b) => {
-        if (a.locked === b.locked) return 0;
-        return a.locked ? 1 : -1;
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
       });
     }
 
@@ -551,10 +552,11 @@ const BgLoads = () => {
     // (Never show unfiltered local orders, even while loading.)
     if (hasActiveFilter) {
       const results = filteredServerOrders || [];
-      // Sort unlocked orders first when filters are active
+      // Sort by creation date descending (newest first)
       return [...results].sort((a, b) => {
-        if (a.locked === b.locked) return 0;
-        return a.locked ? 1 : -1;
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
       });
     }
 

@@ -300,13 +300,12 @@ Deno.serve(async (req) => {
     }
 
     // Order and paginate.
-    // `locked asc` guarantees unlocked-first across the entire result set (not just
-    // within a single batch). `id asc` is a stable tiebreaker so successive
-    // offset/limit batches don't skip or duplicate rows when many rows share the
-    // same `locked` value.
+    // Sort by creation date descending (newest first) across the entire result
+    // set. `id desc` is a stable tiebreaker so successive offset/limit batches
+    // don't skip or duplicate rows when many rows share the same `created_at`.
     query = query
-      .order("locked", { ascending: true })
-      .order("id", { ascending: true })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(offset, offset + limit - 1);
 
     const { data: orders, error: fetchError, count } = await query;
