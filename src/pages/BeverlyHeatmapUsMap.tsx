@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
-import { geoCentroid } from "d3-geo";
+import { geoCentroid, geoContains } from "d3-geo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import zip3Asset from "@/assets/us-zip3.json.asset.json";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
+const ZIP3_URL = zip3Asset.url;
 
 // FIPS state IDs to exclude: Alaska (02), Hawaii (15), and territories.
 const EXCLUDED_STATE_IDS = new Set(["02", "15", "60", "66", "69", "72", "78"]);
