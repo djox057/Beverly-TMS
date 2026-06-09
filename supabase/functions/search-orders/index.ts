@@ -304,6 +304,7 @@ Deno.serve(async (req) => {
     // set. `id desc` is a stable tiebreaker so successive offset/limit batches
     // don't skip or duplicate rows when many rows share the same `created_at`.
     query = query
+      .order("locked", { ascending: true })
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .range(offset, offset + limit - 1);
