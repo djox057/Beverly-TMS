@@ -338,6 +338,94 @@ export default function BeverlyHeatmapUsMap() {
   const [selectedCityKey, setSelectedCityKey] = useState<string | null>(null);
   const selectedCity = selectedCityKey ? cityMetrics.find((c) => `${c.city}|${c.state}` === selectedCityKey) || null : null;
 
+  // Fetch the simplified ZIP3 polygon GeoJSON once and cache it.
+  const { data: zip3Geo } = useQuery({
+    queryKey: ["zip3-geojson"],
+    enabled: viewMode === "cities",
+    staleTime: Infinity,
+    queryFn: async () => {
+      const res = await fetch(ZIP3_URL);
+      if (!res.ok) throw new Error("zip3 geojson fetch failed");
+      return (await res.json()) as any;
+    },
+  });
+
+  // Aggregate cities into the ZIP3 zone that contains their centroid.
+  type ZoneAgg = {
+    zip3: string;
+    cities: CityMetrics[];
+    count: number;
+    freight: number;
+    loadedMiles: number;
+    dhMiles: number;
+  };
+  const zoneByZip3: Record<string, ZoneAgg & { rating: number; rpm: number; dhPerLoad: number; avgGross: number }> = (() => {
+    const out: Record<string, any> = {};
+    if (!zip3Geo || cityMetrics.length === 0) return out;
+    const features = (zip3Geo.features || []) as any[];
+    // Build a lat-band index for faster point-in-polygon scans.
+    const byZip: Record<string, ZoneAgg> = {};
+    for (const c of cityMetrics) {
+      // Quick bbox prefilter then geoContains.
+      const pt: [number, number] = [c.lng, c.lat];
+      let hit: any = null;
+      for (const f of features) {
+        const bbox = f.bbox as number[] | undefined;
+        if (bbox && (pt[0] < bbox[0] || pt[0] > bbox[2] || pt[1] < bbox[1] || pt[1] > bbox[3])) continue;
+        if (geoContains(f, pt)) { hit = f; break; }
+      }
+      if (!hit) continue;
+      const zip3 = String(hit.properties?.ZCTA3 || hit.properties?.zip3 || "");
+      if (!zip3) continue;
+      const z = (byZip[zip3] ||= { zip3, cities: [], count: 0, freight: 0, loadedMiles: 0, dhMiles: 0 });
+      z.cities.push(c);
+      z.count += c.count;
+      z.freight += c.totalFreight;
+      z.loadedMiles += c.totalLoadedMiles;
+      z.dhMiles += c.totalDhMiles;
+    }
+    const zones = Object.values(byZip);
+    if (zones.length === 0) return out;
+    // Compute the same 4-metric weighted rating used elsewhere.
+    const ms = zones.map((z) => ({
+      zip3: z.zip3,
+      count: z.count,
+      rpm: z.loadedMiles > 0 ? z.freight / z.loadedMiles : 0,
+      dhPerLoad: z.count > 0 ? z.dhMiles / z.count : 0,
+      avgGross: z.count > 0 ? z.freight / z.count : 0,
+    }));
+    const mm = (vals: number[]) => ({ min: Math.min(...vals), max: Math.max(...vals) });
+    const nrm = (v: number, mn: number, mx: number, inv = false) => {
+      if (mx === mn) return 0.5;
+      const n = (v - mn) / (mx - mn);
+      return inv ? 1 - n : n;
+    };
+    const c = mm(ms.map((m) => m.count));
+    const r = mm(ms.map((m) => m.rpm));
+    const d = mm(ms.map((m) => m.dhPerLoad));
+    const g = mm(ms.map((m) => m.avgGross));
+    const eps = 0.01;
+    const scored = ms.map((m) => {
+      const nC = nrm(m.count, c.min, c.max) + eps;
+      const nR = nrm(m.rpm, r.min, r.max) + eps;
+      const nD = nrm(m.dhPerLoad, d.min, d.max, true) + eps;
+      const nG = nrm(m.avgGross, g.min, g.max) + eps;
+      return { zip3: m.zip3, score: Math.pow(nC, 0.4) * Math.pow(nR, 0.3) * Math.pow(nD, 0.2) * Math.pow(nG, 0.1), m };
+    });
+    const sMin = Math.min(...scored.map((s) => s.score));
+    const sMax = Math.max(...scored.map((s) => s.score));
+    for (const s of scored) {
+      const n = sMax === sMin ? 0.5 : (s.score - sMin) / (sMax - sMin);
+      const rating = Math.max(1, Math.min(10, Math.round(1 + n * 9)));
+      const z = byZip[s.zip3];
+      out[s.zip3] = { ...z, rating, rpm: s.m.rpm, dhPerLoad: s.m.dhPerLoad, avgGross: s.m.avgGross };
+    }
+    return out;
+  })();
+
+  const [selectedZip3, setSelectedZip3] = useState<string | null>(null);
+  const selectedZone = selectedZip3 ? zoneByZip3[selectedZip3] : null;
+
   const fillForAbbr = (abbr: string): string => {
     const r = ratings[abbr];
     if (!r) return "hsl(var(--muted))";
