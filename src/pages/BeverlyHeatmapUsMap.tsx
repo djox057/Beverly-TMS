@@ -235,10 +235,15 @@ function useStateRatings(direction: Direction) {
 
 export default function BeverlyHeatmapUsMap() {
   const [direction, setDirection] = useState<Direction>("inbound");
+  const [viewMode, setViewMode] = useState<ViewMode>("states");
   const { data } = useStateRatings(direction);
   const ratings = data?.ratings || {};
   const metrics = data?.metrics || {};
   const [selectedState, setSelectedState] = useState<string | null>(null);
+  const { data: cityData } = useCityRatings(direction, viewMode === "cities");
+  const cityMetrics = cityData?.metrics || [];
+  const [selectedCityKey, setSelectedCityKey] = useState<string | null>(null);
+  const selectedCity = selectedCityKey ? cityMetrics.find((c) => `${c.city}|${c.state}` === selectedCityKey) || null : null;
 
   const fillForAbbr = (abbr: string): string => {
     const r = ratings[abbr];
