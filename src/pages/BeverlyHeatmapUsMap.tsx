@@ -79,30 +79,8 @@ const RATING_COLORS: Record<number, string> = {
   10: "#00A000",
 };
 
-const CITY_TERRAIN_COLORS: Record<number, string> = {
-  1: "#8B6F2A",
-  2: "#A78130",
-  3: "#BD9837",
-  4: "#D2B444",
-  5: "#E3D65A",
-  6: "#D1DC63",
-  7: "#B8D86A",
-  8: "#8DCD70",
-  9: "#62BE76",
-  10: "#39A96B",
-};
-
-const CITY_NO_DATA_FILL = "#E5E7EB";
-const CITY_STATE_BASE_FILL = "#F3F4F6";
-const CITY_STATE_BORDER = "#FFFFFF";
-const CITY_ZIP_BORDER = "#F8FAFC";
-
 function interpolateColor(rating: number): string {
   return RATING_COLORS[rating] || "#000000";
-}
-
-function interpolateCityTerrainColor(rating: number): string {
-  return CITY_TERRAIN_COLORS[rating] || CITY_NO_DATA_FILL;
 }
 
 // Supabase REST API caps each response at ~1000 rows. Paginate to fetch all matching orders.
