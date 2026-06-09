@@ -724,6 +724,58 @@ export default function BeverlyHeatmapUsMap() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!selectedZone} onOpenChange={(o) => !o && setSelectedZip3(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              ZIP {selectedZip3} — {direction === "inbound" ? "Inbound" : "Outbound"}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedZone && (
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Rating</span>
+                <span className="text-2xl font-bold" style={{ color: interpolateColor(selectedZone.rating) }}>
+                  {selectedZone.rating}/10
+                </span>
+              </div>
+              <div className="border-t pt-3 space-y-2">
+                <div className="text-xs text-muted-foreground mb-1">Based on (in order of importance):</div>
+                <div className="flex justify-between"><span>1. Number of loads</span><span className="font-medium">{fmtNum(selectedZone.count)}</span></div>
+                <div className="flex justify-between"><span>2. RPM (loaded)</span><span className="font-medium">${selectedZone.rpm.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>3. DH miles per load</span><span className="font-medium">{fmtNum(selectedZone.dhPerLoad, 1)}</span></div>
+                <div className="flex justify-between"><span>4. Avg gross per load</span><span className="font-medium">{fmtMoney(selectedZone.avgGross)}</span></div>
+              </div>
+              <div className="border-t pt-3 space-y-2 text-xs text-muted-foreground">
+                <div className="flex justify-between"><span>Total freight</span><span>{fmtMoney(selectedZone.freight)}</span></div>
+                <div className="flex justify-between"><span>Total loaded miles</span><span>{fmtNum(selectedZone.loadedMiles)}</span></div>
+                <div className="flex justify-between"><span>Total DH miles</span><span>{fmtNum(selectedZone.dhMiles)}</span></div>
+              </div>
+              {selectedZone.cities.length > 0 && (
+                <div className="border-t pt-3">
+                  <div className="text-xs text-muted-foreground mb-2">Cities in this zone ({selectedZone.cities.length}):</div>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {selectedZone.cities
+                      .slice()
+                      .sort((a, b) => b.count - a.count)
+                      .map((c) => (
+                        <button
+                          key={`${c.city}|${c.state}`}
+                          className="w-full flex justify-between text-left hover:bg-muted px-2 py-1 rounded"
+                          onClick={() => { setSelectedZip3(null); setSelectedCityKey(`${c.city}|${c.state}`); }}
+                        >
+                          <span>{c.city}, {c.state}</span>
+                          <span className="text-muted-foreground">{fmtNum(c.count)} loads</span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
