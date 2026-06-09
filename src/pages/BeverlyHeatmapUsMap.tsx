@@ -241,15 +241,15 @@ interface CityRow {
 
 async function fetchCityRatings(direction: Direction): Promise<CityRow[]> {
   const fromIso = fromIsoForWindow();
-  const { data: rows, error } = await supabase.rpc("get_us_map_city_stats", {
+  const { data: rows, error } = await supabase.rpc("get_us_map_market_stats", {
     p_direction: direction,
     p_from: fromIso,
-    p_min_loads: 1,
+    p_radius_miles: 60,
   });
   if (error) throw error;
   const raw = ((rows as any[]) || [])
     .map((r) => ({
-      city: String(r.city || ""),
+      city: String(r.market || ""),
       state: String(r.state || "").toUpperCase().trim(),
       count: Number(r.count) || 0,
       freight: Number(r.freight) || 0,

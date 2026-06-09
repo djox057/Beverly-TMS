@@ -4839,6 +4839,19 @@ export type Database = {
           state: string
         }[]
       }
+      get_us_map_market_stats: {
+        Args: { p_direction: string; p_from: string; p_radius_miles?: number }
+        Returns: {
+          count: number
+          dh_miles: number
+          freight: number
+          latitude: number
+          loaded_miles: number
+          longitude: number
+          market: string
+          state: string
+        }[]
+      }
       get_us_map_state_stats: {
         Args: { p_direction: string; p_from: string }
         Returns: {
