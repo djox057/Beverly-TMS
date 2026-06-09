@@ -346,11 +346,16 @@ export default function BeverlyHeatmapUsMap() {
   const fmtMoney = (v: number) => `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   const fmtNum = (v: number, digits = 0) => v.toLocaleString("en-US", { maximumFractionDigits: digits });
 
+  // 60-mile radius in SVG units for the geoAlbersUsa projection at scale=1000.
+  // ~3000 miles continental US ≈ 900 svg units across → 1 mile ≈ 0.30 svg units.
+  const MILE_TO_SVG = 0.30;
+  const BLOB_RADIUS = 60 * MILE_TO_SVG; // ≈ 18 svg units
   const maxCityCount = cityMetrics.reduce((m, c) => Math.max(m, c.count), 0);
-  const radiusFor = (count: number) => {
-    if (maxCityCount <= 0) return 4;
+  // Center opacity scales with load volume so dense cities show through stronger
+  const centerOpacityFor = (count: number) => {
+    if (maxCityCount <= 0) return 0.55;
     const n = count / maxCityCount;
-    return 4 + Math.sqrt(n) * 16; // 4..20
+    return 0.35 + Math.sqrt(n) * 0.45; // 0.35 .. 0.80
   };
 
   return (
