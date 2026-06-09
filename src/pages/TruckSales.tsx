@@ -81,6 +81,8 @@ const TOTAL_W = 1500;
 type StatusDef = { value: string; label: string; bg: string; text: string };
 
 // Colors mirror the reference sheet. Use solid hex + readable text color.
+// Non-priority statuses are auto-applied based on driver assignment and
+// cannot be picked manually. Priority statuses overwrite the auto value.
 const STATUS_OPTIONS: StatusDef[] = [
   { value: "READY", label: "READY", bg: "#00FF00", text: "#000000" },
   { value: "DRIVERS_ON_ROAD", label: "DRIVERS ON ROAD", bg: "#FF0000", text: "#FFFFFF" },
@@ -95,6 +97,20 @@ const STATUS_OPTIONS: StatusDef[] = [
 ];
 
 const STATUS_MAP = new Map(STATUS_OPTIONS.map((s) => [s.value, s]));
+
+// Priority statuses are the only ones a user can manually pick.
+const PRIORITY_STATUS_VALUES = [
+  "RECOVERY",
+  "SHOP",
+  "BACK_UP_TRUCKS",
+  "NOT_FOR_USED",
+  "NEW_DRIVER",
+  "NEW_TRUCK",
+  "DRIVER_LEFT_TRUCK",
+  "SUB_UNIT",
+] as const;
+const PRIORITY_SET = new Set<string>(PRIORITY_STATUS_VALUES);
+const PRIORITY_OPTIONS = STATUS_OPTIONS.filter((s) => PRIORITY_SET.has(s.value));
 
 const formatMiles = (n: number | null) =>
   n == null ? "—" : new Intl.NumberFormat("en-US").format(n);
@@ -293,17 +309,25 @@ const TruckSales = () => {
                           .join(" ") || "—";
                       const priceWeek = t.driver1?.weekly_payment ?? null;
                       const weeksCount = t.driver1?.weeks_count ?? null;
-                      const status = t.truck_sales_status
-                        ? STATUS_MAP.get(t.truck_sales_status) || null
-                        : null;
-                      const rowStyle = status
-                        ? { backgroundColor: status.bg, color: status.text }
-                        : undefined;
+                      const hasDriver = !!t.driver1;
+                      const storedPriority =
+                        t.truck_sales_status && PRIORITY_SET.has(t.truck_sales_status)
+                          ? STATUS_MAP.get(t.truck_sales_status) || null
+                          : null;
+                      const autoStatus = hasDriver
+                        ? STATUS_MAP.get("DRIVERS_ON_ROAD")!
+                        : STATUS_MAP.get("READY")!;
+                      // Effective status used for row paint + icon: priority overrides auto.
+                      const status = storedPriority ?? autoStatus;
+                      // Current value for the Select trigger — only priority values are
+                      // manually selectable; auto values render as "None".
+                      const selectValue = storedPriority ? storedPriority.value : "__none__";
+                      const rowStyle = { backgroundColor: status.bg, color: status.text };
                       return (
                         <TableRow
                           key={t.id}
                           style={rowStyle}
-                          className={status ? "hover:opacity-90" : undefined}
+                          className="hover:opacity-90"
                         >
                           <TableCell className="font-medium w-[90px]">
                             <div className="flex items-center gap-1.5">
@@ -477,7 +501,7 @@ const TruckSales = () => {
                           <TableCell className="text-center">
                             {canEdit ? (
                               <Select
-                                value={t.truck_sales_status ?? "__none__"}
+                                value={selectValue}
                                 onValueChange={(v) =>
                                   updateTruck(t.id, {
                                     truck_sales_status: v === "__none__" ? null : v,
@@ -486,13 +510,13 @@ const TruckSales = () => {
                               >
                                 <SelectTrigger
                                   className="h-8 w-8 mx-auto justify-center bg-transparent border-0 shadow-none p-0 focus:ring-0 [&>svg]:hidden"
-                                  title={status?.label ?? "Set status"}
+                                  title={status.label}
                                 >
                                   <span
                                     aria-hidden
                                     className="inline-block w-[20px] h-[20px]"
                                     style={{
-                                      backgroundColor: status?.bg ?? "hsl(var(--muted-foreground))",
+                                      backgroundColor: status.bg,
                                       WebkitMaskImage: `url(${paintBucketAsset.url})`,
                                       maskImage: `url(${paintBucketAsset.url})`,
                                       WebkitMaskRepeat: "no-repeat",
@@ -501,13 +525,13 @@ const TruckSales = () => {
                                       maskSize: "contain",
                                       WebkitMaskPosition: "center",
                                       maskPosition: "center",
-                                      opacity: status ? 1 : 0.4,
+                                      opacity: 1,
                                     }}
                                   />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="__none__">— None —</SelectItem>
-                                  {STATUS_OPTIONS.map((s) => (
+                                  <SelectItem value="__none__">— None (auto) —</SelectItem>
+                                  {PRIORITY_OPTIONS.map((s) => (
                                     <SelectItem key={s.value} value={s.value}>
                                       <span className="inline-flex items-center gap-2">
                                       <span
@@ -532,8 +556,7 @@ const TruckSales = () => {
                                 </SelectContent>
                               </Select>
                             ) : (
-                              status ? (
-                                <span
+                              <span
                                   title={status.label}
                                   aria-label={status.label}
                                   className="inline-block w-[20px] h-[20px]"
@@ -548,8 +571,7 @@ const TruckSales = () => {
                                     WebkitMaskPosition: "center",
                                     maskPosition: "center",
                                   }}
-                                />
-                              ) : "—"
+                              />
                             )}
                           </TableCell>
                         </TableRow>
