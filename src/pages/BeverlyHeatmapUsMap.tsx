@@ -1,6 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-import { geoCentroid } from "d3-geo";
+import { geoCentroid, geoAlbersUsa } from "d3-geo";
+import DeckGL from "@deck.gl/react";
+import { OrthographicView } from "@deck.gl/core";
+import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin } from "lucide-react";
@@ -29,6 +32,7 @@ const STATE_ABBR: Record<string, string> = {
 };
 
 type Direction = "inbound" | "outbound";
+type ViewMode = "states" | "cities";
 
 interface StateAgg {
   count: number;
@@ -218,11 +222,122 @@ function useStateRatings(direction: Direction) {
   });
 }
 
+// ---------------- Cities (kernel-density heatmap) ----------------
+
+interface CityRow {
+  city: string;
+  state: string;
+  count: number;
+  freight: number;
+  loadedMiles: number;
+  dhMiles: number;
+  latitude: number;
+  longitude: number;
+  rpm: number;
+  dhPerLoad: number;
+  avgGross: number;
+  rating: number;
+}
+
+async function fetchCityRatings(direction: Direction): Promise<CityRow[]> {
+  const fromIso = fromIsoForWindow();
+  const { data: rows, error } = await supabase.rpc("get_us_map_city_stats", {
+    p_direction: direction,
+    p_from: fromIso,
+    p_min_loads: 1,
+  });
+  if (error) throw error;
+  const raw = ((rows as any[]) || [])
+    .map((r) => ({
+      city: String(r.city || ""),
+      state: String(r.state || "").toUpperCase().trim(),
+      count: Number(r.count) || 0,
+      freight: Number(r.freight) || 0,
+      loadedMiles: Number(r.loaded_miles) || 0,
+      dhMiles: Number(r.dh_miles) || 0,
+      latitude: Number(r.latitude),
+      longitude: Number(r.longitude),
+    }))
+    .filter(
+      (r) => r.count > 0 && Number.isFinite(r.latitude) && Number.isFinite(r.longitude),
+    );
+
+  if (raw.length === 0) return [];
+
+  const derived = raw.map((r) => ({
+    ...r,
+    rpm: r.loadedMiles > 0 ? r.freight / r.loadedMiles : 0,
+    dhPerLoad: r.count > 0 ? r.dhMiles / r.count : 0,
+    avgGross: r.count > 0 ? r.freight / r.count : 0,
+  }));
+
+  const minMax = (vals: number[]) => ({ min: Math.min(...vals), max: Math.max(...vals) });
+  const norm = (v: number, min: number, max: number, invert = false) => {
+    if (max === min) return 0.5;
+    const n = (v - min) / (max - min);
+    return invert ? 1 - n : n;
+  };
+
+  const c = minMax(derived.map((m) => m.count));
+  const rr = minMax(derived.map((m) => m.rpm));
+  const d = minMax(derived.map((m) => m.dhPerLoad));
+  const g = minMax(derived.map((m) => m.avgGross));
+
+  const eps = 0.01;
+  const scored = derived.map((m) => {
+    const nC = Math.max(eps, norm(m.count, c.min, c.max));
+    const nR = Math.max(eps, norm(m.rpm, rr.min, rr.max));
+    const nD = Math.max(eps, norm(m.dhPerLoad, d.min, d.max, true));
+    const nG = Math.max(eps, norm(m.avgGross, g.min, g.max));
+    const score =
+      Math.pow(nC, 0.4) * Math.pow(nR, 0.3) * Math.pow(nD, 0.2) * Math.pow(nG, 0.1);
+    return { m, score };
+  });
+  const sMin = Math.min(...scored.map((s) => s.score));
+  const sMax = Math.max(...scored.map((s) => s.score));
+  return scored.map(({ m, score }) => {
+    const n = sMax === sMin ? 0.5 : (score - sMin) / (sMax - sMin);
+    const rating = Math.max(1, Math.min(10, Math.round(1 + n * 9)));
+    return { ...m, rating };
+  });
+}
+
+function useCityRatings(direction: Direction, enabled: boolean) {
+  return useQuery({
+    queryKey: ["city-ratings", direction],
+    queryFn: () => fetchCityRatings(direction),
+    enabled,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+  });
+}
+
+// Map canvas dimensions (must match the <ComposableMap> width/height below).
+const MAP_W = 975;
+const MAP_H = 610;
+
+// Color ramp: red → orange → yellow → light green → green → strong green.
+const HEAT_COLOR_RANGE: [number, number, number][] = [
+  [139, 0, 0],
+  [255, 102, 0],
+  [255, 170, 0],
+  [182, 217, 0],
+  [102, 204, 51],
+  [0, 160, 0],
+];
+
 
 export default function BeverlyHeatmapUsMap() {
   const [direction, setDirection] = useState<Direction>("inbound");
+  const [viewMode, setViewMode] = useState<ViewMode>("states");
   const queryClient = useQueryClient();
   const { data } = useStateRatings(direction);
+  const { data: cities = [], isLoading: citiesLoading } = useCityRatings(
+    direction,
+    viewMode === "cities",
+  );
 
   // Prefetch the opposite direction in the background so toggling is instant.
   useEffect(() => {
@@ -232,13 +347,23 @@ export default function BeverlyHeatmapUsMap() {
       queryFn: () => fetchStateRatings(other),
       staleTime: 10 * 60 * 1000,
     });
-  }, [direction, queryClient]);
+    if (viewMode === "cities") {
+      queryClient.prefetchQuery({
+        queryKey: ["city-ratings", other],
+        queryFn: () => fetchCityRatings(other),
+        staleTime: 10 * 60 * 1000,
+      });
+    }
+  }, [direction, viewMode, queryClient]);
 
   const ratings = data?.ratings || {};
   const metrics = data?.metrics || {};
   const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [hoverCity, setHoverCity] = useState<{ x: number; y: number; city: CityRow } | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
 
   const fillForAbbr = (abbr: string): string => {
+    if (viewMode === "cities") return "hsl(var(--muted))";
     const r = ratings[abbr];
     if (!r) return "hsl(var(--muted))";
     return interpolateColor(r);
@@ -247,6 +372,50 @@ export default function BeverlyHeatmapUsMap() {
   const selectedMetrics = selectedState ? metrics[selectedState] : null;
   const fmtMoney = (v: number) => `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   const fmtNum = (v: number, digits = 0) => v.toLocaleString("en-US", { maximumFractionDigits: digits });
+
+  // Project lat/lng to map-pixel space using the same Albers USA used by react-simple-maps.
+  const projectedCities = useMemo(() => {
+    if (viewMode !== "cities" || cities.length === 0) return [];
+    const proj = geoAlbersUsa().scale(1000).translate([MAP_W / 2, MAP_H / 2]);
+    const out: Array<CityRow & { x: number; y: number; weight: number }> = [];
+    for (const c of cities) {
+      const p = proj([c.longitude, c.latitude]);
+      if (!p) continue;
+      out.push({ ...c, x: p[0], y: p[1], weight: c.rating * Math.log(c.count + 1) });
+    }
+    return out;
+  }, [cities, viewMode]);
+
+  const heatmapLayer = useMemo(() => {
+    if (projectedCities.length === 0) return null;
+    return new HeatmapLayer({
+      id: "freight-heat",
+      data: projectedCities,
+      getPosition: (d: any) => [d.x, d.y],
+      getWeight: (d: any) => d.weight,
+      radiusPixels: 55,
+      intensity: 1.1,
+      threshold: 0.04,
+      colorRange: HEAT_COLOR_RANGE,
+      aggregation: "SUM",
+    });
+  }, [projectedCities]);
+
+  const findNearest = (px: number, py: number) => {
+    let best: (typeof projectedCities)[number] | null = null;
+    let bestD = Infinity;
+    for (const c of projectedCities) {
+      const dx = c.x - px;
+      const dy = c.y - py;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD) {
+        bestD = d2;
+        best = c;
+      }
+    }
+    if (!best || bestD > 80 * 80) return null;
+    return best;
+  };
 
   return (
     <Card>
@@ -257,6 +426,16 @@ export default function BeverlyHeatmapUsMap() {
             US Map
           </CardTitle>
           <div className="flex flex-wrap items-center gap-2">
+            <ToggleGroup
+              type="single"
+              value={viewMode}
+              onValueChange={(v) => v && setViewMode(v as ViewMode)}
+              variant="outline"
+              size="sm"
+            >
+              <ToggleGroupItem value="states">States</ToggleGroupItem>
+              <ToggleGroupItem value="cities">Cities</ToggleGroupItem>
+            </ToggleGroup>
             <ToggleGroup
               type="single"
               value={direction}
@@ -271,12 +450,27 @@ export default function BeverlyHeatmapUsMap() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="w-full">
+        <div
+          ref={overlayRef}
+          className="w-full relative"
+          style={{ aspectRatio: `${MAP_W} / ${MAP_H}` }}
+          onMouseMove={(e) => {
+            if (viewMode !== "cities" || !overlayRef.current) return;
+            const rect = overlayRef.current.getBoundingClientRect();
+            const sx = (e.clientX - rect.left) / rect.width;
+            const sy = (e.clientY - rect.top) / rect.height;
+            const near = findNearest(sx * MAP_W, sy * MAP_H);
+            setHoverCity(
+              near ? { x: e.clientX - rect.left, y: e.clientY - rect.top, city: near } : null,
+            );
+          }}
+          onMouseLeave={() => setHoverCity(null)}
+        >
           <ComposableMap
             projection="geoAlbersUsa"
             projectionConfig={{ scale: 1000 }}
-            width={975}
-            height={610}
+            width={MAP_W}
+            height={MAP_H}
             style={{ width: "100%", height: "auto" }}
           >
             <Geographies geography={GEO_DATA}>
@@ -288,28 +482,29 @@ export default function BeverlyHeatmapUsMap() {
                     const centroid = geoCentroid(geo);
                     const fillColor = fillForAbbr(abbr);
                     const rating = ratings[abbr];
-                    const hasRating = !!rating;
+                    const hasRating = viewMode === "states" && !!rating;
                     const labelFill = hasRating ? "#ffffff" : "hsl(var(--muted-foreground))";
+                    const interactive = viewMode === "states";
                     return (
                       <g key={geo.rsmKey}>
                         <Geography
                           geography={geo}
-                          onClick={() => abbr && setSelectedState(abbr)}
+                          onClick={() => interactive && abbr && setSelectedState(abbr)}
                           style={{
                             default: {
                               fill: fillColor,
-                              stroke: "hsl(var(--border))",
+                              stroke: viewMode === "cities" ? "rgba(0,0,0,0.35)" : "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
-                              cursor: "pointer",
+                              cursor: interactive ? "pointer" : "default",
                             },
                             hover: {
                               fill: fillColor,
-                              opacity: 0.85,
-                              stroke: "hsl(var(--border))",
+                              opacity: interactive ? 0.85 : 1,
+                              stroke: viewMode === "cities" ? "rgba(0,0,0,0.35)" : "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
-                              cursor: "pointer",
+                              cursor: interactive ? "pointer" : "default",
                             },
                             pressed: {
                               fill: fillColor,
@@ -317,7 +512,7 @@ export default function BeverlyHeatmapUsMap() {
                             },
                           }}
                         />
-                        {abbr && (
+                        {abbr && viewMode === "states" && (
                           <text
                             x={0}
                             y={0}
@@ -342,7 +537,78 @@ export default function BeverlyHeatmapUsMap() {
               }
             </Geographies>
           </ComposableMap>
+
+          {viewMode === "cities" && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ mixBlendMode: "multiply" }}
+            >
+              <DeckGL
+                views={new OrthographicView({ flipY: true })}
+                initialViewState={{ target: [MAP_W / 2, MAP_H / 2, 0], zoom: 0 }}
+                controller={false}
+                width="100%"
+                height="100%"
+                layers={heatmapLayer ? [heatmapLayer] : []}
+                style={{ position: "absolute", inset: "0" }}
+                getCursor={() => "default"}
+              />
+            </div>
+          )}
+
+          {viewMode === "cities" && hoverCity && (
+            <div
+              className="absolute z-10 pointer-events-none rounded-md border bg-popover text-popover-foreground text-xs shadow-md px-2 py-1.5"
+              style={{
+                left: Math.min(hoverCity.x + 12, (overlayRef.current?.clientWidth || 0) - 180),
+                top: Math.max(hoverCity.y - 60, 4),
+                minWidth: 160,
+              }}
+            >
+              <div className="font-semibold">
+                {hoverCity.city.city}, {hoverCity.city.state}
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Rating</span>
+                <span style={{ color: interpolateColor(hoverCity.city.rating) }} className="font-bold">
+                  {hoverCity.city.rating}/10
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Loads</span>
+                <span>{fmtNum(hoverCity.city.count)}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Freight</span>
+                <span>{fmtMoney(hoverCity.city.freight)}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">RPM</span>
+                <span>${hoverCity.city.rpm.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
+          {viewMode === "cities" && citiesLoading && projectedCities.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+              Loading city heatmap…
+            </div>
+          )}
         </div>
+
+        {viewMode === "cities" && (
+          <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+            <span>Weak</span>
+            <div
+              className="h-2 flex-1 rounded"
+              style={{
+                background:
+                  "linear-gradient(to right, rgb(139,0,0), rgb(255,102,0), rgb(255,170,0), rgb(182,217,0), rgb(102,204,51), rgb(0,160,0))",
+              }}
+            />
+            <span>Strong</span>
+          </div>
+        )}
       </CardContent>
 
       <Dialog open={!!selectedState} onOpenChange={(o) => !o && setSelectedState(null)}>

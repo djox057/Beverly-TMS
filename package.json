@@ -11,6 +11,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@deck.gl/aggregation-layers": "^9.3.3",
+    "@deck.gl/core": "^9.3.3",
+    "@deck.gl/react": "^9.3.3",
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",
@@ -49,6 +52,7 @@
     "d3-geo": "3",
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.2.0",
+    "deck.gl": "^9.3.3",
     "docx": "^9.5.1",
     "docxtemplater": "^3.67.6",
     "embla-carousel-react": "^8.6.0",
