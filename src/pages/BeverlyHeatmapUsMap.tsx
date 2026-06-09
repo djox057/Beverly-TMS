@@ -656,8 +656,8 @@ export default function BeverlyHeatmapUsMap() {
                           <Geography
                             geography={geo}
                             style={{
-                              default: { fill: "transparent", stroke: "hsl(var(--foreground))", strokeWidth: 0.7, outline: "none", pointerEvents: "none" },
-                              hover: { fill: "transparent", stroke: "hsl(var(--foreground))", strokeWidth: 0.7, outline: "none", pointerEvents: "none" },
+                              default: { fill: "transparent", stroke: "#FFFFFF", strokeWidth: 0.85, outline: "none", pointerEvents: "none" },
+                              hover: { fill: "transparent", stroke: "#FFFFFF", strokeWidth: 0.85, outline: "none", pointerEvents: "none" },
                               pressed: { fill: "transparent", outline: "none", pointerEvents: "none" },
                             }}
                           />
@@ -669,9 +669,9 @@ export default function BeverlyHeatmapUsMap() {
                                 fontFamily: "inherit",
                                 fontSize: 11,
                                 fontWeight: 700,
-                                fill: "hsl(var(--foreground))",
+                                fill: "#334155",
                                 paintOrder: "stroke",
-                                stroke: "hsl(var(--background))",
+                                stroke: "#FFFFFF",
                                 strokeWidth: 2,
                                 strokeLinejoin: "round",
                                 pointerEvents: "none",
