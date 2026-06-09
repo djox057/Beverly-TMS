@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ComposableMap, Geographies, Geography } from "react-simple-maps";
+import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -27,6 +27,7 @@ const STATE_ABBR: Record<string, string> = {
 };
 
 type Direction = "inbound" | "outbound";
+type ViewMode = "states" | "cities";
 
 interface StateAgg {
   count: number;
@@ -44,6 +45,25 @@ interface StateMetrics {
   totalLoadedMiles: number;
   totalDhMiles: number;
   rating: number;
+}
+
+interface CityAgg {
+  city: string;
+  state: string;
+  count: number;
+  freight: number;
+  loadedMiles: number;
+  dhMiles: number;
+  latSum: number;
+  lngSum: number;
+  coordN: number;
+}
+
+interface CityMetrics extends StateMetrics {
+  city: string;
+  state: string;
+  lat: number;
+  lng: number;
 }
 
 // Compute Monday (Chicago time) of the week containing `d`.
