@@ -434,13 +434,13 @@ const Reports = () => {
 
   // Supervised dispatcher ids (for supervisors viewing the $ revenue popover)
   const { data: supervisedDispatcherIds = [] } = useQuery({
-    queryKey: ["reports-supervised-dispatchers", profile?.id],
-    enabled: !!profile?.id && hasRole("supervisor"),
+    queryKey: ["reports-supervised-dispatchers", profile?.user_id],
+    enabled: !!profile?.user_id && hasRole("supervisor"),
     queryFn: async () => {
       const { data } = await supabase
         .from("dispatcher_supervisors")
         .select("dispatcher_id")
-        .eq("supervisor_id", profile!.id);
+        .eq("supervisor_id", profile!.user_id);
       return (data || []).map((r: any) => r.dispatcher_id as string);
     },
   });
@@ -453,16 +453,16 @@ const Reports = () => {
       if (roles.includes("supervisor")) {
         if (!truck?.dispatcherId) return false;
         return (
-          truck.dispatcherId === profile?.id ||
+          truck.dispatcherId === profile?.user_id ||
           supervisedDispatcherIds.includes(truck.dispatcherId)
         );
       }
       if (roles.includes("dispatch")) {
-        return !!truck?.dispatcherId && truck.dispatcherId === profile?.id;
+        return !!truck?.dispatcherId && truck.dispatcherId === profile?.user_id;
       }
       return false;
     },
-    [roles, profile?.id, supervisedDispatcherIds],
+    [roles, profile?.user_id, supervisedDispatcherIds],
   );
 
   // Temporary plate upload dialog state
