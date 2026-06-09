@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Warehouse } from "lucide-react";
+import { Warehouse, Search, X } from "lucide-react";
 import paintBucketAsset from "@/assets/paint-bucket.png.asset.json";
 import {
   Popover,
@@ -167,6 +167,8 @@ const TruckSales = () => {
   const allowed = ALLOWED.some((r) => hasRole(r as any));
   const canEdit = allowed;
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   const { data, isLoading } = useQuery({
     queryKey: ["truck-sales"],
@@ -226,11 +228,51 @@ const TruckSales = () => {
     );
   }, [data]);
 
+  // Compute effective status for a truck (same logic as row render)
+  const getEffectiveStatus = (t: TruckRow) => {
+    const hasDriver = !!t.driver1;
+    const storedPriority =
+      t.truck_sales_status && PRIORITY_SET.has(t.truck_sales_status)
+        ? STATUS_MAP.get(t.truck_sales_status) || null
+        : null;
+    const autoStatus = hasDriver
+      ? STATUS_MAP.get("DRIVERS_ON_ROAD")!
+      : STATUS_MAP.get("READY")!;
+    return storedPriority ?? autoStatus;
+  };
+
+  const filteredGrouped = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return grouped.map((g) => {
+      const trucks = g.trucks.filter((t) => {
+        const status = getEffectiveStatus(t);
+        const statusMatch = statusFilter === "ALL" || status.value === statusFilter;
+        if (!statusMatch) return false;
+        if (!q) return true;
+        const driverName = [t.driver1?.first_name, t.driver1?.last_name]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return (
+          t.truck_number.toLowerCase().includes(q) ||
+          (t.make || "").toLowerCase().includes(q) ||
+          (t.model || "").toLowerCase().includes(q) ||
+          (t.engine || "").toLowerCase().includes(q) ||
+          driverName.includes(q)
+        );
+      });
+      return { ...g, trucks };
+    }).filter((g) => g.trucks.length > 0);
+  }, [grouped, searchQuery, statusFilter]);
+
+  // Auto-switch company tab when search/filter changes
   useEffect(() => {
-    if (!selectedCompany && grouped.length > 0) {
-      setSelectedCompany(grouped[0].name);
+    if (filteredGrouped.length === 0) return;
+    const current = filteredGrouped.find((g) => g.name === selectedCompany);
+    if (!current) {
+      setSelectedCompany(filteredGrouped[0].name);
     }
-  }, [grouped, selectedCompany]);
+  }, [filteredGrouped, selectedCompany]);
 
   const updateTruck = async (id: string, patch: Partial<TruckRow>) => {
     // Optimistic
@@ -249,19 +291,65 @@ const TruckSales = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold text-foreground">Truck Sales</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold text-foreground">Truck Sales</h1>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search trucks…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 w-[220px] h-9"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[160px] h-9">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All statuses</SelectItem>
+              {STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  <span className="inline-flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className="inline-block w-3 h-3 rounded-sm"
+                      style={{ backgroundColor: s.bg }}
+                    />
+                    {s.label}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {isLoading && <p className="text-muted-foreground">Loading…</p>}
 
-      {!isLoading && grouped.length > 0 && (() => {
+      {!isLoading && filteredGrouped.length === 0 && (
+        <p className="text-muted-foreground">No trucks match your filters.</p>
+      )}
+
+      {!isLoading && filteredGrouped.length > 0 && (() => {
         const active =
-          grouped.find((g) => g.name === selectedCompany) || grouped[0];
+          filteredGrouped.find((g) => g.name === selectedCompany) || filteredGrouped[0];
         return (
           <Card>
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <CardTitle className="flex flex-wrap items-center gap-1 text-base sm:text-lg">
-                  {grouped.map((g, i) => (
+                  {filteredGrouped.map((g, i) => (
                     <span key={g.name} className="flex items-center gap-1">
                       {i > 0 && (
                         <span className="text-muted-foreground/40">/</span>
