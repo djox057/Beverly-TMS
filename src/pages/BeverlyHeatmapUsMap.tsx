@@ -211,7 +211,6 @@ function useStateRatings(direction: Direction) {
 
 export default function BeverlyHeatmapUsMap() {
   const [direction, setDirection] = useState<Direction>("inbound");
-  const [viewMode, setViewMode] = useState<ViewMode>("states");
   const { data } = useStateRatings(direction);
   const ratings = data?.ratings || {};
   const metrics = data?.metrics || {};
@@ -265,31 +264,30 @@ export default function BeverlyHeatmapUsMap() {
                   .map((geo) => {
                     const abbr = STATE_ABBR[String(geo.id)] || "";
                     const centroid = geoCentroid(geo);
-                    const isCitiesView = viewMode === "cities";
-                    const fillColor = isCitiesView ? CITY_STATE_BASE_FILL : fillForAbbr(abbr);
+                    const fillColor = fillForAbbr(abbr);
                     const rating = ratings[abbr];
-                    const hasRating = !isCitiesView && !!rating;
+                    const hasRating = !!rating;
                     const labelFill = hasRating ? "#ffffff" : "hsl(var(--muted-foreground))";
                     return (
                       <g key={geo.rsmKey}>
                         <Geography
                           geography={geo}
-                          onClick={() => !isCitiesView && abbr && setSelectedState(abbr)}
+                          onClick={() => abbr && setSelectedState(abbr)}
                           style={{
                             default: {
                               fill: fillColor,
-                              stroke: isCitiesView ? CITY_STATE_BORDER : "hsl(var(--border))",
-                              strokeWidth: isCitiesView ? 0.5 : 0.75,
+                              stroke: "hsl(var(--border))",
+                              strokeWidth: 0.75,
                               outline: "none",
-                              cursor: isCitiesView ? "default" : "pointer",
+                              cursor: "pointer",
                             },
                             hover: {
                               fill: fillColor,
-                              opacity: isCitiesView ? 1 : 0.85,
-                              stroke: isCitiesView ? CITY_STATE_BORDER : "hsl(var(--border))",
-                              strokeWidth: isCitiesView ? 0.5 : 0.75,
+                              opacity: 0.85,
+                              stroke: "hsl(var(--border))",
+                              strokeWidth: 0.75,
                               outline: "none",
-                              cursor: isCitiesView ? "default" : "pointer",
+                              cursor: "pointer",
                             },
                             pressed: {
                               fill: fillColor,
@@ -297,20 +295,20 @@ export default function BeverlyHeatmapUsMap() {
                             },
                           }}
                         />
-                        {abbr && !isCitiesView && (
+                        {abbr && (
                           <text
                             x={0}
                             y={0}
                             transform={`translate(${centroid[0]}, ${centroid[1]})`}
                             textAnchor="middle"
-                            onClick={() => !isCitiesView && setSelectedState(abbr)}
+                            onClick={() => setSelectedState(abbr)}
                             style={{
                               fontFamily: "inherit",
                               fontSize: 10,
                               fontWeight: 600,
                               fill: labelFill,
-                              pointerEvents: isCitiesView ? "none" : "auto",
-                              cursor: isCitiesView ? "default" : "pointer",
+                              pointerEvents: "auto",
+                              cursor: "pointer",
                             }}
                           >
                             {hasRating ? `${abbr} ${rating}` : abbr}
