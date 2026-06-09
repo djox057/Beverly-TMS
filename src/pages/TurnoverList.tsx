@@ -215,6 +215,13 @@ const TurnoverList = () => {
                   {office}
                 </Button>
               ))}
+              <Button
+                variant={selectedOffice === "Former" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedOffice("Former")}
+              >
+                Former
+              </Button>
             </div>
           </div>
 
