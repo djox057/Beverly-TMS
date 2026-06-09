@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
+import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { geoCentroid, geoContains } from "d3-geo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -516,7 +516,7 @@ export default function BeverlyHeatmapUsMap() {
                             },
                           }}
                         />
-                        {abbr && (
+                        {abbr && !isCitiesView && (
                           <text
                             x={0}
                             y={0}
