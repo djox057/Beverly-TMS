@@ -6168,7 +6168,7 @@ const Reports = () => {
                                               {canSeeWeekRevenue(truck) && (
                                                 <TruckWeekRevenuePopover
                                                   orders={truck.allOrders}
-                                                  referenceDate={startDate}
+                                                  referenceDate={addDays(startDate, 2)}
                                                   driverId={truck.driverId}
                                                   driver2Id={truck.driver2Id}
                                                 />
