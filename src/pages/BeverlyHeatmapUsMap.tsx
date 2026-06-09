@@ -633,6 +633,43 @@ export default function BeverlyHeatmapUsMap() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!selectedCity} onOpenChange={(o) => !o && setSelectedCityKey(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedCity ? `${selectedCity.city}, ${selectedCity.state}` : ""} — {direction === "inbound" ? "Inbound" : "Outbound"}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedCity && (
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Rating</span>
+                <span className="text-2xl font-bold" style={{ color: interpolateColor(selectedCity.rating) }}>
+                  {selectedCity.rating}/10
+                </span>
+              </div>
+              <div className="border-t pt-3 space-y-2">
+                <div className="text-xs text-muted-foreground mb-1">Based on (in order of importance):</div>
+                <div className="flex justify-between"><span>1. Number of loads</span><span className="font-medium">{fmtNum(selectedCity.count)}</span></div>
+                <div className="flex justify-between"><span>2. RPM (loaded)</span><span className="font-medium">${selectedCity.rpm.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>3. DH miles per load</span><span className="font-medium">{fmtNum(selectedCity.dhPerLoad, 1)}</span></div>
+                <div className="flex justify-between"><span>4. Avg gross per load</span><span className="font-medium">{fmtMoney(selectedCity.avgGross)}</span></div>
+              </div>
+              <div className="border-t pt-3 space-y-2 text-xs text-muted-foreground">
+                <div className="flex justify-between"><span>Total freight</span><span>{fmtMoney(selectedCity.totalFreight)}</span></div>
+                <div className="flex justify-between"><span>Total loaded miles</span><span>{fmtNum(selectedCity.totalLoadedMiles)}</span></div>
+                <div className="flex justify-between"><span>Total DH miles</span><span>{fmtNum(selectedCity.totalDhMiles)}</span></div>
+              </div>
+              <div className="text-xs text-muted-foreground pt-2 border-t">
+                {direction === "inbound"
+                  ? "Loads delivered to this city (pickup in last + current week). Min 10 loads to be rated."
+                  : "Loads picked up in this city (last + current week). Min 10 loads to be rated."}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
