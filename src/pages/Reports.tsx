@@ -6132,6 +6132,7 @@ const Reports = () => {
                                                   {truck.fuelLevel != null ? `${truck.fuelLevel}%` : "—"}
                                                 </span>
                                               </div>
+                                              <TruckWeekRevenuePopover orders={truck.allOrders} />
                                             </div>
                                             <div className="h-8 p-0 w-full">
                                               <EditableNoteField
