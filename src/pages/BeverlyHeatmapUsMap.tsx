@@ -462,30 +462,51 @@ export default function BeverlyHeatmapUsMap() {
                   })
               }
             </Geographies>
-            {viewMode === "cities" &&
-              cityMetrics.map((c) => {
-                const key = `${c.city}|${c.state}`;
-                return (
-                  <Marker
-                    key={key}
-                    coordinates={[c.lng, c.lat]}
-                    onClick={() => setSelectedCityKey(key)}
-                    style={{
-                      default: { cursor: "pointer" },
-                      hover: { cursor: "pointer" },
-                      pressed: { cursor: "pointer" },
-                    }}
-                  >
-                    <circle
-                      r={radiusFor(c.count)}
-                      fill={interpolateColor(c.rating)}
-                      stroke="#ffffff"
-                      strokeWidth={0.75}
-                      opacity={0.9}
-                    />
-                  </Marker>
-                );
-              })}
+            {viewMode === "cities" && (
+              <>
+                {/* One radial gradient per rating, fading to transparent at the 60-mile edge */}
+                <defs>
+                  {Object.entries(RATING_COLORS).map(([r, color]) => (
+                    <radialGradient key={r} id={`blob-${r}`} cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stopColor={color} stopOpacity={1} />
+                      <stop offset="60%" stopColor={color} stopOpacity={0.55} />
+                      <stop offset="100%" stopColor={color} stopOpacity={0} />
+                    </radialGradient>
+                  ))}
+                </defs>
+                {/* Watercolor layer — soft blobs that blend where they overlap */}
+                <g style={{ mixBlendMode: "multiply" as any, pointerEvents: "none" }}>
+                  {cityMetrics.map((c) => (
+                    <Marker key={`blob-${c.city}|${c.state}`} coordinates={[c.lng, c.lat]}>
+                      <circle
+                        r={BLOB_RADIUS}
+                        fill={`url(#blob-${c.rating})`}
+                        opacity={centerOpacityFor(c.count)}
+                      />
+                    </Marker>
+                  ))}
+                </g>
+                {/* Tiny invisible hit targets so each city remains clickable */}
+                {cityMetrics.map((c) => {
+                  const key = `${c.city}|${c.state}`;
+                  return (
+                    <Marker
+                      key={`hit-${key}`}
+                      coordinates={[c.lng, c.lat]}
+                      onClick={() => setSelectedCityKey(key)}
+                      style={{
+                        default: { cursor: "pointer" },
+                        hover: { cursor: "pointer" },
+                        pressed: { cursor: "pointer" },
+                      }}
+                    >
+                      <circle r={3} fill="hsl(var(--foreground))" opacity={0.85} />
+                      <circle r={BLOB_RADIUS} fill="transparent" />
+                    </Marker>
+                  );
+                })}
+              </>
+            )}
           </ComposableMap>
         </div>
       </CardContent>
