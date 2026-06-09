@@ -44,12 +44,6 @@ interface StateMetrics {
   totalLoadedMiles: number;
   totalDhMiles: number;
   rating: number;
-  // Normalized 0..1 component values used in the weighted average
-  nCount: number;
-  nRpm: number;
-  nDh: number; // already inverted (higher = better)
-  nGross: number;
-  weightedAvg: number; // 0..1
 }
 
 // Compute Monday (Chicago time) of the week containing `d`.
@@ -181,25 +175,34 @@ function useStateRatings(direction: Direction) {
       const d = minMax(metrics.map((m) => m.dhPerLoad));
       const g = minMax(metrics.map((m) => m.avgGross));
 
-      // Weights in order of importance: count(0.4), rpm(0.3), dh inverted(0.2), avgGross(0.1).
-      // Weights sum to 1.0, so the score IS a weighted average of normalized (0..1) components.
-      // Rating = 1 + weightedAvg * 9, rounded (so absolute, not re-normalized across states).
+      // Weights in order of importance: count(0.4), rpm(0.3), dh inverted(0.2), avgGross(0.1)
       const ratings: Record<string, number> = {};
-      const components = new Map<string, { nCount: number; nRpm: number; nDh: number; nGross: number; weightedAvg: number }>();
-      for (const m of metrics) {
-        const nCount = norm(m.count, c.min, c.max);
-        const nRpm = norm(m.rpm, r.min, r.max);
-        const nDh = norm(m.dhPerLoad, d.min, d.max, true);
-        const nGross = norm(m.avgGross, g.min, g.max);
-        const weightedAvg = 0.4 * nCount + 0.3 * nRpm + 0.2 * nDh + 0.1 * nGross;
-        components.set(m.st, { nCount, nRpm, nDh, nGross, weightedAvg });
-        ratings[m.st] = Math.max(1, Math.min(10, Math.round(1 + weightedAvg * 9)));
+      const scores = metrics.map((m) => {
+        // Use a small epsilon so a zero in one component doesn't fully zero the score,
+        // but still pulls it down hard (weighted geometric mean / product).
+        const eps = 0.01;
+        const nC = Math.max(eps, norm(m.count, c.min, c.max));
+        const nR = Math.max(eps, norm(m.rpm, r.min, r.max));
+        const nD = Math.max(eps, norm(m.dhPerLoad, d.min, d.max, true));
+        const nG = Math.max(eps, norm(m.avgGross, g.min, g.max));
+        const score =
+          Math.pow(nC, 0.4) *
+          Math.pow(nR, 0.3) *
+          Math.pow(nD, 0.2) *
+          Math.pow(nG, 0.1);
+        return { st: m.st, score };
+      });
+
+      const sMin = Math.min(...scores.map((s) => s.score));
+      const sMax = Math.max(...scores.map((s) => s.score));
+      for (const s of scores) {
+        const n = sMax === sMin ? 0.5 : (s.score - sMin) / (sMax - sMin);
+        ratings[s.st] = Math.max(1, Math.min(10, Math.round(1 + n * 9)));
       }
 
       const metricsMap: Record<string, StateMetrics> = {};
       for (const m of metrics) {
         const a = agg.get(m.st)!;
-        const cmp = components.get(m.st)!;
         metricsMap[m.st] = {
           count: m.count,
           rpm: m.rpm,
@@ -209,11 +212,6 @@ function useStateRatings(direction: Direction) {
           totalLoadedMiles: a.loadedMiles,
           totalDhMiles: a.dhMiles,
           rating: ratings[m.st],
-          nCount: cmp.nCount,
-          nRpm: cmp.nRpm,
-          nDh: cmp.nDh,
-          nGross: cmp.nGross,
-          weightedAvg: cmp.weightedAvg,
         };
       }
       return { ratings, metrics: metricsMap };
@@ -368,44 +366,6 @@ export default function BeverlyHeatmapUsMap() {
                 <div className="flex justify-between">
                   <span>4. Avg gross per load</span>
                   <span className="font-medium">{fmtMoney(selectedMetrics.avgGross)}</span>
-                </div>
-              </div>
-              <div className="border-t pt-3 space-y-1">
-                <div className="text-xs font-medium mb-1">Weighted average breakdown</div>
-                <div className="text-[11px] text-muted-foreground mb-2">
-                  Each metric is normalized to 0..1 across all states (min → 0, max → 1; DH is inverted so lower DH = 1), then multiplied by its weight. The sum is the weighted average, mapped to 1..10.
-                </div>
-                {[
-                  { label: "Loads", w: 0.4, n: selectedMetrics.nCount },
-                  { label: "RPM", w: 0.3, n: selectedMetrics.nRpm },
-                  { label: "DH/load (inv)", w: 0.2, n: selectedMetrics.nDh },
-                  { label: "Avg gross", w: 0.1, n: selectedMetrics.nGross },
-                ].map((row) => (
-                  <div key={row.label} className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      {row.label} — norm {row.n.toFixed(2)} × {row.w}
-                    </span>
-                    <span className="font-mono">{(row.n * row.w).toFixed(3)}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between text-xs font-medium border-t pt-1 mt-1">
-                  <span>Weighted avg</span>
-                  <span className="font-mono">{selectedMetrics.weightedAvg.toFixed(3)}</span>
-                </div>
-                <div className="flex justify-between text-xs font-medium">
-                  <span>Rating = round(1 + {selectedMetrics.weightedAvg.toFixed(3)} × 9)</span>
-                  <span className="font-mono">{selectedMetrics.rating}</span>
-                </div>
-              </div>
-              <div className="border-t pt-3 text-[11px] text-muted-foreground space-y-1">
-                <div className="font-medium text-foreground">Example</div>
-                <div>
-                  State A has the most loads (norm 1.0), avg RPM (0.5), worst DH (inv 0.0), best gross (1.0):
-                  0.4·1 + 0.3·0.5 + 0.2·0 + 0.1·1 = 0.65 → round(1 + 0.65·9) = <b>7/10</b>.
-                </div>
-                <div>
-                  State B is the worst on every metric (all norms 0):
-                  0 → round(1 + 0) = <b>1/10</b>.
                 </div>
               </div>
               <div className="border-t pt-3 space-y-2 text-xs text-muted-foreground">
