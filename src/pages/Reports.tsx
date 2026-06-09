@@ -71,6 +71,7 @@ import {
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { TranslatableOrderNote } from "@/components/TranslatableOrderNote";
+import { TruckWeekRevenuePopover } from "@/components/TruckWeekRevenuePopover";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { CheckInOutTimeDialog } from "@/components/CheckInOutTimeDialog";
 import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
