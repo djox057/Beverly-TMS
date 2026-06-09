@@ -97,9 +97,12 @@ function getOrderLastDeliveryDate(order: any): string | null {
   return order?.delivery_datetime || order?.deliveryDatetime || null;
 }
 
-export const TruckWeekRevenuePopover = ({ orders }: Props) => {
+export const TruckWeekRevenuePopover = ({ orders, referenceDate }: Props) => {
+  const refTime = referenceDate ? referenceDate.getTime() : undefined;
   const stats = useMemo(() => {
-    const { start, end } = getChicagoWeekRange();
+    const { start, end } = getChicagoWeekRange(
+      refTime !== undefined ? new Date(refTime) : undefined,
+    );
     const inWeek = (orders ?? []).filter((o) => {
       if (!o || o.canceled) return false;
       const raw = getOrderPickupDate(o);
@@ -152,7 +155,7 @@ export const TruckWeekRevenuePopover = ({ orders }: Props) => {
       commPct: freight > 0 ? (comm / freight) * 100 : 0,
       days,
     };
-  }, [orders]);
+  }, [orders, refTime]);
 
   return (
     <Popover>
