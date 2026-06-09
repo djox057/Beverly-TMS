@@ -4,6 +4,7 @@ import { formatCurrency } from "@/lib/utils";
 
 interface Props {
   orders: any[] | undefined;
+  referenceDate?: Date;
 }
 
 function getChicagoNow(): Date {
@@ -22,10 +23,11 @@ function getChicagoNow(): Date {
 }
 
 /**
- * Returns [start, end) UTC timestamps for the current Chicago week (Mon 00:00 -> next Mon 00:00).
+ * Returns [start, end) UTC timestamps for the Chicago Mon 00:00 -> next Mon 00:00 week
+ * containing the provided reference date (defaults to now).
  */
-function getChicagoWeekRange(): { start: number; end: number } {
-  const now = new Date();
+function getChicagoWeekRange(reference?: Date): { start: number; end: number } {
+  const now = reference ?? new Date();
   // Get Chicago Y/M/D and weekday parts
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -95,9 +97,12 @@ function getOrderLastDeliveryDate(order: any): string | null {
   return order?.delivery_datetime || order?.deliveryDatetime || null;
 }
 
-export const TruckWeekRevenuePopover = ({ orders }: Props) => {
+export const TruckWeekRevenuePopover = ({ orders, referenceDate }: Props) => {
+  const refTime = referenceDate ? referenceDate.getTime() : undefined;
   const stats = useMemo(() => {
-    const { start, end } = getChicagoWeekRange();
+    const { start, end } = getChicagoWeekRange(
+      refTime !== undefined ? new Date(refTime) : undefined,
+    );
     const inWeek = (orders ?? []).filter((o) => {
       if (!o || o.canceled) return false;
       const raw = getOrderPickupDate(o);
@@ -150,7 +155,7 @@ export const TruckWeekRevenuePopover = ({ orders }: Props) => {
       commPct: freight > 0 ? (comm / freight) * 100 : 0,
       days,
     };
-  }, [orders]);
+  }, [orders, refTime]);
 
   return (
     <Popover>
