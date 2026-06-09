@@ -7,7 +7,6 @@ import BeverlyHeatmapFacilities from "./BeverlyHeatmapFacilities";
 import BeverlyHeatmapBrokers from "./BeverlyHeatmapBrokers";
 import BeverlyHeatmapLane from "./BeverlyHeatmapLane";
 import BeverlyHeatmapDeepSearch from "./BeverlyHeatmapDeepSearch";
-import BeverlyHeatmapUsMap from "./BeverlyHeatmapUsMap";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -574,19 +573,14 @@ export default function BeverlyHeatmap() {
         <h1 className="text-3xl font-semibold text-foreground">Beverly Heatmap</h1>
       </div>
 
-      <Tabs defaultValue="map" className="w-full">
+      <Tabs defaultValue={isDispatchOnly ? "lane" : "heatmap"} className="w-full">
         <TabsList>
-          <TabsTrigger value="map">Map</TabsTrigger>
           {!isDispatchOnly && <TabsTrigger value="heatmap">Heatmap</TabsTrigger>}
           {!isDispatchOnly && <TabsTrigger value="facilities">Facilities</TabsTrigger>}
           {!isDispatchOnly && <TabsTrigger value="brokers">Brokers</TabsTrigger>}
           <TabsTrigger value="lane">Lane</TabsTrigger>
           {canDeepSearch && <TabsTrigger value="deep-search">Dedicated lanes</TabsTrigger>}
         </TabsList>
-
-        <TabsContent value="map">
-          <BeverlyHeatmapUsMap />
-        </TabsContent>
 
         <TabsContent value="heatmap">
       <Card>
