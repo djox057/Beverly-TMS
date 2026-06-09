@@ -178,11 +178,18 @@ function useStateRatings(direction: Direction) {
       // Weights in order of importance: count(0.4), rpm(0.3), dh inverted(0.2), avgGross(0.1)
       const ratings: Record<string, number> = {};
       const scores = metrics.map((m) => {
+        // Use a small epsilon so a zero in one component doesn't fully zero the score,
+        // but still pulls it down hard (weighted geometric mean / product).
+        const eps = 0.01;
+        const nC = Math.max(eps, norm(m.count, c.min, c.max));
+        const nR = Math.max(eps, norm(m.rpm, r.min, r.max));
+        const nD = Math.max(eps, norm(m.dhPerLoad, d.min, d.max, true));
+        const nG = Math.max(eps, norm(m.avgGross, g.min, g.max));
         const score =
-          0.4 * norm(m.count, c.min, c.max) +
-          0.3 * norm(m.rpm, r.min, r.max) +
-          0.2 * norm(m.dhPerLoad, d.min, d.max, true) +
-          0.1 * norm(m.avgGross, g.min, g.max);
+          Math.pow(nC, 0.4) *
+          Math.pow(nR, 0.3) *
+          Math.pow(nD, 0.2) *
+          Math.pow(nG, 0.1);
         return { st: m.st, score };
       });
 
