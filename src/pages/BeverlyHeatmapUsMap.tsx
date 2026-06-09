@@ -429,6 +429,8 @@ export default function BeverlyHeatmapUsMap() {
         </div>
       </CardHeader>
       <CardContent>
+        {/* Map visualization temporarily removed */}
+        {false && (
         <div
           ref={overlayRef}
           className="w-full relative"
@@ -620,6 +622,7 @@ export default function BeverlyHeatmapUsMap() {
             />
             <span>Strong</span>
           </div>
+        )}
         )}
       </CardContent>
 
