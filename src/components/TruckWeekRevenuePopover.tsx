@@ -4,6 +4,7 @@ import { formatCurrency } from "@/lib/utils";
 
 interface Props {
   orders: any[] | undefined;
+  referenceDate?: Date;
 }
 
 function getChicagoNow(): Date {
@@ -22,10 +23,11 @@ function getChicagoNow(): Date {
 }
 
 /**
- * Returns [start, end) UTC timestamps for the current Chicago week (Mon 00:00 -> next Mon 00:00).
+ * Returns [start, end) UTC timestamps for the Chicago Mon 00:00 -> next Mon 00:00 week
+ * containing the provided reference date (defaults to now).
  */
-function getChicagoWeekRange(): { start: number; end: number } {
-  const now = new Date();
+function getChicagoWeekRange(reference?: Date): { start: number; end: number } {
+  const now = reference ?? new Date();
   // Get Chicago Y/M/D and weekday parts
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
