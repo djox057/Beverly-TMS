@@ -7438,7 +7438,7 @@ const Reports = () => {
             {zoomedLoad?.notes && zoomedLoad.notes !== "—" && (
               <div>
                 <h4 className="text-sm font-semibold mb-2">Load Notes</h4>
-                <div className="p-3 bg-muted rounded-lg text-sm whitespace-pre-wrap">{zoomedLoad.notes}</div>
+                <TranslatableOrderNote note={zoomedLoad.notes} />
               </div>
             )}
           </div>
