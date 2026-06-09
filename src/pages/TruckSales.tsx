@@ -167,6 +167,8 @@ const TruckSales = () => {
   const allowed = ALLOWED.some((r) => hasRole(r as any));
   const canEdit = allowed;
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   const { data, isLoading } = useQuery({
     queryKey: ["truck-sales"],
