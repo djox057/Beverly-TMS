@@ -171,6 +171,14 @@ const NewOrder = () => {
   // Duplicate stops warning
   const [showDuplicateStopsDialog, setShowDuplicateStopsDialog] = useState(false);
   const [duplicateStops, setDuplicateStops] = useState<any[]>([]);
+
+  // BF Prime LLC note requirement (for Beverly Freight Inc / BG Prime Inc operating company)
+  const [showBfPrimeNoteDialog, setShowBfPrimeNoteDialog] = useState(false);
+  const [bfPrimeNote, setBfPrimeNote] = useState("");
+  const [pendingBfPrimeSubmitEvent, setPendingBfPrimeSubmitEvent] = useState<React.FormEvent | null>(null);
+  const [pendingBfPrimeSkipDuplicate, setPendingBfPrimeSkipDuplicate] = useState(false);
+  const [pendingBfPrimeSkipDuplicateStops, setPendingBfPrimeSkipDuplicateStops] = useState(false);
+
   const { toast } = useToast();
   const { profile, hasRole } = useAuthContext();
   const queryClient = useQueryClient();
@@ -1884,6 +1892,23 @@ const NewOrder = () => {
         return;
       }
     }
+
+    // Require a note when booking for Beverly Freight Inc / BG Prime Inc with BF Prime LLC
+    if (!isPartial) {
+      const bookedByNameLocal = companies?.find((c) => c.id === bookedByCompany)?.name;
+      const requiresNote =
+        bookedByNameLocal === "BF Prime LLC" &&
+        (driverCompanyName === "Beverly Freight Inc" || driverCompanyName === "BG Prime Inc");
+      if (requiresNote && !bfPrimeNote.trim()) {
+        setPendingBfPrimeSubmitEvent(e);
+        setPendingBfPrimeSkipDuplicate(skipDuplicateCheck);
+        setPendingBfPrimeSkipDuplicateStops(skipDuplicateStopsCheck);
+        setShowBfPrimeNoteDialog(true);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     setPendingSubmit(false);
 
     try {
@@ -2011,6 +2036,15 @@ const NewOrder = () => {
             .eq("id", orderId);
           if (weightErr) console.error("Failed to save weight_rc:", weightErr);
         }
+      }
+
+      // Save BF Prime LLC justification note when required
+      if (bfPrimeNote.trim()) {
+        const { error: noteErr } = await supabase
+          .from("orders")
+          .update({ notes: bfPrimeNote.trim() })
+          .eq("id", orderId);
+        if (noteErr) console.error("Failed to save BF Prime note:", noteErr);
       }
 
       // CRITICAL: Insert pickup/drop locations IMMEDIATELY after order creation
@@ -3435,6 +3469,58 @@ const NewOrder = () => {
           }
         }
       />
+
+      {/* BF Prime LLC Booking Note Dialog */}
+      <AlertDialog open={showBfPrimeNoteDialog} onOpenChange={setShowBfPrimeNoteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Note Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              You're booking a load for <strong>{driverCompanyName}</strong> with{" "}
+              <strong>BF Prime LLC</strong> as the Booked by Company. Please add a note explaining
+              why this booking is being made under BF Prime LLC.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Textarea
+              value={bfPrimeNote}
+              onChange={(ev) => setBfPrimeNote(ev.target.value)}
+              placeholder="Enter reason / note..."
+              rows={4}
+              autoFocus
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowBfPrimeNoteDialog(false);
+                setPendingBfPrimeSubmitEvent(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!bfPrimeNote.trim() || isSubmitting}
+              onClick={(ev) => {
+                if (!bfPrimeNote.trim()) {
+                  ev.preventDefault();
+                  return;
+                }
+                setShowBfPrimeNoteDialog(false);
+                if (pendingBfPrimeSubmitEvent) {
+                  handleSubmit(
+                    pendingBfPrimeSubmitEvent,
+                    pendingBfPrimeSkipDuplicate,
+                    pendingBfPrimeSkipDuplicateStops,
+                  );
+                }
+              }}
+            >
+              Save Note & Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
