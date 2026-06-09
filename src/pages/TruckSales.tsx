@@ -81,6 +81,8 @@ const TOTAL_W = 1500;
 type StatusDef = { value: string; label: string; bg: string; text: string };
 
 // Colors mirror the reference sheet. Use solid hex + readable text color.
+// Non-priority statuses are auto-applied based on driver assignment and
+// cannot be picked manually. Priority statuses overwrite the auto value.
 const STATUS_OPTIONS: StatusDef[] = [
   { value: "READY", label: "READY", bg: "#00FF00", text: "#000000" },
   { value: "DRIVERS_ON_ROAD", label: "DRIVERS ON ROAD", bg: "#FF0000", text: "#FFFFFF" },
@@ -95,6 +97,20 @@ const STATUS_OPTIONS: StatusDef[] = [
 ];
 
 const STATUS_MAP = new Map(STATUS_OPTIONS.map((s) => [s.value, s]));
+
+// Priority statuses are the only ones a user can manually pick.
+const PRIORITY_STATUS_VALUES = [
+  "RECOVERY",
+  "SHOP",
+  "BACK_UP_TRUCKS",
+  "NOT_FOR_USED",
+  "NEW_DRIVER",
+  "NEW_TRUCK",
+  "DRIVER_LEFT_TRUCK",
+  "SUB_UNIT",
+] as const;
+const PRIORITY_SET = new Set<string>(PRIORITY_STATUS_VALUES);
+const PRIORITY_OPTIONS = STATUS_OPTIONS.filter((s) => PRIORITY_SET.has(s.value));
 
 const formatMiles = (n: number | null) =>
   n == null ? "—" : new Intl.NumberFormat("en-US").format(n);
