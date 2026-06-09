@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Warehouse } from "lucide-react";
+import { Warehouse, Search, X } from "lucide-react";
 import paintBucketAsset from "@/assets/paint-bucket.png.asset.json";
 import {
   Popover,
