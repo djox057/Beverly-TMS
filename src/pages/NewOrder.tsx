@@ -2038,6 +2038,15 @@ const NewOrder = () => {
         }
       }
 
+      // Save BF Prime LLC justification note when required
+      if (bfPrimeNote.trim()) {
+        const { error: noteErr } = await supabase
+          .from("orders")
+          .update({ notes: bfPrimeNote.trim() })
+          .eq("id", orderId);
+        if (noteErr) console.error("Failed to save BF Prime note:", noteErr);
+      }
+
       // CRITICAL: Insert pickup/drop locations IMMEDIATELY after order creation
       // This must happen before file uploads to prevent orphaned orders if uploads fail/timeout
       if (pickupsDrops.length === 0) {
