@@ -238,16 +238,6 @@ export default function BeverlyHeatmapUsMap() {
           <div className="flex flex-wrap items-center gap-2">
             <ToggleGroup
               type="single"
-              value={viewMode}
-              onValueChange={(v) => v && setViewMode(v as ViewMode)}
-              variant="outline"
-              size="sm"
-            >
-              <ToggleGroupItem value="states">States</ToggleGroupItem>
-              <ToggleGroupItem value="cities">Cities</ToggleGroupItem>
-            </ToggleGroup>
-            <ToggleGroup
-              type="single"
               value={direction}
               onValueChange={(v) => v && setDirection(v as Direction)}
               variant="outline"
@@ -331,86 +321,6 @@ export default function BeverlyHeatmapUsMap() {
                   })
               }
             </Geographies>
-            {viewMode === "cities" && zip3Geo && (
-              <Geographies geography={zip3Geo}>
-                {({ geographies }) =>
-                  geographies.map((geo) => {
-                    const zip3 = String(geo.properties?.ZCTA3 || geo.properties?.zip3 || "");
-                    const zone = zoneByZip3[zip3];
-                    const fill = zone ? interpolateCityTerrainColor(zone.rating) : CITY_NO_DATA_FILL;
-                    return (
-                      <Geography
-                        key={geo.rsmKey}
-                        geography={geo}
-                        onClick={() => zone && setSelectedZip3(zip3)}
-                        style={{
-                          default: {
-                            fill,
-                            stroke: CITY_ZIP_BORDER,
-                            strokeWidth: 0.08,
-                            outline: "none",
-                            cursor: zone ? "pointer" : "default",
-                          },
-                          hover: {
-                            fill,
-                            opacity: zone ? 0.8 : 1,
-                            stroke: CITY_ZIP_BORDER,
-                            strokeWidth: 0.08,
-                            outline: "none",
-                            cursor: zone ? "pointer" : "default",
-                          },
-                          pressed: { fill, outline: "none" },
-                        }}
-                      />
-                    );
-                  })
-                }
-              </Geographies>
-            )}
-            {viewMode === "cities" && (
-              /* State borders overlay on top of zip3 choropleth, no fill */
-              <Geographies geography={GEO_URL}>
-                {({ geographies }) =>
-                  geographies
-                    .filter((geo) => !EXCLUDED_STATE_IDS.has(String(geo.id)))
-                    .map((geo) => {
-                      const abbr = STATE_ABBR[String(geo.id)] || "";
-                      const centroid = geoCentroid(geo);
-                      return (
-                        <g key={`overlay-${geo.rsmKey}`} style={{ pointerEvents: "none" }}>
-                          <Geography
-                            geography={geo}
-                            style={{
-                              default: { fill: "transparent", stroke: "#FFFFFF", strokeWidth: 0.85, outline: "none", pointerEvents: "none" },
-                              hover: { fill: "transparent", stroke: "#FFFFFF", strokeWidth: 0.85, outline: "none", pointerEvents: "none" },
-                              pressed: { fill: "transparent", outline: "none", pointerEvents: "none" },
-                            }}
-                          />
-                          {abbr && (
-                            <text
-                              transform={`translate(${centroid[0]}, ${centroid[1]})`}
-                              textAnchor="middle"
-                              style={{
-                                fontFamily: "inherit",
-                                fontSize: 11,
-                                fontWeight: 700,
-                                fill: "#334155",
-                                paintOrder: "stroke",
-                                stroke: "#FFFFFF",
-                                strokeWidth: 2,
-                                strokeLinejoin: "round",
-                                pointerEvents: "none",
-                              }}
-                            >
-                              {abbr}
-                            </text>
-                          )}
-                        </g>
-                      );
-                    })
-                }
-              </Geographies>
-            )}
           </ComposableMap>
         </div>
       </CardContent>
@@ -479,94 +389,6 @@ export default function BeverlyHeatmapUsMap() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!selectedCity} onOpenChange={(o) => !o && setSelectedCityKey(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedCity ? `${selectedCity.city}, ${selectedCity.state}` : ""} — {direction === "inbound" ? "Inbound" : "Outbound"}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedCity && (
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Rating</span>
-                <span className="text-2xl font-bold" style={{ color: interpolateColor(selectedCity.rating) }}>
-                  {selectedCity.rating}/10
-                </span>
-              </div>
-              <div className="border-t pt-3 space-y-2">
-                <div className="text-xs text-muted-foreground mb-1">Based on (in order of importance):</div>
-                <div className="flex justify-between"><span>1. Number of loads</span><span className="font-medium">{fmtNum(selectedCity.count)}</span></div>
-                <div className="flex justify-between"><span>2. RPM (loaded)</span><span className="font-medium">${selectedCity.rpm.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span>3. DH miles per load</span><span className="font-medium">{fmtNum(selectedCity.dhPerLoad, 1)}</span></div>
-                <div className="flex justify-between"><span>4. Avg gross per load</span><span className="font-medium">{fmtMoney(selectedCity.avgGross)}</span></div>
-              </div>
-              <div className="border-t pt-3 space-y-2 text-xs text-muted-foreground">
-                <div className="flex justify-between"><span>Total freight</span><span>{fmtMoney(selectedCity.totalFreight)}</span></div>
-                <div className="flex justify-between"><span>Total loaded miles</span><span>{fmtNum(selectedCity.totalLoadedMiles)}</span></div>
-                <div className="flex justify-between"><span>Total DH miles</span><span>{fmtNum(selectedCity.totalDhMiles)}</span></div>
-              </div>
-              <div className="text-xs text-muted-foreground pt-2 border-t">
-                {direction === "inbound"
-                  ? "Loads delivered to this city (pickup in last + current week). Min 10 loads to be rated."
-                  : "Loads picked up in this city (last + current week). Min 10 loads to be rated."}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!selectedZone} onOpenChange={(o) => !o && setSelectedZip3(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              ZIP {selectedZip3} — {direction === "inbound" ? "Inbound" : "Outbound"}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedZone && (
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Rating</span>
-                <span className="text-2xl font-bold" style={{ color: interpolateColor(selectedZone.rating) }}>
-                  {selectedZone.rating}/10
-                </span>
-              </div>
-              <div className="border-t pt-3 space-y-2">
-                <div className="text-xs text-muted-foreground mb-1">Based on (in order of importance):</div>
-                <div className="flex justify-between"><span>1. Number of loads</span><span className="font-medium">{fmtNum(selectedZone.count)}</span></div>
-                <div className="flex justify-between"><span>2. RPM (loaded)</span><span className="font-medium">${selectedZone.rpm.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span>3. DH miles per load</span><span className="font-medium">{fmtNum(selectedZone.dhPerLoad, 1)}</span></div>
-                <div className="flex justify-between"><span>4. Avg gross per load</span><span className="font-medium">{fmtMoney(selectedZone.avgGross)}</span></div>
-              </div>
-              <div className="border-t pt-3 space-y-2 text-xs text-muted-foreground">
-                <div className="flex justify-between"><span>Total freight</span><span>{fmtMoney(selectedZone.freight)}</span></div>
-                <div className="flex justify-between"><span>Total loaded miles</span><span>{fmtNum(selectedZone.loadedMiles)}</span></div>
-                <div className="flex justify-between"><span>Total DH miles</span><span>{fmtNum(selectedZone.dhMiles)}</span></div>
-              </div>
-              {selectedZone.cities.length > 0 && (
-                <div className="border-t pt-3">
-                  <div className="text-xs text-muted-foreground mb-2">Cities in this zone ({selectedZone.cities.length}):</div>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {selectedZone.cities
-                      .slice()
-                      .sort((a, b) => b.count - a.count)
-                      .map((c) => (
-                        <button
-                          key={`${c.city}|${c.state}`}
-                          className="w-full flex justify-between text-left hover:bg-muted px-2 py-1 rounded"
-                          onClick={() => { setSelectedZip3(null); setSelectedCityKey(`${c.city}|${c.state}`); }}
-                        >
-                          <span>{c.city}, {c.state}</span>
-                          <span className="text-muted-foreground">{fmtNum(c.count)} loads</span>
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }
