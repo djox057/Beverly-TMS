@@ -432,6 +432,37 @@ const Reports = () => {
     return map;
   }, [temporaryPlates]);
 
+  // Supervised dispatcher ids (for supervisors viewing the $ revenue popover)
+  const { data: supervisedDispatcherIds = [] } = useQuery({
+    queryKey: ["reports-supervised-dispatchers", profile?.id],
+    enabled: !!profile?.id && hasRole("supervisor"),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("dispatcher_supervisors")
+        .select("dispatcher_id")
+        .eq("supervisor_id", profile!.id);
+      return (data || []).map((r: any) => r.dispatcher_id as string);
+    },
+  });
+
+  const canSeeWeekRevenue = useCallback(
+    (truck: any) => {
+      if (hasRole("admin") || hasRole("manager")) return true;
+      if (hasRole("supervisor")) {
+        if (!truck?.dispatcherId) return false;
+        return (
+          truck.dispatcherId === profile?.id ||
+          supervisedDispatcherIds.includes(truck.dispatcherId)
+        );
+      }
+      if (hasRole("dispatch")) {
+        return !!truck?.dispatcherId && truck.dispatcherId === profile?.id;
+      }
+      return false;
+    },
+    [hasRole, profile?.id, supervisedDispatcherIds],
+  );
+
   // Temporary plate upload dialog state
   const [tempPlateDialog, setTempPlateDialog] = useState<{
     truckId: string;
@@ -6132,7 +6163,9 @@ const Reports = () => {
                                                   {truck.fuelLevel != null ? `${truck.fuelLevel}%` : "—"}
                                                 </span>
                                               </div>
-                                              <TruckWeekRevenuePopover orders={truck.allOrders} />
+                                              {canSeeWeekRevenue(truck) && (
+                                                <TruckWeekRevenuePopover orders={truck.allOrders} />
+                                              )}
                                             </div>
                                             <div className="h-8 p-0 w-full">
                                               <EditableNoteField
