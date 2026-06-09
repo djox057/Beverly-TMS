@@ -70,6 +70,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
+import { TranslatableOrderNote } from "@/components/TranslatableOrderNote";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { CheckInOutTimeDialog } from "@/components/CheckInOutTimeDialog";
 import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
