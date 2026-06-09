@@ -428,6 +428,16 @@ export default function BeverlyHeatmapUsMap() {
           <div className="flex flex-wrap items-center gap-2">
             <ToggleGroup
               type="single"
+              value={viewMode}
+              onValueChange={(v) => v && setViewMode(v as ViewMode)}
+              variant="outline"
+              size="sm"
+            >
+              <ToggleGroupItem value="states">States</ToggleGroupItem>
+              <ToggleGroupItem value="cities">Cities</ToggleGroupItem>
+            </ToggleGroup>
+            <ToggleGroup
+              type="single"
               value={direction}
               onValueChange={(v) => v && setDirection(v as Direction)}
               variant="outline"
@@ -440,12 +450,27 @@ export default function BeverlyHeatmapUsMap() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="w-full">
+        <div
+          ref={overlayRef}
+          className="w-full relative"
+          style={{ aspectRatio: `${MAP_W} / ${MAP_H}` }}
+          onMouseMove={(e) => {
+            if (viewMode !== "cities" || !overlayRef.current) return;
+            const rect = overlayRef.current.getBoundingClientRect();
+            const sx = (e.clientX - rect.left) / rect.width;
+            const sy = (e.clientY - rect.top) / rect.height;
+            const near = findNearest(sx * MAP_W, sy * MAP_H);
+            setHoverCity(
+              near ? { x: e.clientX - rect.left, y: e.clientY - rect.top, city: near } : null,
+            );
+          }}
+          onMouseLeave={() => setHoverCity(null)}
+        >
           <ComposableMap
             projection="geoAlbersUsa"
             projectionConfig={{ scale: 1000 }}
-            width={975}
-            height={610}
+            width={MAP_W}
+            height={MAP_H}
             style={{ width: "100%", height: "auto" }}
           >
             <Geographies geography={GEO_DATA}>
@@ -457,28 +482,29 @@ export default function BeverlyHeatmapUsMap() {
                     const centroid = geoCentroid(geo);
                     const fillColor = fillForAbbr(abbr);
                     const rating = ratings[abbr];
-                    const hasRating = !!rating;
+                    const hasRating = viewMode === "states" && !!rating;
                     const labelFill = hasRating ? "#ffffff" : "hsl(var(--muted-foreground))";
+                    const interactive = viewMode === "states";
                     return (
                       <g key={geo.rsmKey}>
                         <Geography
                           geography={geo}
-                          onClick={() => abbr && setSelectedState(abbr)}
+                          onClick={() => interactive && abbr && setSelectedState(abbr)}
                           style={{
                             default: {
                               fill: fillColor,
-                              stroke: "hsl(var(--border))",
+                              stroke: viewMode === "cities" ? "rgba(0,0,0,0.35)" : "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
-                              cursor: "pointer",
+                              cursor: interactive ? "pointer" : "default",
                             },
                             hover: {
                               fill: fillColor,
-                              opacity: 0.85,
-                              stroke: "hsl(var(--border))",
+                              opacity: interactive ? 0.85 : 1,
+                              stroke: viewMode === "cities" ? "rgba(0,0,0,0.35)" : "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
-                              cursor: "pointer",
+                              cursor: interactive ? "pointer" : "default",
                             },
                             pressed: {
                               fill: fillColor,
@@ -486,7 +512,7 @@ export default function BeverlyHeatmapUsMap() {
                             },
                           }}
                         />
-                        {abbr && (
+                        {abbr && viewMode === "states" && (
                           <text
                             x={0}
                             y={0}
@@ -511,7 +537,78 @@ export default function BeverlyHeatmapUsMap() {
               }
             </Geographies>
           </ComposableMap>
+
+          {viewMode === "cities" && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ mixBlendMode: "multiply" }}
+            >
+              <DeckGL
+                views={new OrthographicView({ flipY: true })}
+                initialViewState={{ target: [MAP_W / 2, MAP_H / 2, 0], zoom: 0 }}
+                controller={false}
+                width="100%"
+                height="100%"
+                layers={heatmapLayer ? [heatmapLayer] : []}
+                style={{ position: "absolute", inset: 0 }}
+                getCursor={() => "default"}
+              />
+            </div>
+          )}
+
+          {viewMode === "cities" && hoverCity && (
+            <div
+              className="absolute z-10 pointer-events-none rounded-md border bg-popover text-popover-foreground text-xs shadow-md px-2 py-1.5"
+              style={{
+                left: Math.min(hoverCity.x + 12, (overlayRef.current?.clientWidth || 0) - 180),
+                top: Math.max(hoverCity.y - 60, 4),
+                minWidth: 160,
+              }}
+            >
+              <div className="font-semibold">
+                {hoverCity.city.city}, {hoverCity.city.state}
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Rating</span>
+                <span style={{ color: interpolateColor(hoverCity.city.rating) }} className="font-bold">
+                  {hoverCity.city.rating}/10
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Loads</span>
+                <span>{fmtNum(hoverCity.city.count)}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">Freight</span>
+                <span>{fmtMoney(hoverCity.city.freight)}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-muted-foreground">RPM</span>
+                <span>${hoverCity.city.rpm.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
+          {viewMode === "cities" && citiesLoading && projectedCities.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+              Loading city heatmap…
+            </div>
+          )}
         </div>
+
+        {viewMode === "cities" && (
+          <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+            <span>Weak</span>
+            <div
+              className="h-2 flex-1 rounded"
+              style={{
+                background:
+                  "linear-gradient(to right, rgb(139,0,0), rgb(255,102,0), rgb(255,170,0), rgb(182,217,0), rgb(102,204,51), rgb(0,160,0))",
+              }}
+            />
+            <span>Strong</span>
+          </div>
+        )}
       </CardContent>
 
       <Dialog open={!!selectedState} onOpenChange={(o) => !o && setSelectedState(null)}>
