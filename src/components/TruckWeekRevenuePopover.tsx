@@ -1,10 +1,13 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatCurrency } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   orders: any[] | undefined;
   referenceDate?: Date;
+  driverId?: string | null;
+  driver2Id?: string | null;
 }
 
 function getChicagoNow(): Date {
@@ -97,13 +100,59 @@ function getOrderLastDeliveryDate(order: any): string | null {
   return order?.delivery_datetime || order?.deliveryDatetime || null;
 }
 
-export const TruckWeekRevenuePopover = ({ orders, referenceDate }: Props) => {
+export const TruckWeekRevenuePopover = ({ orders, referenceDate, driverId, driver2Id }: Props) => {
   const refTime = referenceDate ? referenceDate.getTime() : undefined;
+  const [open, setOpen] = useState(false);
+  const [fetched, setFetched] = useState<any[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const { start: weekStart, end: weekEnd } = useMemo(
+    () => getChicagoWeekRange(refTime !== undefined ? new Date(refTime) : undefined),
+    [refTime],
+  );
+
+  // When popover opens, fetch the full Mon-Sun week directly for this truck's driver(s).
+  // This guarantees correctness even when the lazy-loaded cache only covers the visible
+  // 7-day carousel window (which can omit days at the start of the Chicago week).
+  useEffect(() => {
+    if (!open) return;
+    const ids = [driverId, driver2Id].filter((x): x is string => !!x);
+    if (ids.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const startIso = new Date(weekStart).toISOString();
+      const endIso = new Date(weekEnd).toISOString();
+      const idList = ids.join(",");
+      const { data, error } = await supabase
+        .from("orders")
+        .select(
+          "id, canceled, driver1_id, driver2_id, pickup_datetime, delivery_datetime, freight_amount, driver_price, loaded_miles, mileage",
+        )
+        .eq("canceled", false)
+        .or(`driver1_id.in.(${idList}),driver2_id.in.(${idList})`)
+        .gte("pickup_datetime", startIso)
+        .lt("pickup_datetime", endIso)
+        .limit(500);
+      if (cancelled) return;
+      if (error) {
+        console.error("[TruckWeekRevenuePopover] fetch error", error);
+        setFetched([]);
+      } else {
+        setFetched(data || []);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, driverId, driver2Id, weekStart, weekEnd]);
+
   const stats = useMemo(() => {
-    const { start, end } = getChicagoWeekRange(
-      refTime !== undefined ? new Date(refTime) : undefined,
-    );
-    const inWeek = (orders ?? []).filter((o) => {
+    const start = weekStart;
+    const end = weekEnd;
+    const source = fetched ?? orders ?? [];
+    const inWeek = source.filter((o) => {
       if (!o || o.canceled) return false;
       const raw = getOrderPickupDate(o);
       if (!raw) return false;
@@ -155,10 +204,10 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate }: Props) => {
       commPct: freight > 0 ? (comm / freight) * 100 : 0,
       days,
     };
-  }, [orders, refTime]);
+  }, [orders, fetched, weekStart, weekEnd]);
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -170,7 +219,7 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate }: Props) => {
       </PopoverTrigger>
       <PopoverContent side="top" align="end" className="w-auto min-w-[220px] p-3 text-xs">
         <div className="text-[11px] font-medium text-muted-foreground mb-2">
-          This week · {stats.count} order{stats.count === 1 ? "" : "s"}
+          This week · {stats.count} order{stats.count === 1 ? "" : "s"}{loading ? " · loading…" : ""}
         </div>
         <div className="space-y-1">
           <div className="flex justify-between gap-4">
