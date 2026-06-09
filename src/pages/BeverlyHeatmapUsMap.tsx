@@ -431,6 +431,13 @@ export default function BeverlyHeatmapUsMap() {
   const fmtMoney = (v: number) => `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   const fmtNum = (v: number, digits = 0) => v.toLocaleString("en-US", { maximumFractionDigits: digits });
 
+  const maxCityCount = cityMetrics.reduce((m, c) => Math.max(m, c.count), 0);
+  const radiusFor = (count: number) => {
+    if (maxCityCount <= 0) return 4;
+    const n = count / maxCityCount;
+    return 4 + Math.sqrt(n) * 16; // 4..20
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -439,16 +446,28 @@ export default function BeverlyHeatmapUsMap() {
             <MapPin className="h-5 w-5 text-primary" />
             US Map
           </CardTitle>
-          <ToggleGroup
-            type="single"
-            value={direction}
-            onValueChange={(v) => v && setDirection(v as Direction)}
-            variant="outline"
-            size="sm"
-          >
-            <ToggleGroupItem value="inbound">Inbound</ToggleGroupItem>
-            <ToggleGroupItem value="outbound">Outbound</ToggleGroupItem>
-          </ToggleGroup>
+          <div className="flex flex-wrap items-center gap-2">
+            <ToggleGroup
+              type="single"
+              value={viewMode}
+              onValueChange={(v) => v && setViewMode(v as ViewMode)}
+              variant="outline"
+              size="sm"
+            >
+              <ToggleGroupItem value="states">States</ToggleGroupItem>
+              <ToggleGroupItem value="cities">Cities</ToggleGroupItem>
+            </ToggleGroup>
+            <ToggleGroup
+              type="single"
+              value={direction}
+              onValueChange={(v) => v && setDirection(v as Direction)}
+              variant="outline"
+              size="sm"
+            >
+              <ToggleGroupItem value="inbound">Inbound</ToggleGroupItem>
+              <ToggleGroupItem value="outbound">Outbound</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -467,30 +486,31 @@ export default function BeverlyHeatmapUsMap() {
                   .map((geo) => {
                     const abbr = STATE_ABBR[String(geo.id)] || "";
                     const centroid = geoCentroid(geo);
-                    const fillColor = fillForAbbr(abbr);
+                    const isCitiesView = viewMode === "cities";
+                    const fillColor = isCitiesView ? "hsl(var(--muted))" : fillForAbbr(abbr);
                     const rating = ratings[abbr];
-                    const hasRating = !!rating;
-                    const labelFill = hasRating ? "#ffffff" : "hsl(var(--foreground))";
+                    const hasRating = !isCitiesView && !!rating;
+                    const labelFill = hasRating ? "#ffffff" : "hsl(var(--muted-foreground))";
                     return (
                       <g key={geo.rsmKey}>
                         <Geography
                           geography={geo}
-                          onClick={() => abbr && setSelectedState(abbr)}
+                          onClick={() => !isCitiesView && abbr && setSelectedState(abbr)}
                           style={{
                             default: {
                               fill: fillColor,
                               stroke: "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
-                              cursor: "pointer",
+                              cursor: isCitiesView ? "default" : "pointer",
                             },
                             hover: {
                               fill: fillColor,
-                              opacity: 0.85,
+                              opacity: isCitiesView ? 1 : 0.85,
                               stroke: "hsl(var(--border))",
                               strokeWidth: 0.75,
                               outline: "none",
-                              cursor: "pointer",
+                              cursor: isCitiesView ? "default" : "pointer",
                             },
                             pressed: {
                               fill: fillColor,
@@ -504,14 +524,14 @@ export default function BeverlyHeatmapUsMap() {
                             y={0}
                             transform={`translate(${centroid[0]}, ${centroid[1]})`}
                             textAnchor="middle"
-                            onClick={() => setSelectedState(abbr)}
+                            onClick={() => !isCitiesView && setSelectedState(abbr)}
                             style={{
                               fontFamily: "inherit",
                               fontSize: 10,
                               fontWeight: 600,
                               fill: labelFill,
-                              pointerEvents: "auto",
-                              cursor: "pointer",
+                              pointerEvents: isCitiesView ? "none" : "auto",
+                              cursor: isCitiesView ? "default" : "pointer",
                             }}
                           >
                             {hasRating ? `${abbr} ${rating}` : abbr}
@@ -522,6 +542,30 @@ export default function BeverlyHeatmapUsMap() {
                   })
               }
             </Geographies>
+            {viewMode === "cities" &&
+              cityMetrics.map((c) => {
+                const key = `${c.city}|${c.state}`;
+                return (
+                  <Marker
+                    key={key}
+                    coordinates={[c.lng, c.lat]}
+                    onClick={() => setSelectedCityKey(key)}
+                    style={{
+                      default: { cursor: "pointer" },
+                      hover: { cursor: "pointer" },
+                      pressed: { cursor: "pointer" },
+                    }}
+                  >
+                    <circle
+                      r={radiusFor(c.count)}
+                      fill={interpolateColor(c.rating)}
+                      stroke="#ffffff"
+                      strokeWidth={0.75}
+                      opacity={0.9}
+                    />
+                  </Marker>
+                );
+              })}
           </ComposableMap>
         </div>
       </CardContent>
