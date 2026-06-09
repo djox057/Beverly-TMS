@@ -103,6 +103,26 @@ function interpolateColor(rating: number): string {
   return RATING_COLORS[rating] || "#000000";
 }
 
+// Supabase REST API caps each response at ~1000 rows. Paginate to fetch all matching orders.
+async function fetchAllOrdersInWindow(fromIso: string): Promise<any[]> {
+  const pageSize = 1000;
+  const all: any[] = [];
+  for (let from = 0; from < 20000; from += pageSize) {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id, freight_amount, loaded_miles, dh_miles")
+      .eq("canceled", false)
+      .gte("pickup_datetime", fromIso)
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+  }
+  return all;
+}
+
 function useStateRatings(direction: Direction) {
   return useQuery({
     queryKey: ["state-ratings", direction],
