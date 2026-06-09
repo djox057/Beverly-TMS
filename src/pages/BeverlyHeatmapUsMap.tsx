@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import statesGeo from "@/assets/us-states-10m.json";
 
-const GEO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
+// Bundled locally to avoid a CDN round trip on first render.
+const GEO_DATA = statesGeo as any;
 
 // FIPS state IDs to exclude: Alaska (02), Hawaii (15), and territories.
 const EXCLUDED_STATE_IDS = new Set(["02", "15", "60", "66", "69", "72", "78"]);
@@ -103,16 +105,16 @@ async function fetchAllOrdersInWindow(fromIso: string): Promise<any[]> {
   return all;
 }
 
-function useStateRatings(direction: Direction) {
-  return useQuery({
-    queryKey: ["state-ratings", direction],
-    queryFn: async () => {
+function fromIsoForWindow(): string {
       const now = new Date();
       const currentMon = chicagoMondayOf(now);
       const lastMon = new Date(currentMon);
       lastMon.setUTCDate(lastMon.getUTCDate() - 7);
-      const fromIso = lastMon.toISOString();
+      return lastMon.toISOString();
+}
 
+async function fetchStateRatings(direction: Direction) {
+      const fromIso = fromIsoForWindow();
       // Server-side aggregation via RPC (1 round trip)
       const { data: rows, error } = await supabase.rpc("get_us_map_state_stats", {
         p_direction: direction,
@@ -203,15 +205,35 @@ function useStateRatings(direction: Direction) {
         };
       }
       return { ratings, metrics: metricsMap };
-    },
-    staleTime: 5 * 60 * 1000,
+}
+
+function useStateRatings(direction: Direction) {
+  return useQuery({
+    queryKey: ["state-ratings", direction],
+    queryFn: () => fetchStateRatings(direction),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
   });
 }
 
 
 export default function BeverlyHeatmapUsMap() {
   const [direction, setDirection] = useState<Direction>("inbound");
+  const queryClient = useQueryClient();
   const { data } = useStateRatings(direction);
+
+  // Prefetch the opposite direction in the background so toggling is instant.
+  useEffect(() => {
+    const other: Direction = direction === "inbound" ? "outbound" : "inbound";
+    queryClient.prefetchQuery({
+      queryKey: ["state-ratings", other],
+      queryFn: () => fetchStateRatings(other),
+      staleTime: 10 * 60 * 1000,
+    });
+  }, [direction, queryClient]);
+
   const ratings = data?.ratings || {};
   const metrics = data?.metrics || {};
   const [selectedState, setSelectedState] = useState<string | null>(null);
@@ -257,7 +279,7 @@ export default function BeverlyHeatmapUsMap() {
             height={610}
             style={{ width: "100%", height: "auto" }}
           >
-            <Geographies geography={GEO_URL}>
+            <Geographies geography={GEO_DATA}>
               {({ geographies }) =>
                 geographies
                   .filter((geo) => !EXCLUDED_STATE_IDS.has(String(geo.id)))
