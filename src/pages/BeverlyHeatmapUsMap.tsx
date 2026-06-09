@@ -582,17 +582,41 @@ export default function BeverlyHeatmapUsMap() {
                 {({ geographies }) =>
                   geographies
                     .filter((geo) => !EXCLUDED_STATE_IDS.has(String(geo.id)))
-                    .map((geo) => (
-                      <Geography
-                        key={`overlay-${geo.rsmKey}`}
-                        geography={geo}
-                        style={{
-                          default: { fill: "transparent", stroke: "hsl(var(--foreground))", strokeWidth: 0.6, outline: "none", pointerEvents: "none" },
-                          hover: { fill: "transparent", stroke: "hsl(var(--foreground))", strokeWidth: 0.6, outline: "none", pointerEvents: "none" },
-                          pressed: { fill: "transparent", outline: "none", pointerEvents: "none" },
-                        }}
-                      />
-                    ))
+                    .map((geo) => {
+                      const abbr = STATE_ABBR[String(geo.id)] || "";
+                      const centroid = geoCentroid(geo);
+                      return (
+                        <g key={`overlay-${geo.rsmKey}`} style={{ pointerEvents: "none" }}>
+                          <Geography
+                            geography={geo}
+                            style={{
+                              default: { fill: "transparent", stroke: "hsl(var(--foreground))", strokeWidth: 0.7, outline: "none", pointerEvents: "none" },
+                              hover: { fill: "transparent", stroke: "hsl(var(--foreground))", strokeWidth: 0.7, outline: "none", pointerEvents: "none" },
+                              pressed: { fill: "transparent", outline: "none", pointerEvents: "none" },
+                            }}
+                          />
+                          {abbr && (
+                            <text
+                              transform={`translate(${centroid[0]}, ${centroid[1]})`}
+                              textAnchor="middle"
+                              style={{
+                                fontFamily: "inherit",
+                                fontSize: 11,
+                                fontWeight: 700,
+                                fill: "hsl(var(--foreground))",
+                                paintOrder: "stroke",
+                                stroke: "hsl(var(--background))",
+                                strokeWidth: 2,
+                                strokeLinejoin: "round",
+                                pointerEvents: "none",
+                              }}
+                            >
+                              {abbr}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })
                 }
               </Geographies>
             )}
