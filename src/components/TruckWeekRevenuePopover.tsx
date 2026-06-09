@@ -6,6 +6,21 @@ interface Props {
   orders: any[] | undefined;
 }
 
+function getChicagoNow(): Date {
+  const now = new Date();
+  const chicagoStr = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(now);
+  return new Date(chicagoStr.replace(/\//g, "-"));
+}
+
 /**
  * Returns [start, end) UTC timestamps for the current Chicago week (Mon 00:00 -> next Mon 00:00).
  */
@@ -96,6 +111,9 @@ export const TruckWeekRevenuePopover = ({ orders }: Props) => {
       0,
     );
     const comm = freight - pay;
+    const chicagoNow = getChicagoNow();
+    const isoDay = chicagoNow.getDay() === 0 ? 7 : chicagoNow.getDay(); // Mon=1 ... Sun=7
+    const daysPlusOne = isoDay + 1;
     return {
       count: inWeek.length,
       freight,
@@ -105,6 +123,7 @@ export const TruckWeekRevenuePopover = ({ orders }: Props) => {
       freightRpm: miles > 0 ? freight / miles : 0,
       payRpm: miles > 0 ? pay / miles : 0,
       commPct: freight > 0 ? (comm / freight) * 100 : 0,
+      daysPlusOne,
     };
   }, [orders]);
 
@@ -139,6 +158,15 @@ export const TruckWeekRevenuePopover = ({ orders }: Props) => {
               {formatCurrency(stats.pay)}
               <span className="ml-1 text-[11px] text-muted-foreground">
                 ({stats.payRpm > 0 ? `$${stats.payRpm.toFixed(2)}/mi` : "—"})
+              </span>
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Miles:</span>
+            <span className="font-semibold text-amber-600 dark:text-amber-400">
+              {Math.round(stats.miles).toLocaleString()}
+              <span className="ml-1 text-[11px] text-muted-foreground">
+                ({stats.miles > 0 ? Math.round(stats.miles / stats.daysPlusOne).toLocaleString() : "—"})
               </span>
             </span>
           </div>
