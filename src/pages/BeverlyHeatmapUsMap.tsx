@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-import { geoCentroid, geoAlbersUsa } from "d3-geo";
+import { geoCentroid, geoAlbersUsa, geoPath } from "d3-geo";
+import { feature } from "topojson-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin } from "lucide-react";
@@ -364,21 +365,36 @@ export default function BeverlyHeatmapUsMap() {
     if (viewMode !== "cities" || cities.length === 0) return [];
     const proj = geoAlbersUsa().scale(1000).translate([MAP_W / 2, MAP_H / 2]);
     const out: Array<CityRow & { x: number; y: number; radius: number }> = [];
-    // Scale circle radius by load count (log) so big markets dominate without dwarfing the rest.
-    const maxCount = Math.max(1, ...cities.map((c) => c.count));
-    const maxLog = Math.log(maxCount + 1);
     for (const c of cities) {
       const p = proj([c.longitude, c.latitude]);
       if (!p) continue;
       const [x, y] = p;
-      // Drop anything that projected outside the lower-48 frame.
       if (x < 0 || x > MAP_W || y < 0 || y > MAP_H) continue;
-      const t = maxLog > 0 ? Math.log(c.count + 1) / maxLog : 0;
-      const radius = 6 + t * 22; // 6px floor, up to 28px for top market
+      // Fixed ~60 mile radius footprint in projected pixel space.
+      // The Albers projection at scale 1000 yields ~0.55 px per mile across the lower-48.
+      const radius = 60 * 0.55;
       out.push({ ...c, x, y, radius });
     }
     return out;
   }, [cities, viewMode]);
+
+  // Build a US-shaped clip path so the colored blobs never spill outside the map.
+  const usClipPath = useMemo(() => {
+    if (viewMode !== "cities") return "";
+    try {
+      const topo: any = GEO_DATA;
+      const obj = topo.objects?.states || Object.values(topo.objects || {})[0];
+      const fc: any = feature(topo, obj);
+      const features = (fc.features || []).filter(
+        (f: any) => !EXCLUDED_STATE_IDS.has(String(f.id)),
+      );
+      const proj = geoAlbersUsa().scale(1000).translate([MAP_W / 2, MAP_H / 2]);
+      const path = geoPath(proj);
+      return features.map((f: any) => path(f) || "").join(" ");
+    } catch {
+      return "";
+    }
+  }, [viewMode]);
 
   return (
     <Card>
