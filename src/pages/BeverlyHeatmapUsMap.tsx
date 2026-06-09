@@ -239,101 +239,27 @@ function useCityRatings(direction: Direction, enabled: boolean) {
       lastMon.setUTCDate(lastMon.getUTCDate() - 7);
       const fromIso = lastMon.toISOString();
 
-      const orders = await fetchAllOrdersInWindow(fromIso);
-      if (!orders || orders.length === 0) return { metrics: [] as CityMetrics[] };
-
-      const orderIds = (orders as any[]).map((o) => o.id);
-      const wantedType = direction === "inbound" ? "delivery" : "pickup";
-
-      const stopByOrder = new Map<string, { city: string; state: string; lat: number | null; lng: number | null }>();
-      for (let i = 0; i < orderIds.length; i += 200) {
-        const chunk = orderIds.slice(i, i + 200);
-        const { data: pds } = await supabase
-          .from("pickup_drops")
-          .select("order_id, city, state, type, sequence_number, latitude, longitude")
-          .in("order_id", chunk)
-          .eq("type", wantedType)
-          .not("state", "is", null)
-          .not("city", "is", null);
-        if (!pds) continue;
-        const grouped = new Map<string, any[]>();
-        for (const pd of pds) {
-          if (!grouped.has(pd.order_id)) grouped.set(pd.order_id, []);
-          grouped.get(pd.order_id)!.push(pd);
-        }
-        for (const [oid, arr] of grouped) {
-          arr.sort((a, b) => (a.sequence_number ?? 0) - (b.sequence_number ?? 0));
-          const chosen = wantedType === "delivery" ? arr[arr.length - 1] : arr[0];
-          if (chosen?.city && chosen?.state) {
-            stopByOrder.set(oid, {
-              city: String(chosen.city).trim(),
-              state: String(chosen.state).toUpperCase().trim(),
-              lat: chosen.latitude != null ? Number(chosen.latitude) : null,
-              lng: chosen.longitude != null ? Number(chosen.longitude) : null,
-            });
-          }
-        }
-      }
-
+      // Server-side aggregation via RPC (1 round trip)
+      const { data: rows, error } = await supabase.rpc("get_us_map_city_stats", {
+        p_direction: direction,
+        p_from: fromIso,
+        p_min_loads: 3,
+      });
+      if (error) throw error;
       const validAbbrs = new Set(Object.values(STATE_ABBR));
-      const agg = new Map<string, CityAgg>();
-      for (const o of orders as any[]) {
-        const s = stopByOrder.get(o.id);
-        if (!s) continue;
-        if (!validAbbrs.has(s.state)) continue;
-        const key = `${s.city.toUpperCase()}|${s.state}`;
-        const cur = agg.get(key) || {
-          city: s.city,
-          state: s.state,
-          count: 0,
-          freight: 0,
-          loadedMiles: 0,
-          dhMiles: 0,
-          latSum: 0,
-          lngSum: 0,
-          coordN: 0,
-        };
-        cur.count += 1;
-        cur.freight += Number(o.freight_amount) || 0;
-        cur.loadedMiles += Number(o.loaded_miles) || 0;
-        cur.dhMiles += Number(o.dh_miles) || 0;
-        if (s.lat != null && s.lng != null && !Number.isNaN(s.lat) && !Number.isNaN(s.lng)) {
-          cur.latSum += s.lat;
-          cur.lngSum += s.lng;
-          cur.coordN += 1;
-        }
-        agg.set(key, cur);
-      }
-
-      // Look up coords from reference cities for any city missing them
-      const needRef = [...agg.values()].filter((c) => c.coordN === 0 && c.count >= 10);
-      if (needRef.length > 0) {
-        const names = Array.from(new Set(needRef.map((c) => c.city)));
-        const { data: refs } = await supabase
-          .from("heatmap_reference_cities")
-          .select("city_name, state, latitude, longitude")
-          .in("city_name", names);
-        if (refs) {
-          const refMap = new Map<string, { lat: number; lng: number }>();
-          for (const r of refs as any[]) {
-            refMap.set(`${String(r.city_name).toUpperCase()}|${String(r.state).toUpperCase()}`, {
-              lat: Number(r.latitude),
-              lng: Number(r.longitude),
-            });
-          }
-          for (const c of needRef) {
-            const m = refMap.get(`${c.city.toUpperCase()}|${c.state}`);
-            if (m) {
-              c.latSum = m.lat;
-              c.lngSum = m.lng;
-              c.coordN = 1;
-            }
-          }
-        }
-      }
-
-      // Filter: min 10 loads, must have coords
-      const filtered = [...agg.values()].filter((c) => c.count >= 10 && c.coordN > 0);
+      const filtered = ((rows as any[]) || [])
+        .filter((r) => validAbbrs.has(String(r.state).toUpperCase().trim()))
+        .map((r) => ({
+          city: String(r.city || "").trim(),
+          state: String(r.state).toUpperCase().trim(),
+          count: Number(r.count) || 0,
+          freight: Number(r.freight) || 0,
+          loadedMiles: Number(r.loaded_miles) || 0,
+          dhMiles: Number(r.dh_miles) || 0,
+          latSum: Number(r.latitude) || 0,
+          lngSum: Number(r.longitude) || 0,
+          coordN: 1,
+        }));
       if (filtered.length === 0) return { metrics: [] as CityMetrics[] };
 
       type M = { key: string; count: number; rpm: number; dhPerLoad: number; avgGross: number };
