@@ -166,7 +166,7 @@ export const TruckWeekRevenuePopover = ({ orders }: Props) => {
             <span className="font-semibold text-amber-600 dark:text-amber-400">
               {Math.round(stats.miles).toLocaleString()}
               <span className="ml-1 text-[11px] text-muted-foreground">
-                ({stats.miles > 0 ? Math.round(stats.miles / stats.daysPlusOne).toLocaleString() : "—"})
+                ({stats.miles > 0 ? Math.round(stats.miles / stats.days).toLocaleString() : "—"})
               </span>
             </span>
           </div>
