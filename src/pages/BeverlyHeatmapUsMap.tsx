@@ -7,10 +7,8 @@ import { MapPin } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import zip3Asset from "@/assets/us-zip3.json.asset.json";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
-const ZIP3_URL = zip3Asset.url;
 
 // FIPS state IDs to exclude: Alaska (02), Hawaii (15), and territories.
 const EXCLUDED_STATE_IDS = new Set(["02", "15", "60", "66", "69", "72", "78"]);
@@ -29,7 +27,6 @@ const STATE_ABBR: Record<string, string> = {
 };
 
 type Direction = "inbound" | "outbound";
-type ViewMode = "states" | "cities";
 
 interface StateAgg {
   count: number;
@@ -47,25 +44,6 @@ interface StateMetrics {
   totalLoadedMiles: number;
   totalDhMiles: number;
   rating: number;
-}
-
-interface CityAgg {
-  city: string;
-  state: string;
-  count: number;
-  freight: number;
-  loadedMiles: number;
-  dhMiles: number;
-  latSum: number;
-  lngSum: number;
-  coordN: number;
-}
-
-interface CityMetrics extends StateMetrics {
-  city: string;
-  state: string;
-  lat: number;
-  lng: number;
 }
 
 // Compute Monday (Chicago time) of the week containing `d`.
