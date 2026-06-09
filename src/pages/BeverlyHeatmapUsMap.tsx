@@ -425,10 +425,6 @@ export default function BeverlyHeatmapUsMap() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const { data: cityData } = useCityRatings(direction, viewMode === "cities");
   const cityMetrics = cityData?.metrics || [];
-  if (typeof window !== "undefined") {
-    // eslint-disable-next-line no-console
-    console.log("[BeverlyHeatmapUsMap] viewMode", viewMode, "direction", direction, "cityMetrics", cityMetrics.length, cityMetrics.slice(0, 5).map((c) => ({ city: c.city, state: c.state, count: c.count, rating: c.rating, lat: c.lat, lng: c.lng })));
-  }
   const [selectedCityKey, setSelectedCityKey] = useState<string | null>(null);
   const selectedCity = selectedCityKey ? cityMetrics.find((c) => `${c.city}|${c.state}` === selectedCityKey) || null : null;
 
