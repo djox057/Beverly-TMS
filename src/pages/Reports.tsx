@@ -71,6 +71,7 @@ import {
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { TranslatableOrderNote } from "@/components/TranslatableOrderNote";
+import { TruckWeekRevenuePopover } from "@/components/TruckWeekRevenuePopover";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { CheckInOutTimeDialog } from "@/components/CheckInOutTimeDialog";
 import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
@@ -6131,6 +6132,7 @@ const Reports = () => {
                                                   {truck.fuelLevel != null ? `${truck.fuelLevel}%` : "—"}
                                                 </span>
                                               </div>
+                                              <TruckWeekRevenuePopover orders={truck.allOrders} />
                                             </div>
                                             <div className="h-8 p-0 w-full">
                                               <EditableNoteField

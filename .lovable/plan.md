@@ -1,48 +1,62 @@
-# Cities heatmap → fixed reference markets only
+## What to add
 
-Replace the current "all cities" cities view with a fixed list of ~250 reference markets (from `us_reference_markets.md`). Each market aggregates every pickup/delivery within a 60-mile radius and gets the same 1–10 composite rating used elsewhere. The heatmap surface and tooltip are driven only by these markets.
+Next to the fuel `%` indicator in each truck row (Reports load info area), add a small `$` button. Clicking it opens a popover showing this-week-only totals for that truck:
 
-## 1. Seed reference markets table
+- **Freight** — sum of `freight_amount` across orders with pickup date in current week, with **RPM** = freight / loaded_miles
+- **Stop Amt** — sum of `driver_price` (driver pay) for the same orders, with **RPM** = stop_amt / loaded_miles
+- **Comm** — Freight − Stop Amt, with **Comm%** = Comm / Freight × 100
 
-Reuse the existing `heatmap_reference_cities` table (already has `city_name, state, latitude, longitude`). Replace its contents with the markdown's list (lower-48 only, AK/HI excluded as the file specifies).
+## Scope
 
-- New migration: `DELETE FROM heatmap_reference_cities;` then `INSERT` ~250 rows with geocoded lat/lng for each market (hardcoded constants in the migration — single source of truth).
-- Combo entries like `Dallas / Fort Worth`, `San Francisco / Oakland`, `Raleigh / Durham`, `Seattle / Tacoma`, `Northern Virginia`, `Gary / Northwest Indiana`, `Scranton / Wilkes-Barre`, `Tri-Cities`, `Rockville / Gaithersburg`, `Lowell / Lawrence`, `Greenville / Spartanburg`, `Minneapolis / St. Paul` → store as one row with a representative centroid.
-- Note: the table is also used by the older `compute-heatmap` edge function. Switching it to the reference-market list is fine — that function snaps clusters to nearest city in the same table; with the curated list it will simply snap to the curated markets, which is the desired behavior project-wide.
+- Only `src/pages/Reports.tsx`. No backend / business-logic changes.
+- "Current week" = Monday 00:00 → Sunday 23:59 **Chicago time** (matches existing project standard).
+- Data source: `truck.activeOrders` (already loaded for each row). Filter by `order.pickupStops?.[0]?.datetime || order.pickup_datetime` falling in the current Chicago week.
+- Exclude canceled orders (consistent with existing DH/miles rules in the project).
 
-## 2. New RPC: `get_us_map_market_stats`
+## Placement
 
-```sql
-get_us_map_market_stats(p_direction text, p_from timestamptz, p_radius_miles numeric default 60)
-returns table(
-  market text, state text, latitude numeric, longitude numeric,
-  count bigint, freight numeric, loaded_miles numeric, dh_miles numeric
-)
+In the truck cell, in the row of HOS/fuel icons (around line 6111–6133), add a `Popover` after the fuel block:
+
+```text
+[HOS timers] [🚧?] [⛽ 87%] [$]   ← new
 ```
 
-Logic (single SQL, all server-side):
+The `$` is a small `Button` (`variant="ghost"`, ~31px, same visual weight as fuel icon, green tint). Hidden when there are no qualifying orders this week (or render with em-dashes).
 
-1. `chosen` CTE = same as `get_us_map_city_stats` — one pickup or delivery row per order based on `p_direction`, filtering canceled/null and `pickup_datetime >= p_from`.
-2. Cross-join `chosen` with `heatmap_reference_cities`, keep pairs where Haversine distance ≤ `p_radius_miles`.
-3. For each `chosen` row, pick the **nearest** market (`DISTINCT ON (order_id) ... ORDER BY order_id, distance`). This guarantees each order is counted once even if it falls inside two market circles.
-4. Group by market, aggregate `count`, `sum(freight_amount)`, `sum(loaded_miles)`, `sum(dh_miles)` joined back to `orders`.
-5. Return all markets that have ≥1 matched order (return zero-count markets too? → No, return only matched; frontend already only colors where data exists).
+## Popover content
 
-Performance: ~250 markets × few thousand stops with a tight `abs(lat-lat)<1 AND abs(lng-lng)<1` prefilter before Haversine. Runs in <500ms typical.
+Small card (~200px) styled like `CellSelectionSummary`:
 
-## 3. Frontend changes (`src/pages/BeverlyHeatmapUsMap.tsx`)
+```text
+This week · N order(s)
+─────────────────────────
+Freight:    $12,450   ($2.31/mi)
+Stop Amt:    $6,225   ($1.16/mi)
+Comm:        $6,225   (50.0%)
+```
 
-- Replace the `useCityRatings` hook to call the new RPC `get_us_map_market_stats` instead of `get_us_map_city_stats`.
-- Keep the same composite rating function (Count, RPM, DH/load, Avg Gross → 1–10) — applied to markets now.
-- Keep the deck.gl `HeatmapLayer` overlay with `weight = rating * log(count + 1)`, but:
-  - Tighten `radiusPixels` (e.g. 45) since markets are sparser than raw cities — gives the topographic "circle per market" look that blends into corridors (Dallas–Houston, etc.).
-- Tooltip: nearest market within ~80 px, showing `market, state, rating, count, freight, RPM`.
-- Legend label: change "Cities" → "Markets" in the toggle and tooltip header.
+Currency via existing `formatCurrency`; RPM as `$X.XX`; Comm% to 1 decimal. Show `—` for any metric with 0 miles or 0 freight.
 
-## 4. Files
+## Technical details
 
-- New migration: seed `heatmap_reference_cities` with the reference market list.
-- New migration: create `get_us_map_market_stats` RPC + `GRANT EXECUTE ... TO authenticated, service_role`.
-- `src/pages/BeverlyHeatmapUsMap.tsx` — swap the RPC name in the cities/markets fetch hook, rename label.
+- Compute the Chicago Mon–Sun window once per render using existing date utilities (`getOrderPickupDateForCarousel` style — already imported) or `Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago' })`.
+- Per-truck memoized aggregation:
+  ```ts
+  const weekStats = useMemo(() => {
+    const inWeek = (truck.activeOrders ?? []).filter(o =>
+      !o.canceled &&
+      isInChicagoWeek(o.pickupStops?.[0]?.datetime || o.pickup_datetime)
+    );
+    const freight = sum(inWeek, o => +o.freight_amount || 0);
+    const pay     = sum(inWeek, o => +o.driver_price  || 0);
+    const miles   = sum(inWeek, o => +o.loaded_miles || +o.mileage || 0);
+    return { freight, pay, miles, comm: freight - pay, count: inWeek.length };
+  }, [truck.activeOrders]);
+  ```
+  Inlined inside the row map; no new hook needed.
+- Reuse existing `Popover`, `PopoverTrigger`, `PopoverContent` imports.
 
-No new tables, no edge functions, no new deps.
+## Not in scope
+
+- No edge function changes, no DB changes, no email/legend changes.
+- Does not affect cell-selection summary, analytics, or payroll calculations.
