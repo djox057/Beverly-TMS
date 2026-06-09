@@ -345,7 +345,7 @@ const TruckSales = () => {
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <CardTitle className="flex flex-wrap items-center gap-1 text-base sm:text-lg">
-                  {grouped.map((g, i) => (
+                  {filteredGrouped.map((g, i) => (
                     <span key={g.name} className="flex items-center gap-1">
                       {i > 0 && (
                         <span className="text-muted-foreground/40">/</span>
