@@ -464,6 +464,12 @@ export default function BeverlyHeatmapUsMap() {
       const z = byZip[s.zip3];
       out[s.zip3] = { ...z, rating, rpm: s.m.rpm, dhPerLoad: s.m.dhPerLoad, avgGross: s.m.avgGross };
     }
+    console.log("[zip3 diag]", {
+      cities: cityMetrics.length,
+      features: features.length,
+      matchedZones: Object.keys(out).length,
+      sampleZip3s: Object.keys(out).slice(0, 10),
+    });
     return out;
   })();
 
