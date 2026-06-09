@@ -1,9 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { geoCentroid, geoAlbersUsa } from "d3-geo";
-import DeckGL from "@deck.gl/react";
-import { OrthographicView } from "@deck.gl/core";
-import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin } from "lucide-react";
@@ -317,17 +314,6 @@ function useCityRatings(direction: Direction, enabled: boolean) {
 // Map canvas dimensions (must match the <ComposableMap> width/height below).
 const MAP_W = 975;
 const MAP_H = 610;
-
-// Color ramp: red → orange → yellow → light green → green → strong green.
-const HEAT_COLOR_RANGE: [number, number, number][] = [
-  [139, 0, 0],
-  [255, 102, 0],
-  [255, 170, 0],
-  [182, 217, 0],
-  [102, 204, 51],
-  [0, 160, 0],
-];
-
 
 export default function BeverlyHeatmapUsMap() {
   const [direction, setDirection] = useState<Direction>("inbound");
