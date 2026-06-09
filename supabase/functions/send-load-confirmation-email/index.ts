@@ -46,11 +46,11 @@ interface EmailRequest {
 // Escape HTML special characters to prevent XSS
 const escapeHtml = (text: string): string => {
   return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 };
 
 const handler = async (req: Request): Promise<Response> => {
@@ -61,21 +61,21 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     // --- Auth check ---
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const authClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const authClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
     const { data: userData, error: authErr } = await authClient.auth.getUser();
     if (authErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -87,20 +87,21 @@ const handler = async (req: Request): Promise<Response> => {
       bodyText,
       attachmentBase64,
       attachmentFilename,
-      attachmentContentType
+      attachmentContentType,
     }: EmailRequest = await req.json();
 
     // Validate sender against allow-list to prevent phishing/spoofing
     if (!from || !ALLOWED_SENDER_EMAILS.has(extractEmail(from))) {
-      console.error('❌ Rejected sender (not in allow-list):', from);
-      return new Response(JSON.stringify({ error: 'Sender address not permitted' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      console.error("❌ Rejected sender (not in allow-list):", from);
+      return new Response(JSON.stringify({ error: "Sender address not permitted" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log('📧 ========================================');
-    console.log('📧 EMAIL REQUEST RECEIVED');
-    console.log('📧 ========================================');
+    console.log("📧 ========================================");
+    console.log("📧 EMAIL REQUEST RECEIVED");
+    console.log("📧 ========================================");
     console.log(`📧 To: ${to}`);
     console.log(`📧 From: ${from}`);
     console.log(`📧 CC: ${cc}`);
@@ -109,16 +110,16 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`📧 Attachment Type: ${attachmentContentType}`);
     console.log(`📧 Body Text length: ${bodyText?.length || 0}`);
     console.log(`📧 Base64 length: ${attachmentBase64?.length || 0}`);
-    console.log('📧 ========================================');
+    console.log("📧 ========================================");
 
     // Validate required fields
     if (!to || !from || !subject) {
-      throw new Error('Missing required fields: to, from, or subject');
+      throw new Error("Missing required fields: to, from, or subject");
     }
 
     // Validate bodyText length to prevent abuse
     if (bodyText && bodyText.length > 5000) {
-      throw new Error('Body text exceeds maximum length of 5000 characters');
+      throw new Error("Body text exceeds maximum length of 5000 characters");
     }
 
     // Build email HTML with escaped bodyText
@@ -126,7 +127,7 @@ const handler = async (req: Request): Promise<Response> => {
       <div style="font-family: Arial, sans-serif; padding: 20px;">
         <div style="border: 1px solid #1d4ed8; background-color: #eff6ff; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
           <p style="font-size: 15px; font-weight: bold; color: #1e3a8a; margin: 0 0 10px 0;">
-            Daily Limits at Gas Stations
+            EFS Fuel card instructions and daily limits
           </p>
           <ul style="font-size: 14px; color: #1e3a8a; margin: 0 0 12px 0; padding-left: 20px;">
             <li>Love&rsquo;s &ndash; 250 gallons</li>
@@ -187,23 +188,23 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    console.log('📧 ========================================');
-    console.log('📧 EMAIL HTML CONSTRUCTED');
-    console.log('📧 ========================================');
+    console.log("📧 ========================================");
+    console.log("📧 EMAIL HTML CONSTRUCTED");
+    console.log("📧 ========================================");
     console.log(`📧 HTML length: ${emailHtml.length} characters`);
-    console.log('📧 ========================================');
+    console.log("📧 ========================================");
 
     // Send email with attachment
-    console.log('📧 ========================================');
-    console.log('📧 SENDING EMAIL VIA RESEND');
-    console.log('📧 ========================================');
+    console.log("📧 ========================================");
+    console.log("📧 SENDING EMAIL VIA RESEND");
+    console.log("📧 ========================================");
     console.log(`📧 To: [${to}]`);
     console.log(`📧 From: ${from}`);
-    console.log(`📧 CC: ${cc ? `[${cc}]` : 'none'}`);
+    console.log(`📧 CC: ${cc ? `[${cc}]` : "none"}`);
     console.log(`📧 Subject: ${subject}`);
     console.log(`📧 Attachment filename: ${attachmentFilename}`);
     console.log(`📧 Attachment content type: ${attachmentContentType}`);
-    
+
     const toArray = Array.isArray(to) ? to.filter(Boolean) : [to].filter(Boolean);
     const emailPayload: any = {
       from: from,
@@ -218,37 +219,42 @@ const handler = async (req: Request): Promise<Response> => {
         },
       ],
     };
-    
+
     // Add CC if provided
     if (cc && cc.trim().length > 0) {
-      emailPayload.cc = cc.includes(',') 
-        ? cc.split(',').map(email => email.trim()) 
-        : [cc.trim()];
+      emailPayload.cc = cc.includes(",") ? cc.split(",").map((email) => email.trim()) : [cc.trim()];
       console.log(`📧 CC field added to payload:`, emailPayload.cc);
     } else {
       console.log(`📧 No CC field provided or empty`);
     }
-    
-    console.log('📧 Full email payload (without base64):', JSON.stringify({
-      ...emailPayload,
-      attachments: emailPayload.attachments.map((a: any) => ({
-        filename: a.filename,
-        contentLength: a.content?.length || 0
-      }))
-    }, null, 2));
-    
+
+    console.log(
+      "📧 Full email payload (without base64):",
+      JSON.stringify(
+        {
+          ...emailPayload,
+          attachments: emailPayload.attachments.map((a: any) => ({
+            filename: a.filename,
+            contentLength: a.content?.length || 0,
+          })),
+        },
+        null,
+        2,
+      ),
+    );
+
     const emailResponse = await resend.emails.send(emailPayload);
 
-    console.log('✅ ========================================');
-    console.log('✅ EMAIL SENT SUCCESSFULLY');
-    console.log('✅ ========================================');
-    console.log('✅ Resend Response:', JSON.stringify(emailResponse, null, 2));
-    console.log('✅ ========================================');
+    console.log("✅ ========================================");
+    console.log("✅ EMAIL SENT SUCCESSFULLY");
+    console.log("✅ ========================================");
+    console.log("✅ Resend Response:", JSON.stringify(emailResponse, null, 2));
+    console.log("✅ ========================================");
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        data: emailResponse
+      JSON.stringify({
+        success: true,
+        data: emailResponse,
       }),
       {
         status: 200,
@@ -256,27 +262,24 @@ const handler = async (req: Request): Promise<Response> => {
           "Content-Type": "application/json",
           ...corsHeaders,
         },
-      }
+      },
     );
   } catch (error: any) {
-    console.error('❌ ========================================');
-    console.error('❌ ERROR SENDING EMAIL');
-    console.error('❌ ========================================');
-    console.error('❌ Error Type:', error.name);
-    console.error('❌ Error Message:', error.message);
-    console.error('❌ Error Stack:', error.stack);
+    console.error("❌ ========================================");
+    console.error("❌ ERROR SENDING EMAIL");
+    console.error("❌ ========================================");
+    console.error("❌ Error Type:", error.name);
+    console.error("❌ Error Message:", error.message);
+    console.error("❌ Error Stack:", error.stack);
     if (error.response) {
-      console.error('❌ Resend API Response:', error.response);
+      console.error("❌ Resend API Response:", error.response);
     }
-    console.error('❌ ========================================');
-    
-    return new Response(
-      JSON.stringify({ error: error.message || 'Unknown error occurred' }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
-    );
+    console.error("❌ ========================================");
+
+    return new Response(JSON.stringify({ error: error.message || "Unknown error occurred" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   }
 };
 

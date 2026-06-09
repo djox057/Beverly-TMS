@@ -6865,38 +6865,40 @@ const Reports = () => {
             <DialogDescription className="sr-only">View load details, pickup and delivery stops</DialogDescription>
           </DialogHeader>
 
-          {zoomedLoad && !zoomedLoad.documents.includes("POD") && needsScaleTicket(zoomedLoad.weightBol, zoomedLoad.orderFiles) && (
-            <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-md border-2 border-yellow-500 bg-yellow-500/10">
-              <div className="flex items-center gap-2 text-sm">
-                <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                <span className="font-medium">
-                  Scale ticket missing — BOL weight is {zoomedLoad.weightBol?.toLocaleString()} lbs (≥ 30,000).
-                </span>
+          {zoomedLoad &&
+            !zoomedLoad.documents.includes("POD") &&
+            needsScaleTicket(zoomedLoad.weightBol, zoomedLoad.orderFiles) && (
+              <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-md border-2 border-yellow-500 bg-yellow-500/10">
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                  <span className="font-medium">
+                    Scale ticket missing — BOL weight is {zoomedLoad.weightBol?.toLocaleString()} lbs (≥ 30,000).
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    if (!zoomedLoad?.orderId) return;
+                    const { data } = await supabase
+                      .from("orders")
+                      .select("scale_steer_axle, scale_drive_axle, scale_trailer_axle, scale_gross")
+                      .eq("id", zoomedLoad.orderId)
+                      .maybeSingle();
+                    setScaleTicketDefaults({
+                      steerAxle: (data as any)?.scale_steer_axle ?? null,
+                      driveAxle: (data as any)?.scale_drive_axle ?? null,
+                      trailerAxle: (data as any)?.scale_trailer_axle ?? null,
+                      gross: (data as any)?.scale_gross ?? null,
+                    });
+                    setScaleTicketDialogOpen(true);
+                  }}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Scale Ticket
+                </Button>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={async () => {
-                  if (!zoomedLoad?.orderId) return;
-                  const { data } = await supabase
-                    .from("orders")
-                    .select("scale_steer_axle, scale_drive_axle, scale_trailer_axle, scale_gross")
-                    .eq("id", zoomedLoad.orderId)
-                    .maybeSingle();
-                  setScaleTicketDefaults({
-                    steerAxle: (data as any)?.scale_steer_axle ?? null,
-                    driveAxle: (data as any)?.scale_drive_axle ?? null,
-                    trailerAxle: (data as any)?.scale_trailer_axle ?? null,
-                    gross: (data as any)?.scale_gross ?? null,
-                  });
-                  setScaleTicketDialogOpen(true);
-                }}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Scale Ticket
-              </Button>
-            </div>
-          )}
+            )}
 
           <div className="grid md:grid-cols-2 gap-6 mt-4">
             {/* Pickup Stops Column */}
@@ -7378,11 +7380,7 @@ const Reports = () => {
                 {/* Lumper Request and Cancel Button */}
                 <div className="ml-auto flex gap-2">
                   {(roles.includes("admin") || roles.includes("manager")) && zoomedLoad?.orderId && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSalaryChargeOpen(true)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setSalaryChargeOpen(true)}>
                       Add charge
                     </Button>
                   )}
@@ -7458,7 +7456,7 @@ const Reports = () => {
           <div className="space-y-6 py-4">
             {/* Fuel & Scale Info */}
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-              <h3 className="text-lg font-semibold mb-3 text-primary">Daily Limits at Gas Stations</h3>
+              <h3 className="text-lg font-semibold mb-3 text-primary">EFS Fuel card instructions and daily limits</h3>
               <ul className="space-y-1.5 text-sm">
                 <li className="flex justify-between gap-4 border-b border-border/50 pb-1.5">
                   <span className="font-medium">Love's</span>
@@ -7487,9 +7485,8 @@ const Reports = () => {
                 <p className="text-sm text-muted-foreground">
                   Available at <span className="font-medium text-foreground">Love's</span>,{" "}
                   <span className="font-medium text-foreground">TA/Petro</span>, and{" "}
-                  <span className="font-medium text-foreground">Road Ranger</span> locations. Scale tickets
-                  are charged at standard location rates — there is currently no discount program for scale
-                  services.
+                  <span className="font-medium text-foreground">Road Ranger</span> locations. Scale tickets are charged
+                  at standard location rates — there is currently no discount program for scale services.
                 </p>
               </div>
             </div>
