@@ -70,6 +70,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
+import { TranslatableOrderNote } from "@/components/TranslatableOrderNote";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { CheckInOutTimeDialog } from "@/components/CheckInOutTimeDialog";
 import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
@@ -7437,7 +7438,7 @@ const Reports = () => {
             {zoomedLoad?.notes && zoomedLoad.notes !== "—" && (
               <div>
                 <h4 className="text-sm font-semibold mb-2">Load Notes</h4>
-                <div className="p-3 bg-muted rounded-lg text-sm whitespace-pre-wrap">{zoomedLoad.notes}</div>
+                <TranslatableOrderNote note={zoomedLoad.notes} />
               </div>
             )}
           </div>
