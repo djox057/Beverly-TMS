@@ -612,7 +612,7 @@ export default function BeverlyHeatmapUsMap() {
                   geographies.map((geo) => {
                     const zip3 = String(geo.properties?.ZCTA3 || geo.properties?.zip3 || "");
                     const zone = zoneByZip3[zip3];
-                    const fill = zone ? interpolateColor(zone.rating) : "hsl(var(--muted))";
+                    const fill = zone ? interpolateCityTerrainColor(zone.rating) : CITY_NO_DATA_FILL;
                     return (
                       <Geography
                         key={geo.rsmKey}
@@ -621,16 +621,16 @@ export default function BeverlyHeatmapUsMap() {
                         style={{
                           default: {
                             fill,
-                            stroke: "hsl(var(--background))",
-                            strokeWidth: 0.15,
+                            stroke: CITY_ZIP_BORDER,
+                            strokeWidth: 0.08,
                             outline: "none",
                             cursor: zone ? "pointer" : "default",
                           },
                           hover: {
                             fill,
                             opacity: zone ? 0.8 : 1,
-                            stroke: "hsl(var(--background))",
-                            strokeWidth: 0.15,
+                            stroke: CITY_ZIP_BORDER,
+                            strokeWidth: 0.08,
                             outline: "none",
                             cursor: zone ? "pointer" : "default",
                           },
