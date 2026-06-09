@@ -1892,6 +1892,23 @@ const NewOrder = () => {
         return;
       }
     }
+
+    // Require a note when booking for Beverly Freight Inc / BG Prime Inc with BF Prime LLC
+    if (!isPartial) {
+      const bookedByNameLocal = companies?.find((c) => c.id === bookedByCompany)?.name;
+      const requiresNote =
+        bookedByNameLocal === "BF Prime LLC" &&
+        (driverCompanyName === "Beverly Freight Inc" || driverCompanyName === "BG Prime Inc");
+      if (requiresNote && !bfPrimeNote.trim()) {
+        setPendingBfPrimeSubmitEvent(e);
+        setPendingBfPrimeSkipDuplicate(skipDuplicateCheck);
+        setPendingBfPrimeSkipDuplicateStops(skipDuplicateStopsCheck);
+        setShowBfPrimeNoteDialog(true);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     setPendingSubmit(false);
 
     try {
