@@ -486,12 +486,6 @@ export default function BeverlyHeatmapUsMap() {
       const z = byZip[s.zip3];
       out[s.zip3] = { ...z, rating, rpm: s.m.rpm, dhPerLoad: s.m.dhPerLoad, avgGross: s.m.avgGross };
     }
-    console.log("[zip3 diag]", {
-      cities: cityMetrics.length,
-      features: features.length,
-      matchedZones: Object.keys(out).length,
-      sampleZip3s: Object.keys(out).slice(0, 10),
-    });
     return out;
   })();
 
@@ -557,7 +551,7 @@ export default function BeverlyHeatmapUsMap() {
                     const abbr = STATE_ABBR[String(geo.id)] || "";
                     const centroid = geoCentroid(geo);
                     const isCitiesView = viewMode === "cities";
-                    const fillColor = isCitiesView ? "hsl(var(--muted))" : fillForAbbr(abbr);
+                    const fillColor = isCitiesView ? CITY_STATE_BASE_FILL : fillForAbbr(abbr);
                     const rating = ratings[abbr];
                     const hasRating = !isCitiesView && !!rating;
                     const labelFill = hasRating ? "#ffffff" : "hsl(var(--muted-foreground))";
@@ -569,16 +563,16 @@ export default function BeverlyHeatmapUsMap() {
                           style={{
                             default: {
                               fill: fillColor,
-                              stroke: "hsl(var(--border))",
-                              strokeWidth: 0.75,
+                              stroke: isCitiesView ? CITY_STATE_BORDER : "hsl(var(--border))",
+                              strokeWidth: isCitiesView ? 0.5 : 0.75,
                               outline: "none",
                               cursor: isCitiesView ? "default" : "pointer",
                             },
                             hover: {
                               fill: fillColor,
                               opacity: isCitiesView ? 1 : 0.85,
-                              stroke: "hsl(var(--border))",
-                              strokeWidth: 0.75,
+                              stroke: isCitiesView ? CITY_STATE_BORDER : "hsl(var(--border))",
+                              strokeWidth: isCitiesView ? 0.5 : 0.75,
                               outline: "none",
                               cursor: isCitiesView ? "default" : "pointer",
                             },
