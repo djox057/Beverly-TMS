@@ -225,8 +225,13 @@ function useStateRatings(direction: Direction) {
 
 export default function BeverlyHeatmapUsMap() {
   const [direction, setDirection] = useState<Direction>("inbound");
+  const [viewMode, setViewMode] = useState<ViewMode>("states");
   const queryClient = useQueryClient();
   const { data } = useStateRatings(direction);
+  const { data: cities = [], isLoading: citiesLoading } = useCityRatings(
+    direction,
+    viewMode === "cities",
+  );
 
   // Prefetch the opposite direction in the background so toggling is instant.
   useEffect(() => {
@@ -236,13 +241,23 @@ export default function BeverlyHeatmapUsMap() {
       queryFn: () => fetchStateRatings(other),
       staleTime: 10 * 60 * 1000,
     });
-  }, [direction, queryClient]);
+    if (viewMode === "cities") {
+      queryClient.prefetchQuery({
+        queryKey: ["city-ratings", other],
+        queryFn: () => fetchCityRatings(other),
+        staleTime: 10 * 60 * 1000,
+      });
+    }
+  }, [direction, viewMode, queryClient]);
 
   const ratings = data?.ratings || {};
   const metrics = data?.metrics || {};
   const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [hoverCity, setHoverCity] = useState<{ x: number; y: number; city: CityRow } | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
 
   const fillForAbbr = (abbr: string): string => {
+    if (viewMode === "cities") return "hsl(var(--muted))";
     const r = ratings[abbr];
     if (!r) return "hsl(var(--muted))";
     return interpolateColor(r);
@@ -251,6 +266,50 @@ export default function BeverlyHeatmapUsMap() {
   const selectedMetrics = selectedState ? metrics[selectedState] : null;
   const fmtMoney = (v: number) => `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   const fmtNum = (v: number, digits = 0) => v.toLocaleString("en-US", { maximumFractionDigits: digits });
+
+  // Project lat/lng to map-pixel space using the same Albers USA used by react-simple-maps.
+  const projectedCities = useMemo(() => {
+    if (viewMode !== "cities" || cities.length === 0) return [];
+    const proj = geoAlbersUsa().scale(1000).translate([MAP_W / 2, MAP_H / 2]);
+    const out: Array<CityRow & { x: number; y: number; weight: number }> = [];
+    for (const c of cities) {
+      const p = proj([c.longitude, c.latitude]);
+      if (!p) continue;
+      out.push({ ...c, x: p[0], y: p[1], weight: c.rating * Math.log(c.count + 1) });
+    }
+    return out;
+  }, [cities, viewMode]);
+
+  const heatmapLayer = useMemo(() => {
+    if (projectedCities.length === 0) return null;
+    return new HeatmapLayer({
+      id: "freight-heat",
+      data: projectedCities,
+      getPosition: (d: any) => [d.x, d.y],
+      getWeight: (d: any) => d.weight,
+      radiusPixels: 55,
+      intensity: 1.1,
+      threshold: 0.04,
+      colorRange: HEAT_COLOR_RANGE,
+      aggregation: "SUM",
+    });
+  }, [projectedCities]);
+
+  const findNearest = (px: number, py: number) => {
+    let best: (typeof projectedCities)[number] | null = null;
+    let bestD = Infinity;
+    for (const c of projectedCities) {
+      const dx = c.x - px;
+      const dy = c.y - py;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD) {
+        bestD = d2;
+        best = c;
+      }
+    }
+    if (!best || bestD > 80 * 80) return null;
+    return best;
+  };
 
   return (
     <Card>
