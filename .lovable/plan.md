@@ -1,84 +1,48 @@
-# Cities heatmap (weighted density surface)
+# Cities heatmap → fixed reference markets only
 
-Add a second view to `BeverlyHeatmapUsMap` that renders a smooth, topographic-style freight density surface from city-level stats — like an elevation map of market strength — instead of bubbles per city.
+Replace the current "all cities" cities view with a fixed list of ~250 reference markets (from `us_reference_markets.md`). Each market aggregates every pickup/delivery within a 60-mile radius and gets the same 1–10 composite rating used elsewhere. The heatmap surface and tooltip are driven only by these markets.
 
-## UX
+## 1. Seed reference markets table
 
-- Add a view toggle next to the existing Inbound/Outbound toggle: **States** | **Cities**.
-- States view stays exactly as is.
-- Cities view renders the same US base map, but with the state choropleth replaced by a smooth heat surface. Tooltip on hover shows the nearest city's stats (count, freight, RPM, rating).
-- Color scale (low → high):
-  ```text
-  red → orange → yellow → light green → green
-  ```
-- Legend updates to match.
+Reuse the existing `heatmap_reference_cities` table (already has `city_name, state, latitude, longitude`). Replace its contents with the markdown's list (lower-48 only, AK/HI excluded as the file specifies).
 
-## Data
+- New migration: `DELETE FROM heatmap_reference_cities;` then `INSERT` ~250 rows with geocoded lat/lng for each market (hardcoded constants in the migration — single source of truth).
+- Combo entries like `Dallas / Fort Worth`, `San Francisco / Oakland`, `Raleigh / Durham`, `Seattle / Tacoma`, `Northern Virginia`, `Gary / Northwest Indiana`, `Scranton / Wilkes-Barre`, `Tri-Cities`, `Rockville / Gaithersburg`, `Lowell / Lawrence`, `Greenville / Spartanburg`, `Minneapolis / St. Paul` → store as one row with a representative centroid.
+- Note: the table is also used by the older `compute-heatmap` edge function. Switching it to the reference-market list is fine — that function snaps clusters to nearest city in the same table; with the curated list it will simply snap to the curated markets, which is the desired behavior project-wide.
 
-Use the existing `get_us_map_city_stats` RPC (same Mon→now Chicago window, same Inbound/Outbound semantics as states). Per row: `city, state, count, freight, loaded_miles, dh_miles, latitude, longitude`.
+## 2. New RPC: `get_us_map_market_stats`
 
-Compute per-city derived metrics client-side (cheap, < a few hundred cities):
-- `rpm = freight / max(loaded_miles, 1)`
-- `dhPerLoad = dh_miles / count`
-- `avgGross = freight / count`
-- `rating` — reuse the same 1–10 composite scoring used for states so the scales are comparable.
-
-Heatmap weight per city:
-```ts
-weight = rating * Math.log(count + 1)
-```
-This is what gets fed into the density layer (so one lucky $5k load on a single order can't paint a region green).
-
-## Rendering approach
-
-Use **deck.gl `HeatmapLayer`** overlaid on the existing `react-simple-maps` SVG via a `DeckGL` canvas matched to the same Albers USA projection. Why deck.gl:
-- Built-in GPU kernel density, smooth blending between nearby cities (Dallas+Houston corridor effect).
-- Configurable `radiusPixels`, `intensity`, `threshold`, custom `colorRange`.
-- Handles a few thousand weighted points trivially.
-
-Add deps: `deck.gl @deck.gl/react @deck.gl/aggregation-layers @deck.gl/core`.
-
-Projection alignment:
-- Continue using `react-simple-maps` `geoAlbersUsa` for the state outlines underneath.
-- Mount a `DeckGL` canvas absolutely positioned over the SVG with an orthographic/identity view, projecting each city's `[lng, lat]` through the same `geoAlbersUsa` projection (using `d3-geo`) to screen-space `[x, y]` before passing into `HeatmapLayer`. This avoids needing Mapbox/tiles entirely (no tokens, no postMessage origin issue).
-
-`HeatmapLayer` config:
-```ts
-new HeatmapLayer({
-  data: cities,
-  getPosition: c => [c.screenX, c.screenY], // pre-projected
-  getWeight: c => c.rating * Math.log(c.count + 1),
-  radiusPixels: 60,
-  intensity: 1,
-  threshold: 0.03,
-  colorRange: [
-    [139,0,0],     // red
-    [255,102,0],   // orange
-    [255,170,0],   // yellow
-    [182,217,0],   // light green
-    [102,204,51],  // green
-    [0,160,0],     // strong green
-  ],
-})
+```sql
+get_us_map_market_stats(p_direction text, p_from timestamptz, p_radius_miles numeric default 60)
+returns table(
+  market text, state text, latitude numeric, longitude numeric,
+  count bigint, freight numeric, loaded_miles numeric, dh_miles numeric
+)
 ```
 
-State borders remain visible on top with low-opacity strokes so users still see geography.
+Logic (single SQL, all server-side):
 
-## Interaction
+1. `chosen` CTE = same as `get_us_map_city_stats` — one pickup or delivery row per order based on `p_direction`, filtering canceled/null and `pickup_datetime >= p_from`.
+2. Cross-join `chosen` with `heatmap_reference_cities`, keep pairs where Haversine distance ≤ `p_radius_miles`.
+3. For each `chosen` row, pick the **nearest** market (`DISTINCT ON (order_id) ... ORDER BY order_id, distance`). This guarantees each order is counted once even if it falls inside two market circles.
+4. Group by market, aggregate `count`, `sum(freight_amount)`, `sum(loaded_miles)`, `sum(dh_miles)` joined back to `orders`.
+5. Return all markets that have ≥1 matched order (return zero-count markets too? → No, return only matched; frontend already only colors where data exists).
 
-- Hover: small floating tooltip showing the closest city within ~80 px (computed from the same screen-projected points) with `city, state, rating, count, freight, RPM`.
-- Click optional (skip for v1).
-- Direction toggle continues to work; prefetch opposite direction in background like states.
+Performance: ~250 markets × few thousand stops with a tight `abs(lat-lat)<1 AND abs(lng-lng)<1` prefilter before Haversine. Runs in <500ms typical.
 
-## Performance
+## 3. Frontend changes (`src/pages/BeverlyHeatmapUsMap.tsx`)
 
-- Server aggregation already done by `get_us_map_city_stats`. One RPC call per direction.
-- React Query: 10 min `staleTime`, `keepPreviousData`, background prefetch of opposite direction.
-- City projection runs once per `(direction, container size)` change; HeatmapLayer is GPU.
+- Replace the `useCityRatings` hook to call the new RPC `get_us_map_market_stats` instead of `get_us_map_city_stats`.
+- Keep the same composite rating function (Count, RPM, DH/load, Avg Gross → 1–10) — applied to markets now.
+- Keep the deck.gl `HeatmapLayer` overlay with `weight = rating * log(count + 1)`, but:
+  - Tighten `radiusPixels` (e.g. 45) since markets are sparser than raw cities — gives the topographic "circle per market" look that blends into corridors (Dallas–Houston, etc.).
+- Tooltip: nearest market within ~80 px, showing `market, state, rating, count, freight, RPM`.
+- Legend label: change "Cities" → "Markets" in the toggle and tooltip header.
 
-## Files
+## 4. Files
 
-- `src/pages/BeverlyHeatmapUsMap.tsx` — add view toggle, cities data hook (`useCityRatings`), composite rating fn shared with states (extract to local helper), deck.gl overlay, tooltip, updated legend.
-- `package.json` — add deck.gl deps.
+- New migration: seed `heatmap_reference_cities` with the reference market list.
+- New migration: create `get_us_map_market_stats` RPC + `GRANT EXECUTE ... TO authenticated, service_role`.
+- `src/pages/BeverlyHeatmapUsMap.tsx` — swap the RPC name in the cities/markets fetch hook, rename label.
 
-No new tables or RPCs; no edge functions.
+No new tables, no edge functions, no new deps.
