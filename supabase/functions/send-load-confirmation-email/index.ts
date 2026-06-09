@@ -140,7 +140,7 @@ const handler = async (req: Request): Promise<Response> => {
               Scale Services
             </p>
             <p style="font-size: 14px; color: #1e3a8a; margin: 0;">
-              Scale services can be used at Love&rsquo;s, TA/Petro, and Road Ranger locations. At this time, scale tickets are available at the standard location rates, as we currently do not have a discount program for scale services.
+              Available at any CAT scale location. Scale tickets are charged at standard location rates — there is currently no discount program for scale services.
             </p>
           </div>
         </div>

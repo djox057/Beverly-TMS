@@ -7484,13 +7484,8 @@ const Reports = () => {
               <div className="mt-4 pt-3 border-t border-border">
                 <h4 className="text-sm font-semibold mb-1">Scale Services</h4>
                 <p className="text-sm text-muted-foreground">
-                  Available at <span className="font-medium text-foreground">Love's</span>,{" "}
-                  <span className="font-medium text-foreground">TA/Petro</span>, and{" "}
-                  <span className="font-medium text-foreground">Road Ranger</span> locations. Scale tickets are charged
+                  Available at any <span className="font-medium text-foreground">CAT scale</span> location. Scale tickets are charged
                   at standard location rates — there is currently no discount program for scale services.
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Our fuel card can be used at any <span className="font-medium text-foreground">CAT scale</span> location.
                 </p>
               </div>
             </div>
