@@ -363,45 +363,22 @@ export default function BeverlyHeatmapUsMap() {
   const projectedCities = useMemo(() => {
     if (viewMode !== "cities" || cities.length === 0) return [];
     const proj = geoAlbersUsa().scale(1000).translate([MAP_W / 2, MAP_H / 2]);
-    const out: Array<CityRow & { x: number; y: number; weight: number }> = [];
+    const out: Array<CityRow & { x: number; y: number; radius: number }> = [];
+    // Scale circle radius by load count (log) so big markets dominate without dwarfing the rest.
+    const maxCount = Math.max(1, ...cities.map((c) => c.count));
+    const maxLog = Math.log(maxCount + 1);
     for (const c of cities) {
       const p = proj([c.longitude, c.latitude]);
       if (!p) continue;
-      out.push({ ...c, x: p[0], y: p[1], weight: c.rating * Math.log(c.count + 1) });
+      const [x, y] = p;
+      // Drop anything that projected outside the lower-48 frame.
+      if (x < 0 || x > MAP_W || y < 0 || y > MAP_H) continue;
+      const t = maxLog > 0 ? Math.log(c.count + 1) / maxLog : 0;
+      const radius = 6 + t * 22; // 6px floor, up to 28px for top market
+      out.push({ ...c, x, y, radius });
     }
     return out;
   }, [cities, viewMode]);
-
-  const heatmapLayer = useMemo(() => {
-    if (projectedCities.length === 0) return null;
-    return new HeatmapLayer({
-      id: "freight-heat",
-      data: projectedCities,
-      getPosition: (d: any) => [d.x, d.y],
-      getWeight: (d: any) => d.weight,
-      radiusPixels: 55,
-      intensity: 1.1,
-      threshold: 0.04,
-      colorRange: HEAT_COLOR_RANGE,
-      aggregation: "SUM",
-    });
-  }, [projectedCities]);
-
-  const findNearest = (px: number, py: number) => {
-    let best: (typeof projectedCities)[number] | null = null;
-    let bestD = Infinity;
-    for (const c of projectedCities) {
-      const dx = c.x - px;
-      const dy = c.y - py;
-      const d2 = dx * dx + dy * dy;
-      if (d2 < bestD) {
-        bestD = d2;
-        best = c;
-      }
-    }
-    if (!best || bestD > 80 * 80) return null;
-    return best;
-  };
 
   return (
     <Card>
@@ -440,17 +417,6 @@ export default function BeverlyHeatmapUsMap() {
           ref={overlayRef}
           className="w-full relative"
           style={{ aspectRatio: `${MAP_W} / ${MAP_H}` }}
-          onMouseMove={(e) => {
-            if (viewMode !== "cities" || !overlayRef.current) return;
-            const rect = overlayRef.current.getBoundingClientRect();
-            const sx = (e.clientX - rect.left) / rect.width;
-            const sy = (e.clientY - rect.top) / rect.height;
-            const near = findNearest(sx * MAP_W, sy * MAP_H);
-            setHoverCity(
-              near ? { x: e.clientX - rect.left, y: e.clientY - rect.top, city: near } : null,
-            );
-          }}
-          onMouseLeave={() => setHoverCity(null)}
         >
           <ComposableMap
             projection="geoAlbersUsa"
@@ -522,25 +488,41 @@ export default function BeverlyHeatmapUsMap() {
                   })
               }
             </Geographies>
-          </ComposableMap>
 
-          {viewMode === "cities" && (
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{ mixBlendMode: "multiply" }}
-            >
-              <DeckGL
-                views={new OrthographicView({ flipY: true })}
-                initialViewState={{ target: [MAP_W / 2, MAP_H / 2, 0], zoom: 0 }}
-                controller={false}
-                width="100%"
-                height="100%"
-                layers={heatmapLayer ? [heatmapLayer] : []}
-                style={{ position: "absolute", inset: "0" }}
-                getCursor={() => "default"}
-              />
-            </div>
-          )}
+            {viewMode === "cities" &&
+              projectedCities.map((c) => (
+                <circle
+                  key={`${c.city}-${c.state}`}
+                  cx={c.x}
+                  cy={c.y}
+                  r={c.radius}
+                  fill={interpolateColor(c.rating)}
+                  fillOpacity={0.75}
+                  stroke="#ffffff"
+                  strokeWidth={1}
+                  style={{ cursor: "pointer" }}
+                  onMouseEnter={(e) => {
+                    const rect = overlayRef.current?.getBoundingClientRect();
+                    if (!rect) return;
+                    setHoverCity({
+                      x: e.clientX - rect.left,
+                      y: e.clientY - rect.top,
+                      city: c,
+                    });
+                  }}
+                  onMouseMove={(e) => {
+                    const rect = overlayRef.current?.getBoundingClientRect();
+                    if (!rect) return;
+                    setHoverCity({
+                      x: e.clientX - rect.left,
+                      y: e.clientY - rect.top,
+                      city: c,
+                    });
+                  }}
+                  onMouseLeave={() => setHoverCity(null)}
+                />
+              ))}
+          </ComposableMap>
 
           {viewMode === "cities" && hoverCity && (
             <div
