@@ -1,6 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-import { geoCentroid } from "d3-geo";
+import { geoCentroid, geoAlbersUsa } from "d3-geo";
+import DeckGL from "@deck.gl/react";
+import { OrthographicView } from "@deck.gl/core";
+import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin } from "lucide-react";
@@ -29,6 +32,7 @@ const STATE_ABBR: Record<string, string> = {
 };
 
 type Direction = "inbound" | "outbound";
+type ViewMode = "states" | "cities";
 
 interface StateAgg {
   count: number;
