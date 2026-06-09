@@ -429,8 +429,7 @@ export default function BeverlyHeatmapUsMap() {
         </div>
       </CardHeader>
       <CardContent>
-        {/* Map visualization temporarily removed */}
-        {false && (
+        {/* Map visualization temporarily removed
         <div
           ref={overlayRef}
           className="w-full relative"
@@ -456,7 +455,6 @@ export default function BeverlyHeatmapUsMap() {
 
             {viewMode === "cities" && (
               <g clipPath="url(#us-clip)">
-                {/* Base muted fill so areas without data still read as land. */}
                 <path d={usClipPath} fill="hsl(var(--muted))" />
                 <g filter="url(#heat-blur)">
                   {projectedCities.map((c) => (
@@ -623,7 +621,7 @@ export default function BeverlyHeatmapUsMap() {
             <span>Strong</span>
           </div>
         )}
-        )}
+        */}
       </CardContent>
 
       <Dialog open={!!selectedState} onOpenChange={(o) => !o && setSelectedState(null)}>
