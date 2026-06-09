@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
-import { geoCentroid } from "d3-geo";
+import { ComposableMap, Geographies, Geography } from "react-simple-maps";
+import { geoCentroid, geoContains } from "d3-geo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import zip3Asset from "@/assets/us-zip3.json.asset.json";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
+const ZIP3_URL = zip3Asset.url;
 
 // FIPS state IDs to exclude: Alaska (02), Hawaii (15), and territories.
 const EXCLUDED_STATE_IDS = new Set(["02", "15", "60", "66", "69", "72", "78"]);
@@ -336,6 +338,94 @@ export default function BeverlyHeatmapUsMap() {
   const [selectedCityKey, setSelectedCityKey] = useState<string | null>(null);
   const selectedCity = selectedCityKey ? cityMetrics.find((c) => `${c.city}|${c.state}` === selectedCityKey) || null : null;
 
+  // Fetch the simplified ZIP3 polygon GeoJSON once and cache it.
+  const { data: zip3Geo } = useQuery({
+    queryKey: ["zip3-geojson"],
+    enabled: viewMode === "cities",
+    staleTime: Infinity,
+    queryFn: async () => {
+      const res = await fetch(ZIP3_URL);
+      if (!res.ok) throw new Error("zip3 geojson fetch failed");
+      return (await res.json()) as any;
+    },
+  });
+
+  // Aggregate cities into the ZIP3 zone that contains their centroid.
+  type ZoneAgg = {
+    zip3: string;
+    cities: CityMetrics[];
+    count: number;
+    freight: number;
+    loadedMiles: number;
+    dhMiles: number;
+  };
+  const zoneByZip3: Record<string, ZoneAgg & { rating: number; rpm: number; dhPerLoad: number; avgGross: number }> = (() => {
+    const out: Record<string, any> = {};
+    if (!zip3Geo || cityMetrics.length === 0) return out;
+    const features = (zip3Geo.features || []) as any[];
+    // Build a lat-band index for faster point-in-polygon scans.
+    const byZip: Record<string, ZoneAgg> = {};
+    for (const c of cityMetrics) {
+      // Quick bbox prefilter then geoContains.
+      const pt: [number, number] = [c.lng, c.lat];
+      let hit: any = null;
+      for (const f of features) {
+        const bbox = f.bbox as number[] | undefined;
+        if (bbox && (pt[0] < bbox[0] || pt[0] > bbox[2] || pt[1] < bbox[1] || pt[1] > bbox[3])) continue;
+        if (geoContains(f, pt)) { hit = f; break; }
+      }
+      if (!hit) continue;
+      const zip3 = String(hit.properties?.ZCTA3 || hit.properties?.zip3 || "");
+      if (!zip3) continue;
+      const z = (byZip[zip3] ||= { zip3, cities: [], count: 0, freight: 0, loadedMiles: 0, dhMiles: 0 });
+      z.cities.push(c);
+      z.count += c.count;
+      z.freight += c.totalFreight;
+      z.loadedMiles += c.totalLoadedMiles;
+      z.dhMiles += c.totalDhMiles;
+    }
+    const zones = Object.values(byZip);
+    if (zones.length === 0) return out;
+    // Compute the same 4-metric weighted rating used elsewhere.
+    const ms = zones.map((z) => ({
+      zip3: z.zip3,
+      count: z.count,
+      rpm: z.loadedMiles > 0 ? z.freight / z.loadedMiles : 0,
+      dhPerLoad: z.count > 0 ? z.dhMiles / z.count : 0,
+      avgGross: z.count > 0 ? z.freight / z.count : 0,
+    }));
+    const mm = (vals: number[]) => ({ min: Math.min(...vals), max: Math.max(...vals) });
+    const nrm = (v: number, mn: number, mx: number, inv = false) => {
+      if (mx === mn) return 0.5;
+      const n = (v - mn) / (mx - mn);
+      return inv ? 1 - n : n;
+    };
+    const c = mm(ms.map((m) => m.count));
+    const r = mm(ms.map((m) => m.rpm));
+    const d = mm(ms.map((m) => m.dhPerLoad));
+    const g = mm(ms.map((m) => m.avgGross));
+    const eps = 0.01;
+    const scored = ms.map((m) => {
+      const nC = nrm(m.count, c.min, c.max) + eps;
+      const nR = nrm(m.rpm, r.min, r.max) + eps;
+      const nD = nrm(m.dhPerLoad, d.min, d.max, true) + eps;
+      const nG = nrm(m.avgGross, g.min, g.max) + eps;
+      return { zip3: m.zip3, score: Math.pow(nC, 0.4) * Math.pow(nR, 0.3) * Math.pow(nD, 0.2) * Math.pow(nG, 0.1), m };
+    });
+    const sMin = Math.min(...scored.map((s) => s.score));
+    const sMax = Math.max(...scored.map((s) => s.score));
+    for (const s of scored) {
+      const n = sMax === sMin ? 0.5 : (s.score - sMin) / (sMax - sMin);
+      const rating = Math.max(1, Math.min(10, Math.round(1 + n * 9)));
+      const z = byZip[s.zip3];
+      out[s.zip3] = { ...z, rating, rpm: s.m.rpm, dhPerLoad: s.m.dhPerLoad, avgGross: s.m.avgGross };
+    }
+    return out;
+  })();
+
+  const [selectedZip3, setSelectedZip3] = useState<string | null>(null);
+  const selectedZone = selectedZip3 ? zoneByZip3[selectedZip3] : null;
+
   const fillForAbbr = (abbr: string): string => {
     const r = ratings[abbr];
     if (!r) return "hsl(var(--muted))";
@@ -345,18 +435,6 @@ export default function BeverlyHeatmapUsMap() {
   const selectedMetrics = selectedState ? metrics[selectedState] : null;
   const fmtMoney = (v: number) => `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   const fmtNum = (v: number, digits = 0) => v.toLocaleString("en-US", { maximumFractionDigits: digits });
-
-  // 60-mile radius in SVG units for the geoAlbersUsa projection at scale=1000.
-  // ~3000 miles continental US ≈ 900 svg units across → 1 mile ≈ 0.30 svg units.
-  const MILE_TO_SVG = 0.30;
-  const BLOB_RADIUS = 60 * MILE_TO_SVG; // ≈ 18 svg units
-  const maxCityCount = cityMetrics.reduce((m, c) => Math.max(m, c.count), 0);
-  // Center opacity scales with load volume so dense cities show through stronger
-  const centerOpacityFor = (count: number) => {
-    if (maxCityCount <= 0) return 0.55;
-    const n = count / maxCityCount;
-    return 0.35 + Math.sqrt(n) * 0.45; // 0.35 .. 0.80
-  };
 
   return (
     <Card>
@@ -438,7 +516,7 @@ export default function BeverlyHeatmapUsMap() {
                             },
                           }}
                         />
-                        {abbr && (
+                        {abbr && !isCitiesView && (
                           <text
                             x={0}
                             y={0}
@@ -462,50 +540,85 @@ export default function BeverlyHeatmapUsMap() {
                   })
               }
             </Geographies>
-            {viewMode === "cities" && (
-              <>
-                {/* One radial gradient per rating, fading to transparent at the 60-mile edge */}
-                <defs>
-                  {Object.entries(RATING_COLORS).map(([r, color]) => (
-                    <radialGradient key={r} id={`blob-${r}`} cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor={color} stopOpacity={1} />
-                      <stop offset="60%" stopColor={color} stopOpacity={0.55} />
-                      <stop offset="100%" stopColor={color} stopOpacity={0} />
-                    </radialGradient>
-                  ))}
-                </defs>
-                {/* Watercolor layer — soft blobs that blend where they overlap */}
-                <g style={{ mixBlendMode: "multiply" as any, pointerEvents: "none" }}>
-                  {cityMetrics.map((c) => (
-                    <Marker key={`blob-${c.city}|${c.state}`} coordinates={[c.lng, c.lat]}>
-                      <circle
-                        r={BLOB_RADIUS}
-                        fill={`url(#blob-${c.rating})`}
-                        opacity={centerOpacityFor(c.count)}
+            {viewMode === "cities" && zip3Geo && (
+              <Geographies geography={zip3Geo}>
+                {({ geographies }) =>
+                  geographies.map((geo) => {
+                    const zip3 = String(geo.properties?.ZCTA3 || geo.properties?.zip3 || "");
+                    const zone = zoneByZip3[zip3];
+                    const fill = zone ? interpolateColor(zone.rating) : "hsl(var(--muted))";
+                    return (
+                      <Geography
+                        key={geo.rsmKey}
+                        geography={geo}
+                        onClick={() => zone && setSelectedZip3(zip3)}
+                        style={{
+                          default: {
+                            fill,
+                            stroke: "hsl(var(--background))",
+                            strokeWidth: 0.15,
+                            outline: "none",
+                            cursor: zone ? "pointer" : "default",
+                          },
+                          hover: {
+                            fill,
+                            opacity: zone ? 0.8 : 1,
+                            stroke: "hsl(var(--background))",
+                            strokeWidth: 0.15,
+                            outline: "none",
+                            cursor: zone ? "pointer" : "default",
+                          },
+                          pressed: { fill, outline: "none" },
+                        }}
                       />
-                    </Marker>
-                  ))}
-                </g>
-                {/* Tiny invisible hit targets so each city remains clickable */}
-                {cityMetrics.map((c) => {
-                  const key = `${c.city}|${c.state}`;
-                  return (
-                    <Marker
-                      key={`hit-${key}`}
-                      coordinates={[c.lng, c.lat]}
-                      onClick={() => setSelectedCityKey(key)}
-                      style={{
-                        default: { cursor: "pointer" },
-                        hover: { cursor: "pointer" },
-                        pressed: { cursor: "pointer" },
-                      }}
-                    >
-                      <circle r={3} fill="hsl(var(--foreground))" opacity={0.85} />
-                      <circle r={BLOB_RADIUS} fill="transparent" />
-                    </Marker>
-                  );
-                })}
-              </>
+                    );
+                  })
+                }
+              </Geographies>
+            )}
+            {viewMode === "cities" && (
+              /* State borders overlay on top of zip3 choropleth, no fill */
+              <Geographies geography={GEO_URL}>
+                {({ geographies }) =>
+                  geographies
+                    .filter((geo) => !EXCLUDED_STATE_IDS.has(String(geo.id)))
+                    .map((geo) => {
+                      const abbr = STATE_ABBR[String(geo.id)] || "";
+                      const centroid = geoCentroid(geo);
+                      return (
+                        <g key={`overlay-${geo.rsmKey}`} style={{ pointerEvents: "none" }}>
+                          <Geography
+                            geography={geo}
+                            style={{
+                              default: { fill: "transparent", stroke: "hsl(var(--foreground))", strokeWidth: 0.7, outline: "none", pointerEvents: "none" },
+                              hover: { fill: "transparent", stroke: "hsl(var(--foreground))", strokeWidth: 0.7, outline: "none", pointerEvents: "none" },
+                              pressed: { fill: "transparent", outline: "none", pointerEvents: "none" },
+                            }}
+                          />
+                          {abbr && (
+                            <text
+                              transform={`translate(${centroid[0]}, ${centroid[1]})`}
+                              textAnchor="middle"
+                              style={{
+                                fontFamily: "inherit",
+                                fontSize: 11,
+                                fontWeight: 700,
+                                fill: "hsl(var(--foreground))",
+                                paintOrder: "stroke",
+                                stroke: "hsl(var(--background))",
+                                strokeWidth: 2,
+                                strokeLinejoin: "round",
+                                pointerEvents: "none",
+                              }}
+                            >
+                              {abbr}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })
+                }
+              </Geographies>
             )}
           </ComposableMap>
         </div>
@@ -607,6 +720,58 @@ export default function BeverlyHeatmapUsMap() {
                   ? "Loads delivered to this city (pickup in last + current week). Min 10 loads to be rated."
                   : "Loads picked up in this city (last + current week). Min 10 loads to be rated."}
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedZone} onOpenChange={(o) => !o && setSelectedZip3(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              ZIP {selectedZip3} — {direction === "inbound" ? "Inbound" : "Outbound"}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedZone && (
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Rating</span>
+                <span className="text-2xl font-bold" style={{ color: interpolateColor(selectedZone.rating) }}>
+                  {selectedZone.rating}/10
+                </span>
+              </div>
+              <div className="border-t pt-3 space-y-2">
+                <div className="text-xs text-muted-foreground mb-1">Based on (in order of importance):</div>
+                <div className="flex justify-between"><span>1. Number of loads</span><span className="font-medium">{fmtNum(selectedZone.count)}</span></div>
+                <div className="flex justify-between"><span>2. RPM (loaded)</span><span className="font-medium">${selectedZone.rpm.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>3. DH miles per load</span><span className="font-medium">{fmtNum(selectedZone.dhPerLoad, 1)}</span></div>
+                <div className="flex justify-between"><span>4. Avg gross per load</span><span className="font-medium">{fmtMoney(selectedZone.avgGross)}</span></div>
+              </div>
+              <div className="border-t pt-3 space-y-2 text-xs text-muted-foreground">
+                <div className="flex justify-between"><span>Total freight</span><span>{fmtMoney(selectedZone.freight)}</span></div>
+                <div className="flex justify-between"><span>Total loaded miles</span><span>{fmtNum(selectedZone.loadedMiles)}</span></div>
+                <div className="flex justify-between"><span>Total DH miles</span><span>{fmtNum(selectedZone.dhMiles)}</span></div>
+              </div>
+              {selectedZone.cities.length > 0 && (
+                <div className="border-t pt-3">
+                  <div className="text-xs text-muted-foreground mb-2">Cities in this zone ({selectedZone.cities.length}):</div>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {selectedZone.cities
+                      .slice()
+                      .sort((a, b) => b.count - a.count)
+                      .map((c) => (
+                        <button
+                          key={`${c.city}|${c.state}`}
+                          className="w-full flex justify-between text-left hover:bg-muted px-2 py-1 rounded"
+                          onClick={() => { setSelectedZip3(null); setSelectedCityKey(`${c.city}|${c.state}`); }}
+                        >
+                          <span>{c.city}, {c.state}</span>
+                          <span className="text-muted-foreground">{fmtNum(c.count)} loads</span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

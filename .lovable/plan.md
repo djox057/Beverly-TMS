@@ -1,51 +1,44 @@
-## Salary Charge from Orders (Managers/Admins)
+## Goal
 
-A way for admins/managers to add a "Charge" entry to a user's monthly salary based on an order's freight and driver pay. The order itself is not modified.
+Replace the current "Cities" view watercolor/blob rendering with a DAT-style choropleth: every 3-digit ZIP zone in the lower 48 is a flat-shaded polygon. Each city's loads are attributed (point-in-polygon, by avg lat/lng) to its containing ZIP3 zone, and the zone is colored by the existing 1–10 rating. Zones with no data render light grey. State borders stay overlaid on top.
 
-### Behavior
+## What changes
 
-- A "Add Salary Charge" button appears in:
-  - The Reports Load Info popup
-  - The Edit Order page header
-  Visible only to users with `admin` or `manager` role.
-- Clicking opens a popup that shows (read-only):
-  - Booked by: the user from the order's `booked_by`
-  - Delivery date: `delivery_datetime` (Chicago tz)
-  - Freight Amount and Driver Pay from the order
-  - Live preview of computed Charge
-- Inputs:
-  - Percentage (0 – 100, default 50)
-  - Reason (required)
-- On Save:
-  - Resolves `booked_by` → `user_id` via `profiles.full_name` (same lookup Analytics already does). Show error toast and abort if unresolved.
-  - Determines the target month as `YYYY-MM` of `delivery_datetime` in Chicago time.
-  - Computes charge: `(freight * 0.01 + (freight - driver_pay) * 0.05) * percent / 100`. Clamp negatives to 0.
-  - Upserts a row in `dispatcher_salary_payments` for `(user_id, month)` and appends a new entry to the `additionals` JSONB array of shape:
-    ```
-    { type: 'charge', amount, reason, order_id, percent, source: 'order_charge' }
-    ```
-  - Each click adds a new charge entry (no dedupe on `order_id`), since the user explicitly clicked "Add". The `order_id`/`source` are stored for traceability only.
-  - Closes the popup and shows a success toast like "Charge of $X added to <user> for <month>".
-- The order is NOT updated. No new columns on `orders`.
+Only `src/pages/BeverlyHeatmapUsMap.tsx` (Cities tab rendering) plus one bundled GeoJSON asset. No DB changes, no RPC changes, no changes to state view, rating formula, or rating colors.
 
-### Where the charge appears
+## User-visible behavior
 
-The Analytics Payroll dialog already renders `additionals` charges (type `charge`) as deductions with the reason shown. The new entries surface there automatically.
+- Cities tab renders ~920 ZIP3 polygons covering the lower 48.
+- Each polygon is one flat color from the existing `RATING_COLORS` palette (1–10) — no gradients, no blur, no bleed.
+- Zones containing at least one city's centroid → colored by aggregated rating of cities falling inside them.
+- Zones with no cities → light grey (`hsl(var(--muted))`).
+- State borders remain drawn on top in a thin contrast line so DAT-style boundaries are still visible.
+- Hover a zone → tooltip shows zone code + aggregated metrics (count, freight, rating).
+- Click a zone → opens existing city dialog, scoped to cities inside that zone (reuses the dialog component already wired to city data).
+- Legend (1–10 color scale) stays as-is.
 
-### Files
+## How it works
 
-New:
-- `src/components/AddOrderSalaryChargeDialog.tsx` — the popup (form, preview, save).
-- `src/hooks/useAddOrderSalaryCharge.ts` — resolve user, compute month, upsert/append into `additionals`.
+1. **Bundle ZIP3 polygons.** Add `src/assets/us-zip3.geojson` (US 3-digit ZIP boundary file, ~2 MB, lower 48 only, simplified to keep size down). Imported statically so it ships in the bundle.
+2. **Aggregate cities → ZIP3.** On city data load, for each city run point-in-polygon (`d3-geo`'s `geoContains`) against the ZIP3 feature collection using the city's avg lat/lng. Accumulate `count`, `freight`, `loaded_miles`, `dh_miles` per ZIP3.
+3. **Compute per-zone rating.** Reuse the existing rating function on the aggregated zone totals (same weighted geometric mean used today for cities), producing a 1–10 integer per zone.
+4. **Render.** Replace the `<g>` containing the watercolor `<defs>` + blob circles + center dots with a single `<g>` of `<path>` elements — one per ZIP3 feature — generated via `geoPath(projection)`. Fill = `RATING_COLORS[rating]` for zones with data, `hsl(var(--muted))` otherwise. Stroke = very thin neutral border so adjacent zones are distinguishable (DAT-style).
+5. **Keep state overlay.** The existing state `<path>` layer is re-rendered above the ZIP3 layer with a slightly thicker stroke and no fill, so state boundaries remain the dominant geographic reference.
+6. **Hover / click.** `onMouseEnter` / `onClick` on each ZIP3 path drives the existing tooltip + dialog. Dialog receives the list of cities inside that zone (already in memory from step 2).
 
-Modified (button mount + visibility gate via `useAuthContext().hasRole('admin') || hasRole('manager')`):
-- Reports Load Info dialog (located by searching for its render site in `src/pages/Reports.tsx` / `src/pages/Reports/`).
-- `src/pages/EditOrder.tsx` header.
+## Technical details
 
-### Edge cases
+- New file: `src/assets/us-zip3.geojson` (sourced from a public ZIP3 boundary dataset, simplified with `mapshaper` to ~2 MB, lower 48 only).
+- `BeverlyHeatmapUsMap.tsx`:
+  - Remove: `MILE_TO_SVG`, `BLOB_RADIUS`, `centerOpacityFor`, `<defs>` radial gradients, watercolor `<g>` with `mixBlendMode: "multiply"`, per-city center `<circle>` markers.
+  - Add: `useMemo` that builds `Map<zip3, { cities: City[], totals, rating }>` from the city array.
+  - Add: ZIP3 `<g>` rendered before the state overlay `<g>`.
+  - Reuse: existing `projection`, `geoPath`, `RATING_COLORS`, rating function, and city dialog component.
+- No new dependencies — `d3-geo` is already used.
+- Performance: ~920 simple paths render in well under one frame; one-time point-in-polygon over ~hundreds of cities is negligible.
 
-- Missing `booked_by` → button disabled with tooltip "No booker on order".
-- Missing `delivery_datetime` → disabled with tooltip "Set delivery date first".
-- Booker name doesn't match any profile (deleted user with no historical mapping) → error toast on save.
-- Missing freight or driver pay → treated as 0 in the formula.
-- No database migration needed.
+## Out of scope
+
+- State view, rating formula, RPCs, DB schema, other heatmap tabs.
+- KMA market areas or county fallback (rejected — user chose ZIP3).
+- 60-mile radius spread across zones (rejected — user chose point-in-polygon).
