@@ -1,62 +1,58 @@
-## What to add
+## Goal
 
-Next to the fuel `%` indicator in each truck row (Reports load info area), add a small `$` button. Clicking it opens a popover showing this-week-only totals for that truck:
+Change the Orders search bar so it works in two passes:
 
-- **Freight** — sum of `freight_amount` across orders with pickup date in current week, with **RPM** = freight / loaded_miles
-- **Stop Amt** — sum of `driver_price` (driver pay) for the same orders, with **RPM** = stop_amt / loaded_miles
-- **Comm** — Freight − Stop Amt, with **Comm%** = Comm / Freight × 100
+1. **Exact match pass** — query the database for orders whose `broker_load_number` OR `internal_load_number` exactly equals the typed term.
+2. **Substring fallback** — only if the exact pass returns zero rows, run the existing `ilike '%term%'` query against the same two columns.
 
-## Scope
+This keeps results precise when the user types a full load number (avoiding the current behavior where typing `19251` can return unrelated rows like `251765` or `175851` simply because they contain the digits), while still letting partial typing surface candidates.
 
-- Only `src/pages/Reports.tsx`. No backend / business-logic changes.
-- "Current week" = Monday 00:00 → Sunday 23:59 **Chicago time** (matches existing project standard).
-- Data source: `truck.activeOrders` (already loaded for each row). Filter by `order.pickupStops?.[0]?.datetime || order.pickup_datetime` falling in the current Chicago week.
-- Exclude canceled orders (consistent with existing DH/miles rules in the project).
+## Where the change goes
 
-## Placement
+Single file: `src/hooks/useOrdersSearch.ts`, inside the `searchOrders` callback, replacing the current Stage 1 query block.
 
-In the truck cell, in the row of HOS/fuel icons (around line 6111–6133), add a `Popover` after the fuel block:
+No UI changes, no edge-function changes, no schema changes. The debounce, stale-response guard, batch enrichment (pickup_drops / files / transfers / recovery / trucks / drivers / brokers / companies / trailers), `transformOrders`, and `queryClient.setQueryData` flow all remain identical — only the Stage 1 fetch becomes two-step.
+
+## Behavior details
+
+- **Term shape:** `term` is the trimmed lowercase input (existing logic). Both columns are text, so equality is compared as strings; no numeric parsing.
+- **Exact filter:** `.or("broker_load_number.eq.<term>,internal_load_number.eq.<term>")` plus the same dispatcher / booked-by-company scoping that the substring query already applies.
+  - `internal_load_number` is stored with its frozen suffix (e.g. `10537-BFP`). To make exact match still feel "exact" when the user types only the numeric portion, the exact pass will also match `internal_load_number.ilike.<term>-%` (prefix before the suffix dash). This keeps `19251` matching `19251-BFP` exactly but still excludes `192510-BFP`.
+  - `broker_load_number` is matched only as full equality — no prefix variant.
+- **Fallback trigger:** only when the exact query returns an empty array (and did not error). Any error short-circuits to the existing error path.
+- **Substring pass:** unchanged from today — `broker_load_number.ilike.%term%,internal_load_number.ilike.%term%`, `order by created_at desc limit 100`, same scoping filters.
+- **Stale-response guard:** the `latestSearchKeyRef.current !== searchKey` check runs after each of the two awaits, so a newer keystroke still discards results from either pass.
+- **Empty result:** if both passes return zero rows, write `[]` to the cache (same as today's "No results" branch) so the grid shows the empty state instead of stale rows.
+- **Caching:** results are still written under the single existing query key; consumers don't need to know which pass produced them.
+
+## Technical section
+
+Replace the current Stage 1 block (the one that builds `query` from `searchFilter` and awaits a single `flatOrders` result) with a small helper that builds the same scoped query from a given `filterExpr`, then:
 
 ```text
-[HOS timers] [🚧?] [⛽ 87%] [$]   ← new
+1. exact = await runScopedQuery(
+     `broker_load_number.eq.${term},`
+   + `internal_load_number.eq.${term},`
+   + `internal_load_number.ilike.${term}-%`
+   );
+2. if exact stale -> return
+3. if exact error -> throw (existing catch)
+4. flatOrders = exact.length > 0
+     ? exact
+     : await runScopedQuery(
+         `broker_load_number.ilike.%${term}%,`
+       + `internal_load_number.ilike.%${term}%`
+       );
+5. if substring stale -> return
+6. continue into existing Stage 2/3 enrichment unchanged
 ```
 
-The `$` is a small `Button` (`variant="ghost"`, ~31px, same visual weight as fuel icon, green tint). Hidden when there are no qualifying orders this week (or render with em-dashes).
+`runScopedQuery` encapsulates the dispatcher/booked-by/company scoping currently appended after `.or(searchFilter)` so both passes apply identical filters.
 
-## Popover content
+No new dependencies. No new types. The `ORDER_COLUMNS` selection, the `.limit(100)`, and the `order("created_at", desc)` ordering stay the same.
 
-Small card (~200px) styled like `CellSelectionSummary`:
+## Out of scope
 
-```text
-This week · N order(s)
-─────────────────────────
-Freight:    $12,450   ($2.31/mi)
-Stop Amt:    $6,225   ($1.16/mi)
-Comm:        $6,225   (50.0%)
-```
-
-Currency via existing `formatCurrency`; RPM as `$X.XX`; Comm% to 1 decimal. Show `—` for any metric with 0 miles or 0 freight.
-
-## Technical details
-
-- Compute the Chicago Mon–Sun window once per render using existing date utilities (`getOrderPickupDateForCarousel` style — already imported) or `Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago' })`.
-- Per-truck memoized aggregation:
-  ```ts
-  const weekStats = useMemo(() => {
-    const inWeek = (truck.activeOrders ?? []).filter(o =>
-      !o.canceled &&
-      isInChicagoWeek(o.pickupStops?.[0]?.datetime || o.pickup_datetime)
-    );
-    const freight = sum(inWeek, o => +o.freight_amount || 0);
-    const pay     = sum(inWeek, o => +o.driver_price  || 0);
-    const miles   = sum(inWeek, o => +o.loaded_miles || +o.mileage || 0);
-    return { freight, pay, miles, comm: freight - pay, count: inWeek.length };
-  }, [truck.activeOrders]);
-  ```
-  Inlined inside the row map; no new hook needed.
-- Reuse existing `Popover`, `PopoverTrigger`, `PopoverContent` imports.
-
-## Not in scope
-
-- No edge function changes, no DB changes, no email/legend changes.
-- Does not affect cell-selection summary, analytics, or payroll calculations.
+- The "Searching all orders…" spinner overlap with `useFilteredOrdersSearch` and the `cancelQueries` prefix-cancel issue diagnosed in the previous message are separate bugs; this plan does not touch them. If results still appear stale after this change, that's the next thing to address.
+- No change to client-side search (the local filter used when fewer than 2 chars are typed).
+- No change to filter dropdowns, date filters, or `useFilteredOrdersSearch`.

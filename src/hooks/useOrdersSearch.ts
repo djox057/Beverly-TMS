@@ -124,52 +124,75 @@ export function useOrdersSearch() {
         dispatcherDriverIds = (assignedDrivers || []).map(d => d.id);
       }
 
-      // === STAGE 1: Flat order search (fast, index-friendly) ===
-      const searchFilter = `broker_load_number.ilike.%${term}%,internal_load_number.ilike.%${term}%`;
+      // === STAGE 1: Flat order search ===
+      // Two-pass: exact match first, fall back to substring only if exact has 0 rows.
+      const runScopedQuery = async (filterExpr: string) => {
+        let q = supabase
+          .from("orders")
+          .select(ORDER_COLUMNS)
+          .or(filterExpr)
+          .order("created_at", { ascending: false })
+          .limit(100);
 
-      let query = supabase
-        .from("orders")
-        .select(ORDER_COLUMNS)
-        .or(searchFilter)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      // Apply dispatcher filtering
-      if (options?.dispatcherUserId) {
-        if (options?.bookedBy && dispatcherDriverIds.length > 0) {
-          query = query.or(
-            `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
-          );
-        } else if (options?.bookedBy) {
-          query = query.eq("booked_by", options.bookedBy);
-        } else if (dispatcherDriverIds.length > 0) {
-          query = query.in("driver1_id", dispatcherDriverIds);
+        if (options?.dispatcherUserId) {
+          if (options?.bookedBy && dispatcherDriverIds.length > 0) {
+            q = q.or(
+              `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
+            );
+          } else if (options?.bookedBy) {
+            q = q.eq("booked_by", options.bookedBy);
+          } else if (dispatcherDriverIds.length > 0) {
+            q = q.in("driver1_id", dispatcherDriverIds);
+          }
         }
-      }
 
-      // Exclude a specific booked-by company entirely
-      if (options?.excludeBookedByCompanyId) {
-        query = query.or(
-          `booked_by_company_id.neq.${options.excludeBookedByCompanyId},booked_by_company_id.is.null`
-        );
-      }
+        if (options?.excludeBookedByCompanyId) {
+          q = q.or(
+            `booked_by_company_id.neq.${options.excludeBookedByCompanyId},booked_by_company_id.is.null`
+          );
+        }
 
-      // Restrict to a specific booked-by company
-      if (options?.bookedByCompanyId) {
-        query = query.eq("booked_by_company_id", options.bookedByCompanyId);
-      }
+        if (options?.bookedByCompanyId) {
+          q = q.eq("booked_by_company_id", options.bookedByCompanyId);
+        }
 
-      const { data: flatOrders, error } = await query;
+        return await q;
+      };
 
-      // Stale response check
+      // Pass 1: exact match on broker/internal load number (and numeric-prefix-before-suffix
+      // for internal load numbers which are stored as "<num>-<SUFFIX>").
+      const exactFilter =
+        `broker_load_number.eq.${term},` +
+        `internal_load_number.eq.${term},` +
+        `internal_load_number.ilike.${term}-%`;
+      const exactRes = await runScopedQuery(exactFilter);
+
       if (latestSearchKeyRef.current !== searchKey) {
-        console.log("[useOrdersSearch] Discarding stale response for:", searchKey);
+        console.log("[useOrdersSearch] Discarding stale exact response for:", searchKey);
         return;
       }
+      if (exactRes.error) {
+        console.error("[useOrdersSearch] Exact query error:", exactRes.error);
+        throw exactRes.error;
+      }
 
-      if (error) {
-        console.error("[useOrdersSearch] Query error:", error);
-        throw error;
+      let flatOrders = exactRes.data || [];
+
+      // Pass 2: substring fallback only when exact returned nothing.
+      if (flatOrders.length === 0) {
+        const substringFilter =
+          `broker_load_number.ilike.%${term}%,internal_load_number.ilike.%${term}%`;
+        const subRes = await runScopedQuery(substringFilter);
+
+        if (latestSearchKeyRef.current !== searchKey) {
+          console.log("[useOrdersSearch] Discarding stale substring response for:", searchKey);
+          return;
+        }
+        if (subRes.error) {
+          console.error("[useOrdersSearch] Substring query error:", subRes.error);
+          throw subRes.error;
+        }
+        flatOrders = subRes.data || [];
       }
 
       if (!flatOrders || flatOrders.length === 0) {
