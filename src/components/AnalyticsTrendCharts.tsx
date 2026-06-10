@@ -11,7 +11,6 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getEffectiveDriverPay } from "@/pages/Reports/helpers";
 
 type Granularity = "daily" | "weekly" | "monthly";
 
@@ -26,6 +25,7 @@ interface OrderLike {
 interface Props {
   orders: OrderLike[];
   filterType: "week" | "month" | "custom";
+  getEffectiveDriverPay: (order: any) => number;
 }
 
 function bucketKey(d: Date, g: Granularity): string {
@@ -44,7 +44,7 @@ function bucketLabel(key: string, g: Granularity): string {
   return format(d, "MMM d");
 }
 
-export function AnalyticsTrendCharts({ orders, filterType }: Props) {
+export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay }: Props) {
   const [granularity, setGranularity] = useState<Granularity>("daily");
 
   const data = useMemo(() => {
