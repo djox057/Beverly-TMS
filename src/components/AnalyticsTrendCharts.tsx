@@ -29,6 +29,7 @@ interface OrderLike {
   deliveryDate?: string | null;
   totalFreightAmountNoLumper?: number | string | null;
   mileage?: number | string | null;
+  driver1Id?: string | null;
 }
 
 interface Props {
@@ -59,7 +60,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
   const data = useMemo(() => {
     const buckets = new Map<
       string,
-      { freight: number; miles: number; driverPay: number; count: number }
+      { freight: number; miles: number; driverPay: number; count: number; drivers: Set<string> }
     >();
     orders.forEach((o) => {
       const raw =
@@ -74,11 +75,12 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
         if (dow === 0 || dow === 6) return;
       }
       const key = bucketKey(d, granularity);
-      const b = buckets.get(key) || { freight: 0, miles: 0, driverPay: 0, count: 0 };
+      const b = buckets.get(key) || { freight: 0, miles: 0, driverPay: 0, count: 0, drivers: new Set<string>() };
       b.freight += Number(o.totalFreightAmountNoLumper) || 0;
       b.miles += Number(o.mileage) || 0;
       b.driverPay += getEffectiveDriverPay(o as any);
       b.count += 1;
+      if (o.driver1Id) b.drivers.add(String(o.driver1Id));
       buckets.set(key, b);
     });
     return Array.from(buckets.entries())
@@ -87,6 +89,9 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
         const comm = v.freight - v.driverPay;
         const commPct = v.freight > 0 ? (comm / v.freight) * 100 : 0;
         const rpm = v.miles > 0 ? v.freight / v.miles : 0;
+        const driverCount = v.drivers.size;
+        const freightPerDriver = driverCount > 0 ? v.freight / driverCount : 0;
+        const driverPayPerDriver = driverCount > 0 ? v.driverPay / driverCount : 0;
         return {
           key,
           label: bucketLabel(key, granularity),
@@ -96,6 +101,8 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
           comm: Math.round(comm),
           commPct: Number(commPct.toFixed(1)),
           driverPay: Math.round(v.driverPay),
+          freightPerDriver: Math.round(freightPerDriver),
+          driverPayPerDriver: Math.round(driverPayPerDriver),
         };
       });
   }, [orders, granularity, filterType]);
@@ -106,7 +113,9 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
     { key: "rpm", title: "Avg Rate / Mile", color: "hsl(38 92% 50%)", prefix: "$", axis: "rpm" },
     { key: "comm", title: "Total Commission", color: "hsl(142 76% 36%)", prefix: "$", axis: "dollars-big" },
     { key: "commPct", title: "Commission %", color: "hsl(280 70% 55%)", suffix: "%", axis: "pct" },
-    { key: "driverPay", title: "Stop Amount (Driver Pay)", color: "hsl(0 72% 51%)", prefix: "$", axis: "dollars-big" },
+    { key: "driverPay", title: "Driver Pay", color: "hsl(0 72% 51%)", prefix: "$", axis: "dollars-big" },
+    { key: "freightPerDriver", title: "Freight per Driver", color: "hsl(190 80% 45%)", prefix: "$", axis: "dollars-per-driver" },
+    { key: "driverPayPerDriver", title: "Driver Freight per Driver", color: "hsl(20 85% 55%)", prefix: "$", axis: "dollars-per-driver" },
   ];
 
   const projection = useMemo(() => {
