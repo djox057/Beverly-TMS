@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
-import { transformOrders } from "@/utils/ordersTransform";
 import {
   injectOrdersIntoGlobalStore,
   removeOrdersFromGlobalStore,
@@ -59,9 +58,16 @@ export function useReportsRealtime() {
               // Orders no longer accessible (deleted or RLS) — remove from store
               removeOrdersFromGlobalStore(missing);
             }
+            // IMPORTANT: The global store (populated by fetchOrdersForDateWindow
+            // and patched by the adapter's own realtime flush) holds flat
+            // snake_case rows with `pickup_drops` / `order_transfers` attached.
+            // The Reports adapter consumer reads those snake_case fields directly.
+            // Previously we injected `transformOrders()` output here, which is
+            // a fully camelCase shape missing those raw arrays — that caused
+            // orders to vanish from the grid after BOL/POD uploads (until a
+            // full refresh re-seeded the flat shape).
             const enriched = await enrichOrdersWithRelations(flatOrders);
-            const transformed = transformOrders(enriched);
-            injectOrdersIntoGlobalStore(transformed);
+            injectOrdersIntoGlobalStore(enriched);
           }
         }
 
