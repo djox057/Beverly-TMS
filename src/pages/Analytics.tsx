@@ -42,6 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { format, startOfWeek } from "date-fns";
 import { useDispatcherNotes } from "@/hooks/useDispatcherNotes";
 import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
+import { AnalyticsTrendCharts } from "@/components/AnalyticsTrendCharts";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
@@ -191,6 +192,7 @@ const Analytics = () => {
     >
   >({});
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
+  const [showCharts, setShowCharts] = useState<boolean>(false);
 
   // Fetch dispatcher notes for the current date range
   const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
@@ -2960,9 +2962,14 @@ const Analytics = () => {
               )}
               {roles.includes("admin") && <TabsTrigger value="recruiting">Other Salaries</TabsTrigger>}
             </TabsList>
-            <Button variant="outline" onClick={() => navigate("/billboard")}>
-              Billboard
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setShowCharts((s) => !s)}>
+                {showCharts ? "Hide Charts" : "Charts"}
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/billboard")}>
+                Billboard
+              </Button>
+            </div>
           </div>
 
           <TabsContent value="performance" className="space-y-6">
@@ -3230,6 +3237,16 @@ const Analytics = () => {
                     </div>
                   )}
                 </div>
+
+                {showCharts && (
+                  <div className="mb-6">
+                    <AnalyticsTrendCharts
+                      orders={ordersForTotals}
+                      filterType={filterType}
+                      getEffectiveDriverPay={getEffectiveDriverPay}
+                    />
+                  </div>
+                )}
 
                 {/* Only show dispatcher table if there's more than 1 dispatcher */}
                 {dispatcherStats.length > 1 && (
