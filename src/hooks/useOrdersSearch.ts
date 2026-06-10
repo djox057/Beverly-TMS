@@ -71,7 +71,6 @@ export function useOrdersSearch() {
   
   // Refs to break the circular dependency: searchOrders no longer depends on reactive queryKey
   const activeQueryKeyRef = useRef<(string | null | undefined)[] | null>(null);
-  const failedTermsRef = useRef<Set<string>>(new Set());
   const activeSearchTermRef = useRef<string | null>(null);
 
   const searchOrders = useCallback(async (
@@ -97,18 +96,7 @@ export function useOrdersSearch() {
 
     const term = searchTerm.trim().toLowerCase();
     const searchKey = `${term}|${options?.bookedBy || ''}|${options?.dispatcherUserId || ''}|${options?.excludeBookedByCompanyId || ''}|${options?.bookedByCompanyId || ''}`;
-    
-    // Clear failed terms when user types a different term
-    if (term !== activeSearchTermRef.current) {
-      failedTermsRef.current.clear();
-    }
-    
-    // Block retry on previously failed (timed-out) term
-    if (failedTermsRef.current.has(term)) {
-      console.warn(`[useOrdersSearch] Skipping search for "${term}" - previous timeout`);
-      return;
-    }
-    
+
     latestSearchKeyRef.current = searchKey;
     activeSearchTermRef.current = term;
     
@@ -308,13 +296,7 @@ export function useOrdersSearch() {
     } catch (err: any) {
       if (latestSearchKeyRef.current === searchKey) {
         console.error("[useOrdersSearch] Error:", err);
-        
-        // Track timed-out terms to prevent infinite retry loops
-        if (err?.code === '57014' || err?.message?.includes('statement timeout')) {
-          failedTermsRef.current.add(term);
-          console.warn(`[useOrdersSearch] Term "${term}" timed out - blocking retries`);
-        }
-        
+
         setSearchError(err instanceof Error ? err : new Error("Search failed"));
         queryClient.setQueryData(newQueryKey, null);
       }
