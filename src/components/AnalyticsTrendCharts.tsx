@@ -18,6 +18,8 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Legend } from "recharts";
+import { Toggle } from "@/components/ui/toggle";
 
 type Granularity = "daily" | "weekly" | "monthly";
 
@@ -93,6 +95,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
           rpm: Number(rpm.toFixed(2)),
           comm: Math.round(comm),
           commPct: Number(commPct.toFixed(1)),
+          driverPay: Math.round(v.driverPay),
         };
       });
   }, [orders, granularity, filterType]);
@@ -103,6 +106,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
     { key: "rpm", title: "Avg Rate / Mile", color: "hsl(38 92% 50%)", prefix: "$" },
     { key: "comm", title: "Total Commission", color: "hsl(142 76% 36%)", prefix: "$" },
     { key: "commPct", title: "Commission %", color: "hsl(280 70% 55%)", suffix: "%" },
+    { key: "driverPay", title: "Stop Amount (Driver Pay)", color: "hsl(0 72% 51%)", prefix: "$" },
   ];
 
   const projection = useMemo(() => {
@@ -129,7 +133,8 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
     return { ratio: totalDays / elapsed };
   }, [data, granularity]);
 
-  const isProjectable = (k: string) => k === "freight" || k === "miles" || k === "comm";
+  const isProjectable = (k: string) =>
+    k === "freight" || k === "miles" || k === "comm" || k === "driverPay";
 
   const chartData = useMemo(() => {
     const arr: any[] = data.map((d) => ({ ...d }));
@@ -152,6 +157,14 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, projection]);
 
+  const [overlayKeys, setOverlayKeys] = useState<string[]>([]);
+  const toggleOverlay = (k: string) =>
+    setOverlayKeys((prev) =>
+      prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k],
+    );
+  const fmt = (c: typeof charts[number]) => (v: any) =>
+    `${c.prefix ?? ""}${Number(v).toLocaleString()}${c.suffix ?? ""}`;
+
   return (
     <Card>
       <CardHeader>
@@ -173,6 +186,117 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
         {data.length === 0 ? (
           <p className="text-sm text-muted-foreground">No data for selected period.</p>
         ) : (
+          <>
+          <div className="mb-6 rounded-lg border p-4">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <p className="text-sm font-medium mr-2">Overlay</p>
+              {charts.map((c) => {
+                const active = overlayKeys.includes(c.key as string);
+                return (
+                  <Toggle
+                    key={`ov-${c.key as string}`}
+                    size="sm"
+                    pressed={active}
+                    onPressedChange={() => toggleOverlay(c.key as string)}
+                    style={active ? { borderColor: c.color, color: c.color } : undefined}
+                    className="border"
+                  >
+                    <span
+                      className="inline-block w-2 h-2 rounded-full mr-1.5"
+                      style={{ background: c.color }}
+                    />
+                    {c.title}
+                  </Toggle>
+                );
+              })}
+              {overlayKeys.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setOverlayKeys([])}
+                  className="text-xs text-muted-foreground hover:text-foreground ml-1"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {overlayKeys.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Pick 2+ metrics above to overlay them on one chart.
+              </p>
+            ) : (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    {overlayKeys.map((k, i) => {
+                      const c = charts.find((x) => x.key === k)!;
+                      return (
+                        <YAxis
+                          key={`y-${k}`}
+                          yAxisId={k}
+                          orientation={i % 2 === 0 ? "left" : "right"}
+                          tick={{ fontSize: 11, fill: c.color }}
+                          tickFormatter={fmt(c)}
+                          width={70}
+                          hide={i > 1}
+                        />
+                      );
+                    })}
+                    <Tooltip
+                      contentStyle={{
+                        background: "hsl(var(--background))",
+                        border: "1px solid hsl(var(--border))",
+                        fontSize: 12,
+                      }}
+                      formatter={(v: any, name: string) => {
+                        const c = charts.find((x) => x.title === name || x.key === name);
+                        return c ? fmt(c)(v) : v;
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    {overlayKeys.map((k) => {
+                      const c = charts.find((x) => x.key === k)!;
+                      return (
+                        <Line
+                          key={`l-${k}`}
+                          yAxisId={k}
+                          type="monotone"
+                          dataKey={k}
+                          name={c.title}
+                          stroke={c.color}
+                          strokeWidth={2}
+                          dot={{ r: 2 }}
+                          connectNulls={false}
+                          isAnimationActive={false}
+                        />
+                      );
+                    })}
+                    {projection &&
+                      overlayKeys.map((k) => {
+                        const c = charts.find((x) => x.key === k)!;
+                        return (
+                          <Line
+                            key={`lp-${k}`}
+                            yAxisId={k}
+                            type="monotone"
+                            dataKey={`${k}_proj`}
+                            name={`${c.title} (proj)`}
+                            stroke={c.color}
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={{ r: 2 }}
+                            connectNulls={false}
+                            isAnimationActive={false}
+                            legendType="none"
+                          />
+                        );
+                      })}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {charts.map((c) => (
               <div key={c.key as string} className="rounded-lg border p-4">
@@ -233,6 +357,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
               </div>
             ))}
           </div>
+          </>
         )}
       </CardContent>
     </Card>
