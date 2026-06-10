@@ -192,6 +192,7 @@ const Analytics = () => {
     >
   >({});
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
+  const [showCharts, setShowCharts] = useState<boolean>(false);
 
   // Fetch dispatcher notes for the current date range
   const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
