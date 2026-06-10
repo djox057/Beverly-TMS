@@ -71,8 +71,13 @@ export function useReportsRealtime() {
           }
         }
 
-        // Keep legacy consumers (useReports.ts mutations / drug tests) fresh
-        queryClient.invalidateQueries({ queryKey: ["reports"], exact: false });
+        // NOTE: We intentionally do NOT blanket-invalidate ["reports"] here.
+        // The date-window pipeline reads from the global store (already patched
+        // above via injectOrdersIntoGlobalStore + version notify). A broad
+        // invalidate causes downstream queries to refetch and briefly clear,
+        // which manifested as grid rows flickering / temporarily disappearing
+        // after BOL/POD uploads. Legacy consumers that still key on ["reports"]
+        // should invalidate their own slices in their mutation callbacks.
       } catch (err) {
         console.error("[ReportsRealtime] Flush error:", err);
       } finally {

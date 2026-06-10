@@ -1366,8 +1366,20 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
               otMap.set(t.order_id, arr);
             }
 
-            // Stage 3: Assemble and scope-check (all silent — no notification per item)
-            const currentDriverIds = driverIdsSetRef.current;
+            // Stage 3: Assemble and patch (all silent — no notification per item).
+            //
+            // IMPORTANT: We intentionally do NOT re-check `driverIdsSetRef.current` here
+            // to decide eviction. The original date-window fetch is the authority for
+            // what belongs in the store (it includes recovery drivers, transfer drivers,
+            // last-load fallbacks, off-duty groups, etc., none of which are reflected in
+            // the narrow `driverIdsForScope` set). Re-checking caused orders to vanish
+            // permanently — only a full refresh would bring them back — when a BOL/POD
+            // upload fired multiple realtime events (orders + pickup_drops + order_files)
+            // for a load whose driver wasn't strictly in current office scope.
+            //
+            // Realtime is here to UPDATE in-place. Removal happens in two paths only:
+            //  - explicit DELETE events (handled above via pendingDeletes)
+            //  - the next full date-window fetch reconciles scope.
             const affectedOrderIds: string[] = [];
 
             for (const order of flatOrders) {
@@ -1378,17 +1390,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
                 order_transfers: (otMap.get(order.id) || [])
                   .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
               };
-
-              // Out-of-scope check: if neither driver is in scope, remove instead of patching
-              const inScope =
-                (fullOrder.driver1_id && currentDriverIds.has(fullOrder.driver1_id)) ||
-                (fullOrder.driver2_id && currentDriverIds.has(fullOrder.driver2_id));
-
-              if (inScope) {
-                patchOrderInGlobalStore(fullOrder, false);
-              } else {
-                removeOrderFromGlobalStore(fullOrder.id, false);
-              }
+              patchOrderInGlobalStore(fullOrder, false);
               affectedOrderIds.push(fullOrder.id);
             }
 
