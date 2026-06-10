@@ -6874,6 +6874,11 @@ const Reports = () => {
                     <div className="flex flex-col leading-tight">
                       <span>{zoomedLoad?.dhMiles?.toLocaleString() || 0} dh mi</span>
                     </div>
+                    {zoomedLoad?.weightBol ? (
+                      <div className="flex flex-col leading-tight">
+                        <span>{zoomedLoad.weightBol.toLocaleString()} lbs</span>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <div className="text-sm text-muted-foreground font-normal">
