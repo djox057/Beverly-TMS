@@ -1623,9 +1623,12 @@ const Reports = () => {
           });
         });
 
-        // Invalidate so a fresh fetch replaces synthetic entries with real ones.
-        queryClient.invalidateQueries({ queryKey: ["reports"], exact: false });
-        queryClient.invalidateQueries({ queryKey: ["orders"], exact: false });
+        // Synthetic entries are reconciled by the order_files realtime channel
+        // (which patches ["adapter-order-files"] in the date-window adapter).
+        // We intentionally do NOT blanket-invalidate ["reports"] or ["orders"]
+        // here: doing so caused multi-second grid flicker and, in some cases,
+        // rows to vanish until manual refresh while the broad refetches raced
+        // with realtime patches.
       }
 
       // Close dialog and reset state
