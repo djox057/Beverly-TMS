@@ -42,6 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { format, startOfWeek } from "date-fns";
 import { useDispatcherNotes } from "@/hooks/useDispatcherNotes";
 import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
+import { AnalyticsTrendCharts } from "@/components/AnalyticsTrendCharts";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
