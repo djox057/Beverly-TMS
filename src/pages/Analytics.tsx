@@ -2962,9 +2962,14 @@ const Analytics = () => {
               )}
               {roles.includes("admin") && <TabsTrigger value="recruiting">Other Salaries</TabsTrigger>}
             </TabsList>
-            <Button variant="outline" onClick={() => navigate("/billboard")}>
-              Billboard
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setShowCharts((s) => !s)}>
+                {showCharts ? "Hide Charts" : "Charts"}
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/billboard")}>
+                Billboard
+              </Button>
+            </div>
           </div>
 
           <TabsContent value="performance" className="space-y-6">
