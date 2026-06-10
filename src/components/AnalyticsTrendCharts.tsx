@@ -100,13 +100,13 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
       });
   }, [orders, granularity, filterType]);
 
-  const charts: { key: keyof typeof data[number]; title: string; color: string; prefix?: string; suffix?: string }[] = [
-    { key: "freight", title: "Total Freight", color: "hsl(142 76% 36%)", prefix: "$" },
-    { key: "miles", title: "Total Miles", color: "hsl(217 91% 60%)" },
-    { key: "rpm", title: "Avg Rate / Mile", color: "hsl(38 92% 50%)", prefix: "$" },
-    { key: "comm", title: "Total Commission", color: "hsl(142 76% 36%)", prefix: "$" },
-    { key: "commPct", title: "Commission %", color: "hsl(280 70% 55%)", suffix: "%" },
-    { key: "driverPay", title: "Stop Amount (Driver Pay)", color: "hsl(0 72% 51%)", prefix: "$" },
+  const charts: { key: keyof typeof data[number]; title: string; color: string; prefix?: string; suffix?: string; axis: string }[] = [
+    { key: "freight", title: "Total Freight", color: "hsl(142 76% 36%)", prefix: "$", axis: "dollars-big" },
+    { key: "miles", title: "Total Miles", color: "hsl(217 91% 60%)", axis: "miles" },
+    { key: "rpm", title: "Avg Rate / Mile", color: "hsl(38 92% 50%)", prefix: "$", axis: "rpm" },
+    { key: "comm", title: "Total Commission", color: "hsl(142 76% 36%)", prefix: "$", axis: "dollars-big" },
+    { key: "commPct", title: "Commission %", color: "hsl(280 70% 55%)", suffix: "%", axis: "pct" },
+    { key: "driverPay", title: "Stop Amount (Driver Pay)", color: "hsl(0 72% 51%)", prefix: "$", axis: "dollars-big" },
   ];
 
   const projection = useMemo(() => {
@@ -229,20 +229,27 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
                   <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                    {overlayKeys.map((k, i) => {
-                      const c = charts.find((x) => x.key === k)!;
-                      return (
-                        <YAxis
-                          key={`y-${k}`}
-                          yAxisId={k}
-                          orientation={i % 2 === 0 ? "left" : "right"}
-                          tick={{ fontSize: 11, fill: c.color }}
-                          tickFormatter={fmt(c)}
-                          width={70}
-                          hide={i > 1}
-                        />
-                      );
-                    })}
+                    {(() => {
+                      const axes: string[] = [];
+                      overlayKeys.forEach((k) => {
+                        const c = charts.find((x) => x.key === k)!;
+                        if (!axes.includes(c.axis)) axes.push(c.axis);
+                      });
+                      return axes.map((axisId, i) => {
+                        const c = charts.find((x) => x.axis === axisId)!;
+                        return (
+                          <YAxis
+                            key={`y-${axisId}`}
+                            yAxisId={axisId}
+                            orientation={i % 2 === 0 ? "left" : "right"}
+                            tick={{ fontSize: 11, fill: c.color }}
+                            tickFormatter={fmt(c)}
+                            width={70}
+                            hide={i > 1}
+                          />
+                        );
+                      });
+                    })()}
                     <Tooltip
                       contentStyle={{
                         background: "hsl(var(--background))",
@@ -260,7 +267,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
                       return (
                         <Line
                           key={`l-${k}`}
-                          yAxisId={k}
+                          yAxisId={c.axis}
                           type="monotone"
                           dataKey={k}
                           name={c.title}
@@ -278,7 +285,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
                         return (
                           <Line
                             key={`lp-${k}`}
-                            yAxisId={k}
+                            yAxisId={c.axis}
                             type="monotone"
                             dataKey={`${k}_proj`}
                             name={`${c.title} (proj)`}
