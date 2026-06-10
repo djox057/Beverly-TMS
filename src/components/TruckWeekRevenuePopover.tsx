@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Props {
   orders: any[] | undefined;
@@ -105,10 +106,19 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate, driverId, drive
   const [open, setOpen] = useState(false);
   const [fetched, setFetched] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  useEffect(() => {
+    if (!open) setWeekOffset(0);
+  }, [open]);
 
   const { start: weekStart, end: weekEnd } = useMemo(
-    () => getChicagoWeekRange(refTime !== undefined ? new Date(refTime) : undefined),
-    [refTime],
+    () => {
+      const base = refTime !== undefined ? new Date(refTime) : new Date();
+      const shifted = new Date(base.getTime() + weekOffset * 7 * 24 * 60 * 60 * 1000);
+      return getChicagoWeekRange(shifted);
+    },
+    [refTime, weekOffset],
   );
 
   // When popover opens, fetch the full Mon-Sun week directly for this truck's driver(s).
@@ -218,8 +228,26 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate, driverId, drive
         </button>
       </PopoverTrigger>
       <PopoverContent side="top" align="end" className="w-auto min-w-[220px] p-3 text-xs">
-        <div className="text-[11px] font-medium text-muted-foreground mb-2">
-          This week · {stats.count} order{stats.count === 1 ? "" : "s"}{loading ? " · loading…" : ""}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <button
+            type="button"
+            onClick={() => setWeekOffset((v) => v - 1)}
+            className="p-0.5 text-muted-foreground hover:text-foreground"
+            aria-label="Previous week"
+          >
+            <ChevronLeft className="h-3 w-3" />
+          </button>
+          <div className="flex-1 text-center text-[11px] font-medium text-muted-foreground">
+            {weekOffset === 0 ? "This week" : weekOffset < 0 ? `${-weekOffset}w ago` : `+${weekOffset}w`} · {stats.count} order{stats.count === 1 ? "" : "s"}{loading ? " · loading…" : ""}
+          </div>
+          <button
+            type="button"
+            onClick={() => setWeekOffset((v) => v + 1)}
+            className="p-0.5 text-muted-foreground hover:text-foreground"
+            aria-label="Next week"
+          >
+            <ChevronRight className="h-3 w-3" />
+          </button>
         </div>
         <div className="space-y-1">
           <div className="flex justify-between gap-4">
