@@ -121,6 +121,14 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate, driverId, drive
     [refTime, weekOffset],
   );
 
+  // Compute the offset of the displayed week vs the actual current Chicago week,
+  // so the label reads correctly regardless of where the carousel reference date sits.
+  const displayedOffset = useMemo(() => {
+    const currentWeek = getChicagoWeekRange(new Date());
+    const diffMs = weekStart - currentWeek.start;
+    return Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
+  }, [weekStart]);
+
   // When popover opens, fetch the full Mon-Sun week directly for this truck's driver(s).
   // This guarantees correctness even when the lazy-loaded cache only covers the visible
   // 7-day carousel window (which can omit days at the start of the Chicago week).
@@ -262,7 +270,7 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate, driverId, drive
             <ChevronLeft className="h-3 w-3" />
           </button>
           <div className="flex-1 text-center text-[11px] font-medium text-muted-foreground">
-            {weekOffset === 0 ? "This week" : weekOffset < 0 ? `${-weekOffset}w ago` : `+${weekOffset}w`} · {stats.count} order{stats.count === 1 ? "" : "s"}{loading ? " · loading…" : ""}
+            {displayedOffset === 0 ? "This week" : displayedOffset < 0 ? `${-displayedOffset}w ago` : `+${displayedOffset}w`} · {stats.count} order{stats.count === 1 ? "" : "s"}{loading ? " · loading…" : ""}
           </div>
           <button
             type="button"
