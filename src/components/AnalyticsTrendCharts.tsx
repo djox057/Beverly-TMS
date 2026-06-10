@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { format, startOfWeek, startOfMonth } from "date-fns";
+import {
+  format,
+  startOfWeek,
+  startOfMonth,
+  endOfWeek,
+  endOfMonth,
+  differenceInCalendarDays,
+} from "date-fns";
 import {
   ResponsiveContainer,
   LineChart,
@@ -60,6 +67,10 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
       if (!raw) return;
       const d = new Date(raw);
       if (isNaN(d.getTime())) return;
+      if (granularity === "daily") {
+        const dow = d.getDay();
+        if (dow === 0 || dow === 6) return;
+      }
       const key = bucketKey(d, granularity);
       const b = buckets.get(key) || { freight: 0, miles: 0, driverPay: 0, count: 0 };
       b.freight += Number(o.totalFreightAmountNoLumper) || 0;
@@ -94,6 +105,53 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
     { key: "commPct", title: "Commission %", color: "hsl(280 70% 55%)", suffix: "%" },
   ];
 
+  const projection = useMemo(() => {
+    if (granularity === "daily" || data.length === 0) return null;
+    const lastKey = data[data.length - 1].key;
+    const now = new Date();
+    if (granularity === "weekly") {
+      const start = startOfWeek(new Date(lastKey + "T00:00:00"), { weekStartsOn: 1 });
+      const end = endOfWeek(start, { weekStartsOn: 1 });
+      if (now > end) return null;
+      // business-day ratio (Mon-Fri = 5)
+      const elapsedBiz = Math.min(
+        5,
+        Math.max(1, Math.min(5, differenceInCalendarDays(now, start) + 1)),
+      );
+      return { ratio: 5 / elapsedBiz };
+    }
+    // monthly
+    const start = startOfMonth(new Date(lastKey + "-01T00:00:00"));
+    const end = endOfMonth(start);
+    if (now > end) return null;
+    const totalDays = differenceInCalendarDays(end, start) + 1;
+    const elapsed = Math.max(1, Math.min(totalDays, differenceInCalendarDays(now, start) + 1));
+    return { ratio: totalDays / elapsed };
+  }, [data, granularity]);
+
+  const isProjectable = (k: string) => k === "freight" || k === "miles" || k === "comm";
+
+  const chartData = useMemo(() => {
+    const arr: any[] = data.map((d) => ({ ...d }));
+    if (!projection || arr.length === 0) return arr;
+    const lastIdx = arr.length - 1;
+    for (const c of charts) {
+      const k = c.key as string;
+      const lastVal = (data[lastIdx] as any)[k];
+      const projVal = isProjectable(k)
+        ? Math.round(lastVal * projection.ratio)
+        : lastVal;
+      if (lastIdx > 0) {
+        arr[lastIdx - 1][`${k}_proj`] = (data[lastIdx - 1] as any)[k];
+      }
+      arr[lastIdx][`${k}_proj`] = projVal;
+      // hide solid last point so dotted projection visually replaces it
+      arr[lastIdx][k] = null;
+    }
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, projection]);
+
   return (
     <Card>
       <CardHeader>
@@ -118,10 +176,17 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {charts.map((c) => (
               <div key={c.key as string} className="rounded-lg border p-4">
-                <p className="text-sm font-medium mb-2">{c.title}</p>
+                <p className="text-sm font-medium mb-2">
+                  {c.title}
+                  {projection && (
+                    <span className="ml-2 text-xs text-muted-foreground font-normal">
+                      (dotted = projected)
+                    </span>
+                  )}
+                </p>
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                       <YAxis
@@ -147,7 +212,21 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
                         stroke={c.color}
                         strokeWidth={2}
                         dot={{ r: 2 }}
+                        connectNulls={false}
+                        isAnimationActive={false}
                       />
+                      {projection && (
+                        <Line
+                          type="monotone"
+                          dataKey={`${c.key as string}_proj`}
+                          stroke={c.color}
+                          strokeWidth={2}
+                          strokeDasharray="5 5"
+                          dot={{ r: 2 }}
+                          connectNulls={false}
+                          isAnimationActive={false}
+                        />
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
