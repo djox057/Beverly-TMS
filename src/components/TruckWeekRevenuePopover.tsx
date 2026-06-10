@@ -137,7 +137,7 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate, driverId, drive
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, canceled, driver1_id, driver2_id, pickup_datetime, delivery_datetime, freight_amount, driver_price, loaded_miles, mileage",
+          "id, canceled, driver1_id, driver2_id, pickup_datetime, delivery_datetime, freight_amount, driver_price, loaded_miles, mileage, detention, detention_driver, layover, layover_driver, tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, late_fee, late_fee_driver, no_tracking_fee, no_tracking_fee_driver, wrong_address_fee, wrong_address_fee_driver, escort_fee, other_charges, other_charges_driver, other_additionals_driver",
         )
         .eq("canceled", false)
         .or(`driver1_id.in.(${idList}),driver2_id.in.(${idList})`)
@@ -172,11 +172,35 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate, driverId, drive
     });
     const num = (v: any) => Number(v) || 0;
     const freight = inWeek.reduce(
-      (a, o) => a + num(o.freight_amount ?? o.freightAmount),
+      (a, o) =>
+        a +
+        num(o.freight_amount ?? o.freightAmount) +
+        num(o.detention) +
+        num(o.layover) +
+        num(o.tonu) +
+        num(o.extra_stop) +
+        num(o.lumper) -
+        num(o.late_fee) -
+        num(o.no_tracking_fee) -
+        num(o.wrong_address_fee) +
+        num(o.escort_fee) -
+        num(o.other_charges),
       0,
     );
     const pay = inWeek.reduce(
-      (a, o) => a + num(o.driver_price ?? o.driverPrice),
+      (a, o) =>
+        a +
+        num(o.driver_price ?? o.driverPrice) +
+        num(o.detention_driver) +
+        num(o.layover_driver) +
+        num(o.tonu_driver) +
+        num(o.extra_stop_driver) +
+        num(o.lumper_driver) -
+        num(o.late_fee_driver) -
+        num(o.no_tracking_fee_driver) -
+        num(o.wrong_address_fee_driver) -
+        num(o.other_charges_driver) +
+        num(o.other_additionals_driver),
       0,
     );
     const miles = inWeek.reduce(
