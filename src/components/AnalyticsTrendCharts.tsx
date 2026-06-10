@@ -6,6 +6,7 @@ import {
   endOfWeek,
   endOfMonth,
   differenceInCalendarDays,
+  addDays,
 } from "date-fns";
 import {
   ResponsiveContainer,
@@ -50,7 +51,13 @@ function bucketLabel(key: string, g: Granularity): string {
     return format(new Date(Number(y), Number(m) - 1, 1), "MMM yyyy");
   }
   const d = new Date(key + "T00:00:00");
-  if (g === "weekly") return `Wk ${format(d, "MMM d")}`;
+  if (g === "weekly") {
+    const end = addDays(d, 6);
+    const sameMonth = d.getMonth() === end.getMonth();
+    return sameMonth
+      ? `${format(d, "M/d")}-${format(end, "d")}`
+      : `${format(d, "M/d")}-${format(end, "M/d")}`;
+  }
   return format(d, "MMM d");
 }
 
