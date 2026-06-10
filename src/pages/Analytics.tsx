@@ -3238,6 +3238,16 @@ const Analytics = () => {
                   )}
                 </div>
 
+                {showCharts && (
+                  <div className="mb-6">
+                    <AnalyticsTrendCharts
+                      orders={ordersForTotals}
+                      filterType={filterType}
+                      getEffectiveDriverPay={getEffectiveDriverPay}
+                    />
+                  </div>
+                )}
+
                 {/* Only show dispatcher table if there's more than 1 dispatcher */}
                 {dispatcherStats.length > 1 && (
                   <div className="overflow-x-auto -mx-4 sm:mx-0">
