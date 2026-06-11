@@ -1581,7 +1581,7 @@ const NewOrder = () => {
     });
     return missingData;
   };
-  const withFetchRetry = async <T,>(label: string, fn: () => Promise<T>): Promise<T> => {
+  const withFetchRetry = async <T,>(label: string, fn: () => PromiseLike<T> | T): Promise<T> => {
     const isNetworkErr = (err: any) => {
       const msg = String(err?.message || err || "");
       return (
@@ -1592,13 +1592,13 @@ const NewOrder = () => {
       ) || msg.includes("Failed to fetch") || msg.includes("NetworkError when attempting to fetch");
     };
     try {
-      return await fn();
+      return await Promise.resolve(fn());
     } catch (err: any) {
       if (!isNetworkErr(err)) throw err;
       console.warn(`[NewOrder] Network blip on "${label}", retrying once...`, err);
       await new Promise((r) => setTimeout(r, 600));
       try {
-        return await fn();
+        return await Promise.resolve(fn());
       } catch (err2: any) {
         if (isNetworkErr(err2)) {
           throw new Error(`[${label}] Network error — please check your connection and retry.`);
