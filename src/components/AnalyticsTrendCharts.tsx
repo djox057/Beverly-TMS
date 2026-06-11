@@ -278,6 +278,9 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
                             tickFormatter={fmt(c)}
                             width={70}
                             hide={i > 1}
+                            {...(axisId === "rpm"
+                              ? { domain: rpmAxis.domain, ticks: rpmAxis.ticks, allowDecimals: true }
+                              : {})}
                           />
                         );
                       });
@@ -358,6 +361,9 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
                           `${c.prefix ?? ""}${Number(v).toLocaleString()}${c.suffix ?? ""}`
                         }
                         width={70}
+                        {...(c.key === "rpm"
+                          ? { domain: rpmAxis.domain, ticks: rpmAxis.ticks, allowDecimals: true }
+                          : {})}
                       />
                       <Tooltip
                         contentStyle={{
