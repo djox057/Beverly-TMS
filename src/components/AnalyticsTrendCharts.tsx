@@ -62,7 +62,7 @@ function bucketLabel(key: string, g: Granularity): string {
 }
 
 export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay }: Props) {
-  const [granularity, setGranularity] = useState<Granularity>("daily");
+  const [granularity, setGranularity] = useState<Granularity>("weekly");
 
   const data = useMemo(() => {
     const buckets = new Map<
@@ -181,6 +181,22 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
   const fmt = (c: typeof charts[number]) => (v: any) =>
     `${c.prefix ?? ""}${Number(v).toLocaleString()}${c.suffix ?? ""}`;
 
+  // Build nice ticks at 0.25 increments for the Avg Rate / Mile axis.
+  const rpmAxis = useMemo(() => {
+    const vals = chartData
+      .flatMap((d: any) => [d.rpm, d.rpm_proj])
+      .filter((v: any) => typeof v === "number" && isFinite(v) && v > 0);
+    if (vals.length === 0) return { domain: [0, 1] as [number, number], ticks: [0, 0.25, 0.5, 0.75, 1] };
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const step = 0.25;
+    const lo = Math.max(0, Math.floor(min / step) * step);
+    const hi = Math.ceil(max / step) * step;
+    const ticks: number[] = [];
+    for (let v = lo; v <= hi + 1e-9; v += step) ticks.push(Number(v.toFixed(2)));
+    return { domain: [lo, hi] as [number, number], ticks };
+  }, [chartData]);
+
   return (
     <Card>
       <CardHeader>
@@ -262,6 +278,9 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
                             tickFormatter={fmt(c)}
                             width={70}
                             hide={i > 1}
+                            {...(axisId === "rpm"
+                              ? { domain: rpmAxis.domain, ticks: rpmAxis.ticks, allowDecimals: true }
+                              : {})}
                           />
                         );
                       });
@@ -342,6 +361,9 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
                           `${c.prefix ?? ""}${Number(v).toLocaleString()}${c.suffix ?? ""}`
                         }
                         width={70}
+                        {...(c.key === "rpm"
+                          ? { domain: rpmAxis.domain, ticks: rpmAxis.ticks, allowDecimals: true }
+                          : {})}
                       />
                       <Tooltip
                         contentStyle={{
