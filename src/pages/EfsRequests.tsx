@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
-import { Trash2, Search, CreditCard, ChevronLeft, ChevronRight, Check, ChevronsUpDown } from "lucide-react";
+import { Trash2, Search, CreditCard, ChevronLeft, ChevronRight, Check, ChevronsUpDown, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -443,6 +443,7 @@ export default function EfsRequests() {
               <TableHead>Location</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead>Requested By</TableHead>
+              <TableHead>Receipt</TableHead>
               {isAdmin && <TableHead className="w-[60px]">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -482,7 +483,7 @@ export default function EfsRequests() {
             ) : paginatedRequests.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={isAdmin ? 8 : 7}
+                  colSpan={isAdmin ? 9 : 8}
                   className="text-center py-8 text-muted-foreground"
                 >
                   No EFS requests found
@@ -516,6 +517,13 @@ export default function EfsRequests() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {request.requested_by || "-"}
+                  </TableCell>
+                  <TableCell>
+                    {request.receipt_path ? (
+                      <ReceiptLink path={request.receipt_path} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   {isAdmin && (
                     <TableCell>
