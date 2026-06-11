@@ -1581,6 +1581,33 @@ const NewOrder = () => {
     });
     return missingData;
   };
+  const withFetchRetry = async <T,>(label: string, fn: () => PromiseLike<T> | T): Promise<T> => {
+    const isNetworkErr = (err: any) => {
+      const msg = String(err?.message || err || "");
+      return (
+        err instanceof TypeError &&
+        (msg.includes("Failed to fetch") ||
+          msg.includes("NetworkError") ||
+          msg.includes("network"))
+      ) || msg.includes("Failed to fetch") || msg.includes("NetworkError when attempting to fetch");
+    };
+    try {
+      return await Promise.resolve(fn());
+    } catch (err: any) {
+      if (!isNetworkErr(err)) throw err;
+      console.warn(`[NewOrder] Network blip on "${label}", retrying once...`, err);
+      await new Promise((r) => setTimeout(r, 600));
+      try {
+        return await Promise.resolve(fn());
+      } catch (err2: any) {
+        if (isNetworkErr(err2)) {
+          throw new Error(`[${label}] Network error — please check your connection and retry.`);
+        }
+        throw err2;
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent, skipDuplicateCheck = false, skipDuplicateStopsCheck = false) => {
     e.preventDefault();
 
@@ -2002,9 +2029,9 @@ const NewOrder = () => {
       }
 
       // Use the atomic function to create order with unique internal load number
-      const { data: result, error: rpcError } = (await supabase.rpc("create_order_with_unique_load_number", {
-        order_data: orderData,
-      })) as {
+      const { data: result, error: rpcError } = (await withFetchRetry("Create order", () =>
+        supabase.rpc("create_order_with_unique_load_number", { order_data: orderData })
+      )) as {
         data: {
           id: string;
           internal_load_number: number;
@@ -2030,20 +2057,18 @@ const NewOrder = () => {
       {
         const wRc = weight ? parseFloat(weight) : NaN;
         if (!isNaN(wRc) && wRc > 0) {
-          const { error: weightErr } = await supabase
-            .from("orders")
-            .update({ weight_rc: wRc })
-            .eq("id", orderId);
+          const { error: weightErr } = await withFetchRetry("Save RC weight", () =>
+            supabase.from("orders").update({ weight_rc: wRc }).eq("id", orderId)
+          );
           if (weightErr) console.error("Failed to save weight_rc:", weightErr);
         }
       }
 
       // Save BF Prime LLC justification note when required
       if (bfPrimeNote.trim()) {
-        const { error: noteErr } = await supabase
-          .from("orders")
-          .update({ notes: bfPrimeNote.trim() })
-          .eq("id", orderId);
+        const { error: noteErr } = await withFetchRetry("Save note", () =>
+          supabase.from("orders").update({ notes: bfPrimeNote.trim() }).eq("id", orderId)
+        );
         if (noteErr) console.error("Failed to save BF Prime note:", noteErr);
       }
 
@@ -2131,11 +2156,10 @@ const NewOrder = () => {
       // Idempotency guard: if a previous attempt already inserted pickup_drops for this
       // order_id (RPC was retried after a network blip and returned the same id via
       // client_request_id), skip re-insertion to avoid duplicate stop rows.
-      const { data: existingDrops, error: existingDropsError } = await supabase
-        .from("pickup_drops")
-        .select("id")
-        .eq("order_id", orderId)
-        .limit(1);
+      const { data: existingDrops, error: existingDropsError } = await withFetchRetry(
+        "Verify stops",
+        () => supabase.from("pickup_drops").select("id").eq("order_id", orderId).limit(1)
+      );
       if (existingDropsError) {
         console.error("❌ Pickup/drop existence check failed:", existingDropsError);
         throw new Error(`Failed to verify pickup/delivery locations: ${existingDropsError.message}`);
@@ -2144,7 +2168,9 @@ const NewOrder = () => {
         console.info(`↩️ Skipping pickup_drops insert for order ${orderId} — rows already exist from a prior attempt.`);
       } else {
         console.log(`📍 Inserting ${validPickupDropData.length} pickup/drop locations for order ${orderId}`);
-        const { error: pickupDropError } = await supabase.from("pickup_drops").insert(validPickupDropData);
+        const { error: pickupDropError } = await withFetchRetry("Save pickup/delivery stops", () =>
+          supabase.from("pickup_drops").insert(validPickupDropData)
+        );
         if (pickupDropError) {
           console.error("❌ Pickup/drop insert error:", pickupDropError);
           console.error("Failed data:", validPickupDropData);
@@ -2192,12 +2218,11 @@ const NewOrder = () => {
 
           for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            const filePath = await uploadOrderFilePreserveName({
-              orderId,
-              folder: category,
-              file,
-            });
-            const { error: fileError } = await supabase.from("order_files").insert({
+            const filePath = await withFetchRetry(`Upload ${category} file: ${file.name}`, () =>
+              uploadOrderFilePreserveName({ orderId, folder: category, file })
+            );
+            const { error: fileError } = await withFetchRetry(`Record ${category} file: ${file.name}`, () =>
+              supabase.from("order_files").insert({
               order_id: orderId,
               file_name: file.name,
               file_path: filePath,
@@ -2205,7 +2230,8 @@ const NewOrder = () => {
               content_type: file.type,
               file_category: category,
               uploaded_by: profile?.full_name || profile?.email || "Unknown User",
-            });
+              })
+            );
             if (fileError) throw fileError;
           }
         }
@@ -2214,11 +2240,13 @@ const NewOrder = () => {
       // Auto-set checked_out_at for newly uploaded BOL/POD files
       if (bolUploaded || podUploaded) {
         // Fetch all pickup_drops for this order
-        const { data: allPickupDrops } = await supabase
-          .from("pickup_drops")
-          .select("id, type, sequence_number")
-          .eq("order_id", orderId)
-          .order("sequence_number");
+        const { data: allPickupDrops } = await withFetchRetry("Fetch stops for checkout", () =>
+          supabase
+            .from("pickup_drops")
+            .select("id, type, sequence_number")
+            .eq("order_id", orderId)
+            .order("sequence_number")
+        );
 
         if (allPickupDrops) {
           const pickups = allPickupDrops.filter((pd) => pd.type === "pickup");
@@ -2227,7 +2255,9 @@ const NewOrder = () => {
           // If BOL was uploaded, set checkout time for first pickup
           if (bolUploaded && pickups.length > 0) {
             const firstPickup = pickups[0];
-            await supabase.from("pickup_drops").update({ checked_out_at: checkoutTimestamp }).eq("id", firstPickup.id);
+            await withFetchRetry("Update pickup checkout time", () =>
+              supabase.from("pickup_drops").update({ checked_out_at: checkoutTimestamp }).eq("id", firstPickup.id)
+            );
           }
 
           // If POD was uploaded, set checkout time for corresponding delivery stops
@@ -2236,12 +2266,16 @@ const NewOrder = () => {
             // Update checkout times for first N deliveries where N = number of PODs uploaded
             for (let i = 0; i < newPodCount && i < deliveries.length; i++) {
               const delivery = deliveries[i];
-              await supabase.from("pickup_drops").update({ checked_out_at: checkoutTimestamp }).eq("id", delivery.id);
+              await withFetchRetry("Update delivery checkout time", () =>
+                supabase.from("pickup_drops").update({ checked_out_at: checkoutTimestamp }).eq("id", delivery.id)
+              );
             }
 
             // Auto-set status to "delivered" when all deliveries have PODs
             if (newPodCount >= deliveries.length && orderId) {
-              await supabase.from("orders").update({ status: "delivered" }).eq("id", orderId);
+              await withFetchRetry("Mark delivered", () =>
+                supabase.from("orders").update({ status: "delivered" }).eq("id", orderId)
+              );
             }
           }
         }
