@@ -145,7 +145,7 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate, driverId, drive
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, canceled, driver1_id, driver2_id, pickup_datetime, delivery_datetime, freight_amount, driver_price, loaded_miles, mileage, detention, detention_driver, layover, layover_driver, tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, late_fee, late_fee_driver, no_tracking_fee, no_tracking_fee_driver, wrong_address_fee, wrong_address_fee_driver, escort_fee, other_charges, other_charges_driver, other_additionals_driver",
+          "id, canceled, driver1_id, driver2_id, pickup_datetime, delivery_datetime, freight_amount, driver_price, loaded_miles, mileage, detention, detention_driver, layover, layover_driver, tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, late_fee, late_fee_driver, no_tracking_fee, no_tracking_fee_driver, wrong_address_fee, wrong_address_fee_driver, escort_fee, other_charges, other_charges_driver, other_additionals, other_additionals_driver",
         )
         .eq("canceled", false)
         .or(`driver1_id.in.(${idList}),driver2_id.in.(${idList})`)
@@ -192,7 +192,8 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate, driverId, drive
         num(o.no_tracking_fee) -
         num(o.wrong_address_fee) +
         num(o.escort_fee) -
-        num(o.other_charges),
+        num(o.other_charges) +
+        num(o.other_additionals),
       0,
     );
     const pay = inWeek.reduce(
