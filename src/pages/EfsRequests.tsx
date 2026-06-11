@@ -71,6 +71,31 @@ interface EfsRequest {
 
 const PAGE_SIZE = 100;
 
+function ReceiptLink({ path }: { path: string }) {
+  const [loading, setLoading] = useState(false);
+  const open = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from("efs-receipts")
+        .createSignedUrl(path, 3600);
+      if (error || !data?.signedUrl) {
+        toast.error("Failed to load receipt");
+        return;
+      }
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <Button variant="ghost" size="sm" className="h-7 px-2" onClick={open} disabled={loading}>
+      {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
+      View
+    </Button>
+  );
+}
+
 // Get distinct purposes for the dropdown
 const EFS_PURPOSES = [
   "All",
