@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -50,12 +51,14 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
   const [saving, setSaving] = useState(false);
   const [percent, setPercent] = useState<string>("50");
   const [reason, setReason] = useState<string>("");
+  const [commAnnulment, setCommAnnulment] = useState(false);
 
   useEffect(() => {
     if (!open || !orderId) {
       setOrder(null);
       setPercent("50");
       setReason("");
+      setCommAnnulment(false);
       return;
     }
     let cancelled = false;
@@ -83,10 +86,13 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
   const driverPay = Number(order?.driver_price || 0);
   const pct = Math.max(0, Math.min(100, parseFloat(percent) || 0));
   const computedAmount = useMemo(() => {
+    if (commAnnulment) {
+      return Math.max(0, (freight - driverPay) * 0.05);
+    }
     const base = freight * 0.01 + (freight - driverPay) * 0.05;
     const raw = base * (pct / 100);
     return Math.max(0, raw);
-  }, [freight, driverPay, pct]);
+  }, [freight, driverPay, pct, commAnnulment]);
 
   const month = order?.delivery_datetime ? formatChicagoMonth(order.delivery_datetime) : "";
   const deliveryDisplay = order?.delivery_datetime ? formatChicagoDate(order.delivery_datetime) : "—";
@@ -95,8 +101,7 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
     !!order?.booked_by &&
     !!order?.delivery_datetime &&
     reason.trim().length > 0 &&
-    pct >= 0 &&
-    pct <= 100 &&
+    (commAnnulment || (pct >= 0 && pct <= 100)) &&
     !saving;
 
   const handleSave = async () => {
@@ -143,8 +148,8 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
         amount: Number(computedAmount.toFixed(2)),
         reason: reason.trim(),
         order_id: order.id,
-        order_percent: pct,
-        source: "order_charge",
+        order_percent: commAnnulment ? 0 : pct,
+        source: commAnnulment ? "comm_annulment" : "order_charge",
         created_at: new Date().toISOString(),
       };
 
@@ -208,7 +213,8 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
                 min={0}
                 max={100}
                 step="1"
-                value={percent}
+                value={commAnnulment ? "0" : percent}
+                disabled={commAnnulment}
                 onChange={(e) => {
                   const raw = e.target.value;
                   if (raw === "") {
@@ -235,6 +241,21 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
               />
             </div>
 
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="comm-annulment"
+                checked={commAnnulment}
+                onCheckedChange={(v) => {
+                  const checked = !!v;
+                  setCommAnnulment(checked);
+                  if (checked) setPercent("0");
+                }}
+              />
+              <Label htmlFor="comm-annulment" className="cursor-pointer">
+                Comm. Annulment
+              </Label>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="charge-reason">Reason</Label>
               <Textarea
@@ -247,7 +268,11 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
             </div>
 
             <div className="rounded-md border p-3 text-sm bg-primary/5">
-              <div className="text-muted-foreground text-xs">Formula: (Freight × 1% + (Freight − Driver Pay) × 5%) × Percentage</div>
+              <div className="text-muted-foreground text-xs">
+                {commAnnulment
+                  ? "Formula: (Freight − Driver Pay) × 5%"
+                  : "Formula: (Freight × 1% + (Freight − Driver Pay) × 5%) × Percentage"}
+              </div>
               <div className="text-lg font-semibold mt-1">
                 Charge: ${computedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
