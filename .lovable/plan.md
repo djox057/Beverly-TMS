@@ -1,50 +1,124 @@
-## Goal
+## Problem
 
-Make the Orders page search bar behave exactly like the Reports "search by load number" filter — a pure substring match on load numbers, no other fields.
+The logs prove the search is bottlenecked entirely on the database:
 
-## How Reports does it (reference)
+```
+search_orders_ids RPC:     6651 ms  ← THE problem
+search_orders_hydrate RPC:  118 ms
+transformOrders:              0 ms
+setQueryData:                 1 ms
+total:                     6770 ms
+```
 
-`src/pages/Reports.tsx` → `orderMatchesLoadFilter`:
-- Substring match (case-insensitive) on:
-  - `broker_load_number`
-  - `internal_load_number` (raw value)
-  - `formatInternalLoadNumber(internal_load_number, companyName)` (formatted with company suffix, e.g. `18707-AP`)
-- 200 ms debounce, 3-char minimum (`searchTerm.length >= 3`).
-- Persists to localStorage so the value sticks across reloads.
-- Visual feedback: input gets a red border + "Load not found" hint when length ≥ 3 and no results.
+Same function executed server-side as superuser: **111 ms**. The 60× gap comes from RLS, not the query itself.
 
-## Changes to Orders
+## Root cause
 
-### 1. DB function: simplify `search_orders_ids` to plain substring
-- Drop the exact-match / substring-fallback split.
-- Always run:
-  ```
-  WHERE o.broker_load_number ILIKE '%term%'
-     OR o.internal_load_number ILIKE '%term%'
-  ```
-- Keep the scope filters (`p_booked_by`, `p_dispatcher_user_id`, `p_excluded_booked_by_company_id`, `p_booked_by_company_id`) and `p_limit`.
-- Allow numeric-only terms (no `!~ '^\d+$'` gate) — matches Reports.
-- Indexes from the previous migration (trigram GIN on both columns) already make this index-backed.
-- `search_orders_hydrate(uuid[])` stays unchanged.
+`public.search_orders_ids` is a `STABLE SECURITY INVOKER` SQL function. Postgres inlines it into the caller's statement, then layers all 3 SELECT policies on `orders` on top:
 
-### 2. Frontend: `src/hooks/useOrdersSearch.ts`
-- No behavior change inside the hook — it already calls ids→hydrate. It just naturally gets the new substring-everywhere semantics from the DB function.
+- `Roles can view all orders` — calls `has_any_role(...)` (STABLE SECURITY DEFINER)
+- `Drivers can view own orders` — calls `has_role(...)` + `get_driver_id_for_user()`
+- `Yard can view yard loads` — calls `has_role(...)` plus column checks
 
-### 3. Frontend: `src/pages/Orders.tsx`
-- Bump the activation threshold from 2 → **3 chars** to match Reports.
-- Raise debounce 150 ms → **200 ms** to match Reports.
-- Persist `searchTerm` to `localStorage` under `orders-loadNumberFilter` (read on mount, write on change), matching Reports' `reports-loadNumberFilter`.
-- Replace the multi-field client-side fallback filter (truck #, driver name, broker name, etc.) with a single load-number substring matcher that mirrors `orderMatchesLoadFilter`. This is only used as a fast pre-server visual filter while the RPC is in flight.
-- Add Reports-style visual feedback on the search input:
-  - When `searchTerm.length >= 3` and the server returned 0 rows and `isSearching === false`, apply `border-red-400` and show a small "Load not found" hint below the input.
-- Remove the Enter-to-search keydown handler (Reports doesn't need it — 200 ms debounce + always-substring is fast enough). Optional: keep it as a "search now" shortcut. Default is **remove** for parity.
+With OR'd policies the planner stops trusting the trigram bitmap path and falls back to a much heavier scan. EXPLAIN proves it: raw `ILIKE` query hits the trigram indexes in 0.5 ms (`shared hit=36`); the same logic wrapped in the function as service-role already balloons to 111 ms / `shared hit=34650`; with RLS layered on for a real user it becomes ~6.6 s.
 
-### Files touched
+The Reports filter is fast because it runs against an already-loaded in-memory array — it never hits Postgres per keystroke.
 
-- New migration: redefine `public.search_orders_ids` (substring-only, no numeric gate).
-- `src/pages/Orders.tsx`: threshold, debounce, localStorage, client matcher, red-border hint, drop Enter handler.
-- `src/hooks/useOrdersSearch.ts`: change the `< 2` guard to `< 3` so a short term clears state consistently.
+## Fix
 
-### Expected behavior
+Convert `search_orders_ids` to **`SECURITY DEFINER`** and enforce visibility inside the function body using the same role helpers, so the trigram index path is preserved and RLS isn't re-evaluated for every candidate row.
 
-Typing `18707` or `robinson` or `555330896` in the Orders search field now finds every load whose broker or internal load number contains that substring, full-stop — identical to Reports. No truck, driver, or broker name matching, no exact-first preference, no numeric-only short-circuit.
+### New function shape
+
+```sql
+CREATE OR REPLACE FUNCTION public.search_orders_ids(
+  p_term text,
+  p_booked_by text DEFAULT NULL,
+  p_dispatcher_user_id uuid DEFAULT NULL,
+  p_excluded_booked_by_company_id uuid DEFAULT NULL,
+  p_booked_by_company_id uuid DEFAULT NULL,
+  p_limit int DEFAULT 50
+)
+RETURNS uuid[]
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_can_view_all boolean := public.has_any_role(
+    ARRAY['dispatch','afterhours','manager','admin','accounting',
+          'supervisor','safety','maintenance','chicago_management']::app_role[]
+  );
+  v_is_driver  boolean := public.has_role(v_uid, 'driver'::app_role);
+  v_is_yard    boolean := public.has_role(v_uid, 'yard'::app_role);
+  v_driver_id  uuid;
+  v_result uuid[];
+BEGIN
+  -- No visibility at all → empty result
+  IF NOT (v_can_view_all OR v_is_driver OR v_is_yard) THEN
+    RETURN ARRAY[]::uuid[];
+  END IF;
+
+  IF v_is_driver AND NOT v_can_view_all THEN
+    v_driver_id := public.get_driver_id_for_user();
+  END IF;
+
+  SELECT COALESCE(array_agg(id ORDER BY created_at DESC), ARRAY[]::uuid[])
+  INTO v_result
+  FROM (
+    SELECT o.id, o.created_at
+    FROM public.orders o
+    WHERE length(p_term) >= 3
+      AND (
+        o.broker_load_number  ILIKE '%' || p_term || '%'
+        OR o.internal_load_number ILIKE '%' || p_term || '%'
+      )
+      -- Existing scope filters (dispatcher / company)
+      AND (
+        p_dispatcher_user_id IS NULL
+        OR (p_booked_by IS NOT NULL AND o.booked_by = p_booked_by)
+        OR o.driver1_id IN (
+          SELECT id FROM public.drivers WHERE dispatcher_id = p_dispatcher_user_id
+        )
+      )
+      AND (
+        p_excluded_booked_by_company_id IS NULL
+        OR o.booked_by_company_id IS NULL
+        OR o.booked_by_company_id <> p_excluded_booked_by_company_id
+      )
+      AND (p_booked_by_company_id IS NULL OR o.booked_by_company_id = p_booked_by_company_id)
+      -- Visibility enforced inline (replaces RLS for this call)
+      AND (
+        v_can_view_all
+        OR (v_is_driver AND (o.driver1_id = v_driver_id OR o.driver2_id = v_driver_id))
+        OR (v_is_yard AND o.driver1_id IS NULL AND o.truck_id IS NULL)
+      )
+    ORDER BY o.created_at DESC
+    LIMIT p_limit
+  ) m;
+
+  RETURN v_result;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.search_orders_ids(text,text,uuid,uuid,uuid,int) FROM public;
+GRANT EXECUTE ON FUNCTION public.search_orders_ids(text,text,uuid,uuid,uuid,int) TO authenticated;
+```
+
+Visibility rules are identical to today's RLS — no broader access. The only thing changing is *where* they're evaluated.
+
+### Expected result
+
+Search RPC drops from ~6650 ms to ~100–200 ms (matches what EXPLAIN shows under `service_role`). Hydrate is already 118 ms. End-to-end search target: **under ~400 ms**.
+
+## Out of scope
+
+- No frontend changes. The logs already added in `useOrdersSearch.ts` stay.
+- `search_orders_hydrate` is untouched — it's already fast.
+- RLS policies on `public.orders` stay exactly as they are; they still protect every other code path.
+
+## Files
+
+- New migration: redefine `public.search_orders_ids` (SECURITY DEFINER + inline visibility).
