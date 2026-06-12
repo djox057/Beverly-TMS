@@ -544,7 +544,7 @@ const Orders = () => {
   const [cacheVersion, setCacheVersion] = useState(0);
 
   const dataSource = useMemo(() => {
-    const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
+    const isActiveSearch = searchTerm && searchTerm.trim().length >= 3;
     if (isActiveSearch) {
       // LOCKED into server mode - never fall back to local orders during active search
       const results = searchResults || [];
@@ -581,7 +581,7 @@ const Orders = () => {
   // When server-side filtering is active, skip most client-side filters
   const filteredOrders =
     dataSource?.filter((order) => {
-      const isServerSearch = searchTerm && searchTerm.trim().length >= 2;
+      const isServerSearch = searchTerm && searchTerm.trim().length >= 3;
       const isServerFiltered = hasActiveFilter && filteredServerOrders && filteredServerOrders.length > 0;
 
       // Client-side search filter (only when not using server search)
@@ -871,7 +871,7 @@ const Orders = () => {
   // MUST be before any early returns to satisfy React's rules of hooks
   useEffect(() => {
     // Only trigger for local data (not server-filtered or searched)
-    if (hasActiveFilter || (searchTerm && searchTerm.trim().length >= 2)) return;
+    if (hasActiveFilter || (searchTerm && searchTerm.trim().length >= 3)) return;
 
     // Prefetch the next page in background for smooth navigation
     prefetchNextPage(currentPage);
@@ -880,7 +880,7 @@ const Orders = () => {
   // Request current page data if not already loaded
   useEffect(() => {
     // Only trigger for local data (not server-filtered or searched)
-    const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
+    const isActiveSearch = searchTerm && searchTerm.trim().length >= 3;
     if (hasActiveFilter || isActiveSearch) return;
 
     // Wait until the progressive hook has real counts; otherwise page 1 can be cached as empty.
@@ -1022,7 +1022,7 @@ const Orders = () => {
   // Calculate pagination based on total count from server
   // For search/filter modes: use filtered results count
   // For normal mode: use server's total count (all unlocked orders)
-  const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
+  const isActiveSearch = searchTerm && searchTerm.trim().length >= 3;
   // Prefer authoritative server counts:
   //  - No filter / no search → use the progressive hook's unlocked total
   //  - Filters active → use the orders-summary RPC total (accurate even when only the first batch is loaded)
