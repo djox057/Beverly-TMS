@@ -451,6 +451,18 @@ const Trips = () => {
   const [invoicedDateFilter, setInvoicedDateFilter] = useState<Date | undefined>(undefined);
   const itemsPerPage = 50;
 
+  // Audit mode: lets user select orders and export them as a simple xlsx
+  const [auditMode, setAuditMode] = useState(false);
+  const [auditSelected, setAuditSelected] = useState<Set<string>>(new Set());
+  const toggleAuditSelection = useCallback((key: string) => {
+    setAuditSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
   // Statement preview dialog state
   const [statementDialogOpen, setStatementDialogOpen] = useState(false);
   const [statementDialogData, setStatementDialogData] = useState<{
