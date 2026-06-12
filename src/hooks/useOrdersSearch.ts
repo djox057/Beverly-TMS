@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -19,9 +19,10 @@ function getSearchQueryKey(
 
 /**
  * Server-side search hook for orders.
- * Phase 3D: Uses single `search_orders_v2` RPC instead of 6–9 round-trips.
- * RPC returns matched orders fully assembled with relations + entities in one
- * payload. RLS still applies (security invoker).
+ * Phase 3E: Two-call ids→hydrate split with in-flight cancellation.
+ * 1. `search_orders_ids` returns matched ids only (very fast, single RLS pass).
+ * 2. `search_orders_hydrate(ids)` returns the full payload with relations.
+ * Each new keystroke aborts the previous request via AbortController.
  */
 export function useOrdersSearch() {
   const queryClient = useQueryClient();
@@ -31,10 +32,17 @@ export function useOrdersSearch() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<Error | null>(null);
   const latestSearchKeyRef = useRef<string>("");
+  const inFlightAbortRef = useRef<AbortController | null>(null);
   
   // Refs to break the circular dependency: searchOrders no longer depends on reactive queryKey
   const activeQueryKeyRef = useRef<(string | null | undefined)[] | null>(null);
   const activeSearchTermRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      inFlightAbortRef.current?.abort();
+    };
+  }, []);
 
   const searchOrders = useCallback(async (
     searchTerm: string,
@@ -46,6 +54,8 @@ export function useOrdersSearch() {
     }
   ) => {
     if (!searchTerm || searchTerm.trim().length < 2) {
+      inFlightAbortRef.current?.abort();
+      inFlightAbortRef.current = null;
       if (activeQueryKeyRef.current) {
         queryClient.removeQueries({ queryKey: activeQueryKeyRef.current });
         activeQueryKeyRef.current = null;
@@ -67,39 +77,65 @@ export function useOrdersSearch() {
     setActiveOptions(options || null);
     const newQueryKey = getSearchQueryKey(term, options?.bookedBy, options?.dispatcherUserId, options?.excludeBookedByCompanyId, options?.bookedByCompanyId);
     activeQueryKeyRef.current = newQueryKey;
-    
-    console.log("[useOrdersSearch] Starting RPC search for:", term);
-    
+
+    // Abort any in-flight request from a prior keystroke
+    inFlightAbortRef.current?.abort();
+    const abortController = new AbortController();
+    inFlightAbortRef.current = abortController;
+    const signal = abortController.signal;
+
+    console.log("[useOrdersSearch] Starting ids+hydrate search for:", term);
+    const t0 = performance.now();
+
     setIsSearching(true);
     setSearchError(null);
 
     try {
       queryClient.cancelQueries({ queryKey: ["orders", "search"] });
 
-      const { data, error } = await supabase.rpc("search_orders_v2" as any, {
+      // Stage 1: get matching ids only
+      const idsRes: any = await (supabase.rpc("search_orders_ids" as any, {
         p_term: term,
         p_booked_by: options?.bookedBy ?? null,
         p_dispatcher_user_id: options?.dispatcherUserId ?? null,
         p_excluded_booked_by_company_id: options?.excludeBookedByCompanyId ?? null,
         p_booked_by_company_id: options?.bookedByCompanyId ?? null,
         p_limit: 50,
-      });
+      }) as any).abortSignal(signal);
 
-      if (latestSearchKeyRef.current !== searchKey) {
-        console.log("[useOrdersSearch] Discarding stale RPC response for:", searchKey);
+      if (signal.aborted || latestSearchKeyRef.current !== searchKey) {
+        console.log("[useOrdersSearch] Discarding stale ids response for:", searchKey);
         return;
       }
-      if (error) {
-        console.error("[useOrdersSearch] RPC error:", error);
-        throw error;
+      if (idsRes.error) throw idsRes.error;
+
+      const ids = (idsRes.data as string[]) || [];
+      console.log(`[useOrdersSearch] ids stage: ${ids.length} rows in ${(performance.now() - t0).toFixed(0)}ms`);
+
+      if (ids.length === 0) {
+        queryClient.setQueryData(newQueryKey, []);
+        return;
       }
 
-      const rows = (data as any[]) || [];
-      console.log("[useOrdersSearch] Results count:", rows.length);
+      // Stage 2: hydrate full payload
+      const hydrateRes: any = await (supabase.rpc("search_orders_hydrate" as any, {
+        p_ids: ids,
+      }) as any).abortSignal(signal);
 
+      if (signal.aborted || latestSearchKeyRef.current !== searchKey) {
+        console.log("[useOrdersSearch] Discarding stale hydrate response for:", searchKey);
+        return;
+      }
+      if (hydrateRes.error) throw hydrateRes.error;
+
+      const rows = (hydrateRes.data as any[]) || [];
       const transformed = transformOrders(rows);
+      console.log(`[useOrdersSearch] hydrate complete: ${transformed.length} rows total ${(performance.now() - t0).toFixed(0)}ms`);
       queryClient.setQueryData(newQueryKey, transformed);
     } catch (err: any) {
+      if (err?.name === "AbortError" || signal.aborted) {
+        return;
+      }
       if (latestSearchKeyRef.current === searchKey) {
         console.error("[useOrdersSearch] Error:", err);
 
@@ -110,10 +146,15 @@ export function useOrdersSearch() {
       if (latestSearchKeyRef.current === searchKey) {
         setIsSearching(false);
       }
+      if (inFlightAbortRef.current === abortController) {
+        inFlightAbortRef.current = null;
+      }
     }
   }, [queryClient]); // Stable deps - no queryKey!
 
   const clearSearch = useCallback(() => {
+    inFlightAbortRef.current?.abort();
+    inFlightAbortRef.current = null;
     if (activeQueryKeyRef.current) {
       queryClient.removeQueries({ queryKey: activeQueryKeyRef.current });
       activeQueryKeyRef.current = null;

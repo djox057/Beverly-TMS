@@ -4895,6 +4895,18 @@ export type Database = {
           pickup_datetime: string
         }[]
       }
+      search_orders_hydrate: { Args: { p_ids: string[] }; Returns: Json }
+      search_orders_ids: {
+        Args: {
+          p_booked_by?: string
+          p_booked_by_company_id?: string
+          p_dispatcher_user_id?: string
+          p_excluded_booked_by_company_id?: string
+          p_limit?: number
+          p_term: string
+        }
+        Returns: string[]
+      }
       search_orders_v2: {
         Args: {
           p_booked_by?: string
