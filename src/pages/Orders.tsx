@@ -368,7 +368,7 @@ const Orders = () => {
   } = useFilteredOrdersSearch();
 
   // Debounce search term for server-side search
-  const debouncedSearchTerm = useDebounce(searchTerm, 400);
+  const debouncedSearchTerm = useDebounce(searchTerm, 150);
 
   // Trigger server-side search when debounced term changes
   // No lastSearchedTerm optimization needed - debounce already handles rapid typing
@@ -1544,6 +1544,14 @@ const Orders = () => {
                         className="pl-10 w-full"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const term = searchTerm.trim();
+                            if (term.length >= 2) {
+                              searchOrders(term, orderFilterOptions);
+                            }
+                          }
+                        }}
                       />
                     </div>
                   </div>
