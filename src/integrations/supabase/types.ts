@@ -4895,6 +4895,17 @@ export type Database = {
           pickup_datetime: string
         }[]
       }
+      search_orders_v2: {
+        Args: {
+          p_booked_by?: string
+          p_booked_by_company_id?: string
+          p_dispatcher_user_id?: string
+          p_excluded_booked_by_company_id?: string
+          p_limit?: number
+          p_term: string
+        }
+        Returns: Json
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       sign_out_all_users: { Args: never; Returns: Json }
