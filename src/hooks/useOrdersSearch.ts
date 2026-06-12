@@ -53,7 +53,7 @@ export function useOrdersSearch() {
       bookedByCompanyId?: string | null;
     }
   ) => {
-    if (!searchTerm || searchTerm.trim().length < 2) {
+    if (!searchTerm || searchTerm.trim().length < 3) {
       inFlightAbortRef.current?.abort();
       inFlightAbortRef.current = null;
       if (activeQueryKeyRef.current) {
