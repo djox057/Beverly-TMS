@@ -68,88 +68,64 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     return (assignedDrivers || []).map(d => d.id);
   }, [dispatcherUserId]);
 
-  // Fetch both unlocked and locked counts
-  const countsQuery = useQuery({
-    queryKey: hasFilters 
-      ? ["orders-counts", "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
-      : ["orders-counts"],
+  // --- Unlocked count (fast, blocks page-1 render) ---
+  const unlockedCountQuery = useQuery({
+    queryKey: hasFilters
+      ? ["orders-counts", "unlocked", "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
+      : ["orders-counts", "unlocked"],
     queryFn: async () => {
-      const tCounts0 = performance.now();
-      console.log(`[OrdersProgressive] ▶ counts START @ ${new Date().toISOString()} (filters=${hasFilters})`);
-      const tDD0 = performance.now();
+      const t0 = performance.now();
       const dispatcherDriverIds = await fetchDispatcherDriverIds();
-      console.log(`[OrdersProgressive]   ⏱ fetchDispatcherDriverIds: ${(performance.now() - tDD0).toFixed(0)}ms (count=${dispatcherDriverIds.length})`);
-
-      // Build filter for both queries
-      const buildFilter = (query: any) => {
-        if (bookedBy && dispatcherDriverIds.length > 0) {
-          return query.or(
-            `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
-          );
-        } else if (bookedBy) {
-          return query.eq("booked_by", bookedBy);
-        } else if (dispatcherDriverIds.length > 0) {
-          return query.in("driver1_id", dispatcherDriverIds);
-        }
-        return query;
-      };
-
-      const applyExclusion = (query: any) => {
-        if (excludeBookedByCompanyId) {
-          return query.or(
-            `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
-          );
-        }
-        return query;
-      };
-
-      const applyInclusion = (query: any) => {
-        if (bookedByCompanyId) {
-          return query.eq("booked_by_company_id", bookedByCompanyId);
-        }
-        return query;
-      };
-
-      // Get unlocked count
-      let unlockedCountQuery = supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("locked", false);
-      unlockedCountQuery = buildFilter(unlockedCountQuery);
-      unlockedCountQuery = applyExclusion(unlockedCountQuery);
-      unlockedCountQuery = applyInclusion(unlockedCountQuery);
-      
-      // Get locked count
-      let lockedCountQuery = supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("locked", true);
-      lockedCountQuery = buildFilter(lockedCountQuery);
-      lockedCountQuery = applyExclusion(lockedCountQuery);
-      lockedCountQuery = applyInclusion(lockedCountQuery);
-
-      const tCQ0 = performance.now();
-      const [unlockedResult, lockedResult] = await Promise.all([
-        unlockedCountQuery.then(r => { console.log(`[OrdersProgressive]   ⏱ unlocked count query: ${(performance.now() - tCQ0).toFixed(0)}ms`); return r; }),
-        lockedCountQuery.then(r => { console.log(`[OrdersProgressive]   ⏱ locked count query: ${(performance.now() - tCQ0).toFixed(0)}ms`); return r; }),
-      ]);
-
-      if (unlockedResult.error) throw unlockedResult.error;
-      if (lockedResult.error) throw lockedResult.error;
-      
-      const unlockedCount = unlockedResult.count ?? 0;
-      const lockedCount = lockedResult.count ?? 0;
-      
-      console.log(`[OrdersProgressive] ✓ counts DONE in ${(performance.now() - tCounts0).toFixed(0)}ms — Unlocked: ${unlockedCount}, Locked: ${lockedCount}, Total: ${unlockedCount + lockedCount}`);
-
-      return { unlockedCount, lockedCount };
+      let q: any = supabase.from("orders").select("id", { count: "exact", head: true }).eq("locked", false);
+      if (bookedBy && dispatcherDriverIds.length > 0) {
+        q = q.or(`booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`);
+      } else if (bookedBy) {
+        q = q.eq("booked_by", bookedBy);
+      } else if (dispatcherDriverIds.length > 0) {
+        q = q.in("driver1_id", dispatcherDriverIds);
+      }
+      if (excludeBookedByCompanyId) {
+        q = q.or(`booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`);
+      }
+      if (bookedByCompanyId) {
+        q = q.eq("booked_by_company_id", bookedByCompanyId);
+      }
+      const { count, error } = await q;
+      if (error) throw error;
+      console.log(`[OrdersProgressive] ✓ unlocked count: ${count ?? 0} in ${(performance.now() - t0).toFixed(0)}ms`);
+      return count ?? 0;
     },
     refetchOnWindowFocus: false,
-    staleTime: 30000,
+    staleTime: 30_000,
   });
 
-  const unlockedCount = countsQuery.data?.unlockedCount ?? 0;
-  const lockedCount = countsQuery.data?.lockedCount ?? 0;
+  // --- Locked count (slow — uses planner estimate; resolves in background, does not block page 1) ---
+  const lockedCountQuery = useQuery({
+    queryKey: hasFilters
+      ? ["orders-counts", "locked-estimate", "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
+      : ["orders-counts", "locked-estimate"],
+    queryFn: async () => {
+      const t0 = performance.now();
+      const dispatcherDriverIds = await fetchDispatcherDriverIds();
+      const { data, error } = await supabase.rpc("estimate_locked_orders_count" as any, {
+        p_booked_by: bookedBy ?? null,
+        p_driver_ids: dispatcherUserId ? dispatcherDriverIds : null,
+        p_excluded_booked_by_company_id: excludeBookedByCompanyId ?? null,
+        p_booked_by_company_id: bookedByCompanyId ?? null,
+      });
+      if (error) throw error;
+      const estimate = Number(data ?? 0);
+      console.log(`[OrdersProgressive] ✓ locked count (estimate): ${estimate} in ${(performance.now() - t0).toFixed(0)}ms`);
+      return estimate;
+    },
+    refetchOnWindowFocus: false,
+    // Long staleTime — estimate is cheap but rarely changes meaningfully session-to-session
+    staleTime: 10 * 60_000,
+  });
+
+  const unlockedCount = unlockedCountQuery.data ?? 0;
+  // Treat locked count as 0 until it resolves so page 1 can render immediately.
+  const lockedCount = lockedCountQuery.data ?? 0;
   const totalCount = unlockedCount + lockedCount;
 
   /**
@@ -293,7 +269,8 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     staleTime: Infinity,
-    enabled: countsQuery.isSuccess && unlockedCount + lockedCount > 0,
+    // Gate ONLY on the fast unlocked count; locked count loads in background.
+    enabled: unlockedCountQuery.isSuccess && unlockedCount > 0,
   });
 
   // Request a specific page - returns orders for that page
@@ -345,7 +322,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const hasMore = currentPage < totalPages;
 
   const progress = useMemo<ProgressiveLoadingProgress>(() => {
-    const isLoading = countsQuery.isLoading || currentPageQuery.isLoading;
+    const isLoading = unlockedCountQuery.isLoading || currentPageQuery.isLoading;
     const isInLockedTerritory = (currentPage - 1) * PAGE_SIZE >= unlockedCount;
     
     return {
@@ -357,7 +334,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       isLoadingLocked: isLoadingPage && currentPageSpansLocked,
       percentComplete: totalCount ? Math.round((totalLoaded / totalCount) * 100) : (isLoading ? 0 : 100),
     };
-  }, [totalLoaded, unlockedCount, lockedCount, totalCount, countsQuery.isLoading, currentPageQuery.isLoading, isLoadingPage, currentPage, currentPageSpansLocked]);
+  }, [totalLoaded, unlockedCount, lockedCount, totalCount, unlockedCountQuery.isLoading, currentPageQuery.isLoading, isLoadingPage, currentPage, currentPageSpansLocked]);
 
   // Patch a single order in the local page cache so the UI updates immediately
   const updateOrderLocally = useCallback((orderId: string, patch: Record<string, any>) => {
@@ -385,7 +362,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
   return {
     data: currentPageOrders,
-    isLoading: countsQuery.isLoading || currentPageQuery.isLoading,
+    isLoading: unlockedCountQuery.isLoading || currentPageQuery.isLoading,
     isLoadingMore: isLoadingPage,
     isLoadingLocked: isLoadingPage && currentPageSpansLocked,
     progress,
@@ -401,7 +378,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     requestPage,
     prefetchNextPage,
     loadedPages,
-    isPartialData: countsQuery.isLoading || currentPageQuery.isLoading || !isCurrentPageLoaded,
+    isPartialData: unlockedCountQuery.isLoading || currentPageQuery.isLoading || !isCurrentPageLoaded,
     requestLockedOrders: () => {}, // Legacy - handled automatically now
     lockedOrdersLoaded: true,
     updateOrderLocally,
