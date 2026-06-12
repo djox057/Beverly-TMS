@@ -3959,7 +3959,7 @@ const Trips = () => {
       });
 
       // Fixed deductions (rows 25-33)
-      const endDateFormatted = format(weekEndDate, "M/d/yy");
+      const endDateFormatted = format(weekEndDate, "MM/dd/yyyy");
       const deductions = [
         { row: 25, description: "Cargo Insurance", amount: 285.0 },
         { row: 26, description: "Trailer + Insurance", amount: 285.0 },
