@@ -5540,6 +5540,14 @@ const Reports = () => {
                                                                   title="Criminal Record"
                                                                 />
                                                               )}
+                                                              {(truck as any).trailerVented && (
+                                                                <img
+                                                                  src={ventedIcon}
+                                                                  alt="Vented"
+                                                                  className="h-5 w-5"
+                                                                  title="Vented Trailer"
+                                                                />
+                                                              )}
                                                               {((truck as any).driverStraps ?? 2) > 0 && (
                                                                 <span
                                                                   className="flex items-center gap-0.5"
@@ -5838,6 +5846,14 @@ const Reports = () => {
                                                                   alt="Criminal"
                                                                   className="h-5 w-5"
                                                                   title="Criminal Record"
+                                                                />
+                                                              )}
+                                                              {(truck as any).trailerVented && (
+                                                                <img
+                                                                  src={ventedIcon}
+                                                                  alt="Vented"
+                                                                  className="h-5 w-5"
+                                                                  title="Vented Trailer"
                                                                 />
                                                               )}
                                                               {((truck as any).driverStraps ?? 2) > 0 && (
