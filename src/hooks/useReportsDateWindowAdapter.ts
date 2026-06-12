@@ -568,7 +568,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       console.time('[perf] adapter-trailers');
       const { data, error } = await supabase
         .from("trailers")
-        .select("id, trailer_number, dot_inspection_date, plate_expiration_date, insurance_expiration_date, vin, plate")
+        .select("id, trailer_number, dot_inspection_date, plate_expiration_date, insurance_expiration_date, vin, plate, vented")
         .in("id", trailerIdsFromTrucks);
       console.timeEnd('[perf] adapter-trailers');
       if (error) throw error;
@@ -1609,7 +1609,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         }
       }
     }
-    const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date, plate_expiration_date: t.plate_expiration_date, insurance_expiration_date: t.insurance_expiration_date, vin: t.vin, plate: (t as any).plate }]));
+    const trailerMap = new Map((trailers || []).map((t) => [t.id, { trailer_number: t.trailer_number, dot_inspection_date: t.dot_inspection_date, plate_expiration_date: t.plate_expiration_date, insurance_expiration_date: t.insurance_expiration_date, vin: t.vin, plate: (t as any).plate, vented: (t as any).vented }]));
     const truckByDriverId = new Map(filteredTrucks.filter((t: any) => t.driver1_id).map((t: any) => [t.driver1_id, t]));
     // Build map selecting the newest note per driver.
     // IMPORTANT: Some drivers have many duplicate truck_notes rows; array order can be arbitrary
@@ -1933,6 +1933,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         trailerVin: trailerInfo?.vin || null,
         trailerPlate: trailerInfo?.plate || null,
         trailerNumber: trailerInfo?.trailer_number || null,
+        trailerVented: (trailerInfo as any)?.vented || false,
         home: homeString,
         homeLatitude: driver.home_latitude ?? null,
         homeLongitude: driver.home_longitude ?? null,
@@ -2198,6 +2199,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             trailerVin: trailerInfo?.vin || null,
             trailerPlate: trailerInfo?.plate || null,
             trailerNumber: trailerInfo?.trailer_number || null,
+            trailerVented: (trailerInfo as any)?.vented || false,
             home: homeString,
             homeLatitude: realDriver?.home_latitude ?? null,
             homeLongitude: realDriver?.home_longitude ?? null,

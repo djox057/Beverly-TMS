@@ -105,6 +105,7 @@ import greenCardIcon from "@/assets/green-card.png";
 import criminalDatabaseIcon from "@/assets/criminal-database.png";
 import strapIcon from "@/assets/strap.png";
 import loadBarIcon from "@/assets/load_bar.png";
+import ventedIcon from "@/assets/vented-icon.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { TemporaryPlateUploadDialog } from "@/components/TemporaryPlateUploadDialog";
@@ -5539,6 +5540,14 @@ const Reports = () => {
                                                                   title="Criminal Record"
                                                                 />
                                                               )}
+                                                              {(truck as any).trailerVented && (
+                                                                <img
+                                                                  src={ventedIcon}
+                                                                  alt="Vented"
+                                                                  className="h-5 w-5"
+                                                                  title="Vented Trailer"
+                                                                />
+                                                              )}
                                                               {((truck as any).driverStraps ?? 2) > 0 && (
                                                                 <span
                                                                   className="flex items-center gap-0.5"
@@ -5837,6 +5846,14 @@ const Reports = () => {
                                                                   alt="Criminal"
                                                                   className="h-5 w-5"
                                                                   title="Criminal Record"
+                                                                />
+                                                              )}
+                                                              {(truck as any).trailerVented && (
+                                                                <img
+                                                                  src={ventedIcon}
+                                                                  alt="Vented"
+                                                                  className="h-5 w-5"
+                                                                  title="Vented Trailer"
                                                                 />
                                                               )}
                                                               {((truck as any).driverStraps ?? 2) > 0 && (
