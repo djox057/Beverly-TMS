@@ -74,8 +74,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       ? ["orders-counts", "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
       : ["orders-counts"],
     queryFn: async () => {
-      console.log("[OrdersProgressive] Fetching total counts...");
+      const tCounts0 = performance.now();
+      console.log(`[OrdersProgressive] ▶ counts START @ ${new Date().toISOString()} (filters=${hasFilters})`);
+      const tDD0 = performance.now();
       const dispatcherDriverIds = await fetchDispatcherDriverIds();
+      console.log(`[OrdersProgressive]   ⏱ fetchDispatcherDriverIds: ${(performance.now() - tDD0).toFixed(0)}ms (count=${dispatcherDriverIds.length})`);
 
       // Build filter for both queries
       const buildFilter = (query: any) => {
@@ -125,9 +128,10 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       lockedCountQuery = applyExclusion(lockedCountQuery);
       lockedCountQuery = applyInclusion(lockedCountQuery);
 
+      const tCQ0 = performance.now();
       const [unlockedResult, lockedResult] = await Promise.all([
-        unlockedCountQuery,
-        lockedCountQuery,
+        unlockedCountQuery.then(r => { console.log(`[OrdersProgressive]   ⏱ unlocked count query: ${(performance.now() - tCQ0).toFixed(0)}ms`); return r; }),
+        lockedCountQuery.then(r => { console.log(`[OrdersProgressive]   ⏱ locked count query: ${(performance.now() - tCQ0).toFixed(0)}ms`); return r; }),
       ]);
 
       if (unlockedResult.error) throw unlockedResult.error;
@@ -136,8 +140,8 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       const unlockedCount = unlockedResult.count ?? 0;
       const lockedCount = lockedResult.count ?? 0;
       
-      console.log(`[OrdersProgressive] Counts - Unlocked: ${unlockedCount}, Locked: ${lockedCount}, Total: ${unlockedCount + lockedCount}`);
-      
+      console.log(`[OrdersProgressive] ✓ counts DONE in ${(performance.now() - tCounts0).toFixed(0)}ms — Unlocked: ${unlockedCount}, Locked: ${lockedCount}, Total: ${unlockedCount + lockedCount}`);
+
       return { unlockedCount, lockedCount };
     },
     refetchOnWindowFocus: false,
@@ -184,7 +188,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
     setIsLoadingPage(true);
     try {
+      const tPage0 = performance.now();
+      console.log(`[OrdersProgressive] ▶ page ${pageNumber} START @ ${new Date().toISOString()}`);
+      const tDD0 = performance.now();
       const dispatcherDriverIds = await fetchDispatcherDriverIds();
+      console.log(`[OrdersProgressive]   ⏱ page ${pageNumber} fetchDispatcherDriverIds: ${(performance.now() - tDD0).toFixed(0)}ms`);
       const globalOffset = (pageNumber - 1) * PAGE_SIZE;
       const globalEnd = globalOffset + PAGE_SIZE;
       
@@ -205,7 +213,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       if (needsUnlocked) {
         const unlockedLimit = unlockedEnd - globalOffset;
         console.log(`[OrdersProgressive] Fetching ${unlockedLimit} unlocked orders (offset ${globalOffset})`);
-        
+        const tU0 = performance.now();
         fetchPromises.push(
           supabase.functions.invoke("get-all-unlocked-orders", {
             body: {
@@ -216,7 +224,10 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
               excludeBookedByCompanyId,
               bookedByCompanyId,
             },
-          }).then(result => ({ type: 'unlocked', ...result }))
+          }).then(result => {
+            console.log(`[OrdersProgressive]   ⏱ get-all-unlocked-orders edge fn: ${(performance.now() - tU0).toFixed(0)}ms (serverFetch=${result.data?.fetchTimeMs ?? '?'}ms, rows=${result.data?.orders?.length ?? 0})`);
+            return { type: 'unlocked', ...result };
+          })
         );
       }
 
@@ -224,7 +235,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       if (needsLocked) {
         const lockedLimit = Math.min(PAGE_SIZE - (needsUnlocked ? (unlockedEnd - globalOffset) : 0), lockedTotal - lockedOffset);
         console.log(`[OrdersProgressive] Fetching ${lockedLimit} locked orders (offset ${lockedOffset})`);
-        
+        const tL0 = performance.now();
         fetchPromises.push(
           supabase.functions.invoke("get-all-locked-orders", {
             body: {
@@ -235,30 +246,38 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
               excludeBookedByCompanyId,
               bookedByCompanyId,
             },
-          }).then(result => ({ type: 'locked', ...result }))
+          }).then(result => {
+            console.log(`[OrdersProgressive]   ⏱ get-all-locked-orders edge fn: ${(performance.now() - tL0).toFixed(0)}ms (serverFetch=${result.data?.fetchTimeMs ?? '?'}ms, rows=${result.data?.orders?.length ?? 0})`);
+            return { type: 'locked', ...result };
+          })
         );
       }
 
       // Execute fetches in parallel
+      const tAll0 = performance.now();
       const results = await Promise.all(fetchPromises);
+      console.log(`[OrdersProgressive]   ⏱ all edge fn invokes settled: ${(performance.now() - tAll0).toFixed(0)}ms`);
 
       // Process results in order (unlocked first, then locked)
+      const tXform0 = performance.now();
       for (const result of results) {
         if (result.error) {
           console.error(`[OrdersProgressive] Error fetching ${result.type} orders:`, result.error);
           throw result.error;
         }
         const rawOrders = result.data?.orders ?? [];
+        const tT0 = performance.now();
         const transformed = transformOrders(rawOrders);
-        console.log(`[OrdersProgressive] Got ${transformed.length} ${result.type} orders`);
+        console.log(`[OrdersProgressive]   ⏱ transformOrders ${result.type} (${rawOrders.length} rows): ${(performance.now() - tT0).toFixed(0)}ms`);
         allOrders = [...allOrders, ...transformed];
       }
+      console.log(`[OrdersProgressive]   ⏱ total transform stage: ${(performance.now() - tXform0).toFixed(0)}ms`);
       
       // Cache the page
       loadedPagesRef.current.set(pageNumber, allOrders);
       setLoadedPages(prev => new Set(prev).add(pageNumber));
 
-      console.log(`[OrdersProgressive] Page ${pageNumber} loaded: ${allOrders.length} orders total`);
+      console.log(`[OrdersProgressive] ✓ page ${pageNumber} DONE in ${(performance.now() - tPage0).toFixed(0)}ms — ${allOrders.length} orders`);
       return allOrders;
     } finally {
       setIsLoadingPage(false);
