@@ -99,28 +99,37 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     staleTime: 30_000,
   });
 
-  // --- Locked count (slow — uses planner estimate; resolves in background, does not block page 1) ---
+  // --- Locked count (exact, but non-blocking; resolves in background while page 1 already renders) ---
   const lockedCountQuery = useQuery({
     queryKey: hasFilters
-      ? ["orders-counts", "locked-estimate", "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
-      : ["orders-counts", "locked-estimate"],
+      ? ["orders-counts", "locked", "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
+      : ["orders-counts", "locked"],
     queryFn: async () => {
       const t0 = performance.now();
       const dispatcherDriverIds = await fetchDispatcherDriverIds();
-      const { data, error } = await supabase.rpc("estimate_locked_orders_count" as any, {
-        p_booked_by: bookedBy ?? null,
-        p_driver_ids: dispatcherUserId ? dispatcherDriverIds : null,
-        p_excluded_booked_by_company_id: excludeBookedByCompanyId ?? null,
-        p_booked_by_company_id: bookedByCompanyId ?? null,
-      });
+      let q: any = supabase.from("orders").select("id", { count: "exact", head: true }).eq("locked", true);
+      if (bookedBy && dispatcherDriverIds.length > 0) {
+        q = q.or(`booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`);
+      } else if (bookedBy) {
+        q = q.eq("booked_by", bookedBy);
+      } else if (dispatcherDriverIds.length > 0) {
+        q = q.in("driver1_id", dispatcherDriverIds);
+      }
+      if (excludeBookedByCompanyId) {
+        q = q.or(`booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`);
+      }
+      if (bookedByCompanyId) {
+        q = q.eq("booked_by_company_id", bookedByCompanyId);
+      }
+      const { count, error } = await q;
       if (error) throw error;
-      const estimate = Number(data ?? 0);
-      console.log(`[OrdersProgressive] ✓ locked count (estimate): ${estimate} in ${(performance.now() - t0).toFixed(0)}ms`);
-      return estimate;
+      console.log(`[OrdersProgressive] ✓ locked count: ${count ?? 0} in ${(performance.now() - t0).toFixed(0)}ms`);
+      return count ?? 0;
     },
     refetchOnWindowFocus: false,
-    // Long staleTime — estimate is cheap but rarely changes meaningfully session-to-session
+    // Cache 10 min — count changes slowly and exact value isn't critical
     staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
   });
 
   const unlockedCount = unlockedCountQuery.data ?? 0;
