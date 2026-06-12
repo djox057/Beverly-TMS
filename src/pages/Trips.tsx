@@ -451,6 +451,18 @@ const Trips = () => {
   const [invoicedDateFilter, setInvoicedDateFilter] = useState<Date | undefined>(undefined);
   const itemsPerPage = 50;
 
+  // Audit mode: lets user select orders and export them as a simple xlsx
+  const [auditMode, setAuditMode] = useState(false);
+  const [auditSelected, setAuditSelected] = useState<Set<string>>(new Set());
+  const toggleAuditSelection = useCallback((key: string) => {
+    setAuditSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
   // Statement preview dialog state
   const [statementDialogOpen, setStatementDialogOpen] = useState(false);
   const [statementDialogData, setStatementDialogData] = useState<{
@@ -4550,9 +4562,47 @@ const Trips = () => {
     }
   };
 
+  const exportAuditSelection = () => {
+    try {
+      const selected = filteredOrders.filter((o: any) =>
+        auditSelected.has(o.virtualId ?? o.id),
+      );
+      if (selected.length === 0) {
+        toast.error("No orders selected");
+        return;
+      }
+      selected.sort((a: any, b: any) => {
+        const da = new Date(a.pickupDate || a.deliveryDate || 0).getTime();
+        const db = new Date(b.pickupDate || b.deliveryDate || 0).getTime();
+        return da - db;
+      });
+      const rows = selected.map((o: any) => ({
+        "Truck#": o.truckNumber ?? "",
+        Driver: o.driverName ?? "",
+        "Load#": formatInternalLoadNumber(o.internalLoadNumber, o.companyName) ?? "",
+        "Pickup Date": o.pickupDate ? format(new Date(o.pickupDate), "MM/dd/yyyy") : "",
+        "Pickup City": [o.pickupCity, o.pickupState].filter(Boolean).join(", "),
+        "Delivery Date": o.deliveryDate ? format(new Date(o.deliveryDate), "MM/dd/yyyy") : "",
+        "Delivery City": [o.deliveryCity, o.deliveryState].filter(Boolean).join(", "),
+        Miles: Number(o.mileage) || 0,
+        "Broker Name": o.brokerName ?? "",
+        "Broker Load#": o.brokerLoadNumber ?? "",
+        "Stop Amt": Number(o.totalDriverPay) || 0,
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Audit");
+      const stamp = format(new Date(), "yyyy-MM-dd_HH-mm");
+      XLSX.writeFile(wb, `Trips_Audit_${stamp}.xlsx`);
+      toast.success(`Exported ${selected.length} trips`);
+    } catch (e) {
+      console.error("Audit export error:", e);
+      toast.error("Failed to export audit");
+    }
+  };
+
   const exportFinalStatement = async () => {
     try {
-      // Require search filter
       if (!searchFilter) {
         toast.error("Please filter by truck or driver first");
         return;
@@ -5392,17 +5442,45 @@ const Trips = () => {
               <span className="ml-2 text-sm font-normal text-muted-foreground">— {filterInfo.companyName}</span>
             )}
           </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportFinalStatement}
-            disabled={!searchFilter}
-            title={!searchFilter ? "Filter by truck or driver first" : "Export final statement"}
-            className="text-xs md:text-sm"
-          >
-            <FileDown className="h-4 w-4 mr-1 md:mr-2" />
-            Final
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportFinalStatement}
+              disabled={!searchFilter}
+              title={!searchFilter ? "Filter by truck or driver first" : "Export final statement"}
+              className="text-xs md:text-sm"
+            >
+              <FileDown className="h-4 w-4 mr-1 md:mr-2" />
+              Final
+            </Button>
+            <Button
+              variant={auditMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setAuditMode((v) => {
+                  if (v) setAuditSelected(new Set());
+                  return !v;
+                });
+              }}
+              className="text-xs md:text-sm"
+              title="Select orders to export to Excel"
+            >
+              <FileDown className="h-4 w-4 mr-1 md:mr-2" />
+              {auditMode ? "Cancel Audit" : "Audit"}
+            </Button>
+            {auditMode && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={exportAuditSelection}
+                disabled={auditSelected.size === 0}
+                className="text-xs md:text-sm"
+              >
+                Export Selected ({auditSelected.size})
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <DragDropContext onDragEnd={handleDragEnd}>
@@ -5872,7 +5950,19 @@ const Trips = () => {
                                             </TableCell>
                                           )}
                                           <TableCell className="font-medium">
-                                            <div className="line-clamp-2">{order.truckNumber}</div>
+                                            <div className="flex items-center gap-1">
+                                              {auditMode && (
+                                                <Checkbox
+                                                  checked={auditSelected.has(order.virtualId ?? order.id)}
+                                                  onCheckedChange={() =>
+                                                    toggleAuditSelection(order.virtualId ?? order.id)
+                                                  }
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  className="shrink-0"
+                                                />
+                                              )}
+                                              <div className="line-clamp-2">{order.truckNumber}</div>
+                                            </div>
                                           </TableCell>
                                           <TableCell>
                                             <div className="line-clamp-2">
