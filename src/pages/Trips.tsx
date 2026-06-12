@@ -3959,7 +3959,7 @@ const Trips = () => {
       });
 
       // Fixed deductions (rows 25-33)
-      const endDateFormatted = format(weekEndDate, "M/d/yy");
+      const endDateFormatted = format(weekEndDate, "MM/dd/yyyy");
       const deductions = [
         { row: 25, description: "Cargo Insurance", amount: 285.0 },
         { row: 26, description: "Trailer + Insurance", amount: 285.0 },
@@ -5157,7 +5157,7 @@ const Trips = () => {
       });
 
       const deductionStartRow = 25 + extraRowsNeeded;
-      const endDateFormatted = format(endDate, "M/d/yy");
+      const endDateFormatted = format(endDate, "MM/dd/yyyy");
       const deductions = [
         { offset: 0, desc: "Cargo Insurance", amt: 285.0 },
         { offset: 1, desc: "Trailer + Insurance", amt: 285.0 },
