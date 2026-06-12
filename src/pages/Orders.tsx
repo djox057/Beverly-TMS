@@ -75,7 +75,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { z } from "zod";
 import { useDragPan } from "@/hooks/useDragPan";
-import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
+import { formatCurrency, formatDateNoTimezone, cn } from "@/lib/utils";
 // OrdersCacheStatus removed - now using direct database queries
 const getStatusBadge = (status: string) => {
   switch (status) {
