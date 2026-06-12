@@ -5157,7 +5157,7 @@ const Trips = () => {
       });
 
       const deductionStartRow = 25 + extraRowsNeeded;
-      const endDateFormatted = format(endDate, "M/d/yy");
+      const endDateFormatted = format(endDate, "MM/dd/yyyy");
       const deductions = [
         { offset: 0, desc: "Cargo Insurance", amt: 285.0 },
         { offset: 1, desc: "Trailer + Insurance", amt: 285.0 },
