@@ -5442,17 +5442,45 @@ const Trips = () => {
               <span className="ml-2 text-sm font-normal text-muted-foreground">— {filterInfo.companyName}</span>
             )}
           </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportFinalStatement}
-            disabled={!searchFilter}
-            title={!searchFilter ? "Filter by truck or driver first" : "Export final statement"}
-            className="text-xs md:text-sm"
-          >
-            <FileDown className="h-4 w-4 mr-1 md:mr-2" />
-            Final
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportFinalStatement}
+              disabled={!searchFilter}
+              title={!searchFilter ? "Filter by truck or driver first" : "Export final statement"}
+              className="text-xs md:text-sm"
+            >
+              <FileDown className="h-4 w-4 mr-1 md:mr-2" />
+              Final
+            </Button>
+            <Button
+              variant={auditMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setAuditMode((v) => {
+                  if (v) setAuditSelected(new Set());
+                  return !v;
+                });
+              }}
+              className="text-xs md:text-sm"
+              title="Select orders to export to Excel"
+            >
+              <FileDown className="h-4 w-4 mr-1 md:mr-2" />
+              {auditMode ? "Cancel Audit" : "Audit"}
+            </Button>
+            {auditMode && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={exportAuditSelection}
+                disabled={auditSelected.size === 0}
+                className="text-xs md:text-sm"
+              >
+                Export Selected ({auditSelected.size})
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <DragDropContext onDragEnd={handleDragEnd}>
