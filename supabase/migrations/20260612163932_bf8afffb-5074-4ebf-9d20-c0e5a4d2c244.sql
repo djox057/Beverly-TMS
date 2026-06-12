@@ -1,0 +1,1 @@
+ALTER TABLE public.trailers ADD COLUMN IF NOT EXISTS vented boolean NOT NULL DEFAULT false;
