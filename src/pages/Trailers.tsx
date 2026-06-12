@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrailerFilesManager } from "@/components/TrailerFilesManager";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useQueryClient } from "@tanstack/react-query";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +33,7 @@ interface TrailerFormData {
   dot_inspection_date: string;
   plate_expiration_date: string;
   insurance_expiration_date: string;
+  vented: boolean;
 }
 
 interface TerminationNote {
@@ -65,7 +67,8 @@ const Trailers = () => {
     truck_id: "",
     dot_inspection_date: "",
     plate_expiration_date: "",
-    insurance_expiration_date: ""
+    insurance_expiration_date: "",
+    vented: false
   });
 
   const itemsPerPage = 100;
@@ -141,7 +144,8 @@ const Trailers = () => {
       truck_id: "",
       dot_inspection_date: "",
       plate_expiration_date: "",
-      insurance_expiration_date: ""
+      insurance_expiration_date: "",
+      vented: false
     });
   };
   const handleAddTrailer = async (e: React.FormEvent) => {
@@ -159,7 +163,8 @@ const Trailers = () => {
         plate: formData.plate || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
-        insurance_expiration_date: formData.insurance_expiration_date || null
+        insurance_expiration_date: formData.insurance_expiration_date || null,
+        vented: formData.vented
       }).select().single();
       if (trailerError) throw trailerError;
 
@@ -207,7 +212,8 @@ const Trailers = () => {
         plate: formData.plate || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
-        insurance_expiration_date: formData.insurance_expiration_date || null
+        insurance_expiration_date: formData.insurance_expiration_date || null,
+        vented: formData.vented
       }).eq('id', editingTrailer.id);
       if (trailerError) throw trailerError;
 
@@ -333,7 +339,8 @@ const Trailers = () => {
       truck_id: trailer.trucks?.[0]?.id || "",
       dot_inspection_date: trailer.dot_inspection_date || "",
       plate_expiration_date: trailer.plate_expiration_date || "",
-      insurance_expiration_date: trailer.insurance_expiration_date || ""
+      insurance_expiration_date: trailer.insurance_expiration_date || "",
+      vented: trailer.vented === true
     });
     
     // Fetch termination notes if trailer is inactive
