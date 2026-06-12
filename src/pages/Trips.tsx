@@ -4570,6 +4570,52 @@ const Trips = () => {
         return;
       }
 
+  const exportAuditSelection = () => {
+    try {
+      const selected = filteredOrders.filter((o: any) =>
+        auditSelected.has(o.virtualId ?? o.id),
+      );
+      if (selected.length === 0) {
+        toast.error("No orders selected");
+        return;
+      }
+      selected.sort((a: any, b: any) => {
+        const da = new Date(a.pickupDate || a.deliveryDate || 0).getTime();
+        const db = new Date(b.pickupDate || b.deliveryDate || 0).getTime();
+        return da - db;
+      });
+      const rows = selected.map((o: any) => ({
+        "Truck#": o.truckNumber ?? "",
+        Driver: o.driverName ?? "",
+        "Load#": formatInternalLoadNumber(o.internalLoadNumber, o.companyName) ?? "",
+        "Pickup Date": o.pickupDate ? format(new Date(o.pickupDate), "MM/dd/yyyy") : "",
+        "Pickup City": [o.pickupCity, o.pickupState].filter(Boolean).join(", "),
+        "Delivery Date": o.deliveryDate ? format(new Date(o.deliveryDate), "MM/dd/yyyy") : "",
+        "Delivery City": [o.deliveryCity, o.deliveryState].filter(Boolean).join(", "),
+        Miles: Number(o.mileage) || 0,
+        "Broker Name": o.brokerName ?? "",
+        "Broker Load#": o.brokerLoadNumber ?? "",
+        "Stop Amt": Number(o.totalDriverPay) || 0,
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Audit");
+      const stamp = format(new Date(), "yyyy-MM-dd_HH-mm");
+      XLSX.writeFile(wb, `Trips_Audit_${stamp}.xlsx`);
+      toast.success(`Exported ${selected.length} trips`);
+    } catch (e) {
+      console.error("Audit export error:", e);
+      toast.error("Failed to export audit");
+    }
+  };
+
+  const exportFinalStatementWrapper_UNUSED = async () => {
+    try {
+      if (!searchFilter) {
+        toast.error("Please filter by truck or driver first");
+        return;
+      }
+
       if (filteredOrders.length === 0) {
         toast.error("No orders found for selected filter");
         return;
