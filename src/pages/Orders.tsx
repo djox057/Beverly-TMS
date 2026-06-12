@@ -584,7 +584,9 @@ const Orders = () => {
       const isServerSearch = searchTerm && searchTerm.trim().length >= 3;
       const isServerFiltered = hasActiveFilter && filteredServerOrders && filteredServerOrders.length > 0;
 
-      // Client-side search filter (only when not using server search)
+      // Client-side search filter (only when not using server search).
+      // Mirrors Reports' load-number filter: substring on broker_load_number and
+      // internal_load_number (raw + formatted with company suffix). No other fields.
       let matchesSearch = true;
       if (!isServerSearch && searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -592,13 +594,9 @@ const Orders = () => {
           ? formatInternalLoadNumber(order.internalLoadNumber, order.truckCompanyName)
           : "";
         matchesSearch =
+          (order.brokerLoadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
           (order.internalLoadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
-          formattedInternalLoadNumber.toLowerCase().includes(searchLower) ||
-          (order.loadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
-          (order.truckNumber?.toString() || "").toLowerCase().includes(searchLower) ||
-          (order.driverName?.toLowerCase() || "").includes(searchLower) ||
-          (order.brokerName?.toLowerCase() || "").includes(searchLower) ||
-          (order.brokerLoadNumber?.toString() || "").toLowerCase().includes(searchLower);
+          formattedInternalLoadNumber.toLowerCase().includes(searchLower);
       }
 
       // Always evaluate date filters client-side so they apply even during active search
