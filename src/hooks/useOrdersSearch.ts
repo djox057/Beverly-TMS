@@ -84,16 +84,24 @@ export function useOrdersSearch() {
     inFlightAbortRef.current = abortController;
     const signal = abortController.signal;
 
-    console.log("[useOrdersSearch] Starting ids+hydrate search for:", term);
+    console.log(`[useOrdersSearch] ▶ START search="${term}" @ ${new Date().toISOString()}`);
     const t0 = performance.now();
+    let tMark = t0;
+    const mark = (label: string) => {
+      const now = performance.now();
+      console.log(`[useOrdersSearch]   ⏱ ${label}: +${(now - tMark).toFixed(0)}ms (total ${(now - t0).toFixed(0)}ms)`);
+      tMark = now;
+    };
 
     setIsSearching(true);
     setSearchError(null);
 
     try {
       queryClient.cancelQueries({ queryKey: ["orders", "search"] });
+      mark("cancelQueries");
 
       // Stage 1: get matching ids only
+      console.log("[useOrdersSearch]   → calling search_orders_ids RPC");
       const idsRes: any = await (supabase.rpc("search_orders_ids" as any, {
         p_term: term,
         p_booked_by: options?.bookedBy ?? null,
@@ -102,6 +110,7 @@ export function useOrdersSearch() {
         p_booked_by_company_id: options?.bookedByCompanyId ?? null,
         p_limit: 50,
       }) as any).abortSignal(signal);
+      mark("search_orders_ids RPC");
 
       if (signal.aborted || latestSearchKeyRef.current !== searchKey) {
         console.log("[useOrdersSearch] Discarding stale ids response for:", searchKey);
@@ -110,17 +119,20 @@ export function useOrdersSearch() {
       if (idsRes.error) throw idsRes.error;
 
       const ids = (idsRes.data as string[]) || [];
-      console.log(`[useOrdersSearch] ids stage: ${ids.length} rows in ${(performance.now() - t0).toFixed(0)}ms`);
+      console.log(`[useOrdersSearch]   ids returned: ${ids.length} row(s)`);
 
       if (ids.length === 0) {
         queryClient.setQueryData(newQueryKey, []);
+        console.log(`[useOrdersSearch] ✓ DONE (no matches) total ${(performance.now() - t0).toFixed(0)}ms`);
         return;
       }
 
       // Stage 2: hydrate full payload
+      console.log("[useOrdersSearch]   → calling search_orders_hydrate RPC");
       const hydrateRes: any = await (supabase.rpc("search_orders_hydrate" as any, {
         p_ids: ids,
       }) as any).abortSignal(signal);
+      mark("search_orders_hydrate RPC");
 
       if (signal.aborted || latestSearchKeyRef.current !== searchKey) {
         console.log("[useOrdersSearch] Discarding stale hydrate response for:", searchKey);
@@ -130,8 +142,10 @@ export function useOrdersSearch() {
 
       const rows = (hydrateRes.data as any[]) || [];
       const transformed = transformOrders(rows);
-      console.log(`[useOrdersSearch] hydrate complete: ${transformed.length} rows total ${(performance.now() - t0).toFixed(0)}ms`);
+      mark(`transformOrders (${transformed.length} rows)`);
       queryClient.setQueryData(newQueryKey, transformed);
+      mark("setQueryData");
+      console.log(`[useOrdersSearch] ✓ DONE total ${(performance.now() - t0).toFixed(0)}ms`);
     } catch (err: any) {
       if (err?.name === "AbortError" || signal.aborted) {
         return;
