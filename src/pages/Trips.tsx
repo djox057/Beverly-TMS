@@ -5950,7 +5950,19 @@ const Trips = () => {
                                             </TableCell>
                                           )}
                                           <TableCell className="font-medium">
-                                            <div className="line-clamp-2">{order.truckNumber}</div>
+                                            <div className="flex items-center gap-1">
+                                              {auditMode && (
+                                                <Checkbox
+                                                  checked={auditSelected.has(order.virtualId ?? order.id)}
+                                                  onCheckedChange={() =>
+                                                    toggleAuditSelection(order.virtualId ?? order.id)
+                                                  }
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  className="shrink-0"
+                                                />
+                                              )}
+                                              <div className="line-clamp-2">{order.truckNumber}</div>
+                                            </div>
                                           </TableCell>
                                           <TableCell>
                                             <div className="line-clamp-2">
