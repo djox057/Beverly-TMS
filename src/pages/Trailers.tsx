@@ -941,6 +941,15 @@ const Trailers = () => {
                   />
                 </div>
 
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit_vented"
+                    checked={formData.vented}
+                    onCheckedChange={(checked) => setFormData({ ...formData, vented: checked === true })}
+                  />
+                  <Label htmlFor="edit_vented" className="cursor-pointer">Vented</Label>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="edit_truck_id">Truck #</Label>
                   <Select value={formData.truck_id} onValueChange={value => setFormData({
