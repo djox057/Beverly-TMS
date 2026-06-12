@@ -75,7 +75,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { z } from "zod";
 import { useDragPan } from "@/hooks/useDragPan";
-import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
+import { formatCurrency, formatDateNoTimezone, cn } from "@/lib/utils";
 // OrdersCacheStatus removed - now using direct database queries
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -220,7 +220,9 @@ const Orders = () => {
     !hasRole("manager") &&
     !hasRole("accounting") &&
     !hasRole("supervisor");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(
+    () => localStorage.getItem("orders-loadNumberFilter") || ""
+  );
   const [companyFilter, setCompanyFilter] = useState("all-companies");
   const [truckCompanyFilter, setTruckCompanyFilter] = useState("all-truck-companies");
   // For dispatch-only users, auto-select themselves as the default filter
@@ -367,14 +369,18 @@ const Orders = () => {
     summary: filteredSummary,
   } = useFilteredOrdersSearch();
 
-  // Debounce search term for server-side search
-  const debouncedSearchTerm = useDebounce(searchTerm, 150);
+  // Debounce search term for server-side search (matches Reports load-number filter)
+  const debouncedSearchTerm = useDebounce(searchTerm, 200);
 
-  // Trigger server-side search when debounced term changes
-  // No lastSearchedTerm optimization needed - debounce already handles rapid typing
+  // Persist search term to localStorage (matches Reports' `reports-loadNumberFilter` pattern)
+  useEffect(() => {
+    localStorage.setItem("orders-loadNumberFilter", searchTerm);
+  }, [searchTerm]);
+
+  // Trigger server-side search when debounced term changes (3-char minimum, like Reports)
   useEffect(() => {
     const term = (debouncedSearchTerm || "").trim();
-    if (term.length >= 2) {
+    if (term.length >= 3) {
       console.log("[Orders] Triggering server-side search for:", term);
       searchOrders(term, orderFilterOptions);
     } else {
@@ -538,7 +544,7 @@ const Orders = () => {
   const [cacheVersion, setCacheVersion] = useState(0);
 
   const dataSource = useMemo(() => {
-    const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
+    const isActiveSearch = searchTerm && searchTerm.trim().length >= 3;
     if (isActiveSearch) {
       // LOCKED into server mode - never fall back to local orders during active search
       const results = searchResults || [];
@@ -575,10 +581,12 @@ const Orders = () => {
   // When server-side filtering is active, skip most client-side filters
   const filteredOrders =
     dataSource?.filter((order) => {
-      const isServerSearch = searchTerm && searchTerm.trim().length >= 2;
+      const isServerSearch = searchTerm && searchTerm.trim().length >= 3;
       const isServerFiltered = hasActiveFilter && filteredServerOrders && filteredServerOrders.length > 0;
 
-      // Client-side search filter (only when not using server search)
+      // Client-side search filter (only when not using server search).
+      // Mirrors Reports' load-number filter: substring on broker_load_number and
+      // internal_load_number (raw + formatted with company suffix). No other fields.
       let matchesSearch = true;
       if (!isServerSearch && searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -586,13 +594,9 @@ const Orders = () => {
           ? formatInternalLoadNumber(order.internalLoadNumber, order.truckCompanyName)
           : "";
         matchesSearch =
+          (order.brokerLoadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
           (order.internalLoadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
-          formattedInternalLoadNumber.toLowerCase().includes(searchLower) ||
-          (order.loadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
-          (order.truckNumber?.toString() || "").toLowerCase().includes(searchLower) ||
-          (order.driverName?.toLowerCase() || "").includes(searchLower) ||
-          (order.brokerName?.toLowerCase() || "").includes(searchLower) ||
-          (order.brokerLoadNumber?.toString() || "").toLowerCase().includes(searchLower);
+          formattedInternalLoadNumber.toLowerCase().includes(searchLower);
       }
 
       // Always evaluate date filters client-side so they apply even during active search
@@ -865,7 +869,7 @@ const Orders = () => {
   // MUST be before any early returns to satisfy React's rules of hooks
   useEffect(() => {
     // Only trigger for local data (not server-filtered or searched)
-    if (hasActiveFilter || (searchTerm && searchTerm.trim().length >= 2)) return;
+    if (hasActiveFilter || (searchTerm && searchTerm.trim().length >= 3)) return;
 
     // Prefetch the next page in background for smooth navigation
     prefetchNextPage(currentPage);
@@ -874,7 +878,7 @@ const Orders = () => {
   // Request current page data if not already loaded
   useEffect(() => {
     // Only trigger for local data (not server-filtered or searched)
-    const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
+    const isActiveSearch = searchTerm && searchTerm.trim().length >= 3;
     if (hasActiveFilter || isActiveSearch) return;
 
     // Wait until the progressive hook has real counts; otherwise page 1 can be cached as empty.
@@ -1016,7 +1020,7 @@ const Orders = () => {
   // Calculate pagination based on total count from server
   // For search/filter modes: use filtered results count
   // For normal mode: use server's total count (all unlocked orders)
-  const isActiveSearch = searchTerm && searchTerm.trim().length >= 2;
+  const isActiveSearch = searchTerm && searchTerm.trim().length >= 3;
   // Prefer authoritative server counts:
   //  - No filter / no search → use the progressive hook's unlocked total
   //  - Filters active → use the orders-summary RPC total (accurate even when only the first batch is loaded)
@@ -1540,19 +1544,24 @@ const Orders = () => {
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                       )}
                       <Input
-                        placeholder="Search all loads..."
-                        className="pl-10 w-full"
+                        placeholder="Search by load number..."
+                        className={cn(
+                          "pl-10 w-full",
+                          !isSearching &&
+                            searchTerm.trim().length >= 3 &&
+                            (searchResults?.length ?? 0) === 0 &&
+                            "border-red-400"
+                        )}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            const term = searchTerm.trim();
-                            if (term.length >= 2) {
-                              searchOrders(term, orderFilterOptions);
-                            }
-                          }
-                        }}
                       />
+                      {!isSearching &&
+                        searchTerm.trim().length >= 3 &&
+                        (searchResults?.length ?? 0) === 0 && (
+                          <p className="absolute -bottom-5 left-0 text-xs text-red-500">
+                            Load not found
+                          </p>
+                        )}
                     </div>
                   </div>
 
