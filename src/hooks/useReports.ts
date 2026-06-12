@@ -889,7 +889,7 @@ export const useReports = (options?: UseReportsOptions) => {
         ? supabase.from("drivers").select("id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, home_latitude, home_longitude, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company_id, do_not_touch_hos, hazmat, tanker, twic, citizen, criminal, straps, load_bars").in("id", Array.from(truckDriverIdsBatch))
         : { data: [], error: null },
       truckTrailerIdsBatch.size > 0
-        ? supabase.from("trailers").select("id, trailer_number, dot_inspection_date").in("id", Array.from(truckTrailerIdsBatch))
+        ? supabase.from("trailers").select("id, trailer_number, dot_inspection_date, vented").in("id", Array.from(truckTrailerIdsBatch))
         : { data: [], error: null },
       truckCompanyIdsBatch.size > 0
         ? supabase.from("companies").select("id, name").in("id", Array.from(truckCompanyIdsBatch))
@@ -1746,6 +1746,7 @@ export const useReports = (options?: UseReportsOptions) => {
               // DOT inspection dates
               dot_inspection_date: truck.dot_inspection_date || null,
               trailer_dot_inspection_date: truck.trailer?.dot_inspection_date || null,
+              trailerVented: truck.trailer?.vented || false,
             };
           }) || [];
 

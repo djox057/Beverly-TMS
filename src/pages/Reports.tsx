@@ -105,6 +105,7 @@ import greenCardIcon from "@/assets/green-card.png";
 import criminalDatabaseIcon from "@/assets/criminal-database.png";
 import strapIcon from "@/assets/strap.png";
 import loadBarIcon from "@/assets/load_bar.png";
+import ventedIcon from "@/assets/vented-icon.png";
 import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { LumperMissingDataDialog } from "@/components/LumperMissingDataDialog";
 import { TemporaryPlateUploadDialog } from "@/components/TemporaryPlateUploadDialog";
