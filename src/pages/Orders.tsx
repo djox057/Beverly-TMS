@@ -220,7 +220,9 @@ const Orders = () => {
     !hasRole("manager") &&
     !hasRole("accounting") &&
     !hasRole("supervisor");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(
+    () => localStorage.getItem("orders-loadNumberFilter") || ""
+  );
   const [companyFilter, setCompanyFilter] = useState("all-companies");
   const [truckCompanyFilter, setTruckCompanyFilter] = useState("all-truck-companies");
   // For dispatch-only users, auto-select themselves as the default filter
@@ -367,14 +369,18 @@ const Orders = () => {
     summary: filteredSummary,
   } = useFilteredOrdersSearch();
 
-  // Debounce search term for server-side search
-  const debouncedSearchTerm = useDebounce(searchTerm, 150);
+  // Debounce search term for server-side search (matches Reports load-number filter)
+  const debouncedSearchTerm = useDebounce(searchTerm, 200);
 
-  // Trigger server-side search when debounced term changes
-  // No lastSearchedTerm optimization needed - debounce already handles rapid typing
+  // Persist search term to localStorage (matches Reports' `reports-loadNumberFilter` pattern)
+  useEffect(() => {
+    localStorage.setItem("orders-loadNumberFilter", searchTerm);
+  }, [searchTerm]);
+
+  // Trigger server-side search when debounced term changes (3-char minimum, like Reports)
   useEffect(() => {
     const term = (debouncedSearchTerm || "").trim();
-    if (term.length >= 2) {
+    if (term.length >= 3) {
       console.log("[Orders] Triggering server-side search for:", term);
       searchOrders(term, orderFilterOptions);
     } else {
