@@ -689,12 +689,13 @@ const Trailers = () => {
                   <TableHead className="text-center w-[120px]">DOT Inspection</TableHead>
                   <TableHead className="text-center w-[110px]">Plate Exp.</TableHead>
                   <TableHead className="text-center w-[120px]">Insurance Exp.</TableHead>
+                  <TableHead className="text-center w-[80px]">Vented</TableHead>
                   <TableHead className="text-center w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {currentTrailers.length === 0 ? <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No trailers found
                     </TableCell>
                   </TableRow> : <>
@@ -708,6 +709,7 @@ const Trailers = () => {
                         <TableCell className="text-center whitespace-nowrap">{trailer.dot_inspection_date || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{trailer.plate_expiration_date || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{trailer.insurance_expiration_date || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{trailer.vented ? "Yes" : "No"}</TableCell>
                       <TableCell className="text-center whitespace-nowrap">
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(trailer)}>
@@ -752,7 +754,7 @@ const Trailers = () => {
                     </TableRow>)}
                     {emptyRowsArray.map((_, index) => (
                       <TableRow key={`empty-${index}`} className="h-[57px]">
-                        <TableCell colSpan={8}>&nbsp;</TableCell>
+                        <TableCell colSpan={9}>&nbsp;</TableCell>
                       </TableRow>
                     ))}
                   </>}
