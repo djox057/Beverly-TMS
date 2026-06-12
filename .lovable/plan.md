@@ -1,124 +1,62 @@
-## Problem
+## What's slow
 
-The logs prove the search is bottlenecked entirely on the database:
+From your logs, the Orders page sits at "loading" for ~6.5s before any rows fetch starts:
 
 ```
-search_orders_ids RPC:     6651 ms  ← THE problem
-search_orders_hydrate RPC:  118 ms
-transformOrders:              0 ms
-setQueryData:                 1 ms
-total:                     6770 ms
+unlocked count query:    733ms
+locked count query:    6,443ms   ← the bottleneck
+counts DONE in 6,445ms
+→ page 1 starts only AFTER this
 ```
 
-Same function executed server-side as superuser: **111 ms**. The 60× gap comes from RLS, not the query itself.
+The `locked count query` is a `SELECT count(*) … WHERE locked = true AND booked_by_company_id = …` against ~34k locked rows. Postgres has to scan/aggregate the entire matching set before it can answer — and we block the first page render on it.
 
-## Root cause
-
-`public.search_orders_ids` is a `STABLE SECURITY INVOKER` SQL function. Postgres inlines it into the caller's statement, then layers all 3 SELECT policies on `orders` on top:
-
-- `Roles can view all orders` — calls `has_any_role(...)` (STABLE SECURITY DEFINER)
-- `Drivers can view own orders` — calls `has_role(...)` + `get_driver_id_for_user()`
-- `Yard can view yard loads` — calls `has_role(...)` plus column checks
-
-With OR'd policies the planner stops trusting the trigram bitmap path and falls back to a much heavier scan. EXPLAIN proves it: raw `ILIKE` query hits the trigram indexes in 0.5 ms (`shared hit=36`); the same logic wrapped in the function as service-role already balloons to 111 ms / `shared hit=34650`; with RLS layered on for a real user it becomes ~6.6 s.
-
-The Reports filter is fast because it runs against an already-loaded in-memory array — it never hits Postgres per keystroke.
+The unlocked-count is fast (835 rows). The locked-count is what we're really paying for, and it's only used to compute `totalPages` for the paginator (the locked rows don't even show on page 1 — they only appear once you scroll past page ~9).
 
 ## Fix
 
-Convert `search_orders_ids` to **`SECURITY DEFINER`** and enforce visibility inside the function body using the same role helpers, so the trigram index path is preserved and RLS isn't re-evaluated for every candidate row.
+Decouple page-1 rendering from the locked count.
 
-### New function shape
+### Step 1 — Render page 1 from the unlocked count only
 
-```sql
-CREATE OR REPLACE FUNCTION public.search_orders_ids(
-  p_term text,
-  p_booked_by text DEFAULT NULL,
-  p_dispatcher_user_id uuid DEFAULT NULL,
-  p_excluded_booked_by_company_id uuid DEFAULT NULL,
-  p_booked_by_company_id uuid DEFAULT NULL,
-  p_limit int DEFAULT 50
-)
-RETURNS uuid[]
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_uid uuid := auth.uid();
-  v_can_view_all boolean := public.has_any_role(
-    ARRAY['dispatch','afterhours','manager','admin','accounting',
-          'supervisor','safety','maintenance','chicago_management']::app_role[]
-  );
-  v_is_driver  boolean := public.has_role(v_uid, 'driver'::app_role);
-  v_is_yard    boolean := public.has_role(v_uid, 'yard'::app_role);
-  v_driver_id  uuid;
-  v_result uuid[];
-BEGIN
-  -- No visibility at all → empty result
-  IF NOT (v_can_view_all OR v_is_driver OR v_is_yard) THEN
-    RETURN ARRAY[]::uuid[];
-  END IF;
+In `src/hooks/useOrdersProgressive.ts`:
 
-  IF v_is_driver AND NOT v_can_view_all THEN
-    v_driver_id := public.get_driver_id_for_user();
-  END IF;
+- Split `countsQuery` into two independent queries: `unlockedCountQuery` and `lockedCountQuery`.
+- Gate `currentPageQuery` (and the "ready to render" state) on `unlockedCountQuery` only.
+- While `lockedCountQuery` is still in flight, treat `lockedCount` as `0` and compute `totalPages` from unlocked only. The paginator will start at "page 1 of 9" and expand to "page 1 of 347" once the locked count resolves. No visible flicker on page 1.
 
-  SELECT COALESCE(array_agg(id ORDER BY created_at DESC), ARRAY[]::uuid[])
-  INTO v_result
-  FROM (
-    SELECT o.id, o.created_at
-    FROM public.orders o
-    WHERE length(p_term) >= 3
-      AND (
-        o.broker_load_number  ILIKE '%' || p_term || '%'
-        OR o.internal_load_number ILIKE '%' || p_term || '%'
-      )
-      -- Existing scope filters (dispatcher / company)
-      AND (
-        p_dispatcher_user_id IS NULL
-        OR (p_booked_by IS NOT NULL AND o.booked_by = p_booked_by)
-        OR o.driver1_id IN (
-          SELECT id FROM public.drivers WHERE dispatcher_id = p_dispatcher_user_id
-        )
-      )
-      AND (
-        p_excluded_booked_by_company_id IS NULL
-        OR o.booked_by_company_id IS NULL
-        OR o.booked_by_company_id <> p_excluded_booked_by_company_id
-      )
-      AND (p_booked_by_company_id IS NULL OR o.booked_by_company_id = p_booked_by_company_id)
-      -- Visibility enforced inline (replaces RLS for this call)
-      AND (
-        v_can_view_all
-        OR (v_is_driver AND (o.driver1_id = v_driver_id OR o.driver2_id = v_driver_id))
-        OR (v_is_yard AND o.driver1_id IS NULL AND o.truck_id IS NULL)
-      )
-    ORDER BY o.created_at DESC
-    LIMIT p_limit
-  ) m;
+Expected effect: first paint of orders drops from ~6.5s + page fetch → ~0.7s + page fetch.
 
-  RETURN v_result;
-END;
-$$;
+### Step 2 — Make the locked count cheap
 
-REVOKE ALL ON FUNCTION public.search_orders_ids(text,text,uuid,uuid,uuid,int) FROM public;
-GRANT EXECUTE ON FUNCTION public.search_orders_ids(text,text,uuid,uuid,uuid,int) TO authenticated;
-```
+Two options, ordered by preference:
 
-Visibility rules are identical to today's RLS — no broader access. The only thing changing is *where* they're evaluated.
+**Option A (recommended): use Postgres' planner estimate instead of an exact count.**
 
-### Expected result
+Add a SQL function `public.estimate_locked_orders_count(p_booked_by_company_id uuid, p_excluded_booked_by_company_id uuid, p_booked_by uuid, p_driver_ids uuid[])` that returns `pg_class.reltuples`-style estimate via `EXPLAIN (FORMAT JSON)` of the same filter. Returns in single-digit ms regardless of dataset size. The paginator only needs an approximate total — being off by a few rows on page 347 is invisible to the user.
 
-Search RPC drops from ~6650 ms to ~100–200 ms (matches what EXPLAIN shows under `service_role`). Hydrate is already 118 ms. End-to-end search target: **under ~400 ms**.
+Call it from `lockedCountQuery` instead of `SELECT count(*)`.
+
+**Option B (fallback): cache the locked count in TanStack Query for longer.**
+
+Bump `staleTime` for `lockedCountQuery` from 30s to e.g. 10 min, and persist it across navigations. First visit still pays 6.4s, but subsequent visits are instant. Combined with Step 1 the first visit is still acceptable because the page is already interactive.
+
+I recommend doing **Step 1 + Option A** together.
+
+### Step 3 — Verify
+
+Reload `/orders` and confirm in console:
+- `unlocked count query: <800ms`
+- Page 1 starts fetching immediately after, not after 6s.
+- `locked count query` resolves in the background (instant if Option A, ~6s if Option B) and the paginator total updates without disrupting the visible rows.
+
+## Files to touch
+
+- `src/hooks/useOrdersProgressive.ts` — split counts queries, gate render on unlocked only, treat locked count as 0 while pending.
+- One new migration adding `public.estimate_locked_orders_count(...)` (Option A only).
+
+No changes to `Orders.tsx`, edge functions, or RLS.
 
 ## Out of scope
 
-- No frontend changes. The logs already added in `useOrdersSearch.ts` stay.
-- `search_orders_hydrate` is untouched — it's already fast.
-- RLS policies on `public.orders` stay exactly as they are; they still protect every other code path.
-
-## Files
-
-- New migration: redefine `public.search_orders_ids` (SECURITY DEFINER + inline visibility).
+- The `lovable-stack-overflow` snippet about "webhooks for the locked count" is not applicable here — this is a single SQL `COUNT(*)`, not a long-running job. Async/webhook patterns would add complexity without solving the underlying scan cost.
