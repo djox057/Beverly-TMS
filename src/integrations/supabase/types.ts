@@ -4729,15 +4729,6 @@ export type Database = {
         Args: { order_data: Json }
         Returns: Json
       }
-      estimate_locked_orders_count: {
-        Args: {
-          p_booked_by?: string
-          p_booked_by_company_id?: string
-          p_driver_ids?: string[]
-          p_excluded_booked_by_company_id?: string
-        }
-        Returns: number
-      }
       flip_afterhours_roles: { Args: { direction: string }; Returns: undefined }
       get_assignment_history: {
         Args: {
