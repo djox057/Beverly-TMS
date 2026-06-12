@@ -4047,6 +4047,7 @@ export type Database = {
           trailer_number: string
           trailer_type: string | null
           updated_at: string
+          vented: boolean
           vin: string | null
         }
         Insert: {
@@ -4063,6 +4064,7 @@ export type Database = {
           trailer_number: string
           trailer_type?: string | null
           updated_at?: string
+          vented?: boolean
           vin?: string | null
         }
         Update: {
@@ -4079,6 +4081,7 @@ export type Database = {
           trailer_number?: string
           trailer_type?: string | null
           updated_at?: string
+          vented?: boolean
           vin?: string | null
         }
         Relationships: []

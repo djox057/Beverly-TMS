@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrailerFilesManager } from "@/components/TrailerFilesManager";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useQueryClient } from "@tanstack/react-query";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +33,7 @@ interface TrailerFormData {
   dot_inspection_date: string;
   plate_expiration_date: string;
   insurance_expiration_date: string;
+  vented: boolean;
 }
 
 interface TerminationNote {
@@ -65,7 +67,8 @@ const Trailers = () => {
     truck_id: "",
     dot_inspection_date: "",
     plate_expiration_date: "",
-    insurance_expiration_date: ""
+    insurance_expiration_date: "",
+    vented: false
   });
 
   const itemsPerPage = 100;
@@ -141,7 +144,8 @@ const Trailers = () => {
       truck_id: "",
       dot_inspection_date: "",
       plate_expiration_date: "",
-      insurance_expiration_date: ""
+      insurance_expiration_date: "",
+      vented: false
     });
   };
   const handleAddTrailer = async (e: React.FormEvent) => {
@@ -159,7 +163,8 @@ const Trailers = () => {
         plate: formData.plate || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
-        insurance_expiration_date: formData.insurance_expiration_date || null
+        insurance_expiration_date: formData.insurance_expiration_date || null,
+        vented: formData.vented
       }).select().single();
       if (trailerError) throw trailerError;
 
@@ -207,7 +212,8 @@ const Trailers = () => {
         plate: formData.plate || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
-        insurance_expiration_date: formData.insurance_expiration_date || null
+        insurance_expiration_date: formData.insurance_expiration_date || null,
+        vented: formData.vented
       }).eq('id', editingTrailer.id);
       if (trailerError) throw trailerError;
 
@@ -333,7 +339,8 @@ const Trailers = () => {
       truck_id: trailer.trucks?.[0]?.id || "",
       dot_inspection_date: trailer.dot_inspection_date || "",
       plate_expiration_date: trailer.plate_expiration_date || "",
-      insurance_expiration_date: trailer.insurance_expiration_date || ""
+      insurance_expiration_date: trailer.insurance_expiration_date || "",
+      vented: trailer.vented === true
     });
     
     // Fetch termination notes if trailer is inactive
@@ -614,6 +621,15 @@ const Trailers = () => {
                 />
               </div>
 
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="vented"
+                  checked={formData.vented}
+                  onCheckedChange={(checked) => setFormData({ ...formData, vented: checked === true })}
+                />
+                <Label htmlFor="vented" className="cursor-pointer">Vented</Label>
+              </div>
+
             <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
@@ -673,12 +689,13 @@ const Trailers = () => {
                   <TableHead className="text-center w-[120px]">DOT Inspection</TableHead>
                   <TableHead className="text-center w-[110px]">Plate Exp.</TableHead>
                   <TableHead className="text-center w-[120px]">Insurance Exp.</TableHead>
+                  <TableHead className="text-center w-[80px]">Vented</TableHead>
                   <TableHead className="text-center w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {currentTrailers.length === 0 ? <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No trailers found
                     </TableCell>
                   </TableRow> : <>
@@ -692,6 +709,7 @@ const Trailers = () => {
                         <TableCell className="text-center whitespace-nowrap">{trailer.dot_inspection_date || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{trailer.plate_expiration_date || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{trailer.insurance_expiration_date || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{trailer.vented ? "Yes" : "No"}</TableCell>
                       <TableCell className="text-center whitespace-nowrap">
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(trailer)}>
@@ -736,7 +754,7 @@ const Trailers = () => {
                     </TableRow>)}
                     {emptyRowsArray.map((_, index) => (
                       <TableRow key={`empty-${index}`} className="h-[57px]">
-                        <TableCell colSpan={8}>&nbsp;</TableCell>
+                        <TableCell colSpan={9}>&nbsp;</TableCell>
                       </TableRow>
                     ))}
                   </>}
@@ -923,6 +941,15 @@ const Trailers = () => {
                       insurance_expiration_date: e.target.value
                     })} 
                   />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit_vented"
+                    checked={formData.vented}
+                    onCheckedChange={(checked) => setFormData({ ...formData, vented: checked === true })}
+                  />
+                  <Label htmlFor="edit_vented" className="cursor-pointer">Vented</Label>
                 </div>
 
                 <div className="space-y-2">
