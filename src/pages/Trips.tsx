@@ -4562,14 +4562,6 @@ const Trips = () => {
     }
   };
 
-  const exportFinalStatement = async () => {
-    try {
-      // Require search filter
-      if (!searchFilter) {
-        toast.error("Please filter by truck or driver first");
-        return;
-      }
-
   const exportAuditSelection = () => {
     try {
       const selected = filteredOrders.filter((o: any) =>
@@ -4609,7 +4601,7 @@ const Trips = () => {
     }
   };
 
-  const exportFinalStatementWrapper_UNUSED = async () => {
+  const exportFinalStatement = async () => {
     try {
       if (!searchFilter) {
         toast.error("Please filter by truck or driver first");
