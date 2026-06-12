@@ -4,24 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 import { transformOrders } from "@/utils/ordersTransform";
 
-// Flat column list - NO joins (matches edge function pattern)
-const ORDER_COLUMNS = `
-  id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
-  created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
-  canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
-  is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
-  deleted_truck_number, deleted_trailer_number, deleted_driver1_name, deleted_driver2_name,
-  freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-  tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver,
-  late_fee, late_fee_driver, no_tracking_fee, no_tracking_fee_driver,
-  wrong_address_fee, wrong_address_fee_driver, escort_fee,
-  other_charges, other_charges_driver, other_charges_reason,
-  other_additionals, other_additionals_driver, other_additionals_reason,
-  additional_miles, booked_by, paid, invoiced,
-  original_truck_id, original_trailer_id,
-  bol_force_complete, pod_force_complete
-`;
-
 /**
  * Generate a stable query key for search results.
  */
@@ -35,30 +17,11 @@ function getSearchQueryKey(
   return ["orders", "search", searchTerm, bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId];
 }
 
-/** Collect unique non-null values from a field across orders */
-function collectIds(orders: any[], ...fields: string[]): string[] {
-  const ids = new Set<string>();
-  for (const o of orders) {
-    for (const f of fields) {
-      if (o[f]) ids.add(o[f]);
-    }
-  }
-  return Array.from(ids);
-}
-
-/** Batch fetch rows by ID and return a Map */
-async function batchFetchMap(table: string, ids: string[], columns: string): Promise<Map<string, any>> {
-  if (ids.length === 0) return new Map();
-  const { data } = await (supabase.from(table as any).select(columns) as any).in("id", ids);
-  const map = new Map<string, any>();
-  if (data) (data as any[]).forEach((r: any) => map.set(r.id, r));
-  return map;
-}
-
 /**
  * Server-side search hook for orders.
- * Phase 3C: Uses flat fetch + batch pattern instead of 14-join query.
- * Fixed: Removed circular queryKey dependency that caused infinite render loops.
+ * Phase 3D: Uses single `search_orders_v2` RPC instead of 6–9 round-trips.
+ * RPC returns matched orders fully assembled with relations + entities in one
+ * payload. RLS still applies (security invoker).
  */
 export function useOrdersSearch() {
   const queryClient = useQueryClient();
@@ -105,220 +68,36 @@ export function useOrdersSearch() {
     const newQueryKey = getSearchQueryKey(term, options?.bookedBy, options?.dispatcherUserId, options?.excludeBookedByCompanyId, options?.bookedByCompanyId);
     activeQueryKeyRef.current = newQueryKey;
     
-    console.log("[useOrdersSearch] Starting search for:", term);
+    console.log("[useOrdersSearch] Starting RPC search for:", term);
     
     setIsSearching(true);
     setSearchError(null);
 
     try {
-      // Cancel any in-flight search queries to reduce backend load
       queryClient.cancelQueries({ queryKey: ["orders", "search"] });
-      
-      // Get dispatcher driver IDs if needed
-      let dispatcherDriverIds: string[] = [];
-      if (options?.dispatcherUserId) {
-        const { data: assignedDrivers } = await supabase
-          .from("drivers")
-          .select("id")
-          .eq("dispatcher_id", options.dispatcherUserId);
-        dispatcherDriverIds = (assignedDrivers || []).map(d => d.id);
-      }
 
-      // === STAGE 1: Flat order search ===
-      // Two-pass: exact match first, fall back to substring only if exact has 0 rows.
-      const runScopedQuery = async (filterExpr: string) => {
-        let q = supabase
-          .from("orders")
-          .select(ORDER_COLUMNS)
-          .or(filterExpr)
-          .order("created_at", { ascending: false })
-          .limit(50);
-
-        if (options?.dispatcherUserId) {
-          if (options?.bookedBy && dispatcherDriverIds.length > 0) {
-            q = q.or(
-              `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
-            );
-          } else if (options?.bookedBy) {
-            q = q.eq("booked_by", options.bookedBy);
-          } else if (dispatcherDriverIds.length > 0) {
-            q = q.in("driver1_id", dispatcherDriverIds);
-          }
-        }
-
-        if (options?.excludeBookedByCompanyId) {
-          q = q.or(
-            `booked_by_company_id.neq.${options.excludeBookedByCompanyId},booked_by_company_id.is.null`
-          );
-        }
-
-        if (options?.bookedByCompanyId) {
-          q = q.eq("booked_by_company_id", options.bookedByCompanyId);
-        }
-
-        return await q;
-      };
-
-      // Pass 1: exact match on broker/internal load number (and numeric-prefix-before-suffix
-      // for internal load numbers which are stored as "<num>-<SUFFIX>").
-      const exactFilter =
-        `broker_load_number.eq.${term},` +
-        `internal_load_number.eq.${term},` +
-        `internal_load_number.ilike.${term}-%`;
-      const exactRes = await runScopedQuery(exactFilter);
+      const { data, error } = await supabase.rpc("search_orders_v2" as any, {
+        p_term: term,
+        p_booked_by: options?.bookedBy ?? null,
+        p_dispatcher_user_id: options?.dispatcherUserId ?? null,
+        p_excluded_booked_by_company_id: options?.excludeBookedByCompanyId ?? null,
+        p_booked_by_company_id: options?.bookedByCompanyId ?? null,
+        p_limit: 50,
+      });
 
       if (latestSearchKeyRef.current !== searchKey) {
-        console.log("[useOrdersSearch] Discarding stale exact response for:", searchKey);
+        console.log("[useOrdersSearch] Discarding stale RPC response for:", searchKey);
         return;
       }
-      if (exactRes.error) {
-        console.error("[useOrdersSearch] Exact query error:", exactRes.error);
-        throw exactRes.error;
+      if (error) {
+        console.error("[useOrdersSearch] RPC error:", error);
+        throw error;
       }
 
-      let flatOrders = exactRes.data || [];
+      const rows = (data as any[]) || [];
+      console.log("[useOrdersSearch] Results count:", rows.length);
 
-      // Pass 2: substring fallback only when exact returned nothing.
-      // Skip substring scan for short or purely-numeric terms — the exact/prefix
-      // path already covers those and the wildcard scan is the slowest case.
-      const isNumeric = /^\d+$/.test(term);
-      const shouldRunSubstring = flatOrders.length === 0 && term.length >= 3 && !isNumeric;
-      if (shouldRunSubstring) {
-        const substringFilter =
-          `broker_load_number.ilike.%${term}%,internal_load_number.ilike.%${term}%`;
-        const subRes = await runScopedQuery(substringFilter);
-
-        if (latestSearchKeyRef.current !== searchKey) {
-          console.log("[useOrdersSearch] Discarding stale substring response for:", searchKey);
-          return;
-        }
-        if (subRes.error) {
-          console.error("[useOrdersSearch] Substring query error:", subRes.error);
-          throw subRes.error;
-        }
-        flatOrders = subRes.data || [];
-      }
-
-      if (!flatOrders || flatOrders.length === 0) {
-        console.log("[useOrdersSearch] No results");
-        queryClient.setQueryData(newQueryKey, []);
-        return;
-      }
-
-      // === STAGE 2: Batch fetch relations ===
-      const orderIds = flatOrders.map(o => o.id);
-      const [pickupDropsRes, orderFilesRes, transfersRes, recoveryRes] = await Promise.all([
-        supabase.from("pickup_drops").select("*").in("order_id", orderIds),
-        supabase.from("order_files").select("id, file_category, file_name, file_path, order_id").in("order_id", orderIds),
-        supabase.from("order_transfers").select("*").in("order_id", orderIds),
-        supabase.from("recovery_history").select("*").in("order_id", orderIds),
-      ]);
-
-      // Build lookup maps
-      const groupByOrderId = (rows: any[]) => {
-        const map = new Map<string, any[]>();
-        for (const r of rows) {
-          const arr = map.get(r.order_id) || [];
-          arr.push(r);
-          map.set(r.order_id, arr);
-        }
-        return map;
-      };
-
-      const pickupDropsMap = groupByOrderId(pickupDropsRes.data || []);
-      const orderFilesMap = groupByOrderId(orderFilesRes.data || []);
-      const transfersMap = groupByOrderId(transfersRes.data || []);
-      const recoveryMap = groupByOrderId(recoveryRes.data || []);
-
-      // === STAGE 3: Batch fetch entities ===
-      const truckIds = collectIds(flatOrders, "truck_id", "original_truck_id");
-      const driverIds = collectIds(flatOrders, "driver1_id", "driver2_id", "original_driver1_id", "original_driver2_id");
-      const brokerIds = collectIds(flatOrders, "broker_id");
-      const companyIds = collectIds(flatOrders, "company_id", "booked_by_company_id");
-      const trailerIds = collectIds(flatOrders, "trailer_id", "original_trailer_id");
-
-      // Also collect entity IDs from transfers and recoveries
-      for (const transfers of transfersMap.values()) {
-        for (const t of transfers) {
-          if (t.driver1_id) driverIds.push(t.driver1_id);
-          if (t.driver2_id) driverIds.push(t.driver2_id);
-          if (t.truck_id) truckIds.push(t.truck_id);
-          if (t.trailer_id) trailerIds.push(t.trailer_id);
-        }
-      }
-      for (const recs of recoveryMap.values()) {
-        for (const r of recs) {
-          if (r.recovery_driver1_id) driverIds.push(r.recovery_driver1_id);
-          if (r.recovery_driver2_id) driverIds.push(r.recovery_driver2_id);
-          if (r.recovery_truck_id) truckIds.push(r.recovery_truck_id);
-          if (r.recovery_trailer_id) trailerIds.push(r.recovery_trailer_id);
-        }
-      }
-
-      const [trucksMap, driversMap, brokersMap, companiesMap, trailersMap] = await Promise.all([
-        batchFetchMap("trucks", [...new Set(truckIds)], "id, truck_number, company_id"),
-        batchFetchMap("drivers", [...new Set(driverIds)], "id, name, company_id"),
-        batchFetchMap("brokers", [...new Set(brokerIds)], "id, name, mc_number, address"),
-        batchFetchMap("companies", [...new Set(companyIds)], "id, name"),
-        batchFetchMap("trailers", [...new Set(trailerIds)], "id, trailer_number"),
-      ]);
-
-      // Fetch extra companies for truck/driver enrichment
-      const extraCompanyIds = new Set<string>();
-      for (const t of trucksMap.values()) { if (t.company_id && !companiesMap.has(t.company_id)) extraCompanyIds.add(t.company_id); }
-      for (const d of driversMap.values()) { if (d.company_id && !companiesMap.has(d.company_id)) extraCompanyIds.add(d.company_id); }
-      if (extraCompanyIds.size > 0) {
-        const extra = await batchFetchMap("companies", Array.from(extraCompanyIds), "id, name");
-        extra.forEach((v, k) => companiesMap.set(k, v));
-      }
-
-      // Enrich trucks and drivers with company
-      for (const t of trucksMap.values()) { t.company = companiesMap.get(t.company_id) || null; }
-      for (const d of driversMap.values()) { d.company = companiesMap.get(d.company_id) || null; }
-
-      // Enrich transfers
-      for (const transfers of transfersMap.values()) {
-        for (const t of transfers) {
-          t.driver1 = driversMap.get(t.driver1_id) || null;
-          t.driver2 = driversMap.get(t.driver2_id) || null;
-          t.truck = trucksMap.get(t.truck_id) || null;
-          t.trailer = trailersMap.get(t.trailer_id) || null;
-        }
-      }
-
-      // Enrich recovery_history
-      for (const recs of recoveryMap.values()) {
-        for (const r of recs) {
-          r.recovery_driver1 = driversMap.get(r.recovery_driver1_id) || null;
-          r.recovery_driver2 = driversMap.get(r.recovery_driver2_id) || null;
-          r.recovery_truck = trucksMap.get(r.recovery_truck_id) || null;
-          r.recovery_trailer = trailersMap.get(r.recovery_trailer_id) || null;
-        }
-      }
-
-      // Assemble full orders
-      const assembledOrders = flatOrders.map(order => ({
-        ...order,
-        pickup_drops: pickupDropsMap.get(order.id) || [],
-        order_files: orderFilesMap.get(order.id) || [],
-        order_transfers: transfersMap.get(order.id) || [],
-        recovery_history: recoveryMap.get(order.id) || [],
-        broker: brokersMap.get(order.broker_id) || null,
-        company: companiesMap.get(order.company_id) || null,
-        booked_by_company: companiesMap.get(order.booked_by_company_id) || null,
-        truck: trucksMap.get(order.truck_id) || null,
-        trailer: trailersMap.get(order.trailer_id) || null,
-        driver1: driversMap.get(order.driver1_id) || null,
-        driver2: driversMap.get(order.driver2_id) || null,
-        original_driver1: driversMap.get(order.original_driver1_id) || null,
-        original_driver2: driversMap.get(order.original_driver2_id) || null,
-        original_truck: trucksMap.get(order.original_truck_id) || null,
-        original_trailer: trailersMap.get(order.original_trailer_id) || null,
-      }));
-
-      console.log("[useOrdersSearch] Results count:", assembledOrders.length);
-
-      const transformed = transformOrders(assembledOrders);
+      const transformed = transformOrders(rows);
       queryClient.setQueryData(newQueryKey, transformed);
     } catch (err: any) {
       if (latestSearchKeyRef.current === searchKey) {
