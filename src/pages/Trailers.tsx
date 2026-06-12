@@ -621,6 +621,15 @@ const Trailers = () => {
                 />
               </div>
 
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="vented"
+                  checked={formData.vented}
+                  onCheckedChange={(checked) => setFormData({ ...formData, vented: checked === true })}
+                />
+                <Label htmlFor="vented" className="cursor-pointer">Vented</Label>
+              </div>
+
             <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
