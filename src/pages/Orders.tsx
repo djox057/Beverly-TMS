@@ -1544,19 +1544,24 @@ const Orders = () => {
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                       )}
                       <Input
-                        placeholder="Search all loads..."
-                        className="pl-10 w-full"
+                        placeholder="Search by load number..."
+                        className={cn(
+                          "pl-10 w-full",
+                          !isSearching &&
+                            searchTerm.trim().length >= 3 &&
+                            (searchResults?.length ?? 0) === 0 &&
+                            "border-red-400"
+                        )}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            const term = searchTerm.trim();
-                            if (term.length >= 2) {
-                              searchOrders(term, orderFilterOptions);
-                            }
-                          }
-                        }}
                       />
+                      {!isSearching &&
+                        searchTerm.trim().length >= 3 &&
+                        (searchResults?.length ?? 0) === 0 && (
+                          <p className="absolute -bottom-5 left-0 text-xs text-red-500">
+                            Load not found
+                          </p>
+                        )}
                     </div>
                   </div>
 
