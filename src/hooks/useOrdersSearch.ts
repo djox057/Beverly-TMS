@@ -132,7 +132,7 @@ export function useOrdersSearch() {
           .select(ORDER_COLUMNS)
           .or(filterExpr)
           .order("created_at", { ascending: false })
-          .limit(100);
+          .limit(50);
 
         if (options?.dispatcherUserId) {
           if (options?.bookedBy && dispatcherDriverIds.length > 0) {
@@ -179,7 +179,11 @@ export function useOrdersSearch() {
       let flatOrders = exactRes.data || [];
 
       // Pass 2: substring fallback only when exact returned nothing.
-      if (flatOrders.length === 0) {
+      // Skip substring scan for short or purely-numeric terms — the exact/prefix
+      // path already covers those and the wildcard scan is the slowest case.
+      const isNumeric = /^\d+$/.test(term);
+      const shouldRunSubstring = flatOrders.length === 0 && term.length >= 3 && !isNumeric;
+      if (shouldRunSubstring) {
         const substringFilter =
           `broker_load_number.ilike.%${term}%,internal_load_number.ilike.%${term}%`;
         const subRes = await runScopedQuery(substringFilter);
