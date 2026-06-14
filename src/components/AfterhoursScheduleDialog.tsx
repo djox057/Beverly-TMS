@@ -164,14 +164,28 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         if (userIds.length > 0) {
           const [profilesRes, roleRes] = await Promise.all([
             supabase.from("profiles").select("user_id, email, full_name, office").in("user_id", userIds),
-            supabase.from("user_roles").select("user_id").in("user_id", userIds).in("role", ["maintenance", "afterhours"]),
+            supabase.from("user_roles").select("user_id, role").in("user_id", userIds).in("role", ["maintenance", "afterhours"]),
           ]);
 
           if (profilesRes.error) console.error("Error fetching schedule profiles:", profilesRes.error);
           if (roleRes.error) console.error("Error fetching schedule roles:", roleRes.error);
 
           (profilesRes.data || []).forEach((p) => profilesMap.set(p.user_id, p));
-          maintenanceUserIds = new Set((roleRes.data || []).map((r) => r.user_id));
+          // Maintenance = role 'maintenance', OR role 'afterhours' with no office.
+          // Office-bearing afterhours users are dispatchers temporarily flipped
+          // by the daily role-switcher and must stay in their office bucket.
+          const rolesByUser = new Map<string, Set<string>>();
+          (roleRes.data || []).forEach((r: any) => {
+            if (!rolesByUser.has(r.user_id)) rolesByUser.set(r.user_id, new Set());
+            rolesByUser.get(r.user_id)!.add(r.role);
+          });
+          maintenanceUserIds = new Set<string>();
+          for (const [uid, roles] of rolesByUser) {
+            const office = profilesMap.get(uid)?.office ?? null;
+            if (roles.has("maintenance") || (roles.has("afterhours") && !office)) {
+              maintenanceUserIds.add(uid);
+            }
+          }
         }
 
         const schedulesWithUsers = validData
