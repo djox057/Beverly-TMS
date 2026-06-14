@@ -97,9 +97,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
       if (roleData && roleData.length > 0) {
         const userIds = [...new Set(roleData.map((r) => r.user_id))];
-        const maintenanceUserIds = new Set(
-          roleData.filter((r) => r.role === "maintenance" || r.role === "afterhours").map((r) => r.user_id),
-        );
 
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
@@ -107,6 +104,26 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           .in("user_id", userIds);
 
         if (profileError) throw profileError;
+
+        // A user is "Maintenance" when they hold the maintenance role, OR
+        // they hold the afterhours role AND have no office set. Dispatchers
+        // get flipped to the afterhours role daily by the role-switcher but
+        // keep their office (Čačak/BG/KG) — they must stay in their own
+        // office bucket, not get swept into Maintenance.
+        const rolesByUser = new Map<string, Set<string>>();
+        roleData.forEach((r) => {
+          if (!rolesByUser.has(r.user_id)) rolesByUser.set(r.user_id, new Set());
+          rolesByUser.get(r.user_id)!.add(r.role);
+        });
+        const officeByUser = new Map<string, string | null>();
+        (profileData || []).forEach((p) => officeByUser.set(p.user_id, p.office ?? null));
+        const maintenanceUserIds = new Set<string>();
+        for (const [uid, roles] of rolesByUser) {
+          const office = officeByUser.get(uid);
+          if (roles.has("maintenance") || (roles.has("afterhours") && !office)) {
+            maintenanceUserIds.add(uid);
+          }
+        }
 
         setScheduleUsers(
           profileData?.map((p) => ({
