@@ -135,8 +135,44 @@ serve(async (req) => {
         const fromRole = action === 'start' ? 'dispatch' : 'afterhours';
         const toRole = action === 'start' ? 'afterhours' : 'dispatch';
 
+        // Exclude true maintenance users (role=afterhours with no office on profile).
+        // They are bucketed as "Maintenance" in the weekend schedule and must keep
+        // their afterhours role permanently — never flip to dispatch.
+        const userIds = scheduledUsers
+          .map((s) => s.user_id)
+          .filter((id): id is string => !!id);
+
+        const { data: profilesData, error: profilesErr } = await supabaseAdmin
+          .from('profiles')
+          .select('id, office')
+          .in('id', userIds);
+        if (profilesErr) throw profilesErr;
+
+        const { data: rolesData, error: rolesErr } = await supabaseAdmin
+          .from('user_roles')
+          .select('user_id, role')
+          .in('user_id', userIds);
+        if (rolesErr) throw rolesErr;
+
+        const officeByUser = new Map<string, string | null>();
+        (profilesData || []).forEach((p: any) => officeByUser.set(p.id, p.office ?? null));
+        const rolesByUser = new Map<string, Set<string>>();
+        (rolesData || []).forEach((r: any) => {
+          if (!rolesByUser.has(r.user_id)) rolesByUser.set(r.user_id, new Set());
+          rolesByUser.get(r.user_id)!.add(r.role);
+        });
+
         for (const { user_id } of scheduledUsers) {
           if (!user_id) continue;
+          const roles = rolesByUser.get(user_id) ?? new Set<string>();
+          const office = officeByUser.get(user_id);
+          const isMaintenance =
+            roles.has('maintenance') ||
+            (roles.has('afterhours') && !office);
+          if (isMaintenance) {
+            console.log(`[${invocationId}] User ${user_id}: maintenance bucket, skipping role flip`);
+            continue;
+          }
           const { error: updateErr, count } = await supabaseAdmin
             .from('user_roles')
             .update({ role: toRole }, { count: 'exact' })
