@@ -299,31 +299,21 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChan
               <div><span className="text-muted-foreground">Driver Pay:</span> ${driverPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </div>
 
-            {existingCharges.length > 0 && (
-              <div className="rounded-md border p-3 text-sm space-y-2">
-                <div className="text-xs font-medium text-muted-foreground uppercase">Existing charges on this load</div>
-                {existingCharges.map((c, i) => (
-                  <div key={i} className={`flex items-center justify-between gap-2 rounded border p-2 ${editingIdx === i ? "bg-primary/5 border-primary/30" : ""}`}>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium">
-                        ${Number(c.amount || 0).toFixed(2)}
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {c.source === "comm_annulment" ? "Comm. Annulment" : `${c.order_percent ?? 0}%`}
-                        </span>
-                      </div>
-                      {c.reason && <div className="text-xs text-muted-foreground truncate">{c.reason}</div>}
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => handleEditExisting(i)} disabled={saving}>Edit</Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleDeleteExisting(i)} disabled={saving}>Remove</Button>
-                    </div>
-                  </div>
-                ))}
+            {editingIdx !== null && existingCharges[editingIdx] && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                <div className="text-xs font-medium text-destructive uppercase">Editing existing charge</div>
+                <div className="mt-1 font-medium">
+                  Current: ${Number(existingCharges[editingIdx].amount || 0).toFixed(2)}
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {existingCharges[editingIdx].source === "comm_annulment"
+                      ? "Comm. Annulment"
+                      : `${existingCharges[editingIdx].order_percent ?? 0}%`}
+                  </span>
+                </div>
+                {existingCharges[editingIdx].reason && (
+                  <div className="text-xs text-muted-foreground">{existingCharges[editingIdx].reason}</div>
+                )}
               </div>
-            )}
-
-            {editingIdx !== null && (
-              <div className="text-xs text-primary">Editing existing charge — Save to apply changes, or <button type="button" className="underline" onClick={resetForm}>cancel</button>.</div>
             )}
 
             <div className="space-y-2">
