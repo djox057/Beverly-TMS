@@ -4286,11 +4286,12 @@ const Analytics = () => {
                             }
 
                             // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
-                            const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
+                            const { grossPct: rGross, cutPct: rCut } = getDispatcherRates(stat.userId, stat.name);
+                            const baseRate = stat.totalFreight * rGross + stat.cut * rCut;
                             // Recovery bonus: same formula applied to recovery-driver loads only.
                             // Shown as a separate sub-row below the dispatcher and added into fullTotal.
                             const recoveryBonus =
-                              (stat.recoveryFreight || 0) * 0.01 + (stat.recoveryCut || 0) * 0.05;
+                              (stat.recoveryFreight || 0) * rGross + (stat.recoveryCut || 0) * rCut;
 
                             // Carry-over adjustment: if prev month's salary column changed after being paid
                             // calculated_salary = base rate stored at time of payment
