@@ -3402,9 +3402,11 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          cut_percent: number | null
           email: string
           ext: string | null
           full_name: string | null
+          gross_percent: number | null
           id: string
           individual_mode: boolean | null
           office: Database["public"]["Enums"]["office_location"] | null
@@ -3415,9 +3417,11 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          cut_percent?: number | null
           email: string
           ext?: string | null
           full_name?: string | null
+          gross_percent?: number | null
           id?: string
           individual_mode?: boolean | null
           office?: Database["public"]["Enums"]["office_location"] | null
@@ -3428,9 +3432,11 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          cut_percent?: number | null
           email?: string
           ext?: string | null
           full_name?: string | null
+          gross_percent?: number | null
           id?: string
           individual_mode?: boolean | null
           office?: Database["public"]["Enums"]["office_location"] | null
