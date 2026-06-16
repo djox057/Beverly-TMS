@@ -639,6 +639,19 @@ const Analytics = () => {
     fetchProfiles();
   }, [profile, hasRole]);
 
+  // Resolve per-dispatcher salary rates (defaults: 1% gross, 5% cut)
+  const getDispatcherRates = useCallback(
+    (userId?: string | null, name?: string | null) => {
+      const p =
+        (userId ? dispatcherProfiles[userId] : null) ||
+        (name ? dispatcherProfiles[name] : null);
+      const grossPct = p?.gross_percent != null ? Number(p.gross_percent) / 100 : 0.01;
+      const cutPct = p?.cut_percent != null ? Number(p.cut_percent) / 100 : 0.05;
+      return { grossPct, cutPct };
+    },
+    [dispatcherProfiles],
+  );
+
   // Fetch dispatcher driver counts for the selected date range
   // Uses pagination to bypass Supabase's 1000 row limit
   useEffect(() => {
