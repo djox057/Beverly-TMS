@@ -5265,6 +5265,7 @@ const EditOrder = () => {
         open={salaryChargeOpen}
         onOpenChange={setSalaryChargeOpen}
         orderId={id || null}
+        onChanged={() => setSalaryChargeRefresh((n) => n + 1)}
       />
     </div>
   );
