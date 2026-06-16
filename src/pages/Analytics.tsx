@@ -2522,12 +2522,14 @@ const Analytics = () => {
         const comparison = a.name.localeCompare(b.name);
         return salarySortDir === "asc" ? comparison : -comparison;
       } else {
-        const salaryA = a.totalFreight * 0.01 + a.cut * 0.05;
-        const salaryB = b.totalFreight * 0.01 + b.cut * 0.05;
+        const ra = getDispatcherRates(a.userId, a.name);
+        const rb = getDispatcherRates(b.userId, b.name);
+        const salaryA = a.totalFreight * ra.grossPct + a.cut * ra.cutPct;
+        const salaryB = b.totalFreight * rb.grossPct + b.cut * rb.cutPct;
         return salarySortDir === "desc" ? salaryB - salaryA : salaryA - salaryB;
       }
     });
-  }, [dispatcherStats, salarySortBy, salarySortDir, deletedDispatcherLastPaidMonth, selectedMonth, orders]);
+  }, [dispatcherStats, salarySortBy, salarySortDir, deletedDispatcherLastPaidMonth, selectedMonth, orders, getDispatcherRates]);
 
   // Handle sorting for Driver Gross Rankings
   const handleGrossRankingsSort = (column: typeof grossRankingsSortBy) => {
