@@ -279,9 +279,11 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChan
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Salary Charge</DialogTitle>
+          <DialogTitle>{editingIdx !== null ? "Edit Salary Charge" : "Add Salary Charge"}</DialogTitle>
           <DialogDescription>
-            Create a charge on the booker's monthly salary based on this load.
+            {editingIdx !== null
+              ? "This load already has a salary charge. Update it below or remove it."
+              : "Create a charge on the booker's monthly salary based on this load."}
           </DialogDescription>
         </DialogHeader>
 
