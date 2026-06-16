@@ -12,6 +12,7 @@ interface AddOrderSalaryChargeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orderId: string | null;
+  onChanged?: () => void;
 }
 
 interface OrderData {
