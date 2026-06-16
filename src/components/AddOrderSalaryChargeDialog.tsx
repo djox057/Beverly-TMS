@@ -52,13 +52,27 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
   const [percent, setPercent] = useState<string>("50");
   const [reason, setReason] = useState<string>("");
   const [commAnnulment, setCommAnnulment] = useState(false);
+  const [salaryRowId, setSalaryRowId] = useState<string | null>(null);
+  const [salaryUserId, setSalaryUserId] = useState<string | null>(null);
+  const [existingCharges, setExistingCharges] = useState<any[]>([]);
+  const [allAdditionals, setAllAdditionals] = useState<any[]>([]);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+
+  const resetForm = () => {
+    setPercent("50");
+    setReason("");
+    setCommAnnulment(false);
+    setEditingIdx(null);
+  };
 
   useEffect(() => {
     if (!open || !orderId) {
       setOrder(null);
-      setPercent("50");
-      setReason("");
-      setCommAnnulment(false);
+      resetForm();
+      setSalaryRowId(null);
+      setSalaryUserId(null);
+      setExistingCharges([]);
+      setAllAdditionals([]);
       return;
     }
     let cancelled = false;
@@ -70,12 +84,46 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
         .eq("id", orderId)
         .maybeSingle();
       if (cancelled) return;
-      setLoading(false);
       if (error) {
+        setLoading(false);
         toast.error("Failed to load order");
         return;
       }
-      setOrder(data as OrderData);
+      const ord = data as OrderData;
+      setOrder(ord);
+
+      // Resolve booker → user_id and load existing salary row + charges for this order
+      if (ord?.booked_by && ord?.delivery_datetime) {
+        const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        let uid: string | null = null;
+        if (uuidRe.test(ord.booked_by)) {
+          const { data: p } = await supabase
+            .from("profiles").select("user_id").eq("user_id", ord.booked_by).maybeSingle();
+          uid = (p as any)?.user_id || null;
+        }
+        if (!uid) {
+          const { data: p2 } = await supabase
+            .from("profiles").select("user_id").eq("full_name", ord.booked_by).maybeSingle();
+          uid = (p2 as any)?.user_id || null;
+        }
+        if (uid) {
+          const monthStr = formatChicagoMonth(ord.delivery_datetime);
+          const { data: row } = await supabase
+            .from("dispatcher_salary_payments" as any)
+            .select("id, additionals")
+            .eq("user_id", uid)
+            .eq("month", monthStr)
+            .maybeSingle();
+          if (!cancelled) {
+            setSalaryUserId(uid);
+            setSalaryRowId((row as any)?.id || null);
+            const adds = Array.isArray((row as any)?.additionals) ? ((row as any).additionals as any[]) : [];
+            setAllAdditionals(adds);
+            setExistingCharges(adds.filter((a) => a?.order_id === ord.id));
+          }
+        }
+      }
+      if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -108,24 +156,19 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
     if (!order || !order.booked_by || !order.delivery_datetime) return;
     setSaving(true);
     try {
-      // Resolve booked_by → user_id via profiles.full_name (or by user_id if it's already a UUID)
-      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      let userId: string | null = null;
-      if (uuidRe.test(order.booked_by)) {
-        const { data: p } = await supabase
-          .from("profiles")
-          .select("user_id, full_name")
-          .eq("user_id", order.booked_by)
-          .maybeSingle();
-        userId = (p as any)?.user_id || null;
-      }
+      let userId = salaryUserId;
       if (!userId) {
-        const { data: p2 } = await supabase
-          .from("profiles")
-          .select("user_id")
-          .eq("full_name", order.booked_by)
-          .maybeSingle();
-        userId = (p2 as any)?.user_id || null;
+        const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRe.test(order.booked_by)) {
+          const { data: p } = await supabase
+            .from("profiles").select("user_id").eq("user_id", order.booked_by).maybeSingle();
+          userId = (p as any)?.user_id || null;
+        }
+        if (!userId) {
+          const { data: p2 } = await supabase
+            .from("profiles").select("user_id").eq("full_name", order.booked_by).maybeSingle();
+          userId = (p2 as any)?.user_id || null;
+        }
       }
       if (!userId) {
         toast.error(`Could not resolve "${order.booked_by}" to a user`);
@@ -135,49 +178,85 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
 
       const monthStr = formatChicagoMonth(order.delivery_datetime);
 
-      // Read existing salary row
-      const { data: existing } = await supabase
-        .from("dispatcher_salary_payments" as any)
-        .select("id, additionals")
-        .eq("user_id", userId)
-        .eq("month", monthStr)
-        .maybeSingle();
-
-      const newEntry = {
+      const editingEntry = editingIdx !== null ? existingCharges[editingIdx] : null;
+      const entry = {
         type: "charge" as const,
         amount: Number(computedAmount.toFixed(2)),
         reason: reason.trim(),
         order_id: order.id,
         order_percent: commAnnulment ? 0 : pct,
         source: commAnnulment ? "comm_annulment" : "order_charge",
-        created_at: new Date().toISOString(),
+        created_at: editingEntry?.created_at || new Date().toISOString(),
+        ...(editingEntry ? { updated_at: new Date().toISOString() } : {}),
       };
 
-      if (existing) {
-        const current = Array.isArray((existing as any).additionals) ? ((existing as any).additionals as any[]) : [];
-        const updated = [...current, newEntry];
+      let updated: any[];
+      if (editingEntry) {
+        updated = allAdditionals.map((a) => (a === editingEntry ? entry : a));
+      } else {
+        updated = [...allAdditionals, entry];
+      }
+
+      if (salaryRowId) {
         const { error: upErr } = await supabase
           .from("dispatcher_salary_payments" as any)
           .update({ additionals: updated })
-          .eq("id", (existing as any).id);
+          .eq("id", salaryRowId);
         if (upErr) throw upErr;
       } else {
-        const { error: insErr } = await supabase
+        const { data: ins, error: insErr } = await supabase
           .from("dispatcher_salary_payments" as any)
-          .insert({
-            user_id: userId,
-            month: monthStr,
-            paid_amount: 0,
-            additionals: [newEntry],
-          });
+          .insert({ user_id: userId, month: monthStr, paid_amount: 0, additionals: updated })
+          .select("id")
+          .maybeSingle();
         if (insErr) throw insErr;
+        setSalaryRowId((ins as any)?.id || null);
+        setSalaryUserId(userId);
       }
 
-      toast.success(`Charge of $${computedAmount.toFixed(2)} added to ${order.booked_by} for ${monthStr}`);
-      onOpenChange(false);
+      setAllAdditionals(updated);
+      setExistingCharges(updated.filter((a) => a?.order_id === order.id));
+      resetForm();
+      toast.success(
+        editingEntry
+          ? `Charge updated ($${computedAmount.toFixed(2)})`
+          : `Charge of $${computedAmount.toFixed(2)} added to ${order.booked_by} for ${monthStr}`
+      );
     } catch (err: any) {
       console.error("Add salary charge failed", err);
       toast.error(err?.message || "Failed to add charge");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditExisting = (idx: number) => {
+    const e = existingCharges[idx];
+    if (!e) return;
+    setEditingIdx(idx);
+    setReason(e.reason || "");
+    setCommAnnulment(e.source === "comm_annulment");
+    setPercent(String(e.order_percent ?? 50));
+  };
+
+  const handleDeleteExisting = async (idx: number) => {
+    const e = existingCharges[idx];
+    if (!e || !salaryRowId) return;
+    if (!confirm("Remove this charge?")) return;
+    setSaving(true);
+    try {
+      const updated = allAdditionals.filter((a) => a !== e);
+      const { error } = await supabase
+        .from("dispatcher_salary_payments" as any)
+        .update({ additionals: updated })
+        .eq("id", salaryRowId);
+      if (error) throw error;
+      setAllAdditionals(updated);
+      setExistingCharges(updated.filter((a) => a?.order_id === order?.id));
+      if (editingIdx === idx) resetForm();
+      toast.success("Charge removed");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to remove charge");
     } finally {
       setSaving(false);
     }
@@ -204,6 +283,33 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
               <div><span className="text-muted-foreground">Freight:</span> ${freight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               <div><span className="text-muted-foreground">Driver Pay:</span> ${driverPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </div>
+
+            {existingCharges.length > 0 && (
+              <div className="rounded-md border p-3 text-sm space-y-2">
+                <div className="text-xs font-medium text-muted-foreground uppercase">Existing charges on this load</div>
+                {existingCharges.map((c, i) => (
+                  <div key={i} className={`flex items-center justify-between gap-2 rounded border p-2 ${editingIdx === i ? "bg-primary/5 border-primary/30" : ""}`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">
+                        ${Number(c.amount || 0).toFixed(2)}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {c.source === "comm_annulment" ? "Comm. Annulment" : `${c.order_percent ?? 0}%`}
+                        </span>
+                      </div>
+                      {c.reason && <div className="text-xs text-muted-foreground truncate">{c.reason}</div>}
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button size="sm" variant="outline" onClick={() => handleEditExisting(i)} disabled={saving}>Edit</Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDeleteExisting(i)} disabled={saving}>Remove</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {editingIdx !== null && (
+              <div className="text-xs text-primary">Editing existing charge — Save to apply changes, or <button type="button" className="underline" onClick={resetForm}>cancel</button>.</div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="charge-percent">Percentage (0–100)</Label>
@@ -289,10 +395,10 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
+            Close
           </Button>
           <Button onClick={handleSave} disabled={!canSave}>
-            {saving ? "Saving…" : "Add Charge"}
+            {saving ? "Saving…" : editingIdx !== null ? "Save Changes" : "Add Charge"}
           </Button>
         </DialogFooter>
       </DialogContent>
