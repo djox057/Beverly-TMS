@@ -120,7 +120,16 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChan
             setSalaryRowId((row as any)?.id || null);
             const adds = Array.isArray((row as any)?.additionals) ? ((row as any).additionals as any[]) : [];
             setAllAdditionals(adds);
-            setExistingCharges(adds.filter((a) => a?.order_id === ord.id));
+            const existing = adds.filter((a) => a?.order_id === ord.id);
+            setExistingCharges(existing);
+            // Only one charge is allowed per load — auto-enter edit mode for it.
+            if (existing.length > 0) {
+              const e = existing[0];
+              setEditingIdx(0);
+              setReason(e.reason || "");
+              setCommAnnulment(e.source === "comm_annulment");
+              setPercent(String(e.order_percent ?? 50));
+            }
           }
         }
       }
