@@ -402,6 +402,11 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChan
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Close
           </Button>
+          {editingIdx !== null && (
+            <Button variant="destructive" onClick={() => handleDeleteExisting(editingIdx)} disabled={saving}>
+              Remove Charge
+            </Button>
+          )}
           <Button onClick={handleSave} disabled={!canSave}>
             {saving ? "Saving…" : editingIdx !== null ? "Save Changes" : "Add Charge"}
           </Button>
