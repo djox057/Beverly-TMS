@@ -39,6 +39,8 @@ interface User {
   created_at: string;
   daily_report_can_view: boolean;
   daily_report_can_edit: boolean;
+  gross_percent: number | null;
+  cut_percent: number | null;
 }
 
 const AdminUsers = () => {
@@ -59,6 +61,8 @@ const AdminUsers = () => {
   const [editExt, setEditExt] = useState('');
   const [editDailyView, setEditDailyView] = useState(false);
   const [editDailyEdit, setEditDailyEdit] = useState(false);
+  const [editGrossPercent, setEditGrossPercent] = useState<string>('');
+  const [editCutPercent, setEditCutPercent] = useState<string>('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [showLogoutAllDialog, setShowLogoutAllDialog] = useState(false);
@@ -76,6 +80,8 @@ const AdminUsers = () => {
   const [office, setOffice] = useState<OfficeLocation>(null);
   const [ext, setExt] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [grossPercent, setGrossPercent] = useState<string>('1');
+  const [cutPercent, setCutPercent] = useState<string>('5');
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
   const filteredUsers = useMemo(() => {
@@ -168,6 +174,8 @@ const AdminUsers = () => {
           roles: userRoles,
           daily_report_can_view: isAdmin ? true : !!perm?.can_view,
           daily_report_can_edit: isAdmin ? true : !!perm?.can_edit,
+          gross_percent: (profile as any).gross_percent ?? null,
+          cut_percent: (profile as any).cut_percent ?? null,
         };
       });
 
