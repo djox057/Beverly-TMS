@@ -26,7 +26,7 @@ import { useDrivers } from "@/hooks/useDrivers";
 import { useAllDriverDebts } from "@/hooks/useAllDriverDebts";
 import { useDriverPerformance } from "@/hooks/useDriverPerformance";
 import { useDailyDriverStatsByDispatcher } from "@/hooks/useDailyDriverStats";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
@@ -188,6 +188,8 @@ const Analytics = () => {
         roles: string[];
         user_id: string;
         created_at?: string | null;
+        gross_percent?: number | null;
+        cut_percent?: number | null;
       }
     >
   >({});
@@ -506,7 +508,9 @@ const Analytics = () => {
   // Fetch all profiles to get office locations and roles indexed by full_name AND user_id
   useEffect(() => {
     const fetchProfiles = async () => {
-      const { data: profiles } = await supabase.from("profiles").select("email, full_name, office, user_id, created_at");
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("email, full_name, office, user_id, created_at, gross_percent, cut_percent");
 
       // Also fetch all unique booked_by values from orders to include deleted users
       const { data: ordersData } = await supabase.from("orders").select("booked_by").not("booked_by", "is", null);
@@ -546,6 +550,8 @@ const Analytics = () => {
                 roles: rolesMap[p.user_id] || [],
                 user_id: p.user_id,
                 created_at: (p as any).created_at ?? null,
+                gross_percent: (p as any).gross_percent ?? null,
+                cut_percent: (p as any).cut_percent ?? null,
               };
             }
             if (p.user_id) {
@@ -555,6 +561,8 @@ const Analytics = () => {
                 roles: rolesMap[p.user_id] || [],
                 user_id: p.user_id,
                 created_at: (p as any).created_at ?? null,
+                gross_percent: (p as any).gross_percent ?? null,
+                cut_percent: (p as any).cut_percent ?? null,
               };
             }
             return acc;
@@ -567,6 +575,8 @@ const Analytics = () => {
               roles: string[];
               user_id: string;
               created_at?: string | null;
+              gross_percent?: number | null;
+              cut_percent?: number | null;
             }
           >,
         );
@@ -628,6 +638,19 @@ const Analytics = () => {
     };
     fetchProfiles();
   }, [profile, hasRole]);
+
+  // Resolve per-dispatcher salary rates (defaults: 1% gross, 5% cut)
+  const getDispatcherRates = useCallback(
+    (userId?: string | null, name?: string | null) => {
+      const p =
+        (userId ? dispatcherProfiles[userId] : null) ||
+        (name ? dispatcherProfiles[name] : null);
+      const grossPct = p?.gross_percent != null ? Number(p.gross_percent) / 100 : 0.01;
+      const cutPct = p?.cut_percent != null ? Number(p.cut_percent) / 100 : 0.05;
+      return { grossPct, cutPct };
+    },
+    [dispatcherProfiles],
+  );
 
   // Fetch dispatcher driver counts for the selected date range
   // Uses pagination to bypass Supabase's 1000 row limit
@@ -2499,12 +2522,14 @@ const Analytics = () => {
         const comparison = a.name.localeCompare(b.name);
         return salarySortDir === "asc" ? comparison : -comparison;
       } else {
-        const salaryA = a.totalFreight * 0.01 + a.cut * 0.05;
-        const salaryB = b.totalFreight * 0.01 + b.cut * 0.05;
+        const ra = getDispatcherRates(a.userId, a.name);
+        const rb = getDispatcherRates(b.userId, b.name);
+        const salaryA = a.totalFreight * ra.grossPct + a.cut * ra.cutPct;
+        const salaryB = b.totalFreight * rb.grossPct + b.cut * rb.cutPct;
         return salarySortDir === "desc" ? salaryB - salaryA : salaryA - salaryB;
       }
     });
-  }, [dispatcherStats, salarySortBy, salarySortDir, deletedDispatcherLastPaidMonth, selectedMonth, orders]);
+  }, [dispatcherStats, salarySortBy, salarySortDir, deletedDispatcherLastPaidMonth, selectedMonth, orders, getDispatcherRates]);
 
   // Handle sorting for Driver Gross Rankings
   const handleGrossRankingsSort = (column: typeof grossRankingsSortBy) => {
@@ -4261,11 +4286,12 @@ const Analytics = () => {
                             }
 
                             // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
-                            const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
+                            const { grossPct: rGross, cutPct: rCut } = getDispatcherRates(stat.userId, stat.name);
+                            const baseRate = stat.totalFreight * rGross + stat.cut * rCut;
                             // Recovery bonus: same formula applied to recovery-driver loads only.
                             // Shown as a separate sub-row below the dispatcher and added into fullTotal.
                             const recoveryBonus =
-                              (stat.recoveryFreight || 0) * 0.01 + (stat.recoveryCut || 0) * 0.05;
+                              (stat.recoveryFreight || 0) * rGross + (stat.recoveryCut || 0) * rCut;
 
                             // Carry-over adjustment: if prev month's salary column changed after being paid
                             // calculated_salary = base rate stored at time of payment
@@ -4405,7 +4431,7 @@ const Analytics = () => {
                                                 // Example (Dec 2025): baseRate $2620.45 / 22 workdays = $119.11 for 1 extra day
                                                 const actualExtraDaysCount = extraDayDates.length;
                                                 const perDayRate =
-                                                  (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
+                                                  (stat.totalFreight * rGross + stat.cut * rCut) / workDaysInMonth;
                                                 const extraDaysAmount =
                                                   actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
 
@@ -4416,8 +4442,8 @@ const Analytics = () => {
                                                   {
                                                     employeeName: stat.name,
                                                     payPeriod,
-                                                    salary1Percent: stat.totalFreight * 0.01,
-                                                    bonus5Percent: stat.cut * 0.05,
+                                                    salary1Percent: stat.totalFreight * rGross,
+                                                    bonus5Percent: stat.cut * rCut,
                                                     recoveryBonus,
                                                     foodAllowance: foodAllowanceAmount,
                                                     extraDays,
@@ -4468,7 +4494,7 @@ const Analytics = () => {
                                                 // Calculate extra days amount
                                                 const actualExtraDaysCount = extraDayDatesForDoc.length;
                                                 const perDayRate =
-                                                  (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
+                                                  (stat.totalFreight * rGross + stat.cut * rCut) / workDaysInMonth;
                                                 const extraDaysAmountForDoc =
                                                   actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
 
@@ -4550,8 +4576,8 @@ const Analytics = () => {
                                                   dispatcherUserId: stat.userId || "",
                                                   recipientEmail,
                                                   payPeriod,
-                                                  salary1Percent: stat.totalFreight * 0.01,
-                                                  bonus5Percent: stat.cut * 0.05,
+                                                  salary1Percent: stat.totalFreight * rGross,
+                                                  bonus5Percent: stat.cut * rCut,
                                                   recoveryBonus,
                                                   foodAllowance: foodAllowanceForPreview,
                                                   extraDays,
@@ -4568,11 +4594,11 @@ const Analytics = () => {
                                                       : undefined,
                                                   futureSalary1Percent:
                                                     isDeletedUserFlag && shouldIncludeFutureMonth
-                                                      ? nextMonthFreight * 0.01
+                                                      ? nextMonthFreight * rGross
                                                       : undefined,
                                                   futureBonus5Percent:
                                                     isDeletedUserFlag && shouldIncludeFutureMonth
-                                                      ? nextMonthCut * 0.05
+                                                      ? nextMonthCut * rCut
                                                       : undefined,
                                                   office: stat.office,
                                                 });
@@ -4617,8 +4643,9 @@ const Analytics = () => {
 
                                                 // Calculate extra days amount
                                                 const actualExtraDaysCount = extraDayDatesForDoc.length;
+                                                const { grossPct: rGross2, cutPct: rCut2 } = getDispatcherRates(stat.userId, stat.name);
                                                 const perDayRate =
-                                                  (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
+                                                  (stat.totalFreight * rGross2 + stat.cut * rCut2) / workDaysInMonth;
                                                 const extraDaysAmountForDoc =
                                                   actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
 
@@ -4698,8 +4725,8 @@ const Analytics = () => {
                                                   dispatcherUserId: stat.userId || "",
                                                   recipientEmail,
                                                   payPeriod,
-                                                  salary1Percent: stat.totalFreight * 0.01,
-                                                  bonus5Percent: stat.cut * 0.05,
+                                                  salary1Percent: stat.totalFreight * rGross2,
+                                                  bonus5Percent: stat.cut * rCut2,
                                                   foodAllowance: foodAllowanceForPreview,
                                                   extraDays,
                                                   lostDays,
@@ -4715,11 +4742,11 @@ const Analytics = () => {
                                                       : undefined,
                                                   futureSalary1Percent:
                                                     isDeletedUserFlag && shouldIncludeFutureMonth
-                                                      ? nextMonthFreight * 0.01
+                                                      ? nextMonthFreight * rGross2
                                                       : undefined,
                                                   futureBonus5Percent:
                                                     isDeletedUserFlag && shouldIncludeFutureMonth
-                                                      ? nextMonthCut * 0.05
+                                                      ? nextMonthCut * rCut2
                                                       : undefined,
                                                   office: stat.office,
                                                 });
@@ -5307,9 +5334,10 @@ const Analytics = () => {
 
                           dispatcherStats.forEach((stat) => {
                             if (stat.userId) {
-                              const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
+                              const { grossPct: bGross, cutPct: bCut } = getDispatcherRates(stat.userId, stat.name);
+                              const baseRate = stat.totalFreight * bGross + stat.cut * bCut;
                               const recoveryBonus =
-                                (stat.recoveryFreight || 0) * 0.01 + (stat.recoveryCut || 0) * 0.05;
+                                (stat.recoveryFreight || 0) * bGross + (stat.recoveryCut || 0) * bCut;
                               const perDayRate = bulkWorkDays > 0 ? baseRate / bulkWorkDays : 0;
                               const extraDays = extraDaysByUser[stat.userId] || 0;
                               const lostDays = lostDaysByUser[stat.userId] || 0;
