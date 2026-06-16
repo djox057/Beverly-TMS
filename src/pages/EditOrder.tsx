@@ -59,6 +59,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { invalidateOrderFilesCacheForOrder } from "@/hooks/useReportsDateWindowAdapter";
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { AddOrderSalaryChargeDialog } from "@/components/AddOrderSalaryChargeDialog";
+import { useOrderHasSalaryCharge } from "@/hooks/useOrderHasSalaryCharge";
 import { parseAddress } from "@/utils/addressParser";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import { WeightBolDialog, getWeightDiscrepancyWarning, SCALE_TICKET_THRESHOLD_LBS } from "@/components/WeightBolDialog";
@@ -123,6 +124,8 @@ const EditOrder = () => {
   const [returnToTrips, setReturnToTrips] = useState(false);
   const [returnToAnalytics, setReturnToAnalytics] = useState(false);
   const [salaryChargeOpen, setSalaryChargeOpen] = useState(false);
+  const [salaryChargeRefresh, setSalaryChargeRefresh] = useState(0);
+  const hasSalaryCharge = useOrderHasSalaryCharge(id || null, salaryChargeRefresh);
 
   // Check on mount if we should return to reports, trips, or analytics
   useEffect(() => {
@@ -4945,10 +4948,10 @@ const EditOrder = () => {
                 {(roles.includes("admin") || roles.includes("manager")) && id && (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant={hasSalaryCharge ? "destructive" : "outline"}
                     onClick={() => setSalaryChargeOpen(true)}
                   >
-                    Add charge
+                    {hasSalaryCharge ? "Edit Charge" : "Add charge"}
                   </Button>
                 )}
                 {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) &&
@@ -5262,6 +5265,7 @@ const EditOrder = () => {
         open={salaryChargeOpen}
         onOpenChange={setSalaryChargeOpen}
         orderId={id || null}
+        onChanged={() => setSalaryChargeRefresh((n) => n + 1)}
       />
     </div>
   );

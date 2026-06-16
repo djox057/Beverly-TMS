@@ -12,6 +12,7 @@ interface AddOrderSalaryChargeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orderId: string | null;
+  onChanged?: () => void;
 }
 
 interface OrderData {
@@ -45,7 +46,7 @@ function formatChicagoDate(iso: string): string {
   });
 }
 
-export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddOrderSalaryChargeDialogProps) {
+export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChanged }: AddOrderSalaryChargeDialogProps) {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -119,7 +120,16 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
             setSalaryRowId((row as any)?.id || null);
             const adds = Array.isArray((row as any)?.additionals) ? ((row as any).additionals as any[]) : [];
             setAllAdditionals(adds);
-            setExistingCharges(adds.filter((a) => a?.order_id === ord.id));
+            const existing = adds.filter((a) => a?.order_id === ord.id);
+            setExistingCharges(existing);
+            // Only one charge is allowed per load — auto-enter edit mode for it.
+            if (existing.length > 0) {
+              const e = existing[0];
+              setEditingIdx(0);
+              setReason(e.reason || "");
+              setCommAnnulment(e.source === "comm_annulment");
+              setPercent(String(e.order_percent ?? 50));
+            }
           }
         }
       }
@@ -216,12 +226,13 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
 
       setAllAdditionals(updated);
       setExistingCharges(updated.filter((a) => a?.order_id === order.id));
-      resetForm();
+      onChanged?.();
       toast.success(
         editingEntry
           ? `Charge updated ($${computedAmount.toFixed(2)})`
           : `Charge of $${computedAmount.toFixed(2)} added to ${order.booked_by} for ${monthStr}`
       );
+      onOpenChange(false);
     } catch (err: any) {
       console.error("Add salary charge failed", err);
       toast.error(err?.message || "Failed to add charge");
@@ -253,8 +264,10 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
       if (error) throw error;
       setAllAdditionals(updated);
       setExistingCharges(updated.filter((a) => a?.order_id === order?.id));
-      if (editingIdx === idx) resetForm();
+      resetForm();
+      onChanged?.();
       toast.success("Charge removed");
+      onOpenChange(false);
     } catch (err: any) {
       toast.error(err?.message || "Failed to remove charge");
     } finally {
@@ -266,9 +279,11 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Salary Charge</DialogTitle>
+          <DialogTitle>{editingIdx !== null ? "Edit Salary Charge" : "Add Salary Charge"}</DialogTitle>
           <DialogDescription>
-            Create a charge on the booker's monthly salary based on this load.
+            {editingIdx !== null
+              ? "This load already has a salary charge. Update it below or remove it."
+              : "Create a charge on the booker's monthly salary based on this load."}
           </DialogDescription>
         </DialogHeader>
 
@@ -284,31 +299,21 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
               <div><span className="text-muted-foreground">Driver Pay:</span> ${driverPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </div>
 
-            {existingCharges.length > 0 && (
-              <div className="rounded-md border p-3 text-sm space-y-2">
-                <div className="text-xs font-medium text-muted-foreground uppercase">Existing charges on this load</div>
-                {existingCharges.map((c, i) => (
-                  <div key={i} className={`flex items-center justify-between gap-2 rounded border p-2 ${editingIdx === i ? "bg-primary/5 border-primary/30" : ""}`}>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium">
-                        ${Number(c.amount || 0).toFixed(2)}
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {c.source === "comm_annulment" ? "Comm. Annulment" : `${c.order_percent ?? 0}%`}
-                        </span>
-                      </div>
-                      {c.reason && <div className="text-xs text-muted-foreground truncate">{c.reason}</div>}
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => handleEditExisting(i)} disabled={saving}>Edit</Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleDeleteExisting(i)} disabled={saving}>Remove</Button>
-                    </div>
-                  </div>
-                ))}
+            {editingIdx !== null && existingCharges[editingIdx] && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                <div className="text-xs font-medium text-destructive uppercase">Editing existing charge</div>
+                <div className="mt-1 font-medium">
+                  Current: ${Number(existingCharges[editingIdx].amount || 0).toFixed(2)}
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {existingCharges[editingIdx].source === "comm_annulment"
+                      ? "Comm. Annulment"
+                      : `${existingCharges[editingIdx].order_percent ?? 0}%`}
+                  </span>
+                </div>
+                {existingCharges[editingIdx].reason && (
+                  <div className="text-xs text-muted-foreground">{existingCharges[editingIdx].reason}</div>
+                )}
               </div>
-            )}
-
-            {editingIdx !== null && (
-              <div className="text-xs text-primary">Editing existing charge — Save to apply changes, or <button type="button" className="underline" onClick={resetForm}>cancel</button>.</div>
             )}
 
             <div className="space-y-2">
@@ -397,6 +402,11 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddO
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Close
           </Button>
+          {editingIdx !== null && (
+            <Button variant="destructive" onClick={() => handleDeleteExisting(editingIdx)} disabled={saving}>
+              Remove Charge
+            </Button>
+          )}
           <Button onClick={handleSave} disabled={!canSave}>
             {saving ? "Saving…" : editingIdx !== null ? "Save Changes" : "Add Charge"}
           </Button>
