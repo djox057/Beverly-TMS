@@ -20,6 +20,8 @@ interface PayrollData {
   payPeriod: string; // e.g., "December, 2025"
   salary1Percent: number;
   bonus5Percent: number;
+  salary1Label?: string; // Default "Salary 1%"
+  bonus5Label?: string; // Default "Bonus 5%"
   foodAllowance: number;
   extraDays: number;
   lostDays: number;
@@ -34,6 +36,7 @@ interface PayrollData {
   office?: string; // Dispatcher's office for conditional logic
   usedPtoDaysYearly?: number; // Total PTO days used this year (cumulative)
 }
+
 
 const BLACK_COLOR = "000000";
 const LINE_COLOR = "2596BE"; // #2596be for horizontal lines
@@ -158,7 +161,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: "Salary 1%", size: TABLE_SIZE })],
+              children: [new TextRun({ text: data.salary1Label ?? "Salary 1%", size: TABLE_SIZE })],
             }),
           ],
           verticalAlign: VerticalAlign.CENTER,
@@ -189,7 +192,7 @@ export const generatePayrollDocument = async (data: PayrollData): Promise<Blob> 
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: "Bonus 5%", size: TABLE_SIZE })],
+              children: [new TextRun({ text: data.bonus5Label ?? "Bonus 5%", size: TABLE_SIZE })],
             }),
           ],
           verticalAlign: VerticalAlign.CENTER,

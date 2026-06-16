@@ -407,20 +407,20 @@ export const generatePayrollPdf = async (
   const futureBonus = data.isDeletedUser && data.futureBonus5Percent ? data.futureBonus5Percent : 0;
   
   if (data.isDeletedUser && data.futureMonthLabel) {
-    // Salary 1% for next month
+    // Salary for next month
     if (futureSalary > 0) {
       drawRow(
-        `Salary 1% for ${data.futureMonthLabel}`,
+        `${data.salary1Label ?? "Salary 1%"} for ${data.futureMonthLabel}`,
         `$${futureSalary.toFixed(2)}`,
         "#FFFFFF",
         LIGHT_BLUE_BG
       );
     }
     
-    // Bonus 5% for next month
+    // Bonus for next month
     if (futureBonus > 0) {
       drawRow(
-        `Bonus 5% for ${data.futureMonthLabel}`,
+        `${data.bonus5Label ?? "Bonus 5%"} for ${data.futureMonthLabel}`,
         `$${futureBonus.toFixed(2)}`,
         "#FFFFFF",
         LIGHT_BLUE_BG
