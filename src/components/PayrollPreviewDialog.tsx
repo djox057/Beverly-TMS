@@ -19,6 +19,8 @@ interface PayrollPreviewDialogProps {
   selectedMonth: string; // Format: YYYY-MM
   salary1Percent: number;
   bonus5Percent: number;
+  salary1Label?: string;
+  bonus5Label?: string;
   foodAllowance: number;
   extraDays: number;
   lostDays: number;
@@ -53,6 +55,8 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
   selectedMonth,
   salary1Percent,
   bonus5Percent,
+  salary1Label,
+  bonus5Label,
   foodAllowance,
   extraDays,
   lostDays,
@@ -329,6 +333,8 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         payPeriod,
         salary1Percent,
         bonus5Percent,
+        salary1Label,
+        bonus5Label,
         recoveryBonus,
         foodAllowance,
         extraDays,
@@ -536,6 +542,8 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         payPeriod,
         salary1Percent,
         bonus5Percent,
+        salary1Label,
+        bonus5Label,
         recoveryBonus,
         foodAllowance,
         extraDays,

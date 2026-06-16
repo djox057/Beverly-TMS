@@ -375,6 +375,8 @@ const Analytics = () => {
     payPeriod: string;
     salary1Percent: number;
     bonus5Percent: number;
+    salary1Label?: string;
+    bonus5Label?: string;
     foodAllowance: number;
     extraDays: number;
     lostDays: number;
@@ -645,12 +647,20 @@ const Analytics = () => {
       const p =
         (userId ? dispatcherProfiles[userId] : null) ||
         (name ? dispatcherProfiles[name] : null);
-      const grossPct = p?.gross_percent != null ? Number(p.gross_percent) / 100 : 0.01;
-      const cutPct = p?.cut_percent != null ? Number(p.cut_percent) / 100 : 0.05;
-      return { grossPct, cutPct };
+      const grossRaw = p?.gross_percent != null ? Number(p.gross_percent) : 1;
+      const cutRaw = p?.cut_percent != null ? Number(p.cut_percent) : 5;
+      const formatPct = (v: number) =>
+        Number.isInteger(v) ? v.toString() : (+v.toFixed(2)).toString();
+      return {
+        grossPct: grossRaw / 100,
+        cutPct: cutRaw / 100,
+        salary1Label: `Salary ${formatPct(grossRaw)}%`,
+        bonus5Label: `Bonus ${formatPct(cutRaw)}%`,
+      };
     },
     [dispatcherProfiles],
   );
+
 
   // Fetch dispatcher driver counts for the selected date range
   // Uses pagination to bypass Supabase's 1000 row limit
@@ -4286,7 +4296,7 @@ const Analytics = () => {
                             }
 
                             // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
-                            const { grossPct: rGross, cutPct: rCut } = getDispatcherRates(stat.userId, stat.name);
+                            const { grossPct: rGross, cutPct: rCut, salary1Label: rSalLabel, bonus5Label: rBonLabel } = getDispatcherRates(stat.userId, stat.name);
                             const baseRate = stat.totalFreight * rGross + stat.cut * rCut;
                             // Recovery bonus: same formula applied to recovery-driver loads only.
                             // Shown as a separate sub-row below the dispatcher and added into fullTotal.
@@ -4444,6 +4454,8 @@ const Analytics = () => {
                                                     payPeriod,
                                                     salary1Percent: stat.totalFreight * rGross,
                                                     bonus5Percent: stat.cut * rCut,
+                                                    salary1Label: rSalLabel,
+                                                    bonus5Label: rBonLabel,
                                                     recoveryBonus,
                                                     foodAllowance: foodAllowanceAmount,
                                                     extraDays,
@@ -4578,6 +4590,8 @@ const Analytics = () => {
                                                   payPeriod,
                                                   salary1Percent: stat.totalFreight * rGross,
                                                   bonus5Percent: stat.cut * rCut,
+                                                  salary1Label: rSalLabel,
+                                                  bonus5Label: rBonLabel,
                                                   recoveryBonus,
                                                   foodAllowance: foodAllowanceForPreview,
                                                   extraDays,
@@ -4643,7 +4657,7 @@ const Analytics = () => {
 
                                                 // Calculate extra days amount
                                                 const actualExtraDaysCount = extraDayDatesForDoc.length;
-                                                const { grossPct: rGross2, cutPct: rCut2 } = getDispatcherRates(stat.userId, stat.name);
+                                                const { grossPct: rGross2, cutPct: rCut2, salary1Label: rSalLabel2, bonus5Label: rBonLabel2 } = getDispatcherRates(stat.userId, stat.name);
                                                 const perDayRate =
                                                   (stat.totalFreight * rGross2 + stat.cut * rCut2) / workDaysInMonth;
                                                 const extraDaysAmountForDoc =
@@ -4727,6 +4741,8 @@ const Analytics = () => {
                                                   payPeriod,
                                                   salary1Percent: stat.totalFreight * rGross2,
                                                   bonus5Percent: stat.cut * rCut2,
+                                                  salary1Label: rSalLabel2,
+                                                  bonus5Label: rBonLabel2,
                                                   foodAllowance: foodAllowanceForPreview,
                                                   extraDays,
                                                   lostDays,
@@ -5432,6 +5448,8 @@ const Analytics = () => {
             selectedMonth={selectedMonth}
             salary1Percent={payrollPreviewData.salary1Percent}
             bonus5Percent={payrollPreviewData.bonus5Percent}
+            salary1Label={payrollPreviewData.salary1Label}
+            bonus5Label={payrollPreviewData.bonus5Label}
             foodAllowance={payrollPreviewData.foodAllowance}
             extraDays={payrollPreviewData.extraDays}
             lostDays={isDispatchOnly ? 0 : payrollPreviewData.lostDays}
