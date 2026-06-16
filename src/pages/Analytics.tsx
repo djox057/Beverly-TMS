@@ -4494,7 +4494,7 @@ const Analytics = () => {
                                                 // Calculate extra days amount
                                                 const actualExtraDaysCount = extraDayDatesForDoc.length;
                                                 const perDayRate =
-                                                  (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
+                                                  (stat.totalFreight * rGross + stat.cut * rCut) / workDaysInMonth;
                                                 const extraDaysAmountForDoc =
                                                   actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
 
@@ -4576,8 +4576,8 @@ const Analytics = () => {
                                                   dispatcherUserId: stat.userId || "",
                                                   recipientEmail,
                                                   payPeriod,
-                                                  salary1Percent: stat.totalFreight * 0.01,
-                                                  bonus5Percent: stat.cut * 0.05,
+                                                  salary1Percent: stat.totalFreight * rGross,
+                                                  bonus5Percent: stat.cut * rCut,
                                                   recoveryBonus,
                                                   foodAllowance: foodAllowanceForPreview,
                                                   extraDays,
@@ -4594,11 +4594,11 @@ const Analytics = () => {
                                                       : undefined,
                                                   futureSalary1Percent:
                                                     isDeletedUserFlag && shouldIncludeFutureMonth
-                                                      ? nextMonthFreight * 0.01
+                                                      ? nextMonthFreight * rGross
                                                       : undefined,
                                                   futureBonus5Percent:
                                                     isDeletedUserFlag && shouldIncludeFutureMonth
-                                                      ? nextMonthCut * 0.05
+                                                      ? nextMonthCut * rCut
                                                       : undefined,
                                                   office: stat.office,
                                                 });
