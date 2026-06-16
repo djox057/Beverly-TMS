@@ -226,12 +226,13 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChan
 
       setAllAdditionals(updated);
       setExistingCharges(updated.filter((a) => a?.order_id === order.id));
-      resetForm();
+      onChanged?.();
       toast.success(
         editingEntry
           ? `Charge updated ($${computedAmount.toFixed(2)})`
           : `Charge of $${computedAmount.toFixed(2)} added to ${order.booked_by} for ${monthStr}`
       );
+      onOpenChange(false);
     } catch (err: any) {
       console.error("Add salary charge failed", err);
       toast.error(err?.message || "Failed to add charge");
