@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     }
 
     // Get user data from request body
-    const { email, password, fullName, role, office, ext, phoneNumber } = await req.json()
+    const { email, password, fullName, role, office, ext, phoneNumber, grossPercent, cutPercent } = await req.json()
     
     if (!email || !password || !role) {
       throw new Error('Email, password, and role are required')
@@ -117,8 +117,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update profile with office, ext, and phone if provided
-    if ((office || ext || phoneNumber) && newUser?.user?.id) {
+    // Update profile with office, ext, phone, and dispatcher pct fields
+    if (newUser?.user?.id) {
       const profileUpdates: Record<string, any> = {}
       
       if (office) {
@@ -137,7 +137,15 @@ Deno.serve(async (req) => {
       if (phoneNumber) {
         profileUpdates.phone_number = phoneNumber
       }
-      
+
+      // Default gross_percent=1 / cut_percent=5 for dispatchers if not provided
+      if (role === 'dispatch') {
+        profileUpdates.gross_percent = grossPercent !== undefined && grossPercent !== null && grossPercent !== ''
+          ? Number(grossPercent) : 1
+        profileUpdates.cut_percent = cutPercent !== undefined && cutPercent !== null && cutPercent !== ''
+          ? Number(cutPercent) : 5
+      }
+
       if (Object.keys(profileUpdates).length > 0) {
         await supabaseAdmin
           .from('profiles')
