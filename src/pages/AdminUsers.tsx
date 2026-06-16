@@ -716,6 +716,30 @@ const AdminUsers = () => {
                   onChange={(e) => setExt(e.target.value)}
                 />
               </div>
+              {role === 'dispatch' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-gross-pct">Gross %</Label>
+                    <Input
+                      id="new-gross-pct"
+                      type="number"
+                      step="0.01"
+                      value={grossPercent}
+                      onChange={(e) => setGrossPercent(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-cut-pct">Cut %</Label>
+                    <Input
+                      id="new-cut-pct"
+                      type="number"
+                      step="0.01"
+                      value={cutPercent}
+                      onChange={(e) => setCutPercent(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
