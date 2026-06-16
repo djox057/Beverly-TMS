@@ -5334,9 +5334,10 @@ const Analytics = () => {
 
                           dispatcherStats.forEach((stat) => {
                             if (stat.userId) {
-                              const baseRate = stat.totalFreight * 0.01 + stat.cut * 0.05;
+                              const { grossPct: bGross, cutPct: bCut } = getDispatcherRates(stat.userId, stat.name);
+                              const baseRate = stat.totalFreight * bGross + stat.cut * bCut;
                               const recoveryBonus =
-                                (stat.recoveryFreight || 0) * 0.01 + (stat.recoveryCut || 0) * 0.05;
+                                (stat.recoveryFreight || 0) * bGross + (stat.recoveryCut || 0) * bCut;
                               const perDayRate = bulkWorkDays > 0 ? baseRate / bulkWorkDays : 0;
                               const extraDays = extraDaysByUser[stat.userId] || 0;
                               const lostDays = lostDaysByUser[stat.userId] || 0;
