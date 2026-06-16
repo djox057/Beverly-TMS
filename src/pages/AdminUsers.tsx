@@ -354,6 +354,8 @@ const AdminUsers = () => {
     setEditExt(user.ext || '');
     setEditDailyView(user.daily_report_can_view);
     setEditDailyEdit(user.daily_report_can_edit);
+    setEditGrossPercent(user.gross_percent != null ? String(user.gross_percent) : (user.roles.includes('dispatch') ? '1' : ''));
+    setEditCutPercent(user.cut_percent != null ? String(user.cut_percent) : (user.roles.includes('dispatch') ? '5' : ''));
     setIsEditDialogOpen(true);
   };
 
@@ -370,7 +372,9 @@ const AdminUsers = () => {
           fullName: editFullName,
           office: editOffice,
           ext: editExt || null,
-          phoneNumber: editPhoneNumber ? `+1 ${editPhoneNumber.replace(/^\+1\s?/, '')}` : null
+          phoneNumber: editPhoneNumber ? `+1 ${editPhoneNumber.replace(/^\+1\s?/, '')}` : null,
+          grossPercent: editRole === 'dispatch' ? (editGrossPercent === '' ? null : Number(editGrossPercent)) : null,
+          cutPercent: editRole === 'dispatch' ? (editCutPercent === '' ? null : Number(editCutPercent)) : null
         }
       });
 
