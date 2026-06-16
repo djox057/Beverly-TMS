@@ -375,6 +375,8 @@ const Analytics = () => {
     payPeriod: string;
     salary1Percent: number;
     bonus5Percent: number;
+    salary1Label?: string;
+    bonus5Label?: string;
     foodAllowance: number;
     extraDays: number;
     lostDays: number;
@@ -645,12 +647,20 @@ const Analytics = () => {
       const p =
         (userId ? dispatcherProfiles[userId] : null) ||
         (name ? dispatcherProfiles[name] : null);
-      const grossPct = p?.gross_percent != null ? Number(p.gross_percent) / 100 : 0.01;
-      const cutPct = p?.cut_percent != null ? Number(p.cut_percent) / 100 : 0.05;
-      return { grossPct, cutPct };
+      const grossRaw = p?.gross_percent != null ? Number(p.gross_percent) : 1;
+      const cutRaw = p?.cut_percent != null ? Number(p.cut_percent) : 5;
+      const formatPct = (v: number) =>
+        Number.isInteger(v) ? v.toString() : (+v.toFixed(2)).toString();
+      return {
+        grossPct: grossRaw / 100,
+        cutPct: cutRaw / 100,
+        salary1Label: `Salary ${formatPct(grossRaw)}%`,
+        bonus5Label: `Bonus ${formatPct(cutRaw)}%`,
+      };
     },
     [dispatcherProfiles],
   );
+
 
   // Fetch dispatcher driver counts for the selected date range
   // Uses pagination to bypass Supabase's 1000 row limit
