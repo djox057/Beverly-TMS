@@ -39,6 +39,8 @@ interface User {
   created_at: string;
   daily_report_can_view: boolean;
   daily_report_can_edit: boolean;
+  gross_percent: number | null;
+  cut_percent: number | null;
 }
 
 const AdminUsers = () => {
@@ -59,6 +61,8 @@ const AdminUsers = () => {
   const [editExt, setEditExt] = useState('');
   const [editDailyView, setEditDailyView] = useState(false);
   const [editDailyEdit, setEditDailyEdit] = useState(false);
+  const [editGrossPercent, setEditGrossPercent] = useState<string>('');
+  const [editCutPercent, setEditCutPercent] = useState<string>('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [showLogoutAllDialog, setShowLogoutAllDialog] = useState(false);
@@ -76,6 +80,8 @@ const AdminUsers = () => {
   const [office, setOffice] = useState<OfficeLocation>(null);
   const [ext, setExt] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [grossPercent, setGrossPercent] = useState<string>('1');
+  const [cutPercent, setCutPercent] = useState<string>('5');
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
   const filteredUsers = useMemo(() => {
@@ -168,6 +174,8 @@ const AdminUsers = () => {
           roles: userRoles,
           daily_report_can_view: isAdmin ? true : !!perm?.can_view,
           daily_report_can_edit: isAdmin ? true : !!perm?.can_edit,
+          gross_percent: (profile as any).gross_percent ?? null,
+          cut_percent: (profile as any).cut_percent ?? null,
         };
       });
 
@@ -230,7 +238,9 @@ const AdminUsers = () => {
             role,
             office: office || null,
             ext: ext || null,
-            phoneNumber: phoneNumber ? `+1 ${phoneNumber.replace(/^\+1\s?/, '')}` : null
+            phoneNumber: phoneNumber ? `+1 ${phoneNumber.replace(/^\+1\s?/, '')}` : null,
+            grossPercent: role === 'dispatch' ? (grossPercent === '' ? null : Number(grossPercent)) : null,
+            cutPercent: role === 'dispatch' ? (cutPercent === '' ? null : Number(cutPercent)) : null
           })
         }
       );
@@ -256,6 +266,8 @@ const AdminUsers = () => {
       setOffice(null);
       setExt("");
       setPhoneNumber("");
+      setGrossPercent('1');
+      setCutPercent('5');
       setFormErrors({});
       setIsDialogOpen(false);
       
@@ -342,6 +354,8 @@ const AdminUsers = () => {
     setEditExt(user.ext || '');
     setEditDailyView(user.daily_report_can_view);
     setEditDailyEdit(user.daily_report_can_edit);
+    setEditGrossPercent(user.gross_percent != null ? String(user.gross_percent) : (user.roles.includes('dispatch') ? '1' : ''));
+    setEditCutPercent(user.cut_percent != null ? String(user.cut_percent) : (user.roles.includes('dispatch') ? '5' : ''));
     setIsEditDialogOpen(true);
   };
 
@@ -358,7 +372,9 @@ const AdminUsers = () => {
           fullName: editFullName,
           office: editOffice,
           ext: editExt || null,
-          phoneNumber: editPhoneNumber ? `+1 ${editPhoneNumber.replace(/^\+1\s?/, '')}` : null
+          phoneNumber: editPhoneNumber ? `+1 ${editPhoneNumber.replace(/^\+1\s?/, '')}` : null,
+          grossPercent: editRole === 'dispatch' ? (editGrossPercent === '' ? null : Number(editGrossPercent)) : null,
+          cutPercent: editRole === 'dispatch' ? (editCutPercent === '' ? null : Number(editCutPercent)) : null
         }
       });
 
@@ -700,6 +716,30 @@ const AdminUsers = () => {
                   onChange={(e) => setExt(e.target.value)}
                 />
               </div>
+              {role === 'dispatch' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-gross-pct">Gross %</Label>
+                    <Input
+                      id="new-gross-pct"
+                      type="number"
+                      step="0.01"
+                      value={grossPercent}
+                      onChange={(e) => setGrossPercent(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-cut-pct">Cut %</Label>
+                    <Input
+                      id="new-cut-pct"
+                      type="number"
+                      step="0.01"
+                      value={cutPercent}
+                      onChange={(e) => setCutPercent(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
@@ -935,6 +975,31 @@ const AdminUsers = () => {
                 placeholder="e.g. 101"
               />
             </div>
+
+            {editRole === 'dispatch' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-gross-pct">Gross %</Label>
+                  <Input
+                    id="edit-gross-pct"
+                    type="number"
+                    step="0.01"
+                    value={editGrossPercent}
+                    onChange={(e) => setEditGrossPercent(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-cut-pct">Cut %</Label>
+                  <Input
+                    id="edit-cut-pct"
+                    type="number"
+                    step="0.01"
+                    value={editCutPercent}
+                    onChange={(e) => setEditCutPercent(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
               <div>

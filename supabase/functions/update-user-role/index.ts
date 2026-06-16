@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { userId: targetUserId, role, office, fullName, ext, phoneNumber } = await req.json()
+    const { userId: targetUserId, role, office, fullName, ext, phoneNumber, grossPercent, cutPercent } = await req.json()
 
     console.log('Request body:', { targetUserId, role, office, fullName, ext })
 
@@ -117,7 +117,20 @@ Deno.serve(async (req) => {
     if (phoneNumber !== undefined) {
       profileUpdates.phone_number = phoneNumber === null || phoneNumber === '' ? null : phoneNumber
     }
-    
+
+    // Gross % / Cut % only apply to dispatchers; clear for other roles
+    if (role === 'dispatch') {
+      if (grossPercent !== undefined) {
+        profileUpdates.gross_percent = grossPercent === null || grossPercent === '' ? null : Number(grossPercent)
+      }
+      if (cutPercent !== undefined) {
+        profileUpdates.cut_percent = cutPercent === null || cutPercent === '' ? null : Number(cutPercent)
+      }
+    } else {
+      profileUpdates.gross_percent = null
+      profileUpdates.cut_percent = null
+    }
+
     if (Object.keys(profileUpdates).length > 0) {
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
