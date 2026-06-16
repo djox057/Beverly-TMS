@@ -264,8 +264,10 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChan
       if (error) throw error;
       setAllAdditionals(updated);
       setExistingCharges(updated.filter((a) => a?.order_id === order?.id));
-      if (editingIdx === idx) resetForm();
+      resetForm();
+      onChanged?.();
       toast.success("Charge removed");
+      onOpenChange(false);
     } catch (err: any) {
       toast.error(err?.message || "Failed to remove charge");
     } finally {
