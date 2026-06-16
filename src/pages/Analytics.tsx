@@ -26,7 +26,7 @@ import { useDrivers } from "@/hooks/useDrivers";
 import { useAllDriverDebts } from "@/hooks/useAllDriverDebts";
 import { useDriverPerformance } from "@/hooks/useDriverPerformance";
 import { useDailyDriverStatsByDispatcher } from "@/hooks/useDailyDriverStats";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
