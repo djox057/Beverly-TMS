@@ -188,6 +188,8 @@ const Analytics = () => {
         roles: string[];
         user_id: string;
         created_at?: string | null;
+        gross_percent?: number | null;
+        cut_percent?: number | null;
       }
     >
   >({});
