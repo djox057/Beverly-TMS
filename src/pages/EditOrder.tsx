@@ -4948,10 +4948,10 @@ const EditOrder = () => {
                 {(roles.includes("admin") || roles.includes("manager")) && id && (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant={hasSalaryCharge ? "destructive" : "outline"}
                     onClick={() => setSalaryChargeOpen(true)}
                   >
-                    Add charge
+                    {hasSalaryCharge ? "Edit Charge" : "Add charge"}
                   </Button>
                 )}
                 {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) &&
