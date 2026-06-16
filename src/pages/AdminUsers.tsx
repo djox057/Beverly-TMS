@@ -238,7 +238,9 @@ const AdminUsers = () => {
             role,
             office: office || null,
             ext: ext || null,
-            phoneNumber: phoneNumber ? `+1 ${phoneNumber.replace(/^\+1\s?/, '')}` : null
+            phoneNumber: phoneNumber ? `+1 ${phoneNumber.replace(/^\+1\s?/, '')}` : null,
+            grossPercent: role === 'dispatch' ? (grossPercent === '' ? null : Number(grossPercent)) : null,
+            cutPercent: role === 'dispatch' ? (cutPercent === '' ? null : Number(cutPercent)) : null
           })
         }
       );
@@ -264,6 +266,8 @@ const AdminUsers = () => {
       setOffice(null);
       setExt("");
       setPhoneNumber("");
+      setGrossPercent('1');
+      setCutPercent('5');
       setFormErrors({});
       setIsDialogOpen(false);
       
