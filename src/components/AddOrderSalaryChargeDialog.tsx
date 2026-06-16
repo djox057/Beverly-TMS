@@ -46,7 +46,7 @@ function formatChicagoDate(iso: string): string {
   });
 }
 
-export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId }: AddOrderSalaryChargeDialogProps) {
+export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChanged }: AddOrderSalaryChargeDialogProps) {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
