@@ -4431,7 +4431,7 @@ const Analytics = () => {
                                                 // Example (Dec 2025): baseRate $2620.45 / 22 workdays = $119.11 for 1 extra day
                                                 const actualExtraDaysCount = extraDayDates.length;
                                                 const perDayRate =
-                                                  (stat.totalFreight * 0.01 + stat.cut * 0.05) / workDaysInMonth;
+                                                  (stat.totalFreight * rGross + stat.cut * rCut) / workDaysInMonth;
                                                 const extraDaysAmount =
                                                   actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
 
@@ -4442,8 +4442,8 @@ const Analytics = () => {
                                                   {
                                                     employeeName: stat.name,
                                                     payPeriod,
-                                                    salary1Percent: stat.totalFreight * 0.01,
-                                                    bonus5Percent: stat.cut * 0.05,
+                                                    salary1Percent: stat.totalFreight * rGross,
+                                                    bonus5Percent: stat.cut * rCut,
                                                     recoveryBonus,
                                                     foodAllowance: foodAllowanceAmount,
                                                     extraDays,
