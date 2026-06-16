@@ -508,7 +508,9 @@ const Analytics = () => {
   // Fetch all profiles to get office locations and roles indexed by full_name AND user_id
   useEffect(() => {
     const fetchProfiles = async () => {
-      const { data: profiles } = await supabase.from("profiles").select("email, full_name, office, user_id, created_at");
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("email, full_name, office, user_id, created_at, gross_percent, cut_percent");
 
       // Also fetch all unique booked_by values from orders to include deleted users
       const { data: ordersData } = await supabase.from("orders").select("booked_by").not("booked_by", "is", null);
@@ -548,6 +550,8 @@ const Analytics = () => {
                 roles: rolesMap[p.user_id] || [],
                 user_id: p.user_id,
                 created_at: (p as any).created_at ?? null,
+                gross_percent: (p as any).gross_percent ?? null,
+                cut_percent: (p as any).cut_percent ?? null,
               };
             }
             if (p.user_id) {
@@ -557,6 +561,8 @@ const Analytics = () => {
                 roles: rolesMap[p.user_id] || [],
                 user_id: p.user_id,
                 created_at: (p as any).created_at ?? null,
+                gross_percent: (p as any).gross_percent ?? null,
+                cut_percent: (p as any).cut_percent ?? null,
               };
             }
             return acc;
@@ -569,6 +575,8 @@ const Analytics = () => {
               roles: string[];
               user_id: string;
               created_at?: string | null;
+              gross_percent?: number | null;
+              cut_percent?: number | null;
             }
           >,
         );
