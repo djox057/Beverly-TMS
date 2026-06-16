@@ -976,6 +976,31 @@ const AdminUsers = () => {
               />
             </div>
 
+            {editRole === 'dispatch' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-gross-pct">Gross %</Label>
+                  <Input
+                    id="edit-gross-pct"
+                    type="number"
+                    step="0.01"
+                    value={editGrossPercent}
+                    onChange={(e) => setEditGrossPercent(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-cut-pct">Cut %</Label>
+                  <Input
+                    id="edit-cut-pct"
+                    type="number"
+                    step="0.01"
+                    value={editCutPercent}
+                    onChange={(e) => setEditCutPercent(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
               <div>
                 <p className="text-sm font-semibold text-foreground">Beverly Daily Report</p>
