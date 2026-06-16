@@ -59,6 +59,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { invalidateOrderFilesCacheForOrder } from "@/hooks/useReportsDateWindowAdapter";
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { AddOrderSalaryChargeDialog } from "@/components/AddOrderSalaryChargeDialog";
+import { useOrderHasSalaryCharge } from "@/hooks/useOrderHasSalaryCharge";
 import { parseAddress } from "@/utils/addressParser";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import { WeightBolDialog, getWeightDiscrepancyWarning, SCALE_TICKET_THRESHOLD_LBS } from "@/components/WeightBolDialog";
