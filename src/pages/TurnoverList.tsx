@@ -178,6 +178,35 @@ const TurnoverList = () => {
     return filtered.sort((a, b) => b.turnoverCount - a.turnoverCount);
   }, [terminatedDrivers, dispatchers, selectedOffice]);
 
+  // Lazy-fetch last truck for all visible drivers when expanded
+  useEffect(() => {
+    if (!expanded) return;
+    const allIds: string[] = [];
+    for (const d of turnoverData) for (const dr of d.drivers) allIds.push(dr.id);
+    const missing = allIds.filter((id) => !(id in lastTrucksByDriver));
+    if (missing.length === 0) return;
+    (async () => {
+      const { data } = await supabase
+        .from("assignment_history")
+        .select("driver1_id, driver2_id, changed_at, trucks:truck_id(truck_number)")
+        .or(missing.map((id) => `driver1_id.eq.${id},driver2_id.eq.${id}`).join(","))
+        .order("changed_at", { ascending: false });
+      const map: Record<string, string | null> = {};
+      for (const id of missing) map[id] = null;
+      for (const row of (data as any[]) || []) {
+        const truckNum = row.trucks?.truck_number || null;
+        if (!truckNum) continue;
+        for (const id of missing) {
+          if ((row.driver1_id === id || row.driver2_id === id) && !map[id]) {
+            map[id] = truckNum;
+          }
+        }
+      }
+      setLastTrucksByDriver((prev) => ({ ...prev, ...map }));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, turnoverData]);
+
   const buildExplanation = (drivers: TerminatedDriver[]): string => {
     return drivers
       .map((d) => {
@@ -228,6 +257,24 @@ const TurnoverList = () => {
                 Former
               </Button>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setExpanded((v) => !v)}
+              className="ml-auto"
+            >
+              {expanded ? (
+                <>
+                  <ChevronUp className="h-4 w-4 mr-1" />
+                  Collapse
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4 mr-1" />
+                  Expand
+                </>
+              )}
+            </Button>
           </div>
 
           {/* Table */}
@@ -257,6 +304,49 @@ const TurnoverList = () => {
                   {turnoverData.map((item) => {
                     const explanation = buildExplanation(item.drivers);
                     const isTruncated = explanation.length > 120;
+
+                    if (expanded) {
+                      return (
+                        <>
+                          <TableRow key={item.dispatcherId} className="bg-muted/40">
+                            <TableCell className="font-medium">{item.dispatcherName}</TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {item.office || "—"}
+                            </TableCell>
+                            <TableCell className="text-center font-semibold">
+                              {item.turnoverCount}
+                            </TableCell>
+                            <TableCell />
+                          </TableRow>
+                          {item.drivers.map((driver) => {
+                            const truckNum = lastTrucksByDriver[driver.id] ?? null;
+                            const noteText = driver.notes.length
+                              ? driver.notes.map((n) => n.note).join("; ")
+                              : "No termination notes";
+                            const termDate = driver.termination_date
+                              ? format(new Date(driver.termination_date + "T00:00:00"), "MM/dd/yyyy")
+                              : "—";
+                            return (
+                              <TableRow key={`${item.dispatcherId}-${driver.id}`}>
+                                <TableCell />
+                                <TableCell />
+                                <TableCell />
+                                <TableCell className="text-sm pl-8">
+                                  <span className="font-mono text-muted-foreground mr-2">
+                                    {truckNum ? `#${truckNum}` : "—"}
+                                  </span>
+                                  <span className="font-medium">{driver.name}</span>
+                                  <span className="text-muted-foreground mx-2">·</span>
+                                  <span className="text-muted-foreground">{termDate}</span>
+                                  <span className="text-muted-foreground mx-2">·</span>
+                                  <span className="text-muted-foreground">{noteText}</span>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </>
+                      );
+                    }
 
                     return (
                       <TableRow key={item.dispatcherId} className="h-[72px]">
