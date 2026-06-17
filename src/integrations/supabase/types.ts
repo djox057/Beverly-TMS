@@ -571,6 +571,72 @@ export type Database = {
           },
         ]
       }
+      broker_health: {
+        Row: {
+          consecutive_failures: number | null
+          enabled: boolean
+          last_error: string | null
+          last_latency_ms: number | null
+          last_poll_at: string | null
+          last_status: string | null
+          last_success_at: string | null
+          loads_fetched: number | null
+          source: string
+        }
+        Insert: {
+          consecutive_failures?: number | null
+          enabled?: boolean
+          last_error?: string | null
+          last_latency_ms?: number | null
+          last_poll_at?: string | null
+          last_status?: string | null
+          last_success_at?: string | null
+          loads_fetched?: number | null
+          source: string
+        }
+        Update: {
+          consecutive_failures?: number | null
+          enabled?: boolean
+          last_error?: string | null
+          last_latency_ms?: number | null
+          last_poll_at?: string | null
+          last_status?: string | null
+          last_success_at?: string | null
+          loads_fetched?: number | null
+          source?: string
+        }
+        Relationships: []
+      }
+      broker_poll_log: {
+        Row: {
+          id: number
+          latency_ms: number | null
+          loads_fetched: number | null
+          polled_at: string
+          source: string
+          status: string
+          suggestions_written: number | null
+        }
+        Insert: {
+          id?: never
+          latency_ms?: number | null
+          loads_fetched?: number | null
+          polled_at?: string
+          source: string
+          status: string
+          suggestions_written?: number | null
+        }
+        Update: {
+          id?: never
+          latency_ms?: number | null
+          loads_fetched?: number | null
+          polled_at?: string
+          source?: string
+          status?: string
+          suggestions_written?: number | null
+        }
+        Relationships: []
+      }
       brokers: {
         Row: {
           address: string
@@ -2409,6 +2475,30 @@ export type Database = {
         }
         Relationships: []
       }
+      geocode_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          latitude: number
+          longitude: number
+          provider: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          latitude: number
+          longitude: number
+          provider?: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          latitude?: number
+          longitude?: number
+          provider?: string
+        }
+        Relationships: []
+      }
       heatmap_city_counts: {
         Row: {
           city_lat: number
@@ -3926,6 +4016,80 @@ export type Database = {
           locations?: Json
         }
         Relationships: []
+      }
+      suggestions: {
+        Row: {
+          created_at: string
+          deadhead_miles: number
+          dest_city: string | null
+          dest_state: string | null
+          equipment: string | null
+          id: number
+          loaded_miles: number | null
+          origin_city: string | null
+          origin_state: string | null
+          pickup_end: string | null
+          pickup_start: string | null
+          rate: number | null
+          raw: Json | null
+          score: number
+          source: string
+          source_load_id: string
+          status: string
+          truck_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deadhead_miles: number
+          dest_city?: string | null
+          dest_state?: string | null
+          equipment?: string | null
+          id?: never
+          loaded_miles?: number | null
+          origin_city?: string | null
+          origin_state?: string | null
+          pickup_end?: string | null
+          pickup_start?: string | null
+          rate?: number | null
+          raw?: Json | null
+          score: number
+          source: string
+          source_load_id: string
+          status?: string
+          truck_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deadhead_miles?: number
+          dest_city?: string | null
+          dest_state?: string | null
+          equipment?: string | null
+          id?: never
+          loaded_miles?: number | null
+          origin_city?: string | null
+          origin_state?: string | null
+          pickup_end?: string | null
+          pickup_start?: string | null
+          rate?: number | null
+          raw?: Json | null
+          score?: number
+          source?: string
+          source_load_id?: string
+          status?: string
+          truck_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggestions_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       temporary_plates: {
         Row: {
