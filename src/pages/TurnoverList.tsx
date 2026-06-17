@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,9 +44,12 @@ const TurnoverList = () => {
   const [selectedOffice, setSelectedOffice] = useState<string | null>(null);
   const [detailDispatcher, setDetailDispatcher] = useState<DispatcherTurnover | null>(null);
   const [lastTrucksByDriver, setLastTrucksByDriver] = useState<Record<string, string | null>>({});
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    const driverIds = detailDispatcher?.drivers.map((d) => d.id) || [];
+    const driverIds: string[] = detailDispatcher
+      ? detailDispatcher.drivers.map((d) => d.id)
+      : [];
     if (driverIds.length === 0) return;
     const missing = driverIds.filter((id) => !(id in lastTrucksByDriver));
     if (missing.length === 0) return;
@@ -69,6 +73,35 @@ const TurnoverList = () => {
       setLastTrucksByDriver((prev) => ({ ...prev, ...map }));
     })();
   }, [detailDispatcher, lastTrucksByDriver]);
+
+  // Lazy-fetch last truck for all visible drivers when expanded
+  useEffect(() => {
+    if (!expanded) return;
+    const allIds: string[] = [];
+    for (const d of turnoverData) for (const dr of d.drivers) allIds.push(dr.id);
+    const missing = allIds.filter((id) => !(id in lastTrucksByDriver));
+    if (missing.length === 0) return;
+    (async () => {
+      const { data } = await supabase
+        .from("assignment_history")
+        .select("driver1_id, driver2_id, changed_at, trucks:truck_id(truck_number)")
+        .or(missing.map((id) => `driver1_id.eq.${id},driver2_id.eq.${id}`).join(","))
+        .order("changed_at", { ascending: false });
+      const map: Record<string, string | null> = {};
+      for (const id of missing) map[id] = null;
+      for (const row of (data as any[]) || []) {
+        const truckNum = row.trucks?.truck_number || null;
+        if (!truckNum) continue;
+        for (const id of missing) {
+          if ((row.driver1_id === id || row.driver2_id === id) && !map[id]) {
+            map[id] = truckNum;
+          }
+        }
+      }
+      setLastTrucksByDriver((prev) => ({ ...prev, ...map }));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, turnoverData]);
 
   // Fetch offices
   const { data: offices } = useQuery({
