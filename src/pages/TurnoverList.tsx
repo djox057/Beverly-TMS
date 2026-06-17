@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
@@ -307,8 +307,8 @@ const TurnoverList = () => {
 
                     if (expanded) {
                       return (
-                        <>
-                          <TableRow key={item.dispatcherId} className="bg-muted/40">
+                        <Fragment key={item.dispatcherId}>
+                          <TableRow className="bg-muted/40">
                             <TableCell className="font-medium">{item.dispatcherName}</TableCell>
                             <TableCell className="text-muted-foreground">
                               {item.office || "—"}
@@ -344,7 +344,7 @@ const TurnoverList = () => {
                               </TableRow>
                             );
                           })}
-                        </>
+                        </Fragment>
                       );
                     }
 
