@@ -14,6 +14,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { BrokerCombobox } from "@/components/ui/broker-combobox";
+import { useBrokers } from "@/hooks/useBrokers";
 
 interface DeepLane {
   broker_id: string;
@@ -50,6 +52,12 @@ export default function BeverlyHeatmapDeepSearch() {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [deepSort, setDeepSort] = useState<{ key: DeepSortKey; dir: "asc" | "desc" }>({ key: "load_count", dir: "desc" });
   const [selectedDeepLane, setSelectedDeepLane] = useState<DeepLane | null>(null);
+  const [brokerId, setBrokerId] = useState<string>("");
+  const { data: brokers = [] } = useBrokers();
+  const selectedBrokerName = useMemo(
+    () => brokers.find((b: any) => b.id === brokerId)?.name ?? "",
+    [brokers, brokerId]
+  );
 
   const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
   const endDateStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
@@ -125,7 +133,8 @@ export default function BeverlyHeatmapDeepSearch() {
   });
   const sortedDeep = useMemo(() => {
     if (!deepData?.lanes) return [];
-    const rows = [...deepData.lanes];
+    let rows = [...deepData.lanes];
+    if (brokerId) rows = rows.filter(l => l.broker_id === brokerId);
     const { key, dir } = deepSort;
     rows.sort((a, b) => {
       let cmp = 0;
@@ -144,7 +153,7 @@ export default function BeverlyHeatmapDeepSearch() {
       return dir === "asc" ? cmp : -cmp;
     });
     return rows;
-  }, [deepData?.lanes, deepSort]);
+  }, [deepData?.lanes, deepSort, brokerId]);
 
   const handleDeepSort = (key: DeepSortKey) => {
     setDeepSort(prev => prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" });
@@ -242,6 +251,15 @@ export default function BeverlyHeatmapDeepSearch() {
           placeholder="Pickup date range"
           className="w-[260px]"
         />
+        <div className="w-[240px] space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Broker (optional)</label>
+          <BrokerCombobox
+            value={brokerId}
+            onValueChange={setBrokerId}
+            placeholder="All brokers"
+            searchPlaceholder="Search broker..."
+          />
+        </div>
         <Button onClick={handleSearch} disabled={isGeocoding}>
           <Search className="h-4 w-4 mr-1" />
           {isGeocoding ? "Geocoding..." : "Search"}
@@ -275,6 +293,9 @@ export default function BeverlyHeatmapDeepSearch() {
         <>
           <div className="text-xs text-muted-foreground">
             Scanned {deepData.scanned.toLocaleString()} loads.
+            {brokerId && (
+              <> · Showing {sortedDeep.length} lane{sortedDeep.length === 1 ? "" : "s"}{selectedBrokerName ? ` for ${selectedBrokerName}` : ""}.</>
+            )}
           </div>
           <div className="overflow-x-auto border rounded-lg">
             <Table className="table-fixed">
