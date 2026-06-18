@@ -4,10 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown, Minus, Loader2 } from "lucide-react";
+
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -284,11 +286,54 @@ export default function BeverlyHeatmapDeepSearch() {
         </div>
       )}
 
+      {isLoadingDeep && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Scanning loads and building dedicated lanes…
+          </div>
+          <div className="overflow-x-auto border rounded-lg">
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-[260px]">Lane</TableHead>
+                  <TableHead className="w-[200px]">Broker</TableHead>
+                  <TableHead className="text-center w-[70px]">Loads</TableHead>
+                  <TableHead className="text-right w-[100px]">Avg $</TableHead>
+                  <TableHead className="text-right w-[80px]">Avg Mi</TableHead>
+                  <TableHead className="text-right w-[80px]">Avg RPM</TableHead>
+                  <TableHead className="text-right w-[90px]">Last 30 RPM</TableHead>
+                  <TableHead className="text-right w-[90px]">Prior 30 RPM</TableHead>
+                  <TableHead className="text-center w-[110px]">Trend</TableHead>
+                  <TableHead className="text-right w-[120px]">Expected $</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <TableRow key={i} className="hover:bg-transparent">
+                    <TableCell><Skeleton className="h-4 w-[180px]" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[30px] mx-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[50px] ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[50px] ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[50px] ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[50px] ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[60px] mx-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[70px] ml-auto" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
       {!isLoadingDeep && deepData && deepData.lanes.length === 0 && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           No repeat lanes (≥3 loads) found.
         </div>
       )}
+
       {deepData && deepData.lanes.length > 0 && (
         <>
           <div className="text-xs text-muted-foreground">
