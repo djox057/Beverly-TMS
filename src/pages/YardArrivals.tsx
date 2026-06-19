@@ -934,7 +934,7 @@ export default function YardArrivals() {
                             </div>
                             <div>
                               <p className="text-sm font-medium mb-1">Reason:</p>
-                              <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} defaultEnglish={isYardRole} showTranslateButton={!isYardRole} />
+                              <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} defaultEnglish={isYardRole} showTranslateButton={true} />
                             </div>
                           </div>
                        ))}
