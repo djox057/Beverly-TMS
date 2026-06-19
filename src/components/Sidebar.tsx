@@ -27,7 +27,8 @@ import {
   CreditCard,
   MapPin,
   RefreshCw,
-  DollarSign
+  DollarSign,
+  Info as InfoIcon
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -318,6 +319,11 @@ export const Sidebar = () => {
     return next;
   })();
 
+  // Always append Info (visible to everyone)
+  const navWithInfo = allNavigation.some((i) => i.href === "/info")
+    ? allNavigation
+    : [...allNavigation, { name: "Info", href: "/info", icon: InfoIcon }];
+
   return (
     <SidebarPrimitive className="z-50">
       <SidebarContent>
@@ -328,7 +334,7 @@ export const Sidebar = () => {
           </div>
           <SidebarGroupContent>
             <SidebarMenu>
-              {allNavigation.map((item) => (
+              {navWithInfo.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild>
                     <NavLink

@@ -46,6 +46,7 @@ import Billboard from "./pages/Billboard";
 import TurnoverList from "./pages/TurnoverList";
 import RoadsideInspection from "./pages/RoadsideInspection";
 import TruckSales from "./pages/TruckSales";
+import Info from "./pages/Info";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -251,6 +252,11 @@ const AppContent = () => {
         <Route path="/truck-sales" element={
           <ProtectedRoute allowedRoles={['manager', 'admin', 'recruiting', 'chicago_management']}>
             <Layout><TruckSales /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/info" element={
+          <ProtectedRoute>
+            <Layout><Info /></Layout>
           </ProtectedRoute>
         } />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
