@@ -996,6 +996,11 @@ export default function YardArrivals() {
                     <div className="space-y-3">
                       {actions.map((action) => (
                         <div key={action.id} className={`border rounded-lg p-3 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                          {action.truck?.make && (
+                            <p className="text-xs text-muted-foreground">
+                              {action.truck.make} {action.truck.model} {action.truck.year}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between">
                             <p className="font-semibold">
                               #{action.truck?.truck_number || "N/A"}{" "}
@@ -1101,6 +1106,11 @@ export default function YardArrivals() {
                     <div className="space-y-3">
                       {actions.map((action) => (
                         <div key={action.id} className={`border rounded-lg p-3 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                          {action.truck?.make && (
+                            <p className="text-xs text-muted-foreground">
+                              {action.truck.make} {action.truck.model} {action.truck.year}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between">
                             <p className="font-semibold">
                               #{action.truck?.truck_number || "N/A"}{" "}
@@ -1214,6 +1224,11 @@ export default function YardArrivals() {
                     <div className="space-y-3">
                       {actions.map((action) => (
                         <div key={action.id} className={`border rounded-lg p-3 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                          {action.truck?.make && (
+                            <p className="text-xs text-muted-foreground">
+                              {action.truck.make} {action.truck.model} {action.truck.year}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between">
                             <p className="font-semibold">
                               #{action.truck?.truck_number || "N/A"}{" "}
