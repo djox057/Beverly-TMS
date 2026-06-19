@@ -30,6 +30,9 @@ interface TruckFormData {
   truck_number: string;
   vin: string;
   plate: string;
+  make: string;
+  model: string;
+  year: string;
   trailer_id: string;
   driver_id: string;
   driver2_id: string;
@@ -77,6 +80,9 @@ const Trucks = () => {
     truck_number: "",
     vin: "",
     plate: "",
+    make: "",
+    model: "",
+    year: "",
     trailer_id: "",
     driver_id: "",
     driver2_id: "",
@@ -161,6 +167,9 @@ const Trucks = () => {
       truck_number: "",
       vin: "",
       plate: "",
+      make: "",
+      model: "",
+      year: "",
       trailer_id: "",
       driver_id: "",
       driver2_id: "",
@@ -198,6 +207,9 @@ const Trucks = () => {
         truck_number: formData.truck_number?.trim(),
         vin: formData.vin || null,
         plate: formData.plate || null,
+        make: formData.make || null,
+        model: formData.model || null,
+        year: formData.year ? parseInt(formData.year, 10) : null,
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
@@ -392,6 +404,9 @@ const Trucks = () => {
         truck_number: formData.truck_number,
         vin: formData.vin || null,
         plate: formData.plate || null,
+        make: formData.make || null,
+        model: formData.model || null,
+        year: formData.year ? parseInt(formData.year, 10) : null,
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
@@ -550,6 +565,9 @@ const Trucks = () => {
       truck_number: truck.truck_number || "",
       vin: truck.vin || "",
       plate: truck.plate || "",
+      make: truck.make || "",
+      model: truck.model || "",
+      year: truck.year ? String(truck.year) : "",
       trailer_id: truck.trailer_id || "",
       driver_id: truck.driver1_id || "",
       driver2_id: truck.driver2_id || "",
@@ -762,6 +780,21 @@ const Trucks = () => {
                   ...formData,
                   vin: e.target.value
                 })} placeholder="1HGBH41JXMN109186" maxLength={17} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="make">Make</Label>
+                  <Input id="make" value={formData.make} onChange={e => setFormData({ ...formData, make: e.target.value })} placeholder="Freightliner" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="model">Model</Label>
+                  <Input id="model" value={formData.model} onChange={e => setFormData({ ...formData, model: e.target.value })} placeholder="Cascadia" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="year">Year</Label>
+                  <Input id="year" type="number" value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} placeholder="2022" />
                 </div>
               </div>
 
@@ -1181,6 +1214,21 @@ const Trucks = () => {
                     ...formData,
                     vin: e.target.value
                   })} placeholder="1HGBH41JXMN109186" maxLength={17} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_make">Make</Label>
+                    <Input id="edit_make" value={formData.make} onChange={e => setFormData({ ...formData, make: e.target.value })} placeholder="Freightliner" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_model">Model</Label>
+                    <Input id="edit_model" value={formData.model} onChange={e => setFormData({ ...formData, model: e.target.value })} placeholder="Cascadia" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_year">Year</Label>
+                    <Input id="edit_year" type="number" value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} placeholder="2022" />
                   </div>
                 </div>
 
