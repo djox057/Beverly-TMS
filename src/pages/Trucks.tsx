@@ -30,6 +30,9 @@ interface TruckFormData {
   truck_number: string;
   vin: string;
   plate: string;
+  make: string;
+  model: string;
+  year: string;
   trailer_id: string;
   driver_id: string;
   driver2_id: string;
@@ -77,6 +80,9 @@ const Trucks = () => {
     truck_number: "",
     vin: "",
     plate: "",
+    make: "",
+    model: "",
+    year: "",
     trailer_id: "",
     driver_id: "",
     driver2_id: "",
@@ -198,6 +204,9 @@ const Trucks = () => {
         truck_number: formData.truck_number?.trim(),
         vin: formData.vin || null,
         plate: formData.plate || null,
+        make: formData.make || null,
+        model: formData.model || null,
+        year: formData.year ? parseInt(formData.year, 10) : null,
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
@@ -392,6 +401,9 @@ const Trucks = () => {
         truck_number: formData.truck_number,
         vin: formData.vin || null,
         plate: formData.plate || null,
+        make: formData.make || null,
+        model: formData.model || null,
+        year: formData.year ? parseInt(formData.year, 10) : null,
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
