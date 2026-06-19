@@ -783,6 +783,21 @@ const Trucks = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="make">Make</Label>
+                  <Input id="make" value={formData.make} onChange={e => setFormData({ ...formData, make: e.target.value })} placeholder="Freightliner" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="model">Model</Label>
+                  <Input id="model" value={formData.model} onChange={e => setFormData({ ...formData, model: e.target.value })} placeholder="Cascadia" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="year">Year</Label>
+                  <Input id="year" type="number" value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} placeholder="2022" />
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="driver_id">Driver 1</Label>
