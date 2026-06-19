@@ -214,12 +214,28 @@ export default function YardArrivals() {
         (creatorsData || []).map(c => [c.user_id, c.full_name])
       );
 
+      // Fetch truck details for make/model/year
+      const truckNumbers = [...new Set((data || []).map(a => a.truck_number).filter(Boolean))] as string[];
+      const { data: trucksData } = truckNumbers.length > 0
+        ? await supabase
+            .from("trucks")
+            .select("truck_number, make, model, year")
+            .in("truck_number", truckNumbers)
+        : { data: [] };
+      
+      const trucksMap = new Map(
+        (trucksData || []).map(t => [t.truck_number, { make: t.make, model: t.model, year: t.year }])
+      );
+
       // Map actions with truck info from saved truck_number
       const actionsWithTrucks = (data || []).map((action) => {
         return {
           ...action,
           driver: action.drivers,
-          truck: action.truck_number ? { truck_number: action.truck_number } : null,
+          truck: action.truck_number ? { 
+            truck_number: action.truck_number,
+            ...trucksMap.get(action.truck_number)
+          } : null,
           is_team: action.is_team || false,
           creator: action.created_by ? { full_name: creatorsMap.get(action.created_by) || null } : null,
         };
