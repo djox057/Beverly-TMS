@@ -107,6 +107,9 @@ interface YardAction {
   } | null;
   truck: {
     truck_number: string;
+    make?: string;
+    model?: string;
+    year?: number;
   } | null;
   creator: {
     full_name: string | null;
