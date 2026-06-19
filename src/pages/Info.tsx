@@ -172,7 +172,7 @@ const portalsByCompany: { company: string; portals: Portal[] }[] = [
 
 const Field = ({ label, value }: { label: string; value?: string }) => (
   <div className="flex gap-2 text-sm">
-    <span className="text-foreground font-semibold min-w-[120px]">{label}</span>
+    <span className="text-black font-semibold min-w-[120px]">{label}</span>
     <span className="font-medium break-all">{value || "—"}</span>
   </div>
 );
