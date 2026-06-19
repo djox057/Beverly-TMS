@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getCompanyBackgroundColor } from "@/pages/Reports/helpers";
 
 type Company = {
   name: string;
@@ -177,8 +178,8 @@ const Field = ({ label, value }: { label: string; value?: string }) => (
 );
 
 const CompanyCard = ({ c }: { c: Company }) => (
-  <Card className="p-4 space-y-2 select-text">
-    <h3 className="font-semibold text-base border-b pb-2">{c.name}</h3>
+  <Card className="p-4 space-y-2 select-text border-2" style={{ ...getCompanyBackgroundColor(c.name) }}>
+    <h3 className="font-semibold text-base border-b border-current/30 pb-2">{c.name}</h3>
     <Field label="MC#" value={c.mc} />
     <Field label="DOT#" value={c.dot} />
     <Field label="EIN" value={c.ein} />
@@ -303,7 +304,7 @@ export default function Info() {
 
         <TabsContent value="portals" className="space-y-4">
           {portalsByCompany.map((g) => (
-            <Card key={g.company} className="p-4 select-text">
+            <Card key={g.company} className="p-4 select-text border-2" style={{ ...getCompanyBackgroundColor(g.company) }}>
               <h3 className="font-semibold mb-2">{g.company}</h3>
               {g.portals.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No portals listed.</p>
