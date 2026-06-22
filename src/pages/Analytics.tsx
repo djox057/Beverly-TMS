@@ -4263,10 +4263,6 @@ const Analytics = () => {
                             // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
                             const { grossPct: rGross, cutPct: rCut, salary1Label: rSalLabel, bonus5Label: rBonLabel } = getDispatcherRates(stat.userId, stat.name);
                             const baseRate = stat.totalFreight * rGross + stat.cut * rCut;
-                            // Recovery bonus: same formula applied to recovery-driver loads only.
-                            // Shown as a separate sub-row below the dispatcher and added into fullTotal.
-                            const recoveryBonus =
-                              (stat.recoveryFreight || 0) * rGross + (stat.recoveryCut || 0) * rCut;
 
                             // Carry-over adjustment: if prev month's salary column changed after being paid
                             // calculated_salary = base rate stored at time of payment
@@ -4295,10 +4291,9 @@ const Analytics = () => {
                             const daysOffDeduction = nonSickLostDays * perDayRate;
                             const foodAllowance = getFoodAllowance(stat.office, stat.userId);
 
-                            // Store base rate for carry-over calculations (includes recovery bonus so
-                            // bulk "Mark as paid" settles the full amount)
+                            // Store base rate for carry-over calculations
                             if (stat.userId) {
-                              calculatedSalaries[stat.userId] = baseRate + recoveryBonus;
+                              calculatedSalaries[stat.userId] = baseRate;
                             }
 
                             // Get payment info
@@ -4327,9 +4322,8 @@ const Analytics = () => {
                                 )
                               : 0;
                             const fullTotal = isDispatchOnly
-                              ? baseRate + recoveryBonus + extraDaysAmount + foodAllowance + adjustmentsTotal
+                              ? baseRate + extraDaysAmount + foodAllowance + adjustmentsTotal
                               : baseRate +
-                                recoveryBonus +
                                 extraDaysAmount -
                                 daysOffDeduction +
                                 foodAllowance +
@@ -4358,7 +4352,7 @@ const Analytics = () => {
                             return (
                               <React.Fragment key={stat.name}>
                               <TableRow
-                                className={`${index === dispatcherStats.length - 1 && recoveryBonus === 0 ? "border-b" : ""} ${isChecked ? "bg-green-100 dark:bg-green-950/30" : ""}`}
+                                className={`${index === dispatcherStats.length - 1 ? "border-b" : ""} ${isChecked ? "bg-green-100 dark:bg-green-950/30" : ""}`}
                               >
                                 {/* Hide selection checkbox for dispatch-only users */}
                                 {!isDispatchOnly && (
@@ -4557,7 +4551,6 @@ const Analytics = () => {
                                                   bonus5Percent: stat.cut * rCut,
                                                   salary1Label: rSalLabel,
                                                   bonus5Label: rBonLabel,
-                                                  recoveryBonus,
                                                   foodAllowance: foodAllowanceForPreview,
                                                   extraDays,
                                                   lostDays,
