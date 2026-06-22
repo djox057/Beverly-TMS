@@ -4415,7 +4415,6 @@ const Analytics = () => {
                                                     bonus5Percent: stat.cut * rCut,
                                                     salary1Label: rSalLabel,
                                                     bonus5Label: rBonLabel,
-                                                    recoveryBonus,
                                                     foodAllowance: foodAllowanceAmount,
                                                     extraDays,
                                                     lostDays,
@@ -5147,43 +5146,6 @@ const Analytics = () => {
                                   )}
                                 </TableCell>
                               </TableRow>
-                              {recoveryBonus > 0 && (
-                                <TableRow
-                                  className={`${index === dispatcherStats.length - 1 ? "border-b" : ""} text-muted-foreground`}
-                                >
-                                  {!isDispatchOnly && <TableCell />}
-                                  <TableCell className="pl-8 text-sm italic">↳ Recovery bonus</TableCell>
-                                  <TableCell className="text-right text-sm">
-                                    $
-                                    {stat.recoveryFreight.toLocaleString(undefined, {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </TableCell>
-                                  {!isDispatchOnly && (
-                                    <TableCell className="text-right text-sm">
-                                      $
-                                      {stat.recoveryCut.toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })}
-                                    </TableCell>
-                                  )}
-                                  <TableCell />
-                                  <TableCell />
-                                  {!isDispatchOnly && <TableCell />}
-                                  {!isDispatchOnly && hasFoodOffice(profile?.office) && <TableCell />}
-                                  {!isDispatchOnly && <TableCell />}
-                                  <TableCell className="text-right text-sm">
-                                    +$
-                                    {recoveryBonus.toLocaleString(undefined, {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </TableCell>
-                                  <TableCell />
-                                </TableRow>
-                              )}
                               </React.Fragment>
                             );
                           });
@@ -5310,8 +5272,6 @@ const Analytics = () => {
                             if (stat.userId) {
                               const { grossPct: bGross, cutPct: bCut } = getDispatcherRates(stat.userId, stat.name);
                               const baseRate = stat.totalFreight * bGross + stat.cut * bCut;
-                              const recoveryBonus =
-                                (stat.recoveryFreight || 0) * bGross + (stat.recoveryCut || 0) * bCut;
                               const perDayRate = bulkWorkDays > 0 ? baseRate / bulkWorkDays : 0;
                               const extraDays = extraDaysByUser[stat.userId] || 0;
                               const lostDays = lostDaysByUser[stat.userId] || 0;
@@ -5339,13 +5299,12 @@ const Analytics = () => {
 
                               const fullTotal =
                                 baseRate +
-                                recoveryBonus +
                                 extraDaysAmount -
                                 daysOffDeduction +
                                 foodAllowance +
                                 bonusAmt +
                                 adjustmentsTotal;
-                              calculatedSalaries[stat.userId] = baseRate + recoveryBonus; // Includes recovery bonus
+                              calculatedSalaries[stat.userId] = baseRate;
                               adjustedSalaries[stat.userId] = fullTotal; // Full total for paid_amount
                             }
                           });
@@ -5415,7 +5374,6 @@ const Analytics = () => {
             lostDayDates={isDispatchOnly ? [] : payrollPreviewData.lostDayDates}
             extraDaysAmount={payrollPreviewData.extraDaysAmount}
             dispatcherBonus={isDispatchOnly ? 0 : payrollPreviewData.dispatcherBonus}
-            recoveryBonus={payrollPreviewData.recoveryBonus}
             perDayRate={payrollPreviewData.perDayRate}
             previewOnly={isDispatchOnly}
             hideChargesAndExtraPay={isDispatchOnly}
