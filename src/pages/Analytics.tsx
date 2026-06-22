@@ -384,7 +384,6 @@ const Analytics = () => {
     lostDayDates: string[];
     extraDaysAmount: number;
     dispatcherBonus: number;
-    recoveryBonus?: number;
     perDayRate: number;
     isDeletedUser?: boolean;
     futureMonthLabel?: string;
@@ -1684,17 +1683,8 @@ const Analytics = () => {
         totalDhMiles: number;
         orderCount: number;
         latestPickupDate: string | null;
-        recoveryFreight: number;
-        recoveryDriverRate: number;
-        recoveryMiles: number;
-        recoveryOrderCount: number;
       }
     > = {};
-
-    // Build recovery-driver id set (load is "recovery" when its driver1 is a recovery driver)
-    const recoveryDriverIds = new Set(
-      (drivers || []).filter((d: any) => d.is_recovery).map((d: any) => d.id),
-    );
 
     filteredOrders.forEach((order) => {
       const dispatcher = order.bookedBy || "Unknown";
@@ -1706,29 +1696,17 @@ const Analytics = () => {
           totalDhMiles: 0,
           orderCount: 0,
           latestPickupDate: null,
-          recoveryFreight: 0,
-          recoveryDriverRate: 0,
-          recoveryMiles: 0,
-          recoveryOrderCount: 0,
         };
       }
       const orderFreight = Number(order.totalFreightAmountNoLumper) || 0;
       const orderDriverPay = getEffectiveDriverPay(order);
       const orderMiles = Number(order.mileage) || 0;
       const orderDhMiles = Number(order.dhMiles) || 0;
-      const isRecoveryLoad = !!(order as any).driver1Id && recoveryDriverIds.has((order as any).driver1Id);
-      if (isRecoveryLoad) {
-        acc[dispatcher].recoveryFreight += orderFreight;
-        acc[dispatcher].recoveryDriverRate += orderDriverPay;
-        acc[dispatcher].recoveryMiles += orderMiles;
-        acc[dispatcher].recoveryOrderCount += 1;
-      } else {
-        acc[dispatcher].totalFreight += orderFreight;
-        acc[dispatcher].totalDriverRate += orderDriverPay;
-        acc[dispatcher].totalMiles += orderMiles;
-        acc[dispatcher].totalDhMiles += orderDhMiles;
-        acc[dispatcher].orderCount += 1;
-      }
+      acc[dispatcher].totalFreight += orderFreight;
+      acc[dispatcher].totalDriverRate += orderDriverPay;
+      acc[dispatcher].totalMiles += orderMiles;
+      acc[dispatcher].totalDhMiles += orderDhMiles;
+      acc[dispatcher].orderCount += 1;
       const pickupDate = order.pickupDate || order.pickupDatetime;
       if (pickupDate) {
         const pickupStr = typeof pickupDate === "string" ? pickupDate : String(pickupDate);
@@ -1749,10 +1727,6 @@ const Analytics = () => {
             totalDhMiles: 0,
             orderCount: 0,
             latestPickupDate: null,
-            recoveryFreight: 0,
-            recoveryDriverRate: 0,
-            recoveryMiles: 0,
-            recoveryOrderCount: 0,
           };
         }
         acc[entityId].totalFreight += agg.totalFreight;
@@ -1776,17 +1750,12 @@ const Analytics = () => {
           totalDhMiles: number;
           orderCount: number;
           latestPickupDate: string | null;
-          recoveryFreight: number;
-          recoveryDriverRate: number;
-          recoveryMiles: number;
-          recoveryOrderCount: number;
         },
       ]) => {
         const cut = stats.totalFreight - stats.totalDriverRate;
         const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
         const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
         const avgDhMiles = stats.orderCount > 0 ? stats.totalDhMiles / stats.orderCount : 0;
-        const recoveryCut = stats.recoveryFreight - stats.recoveryDriverRate;
         const dispatcherProfile = dispatcherProfiles[name];
 
         // Get dispatcher user_id from the profile - name can be either full_name or user_id
@@ -1827,10 +1796,6 @@ const Analytics = () => {
           turnover: turnoverMap[validUserId] || 0,
           emptyDays: emptyDaysMap[validUserId] || 0,
           latestPickupDate: stats.latestPickupDate,
-          recoveryFreight: stats.recoveryFreight,
-          recoveryCut,
-          recoveryOrderCount: stats.recoveryOrderCount,
-          recoveryMiles: stats.recoveryMiles,
         };
       },
     )
@@ -1840,7 +1805,7 @@ const Analytics = () => {
 
       // Show users with gross > 0 (including deleted users who still have orders)
       // OR users with 'dispatch' role OR managers/supervisors/afterhours who have booked orders
-      const hasBookedOrders = stat.totalFreight > 0 || stat.recoveryFreight > 0;
+      const hasBookedOrders = stat.totalFreight > 0;
 
       // If no profile exists but they have orders with gross, show them (deleted users)
       if (!dispatcherProfile) {
