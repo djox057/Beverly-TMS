@@ -27,7 +27,6 @@ interface PayrollData {
   lostDayDates: string[];
   extraDaysAmount: number;
   dispatcherBonus?: number;
-  recoveryBonus?: number; // Bonus for loads finished by recovery drivers
   perDayRate?: number; // Per-workday rate for lost days calculation
   sickDayDates?: string[]; // Dates marked as PTO
   totalSickDaysAvailable?: number; // Max PTO days per year (3)
@@ -75,9 +74,6 @@ export const generatePayrollPdf = async (
   const hasNonSickDaysOff = nonSickDaysOff > 0;
   
   const hasDispatcherBonus = (data.dispatcherBonus ?? 0) > 0;
-  const recoveryBonus = data.recoveryBonus ?? 0;
-  const hasRecoveryBonus = recoveryBonus > 0;
-  
   // Custom adjustments
   const adjustments = data.adjustments || [];
   const totalAdditions = adjustments
@@ -95,7 +91,7 @@ export const generatePayrollPdf = async (
   const extraDaysAdd = hasExtraDays ? data.extraDaysAmount : 0;
   const daysOffDeduction = nonSickDaysOff * perDayRate;
   
-  const checkAmount = data.salary1Percent + data.bonus5Percent + recoveryBonus + data.foodAllowance +
+  const checkAmount = data.salary1Percent + data.bonus5Percent + data.foodAllowance +
     extraDaysAdd - daysOffDeduction + (data.dispatcherBonus ?? 0) +
     totalAdditions - totalCharges - totalAppliedPenalties +
     (data.extraRows ?? []).reduce((s, r) => s + r.amount, 0);
@@ -285,11 +281,6 @@ export const generatePayrollPdf = async (
   // Extra fixed rows (e.g. With Card / Without Card for recruiters)
   for (const row of data.extraRows ?? []) {
     drawRow(row.label, `$${row.amount.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG);
-  }
-
-  // Recovery bonus row (only if > 0)
-  if (hasRecoveryBonus) {
-    drawRow("Recovery bonus", `$${recoveryBonus.toFixed(2)}`, "#FFFFFF", LIGHT_BLUE_BG);
   }
 
   // Food allowance row (only if > 0)
