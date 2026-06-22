@@ -333,7 +333,6 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         bonus5Percent,
         salary1Label,
         bonus5Label,
-        recoveryBonus,
         foodAllowance,
         extraDays,
         lostDays,
@@ -542,7 +541,6 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         bonus5Percent,
         salary1Label,
         bonus5Label,
-        recoveryBonus,
         foodAllowance,
         extraDays,
         lostDays,
@@ -589,7 +587,7 @@ export const PayrollPreviewDialog: React.FC<PayrollPreviewDialogProps> = ({
         .eq("user_id", dispatcherUserId);
 
       // Calculate the full total for paid_amount (salary + all components)
-      const baseRate = salary1Percent + bonus5Percent + recoveryBonus;
+      const baseRate = salary1Percent + bonus5Percent;
       const ptoCount = Object.values(ptoSelections).filter(Boolean).length;
       const nonSickLostDays = Math.max(0, lostDays - ptoCount);
       const daysOffDeduction = nonSickLostDays * perDayRate;
