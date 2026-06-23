@@ -1583,13 +1583,20 @@ const NewOrder = () => {
   };
   const withFetchRetry = async <T,>(label: string, fn: () => PromiseLike<T> | T): Promise<T> => {
     const isNetworkErr = (err: any) => {
+      const name = String(err?.name || "");
+      if (name === "AbortError" || name === "TimeoutError") return true;
       const msg = String(err?.message || err || "");
+      const status = Number(err?.statusCode ?? err?.status ?? 0);
+      if ([0, 408, 425, 429, 500, 502, 503, 504].includes(status)) return true;
       return (
         err instanceof TypeError &&
         (msg.includes("Failed to fetch") ||
           msg.includes("NetworkError") ||
           msg.includes("network"))
-      ) || msg.includes("Failed to fetch") || msg.includes("NetworkError when attempting to fetch");
+      ) ||
+        /Failed to fetch|NetworkError when attempting to fetch|fetch failed|Load failed|aborted|body stream|stream already read/i.test(
+          msg,
+        );
     };
     try {
       return await Promise.resolve(fn());
