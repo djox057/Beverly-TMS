@@ -1160,15 +1160,17 @@ const Orders = () => {
     XLSX.writeFile(workbook, filename);
   }
 
-  // Hardcoded export: United Enterprise Solutions INC, delivery 2026-01-01 → 2026-06-23
-  const exportUESToExcel = async () => {
+  // Generic company + date-range export (used by the "Export by Company" dialog)
+  const exportCompanyRangeToExcel = async (
+    companyId: string,
+    startIso: string,
+    endIso: string,
+    companyLabel: string,
+  ) => {
     if (uesExporting) return;
-    const UES_COMPANY_ID = "0fc3ad2c-eb06-4727-99d4-218aed6d89e7";
-    const START = "2026-01-01T00:00:00";
-    const END = "2026-06-23T23:59:59";
     setUesExporting(true);
     try {
-      toast.info("Fetching UES orders...");
+      toast.info(`Fetching ${companyLabel} orders...`);
       const PAGE = 1000;
       let from = 0;
       const allFlat: any[] = [];
@@ -1177,9 +1179,9 @@ const Orders = () => {
         const { data, error } = await supabase
           .from("orders")
           .select("*")
-          .eq("company_id", UES_COMPANY_ID)
-          .gte("delivery_datetime", START)
-          .lte("delivery_datetime", END)
+          .eq("company_id", companyId)
+          .gte("delivery_datetime", startIso)
+          .lte("delivery_datetime", endIso)
           .order("delivery_datetime", { ascending: true })
           .range(from, from + PAGE - 1);
         if (error) throw error;
@@ -1189,16 +1191,18 @@ const Orders = () => {
         from += PAGE;
       }
       if (allFlat.length === 0) {
-        toast.warning("No UES orders found in Jan 1 – Jun 23, 2026");
+        toast.warning(`No orders found for ${companyLabel} in the selected range`);
         return;
       }
       const enriched = await enrichOrdersWithRelations(allFlat);
       const transformed = transformOrders(enriched);
-      buildAndDownloadOrdersXlsx(transformed, `UES_orders_2026-01-01_to_2026-06-23.xlsx`);
-      toast.success(`Exported ${transformed.length} UES orders`);
-
+      const safeName = companyLabel.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "");
+      const startDay = startIso.slice(0, 10);
+      const endDay = endIso.slice(0, 10);
+      buildAndDownloadOrdersXlsx(transformed, `${safeName}_orders_${startDay}_to_${endDay}.xlsx`);
+      toast.success(`Exported ${transformed.length} orders`);
     } catch (e: any) {
-      console.error("UES export failed", e);
+      console.error("Company export failed", e);
       toast.error(`Export failed: ${e?.message || "unknown error"}`);
     } finally {
       setUesExporting(false);
