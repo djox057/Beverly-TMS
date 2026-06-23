@@ -234,6 +234,9 @@ const Orders = () => {
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
   const [uesExporting, setUesExporting] = useState(false);
+  const [companyExportOpen, setCompanyExportOpen] = useState(false);
+  const [companyExportRange, setCompanyExportRange] = useState<DateRange | undefined>();
+  const [companyExportCompanyId, setCompanyExportCompanyId] = useState<string>("");
   const [driverFilter, setDriverFilter] = useState("all-drivers");
   const [brokerFilter, setBrokerFilter] = useState("all-brokers");
   const [lockedNotInvoicedFilter, setLockedNotInvoicedFilter] = useState(false);
@@ -1160,15 +1163,17 @@ const Orders = () => {
     XLSX.writeFile(workbook, filename);
   }
 
-  // Hardcoded export: United Enterprise Solutions INC, delivery 2026-01-01 → 2026-06-23
-  const exportUESToExcel = async () => {
+  // Generic company + date-range export (used by the "Export by Company" dialog)
+  const exportCompanyRangeToExcel = async (
+    companyId: string,
+    startIso: string,
+    endIso: string,
+    companyLabel: string,
+  ) => {
     if (uesExporting) return;
-    const UES_COMPANY_ID = "0fc3ad2c-eb06-4727-99d4-218aed6d89e7";
-    const START = "2026-01-01T00:00:00";
-    const END = "2026-06-23T23:59:59";
     setUesExporting(true);
     try {
-      toast.info("Fetching UES orders...");
+      toast.info(`Fetching ${companyLabel} orders...`);
       const PAGE = 1000;
       let from = 0;
       const allFlat: any[] = [];
@@ -1177,9 +1182,9 @@ const Orders = () => {
         const { data, error } = await supabase
           .from("orders")
           .select("*")
-          .eq("company_id", UES_COMPANY_ID)
-          .gte("delivery_datetime", START)
-          .lte("delivery_datetime", END)
+          .eq("company_id", companyId)
+          .gte("delivery_datetime", startIso)
+          .lte("delivery_datetime", endIso)
           .order("delivery_datetime", { ascending: true })
           .range(from, from + PAGE - 1);
         if (error) throw error;
@@ -1189,16 +1194,18 @@ const Orders = () => {
         from += PAGE;
       }
       if (allFlat.length === 0) {
-        toast.warning("No UES orders found in Jan 1 – Jun 23, 2026");
+        toast.warning(`No orders found for ${companyLabel} in the selected range`);
         return;
       }
       const enriched = await enrichOrdersWithRelations(allFlat);
       const transformed = transformOrders(enriched);
-      buildAndDownloadOrdersXlsx(transformed, `UES_orders_2026-01-01_to_2026-06-23.xlsx`);
-      toast.success(`Exported ${transformed.length} UES orders`);
-
+      const safeName = companyLabel.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "");
+      const startDay = startIso.slice(0, 10);
+      const endDay = endIso.slice(0, 10);
+      buildAndDownloadOrdersXlsx(transformed, `${safeName}_orders_${startDay}_to_${endDay}.xlsx`);
+      toast.success(`Exported ${transformed.length} orders`);
     } catch (e: any) {
-      console.error("UES export failed", e);
+      console.error("Company export failed", e);
       toast.error(`Export failed: ${e?.message || "unknown error"}`);
     } finally {
       setUesExporting(false);
@@ -1555,18 +1562,22 @@ const Orders = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={exportUESToExcel}
+                  onClick={() => {
+                    setCompanyExportRange(undefined);
+                    setCompanyExportCompanyId("");
+                    setCompanyExportOpen(true);
+                  }}
                   disabled={uesExporting}
                   className="text-xs md:text-sm"
-                  title="Export all United Enterprise Solutions orders with delivery date Jan 1 – Jun 23, 2026"
+                  title="Export orders by operating company and delivery date range"
                 >
                   {uesExporting ? (
                     <Loader2 className="mr-1 md:mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Download className="mr-1 md:mr-2 h-4 w-4" />
                   )}
-                  <span className="hidden sm:inline">Export UES (Jan 1 – Jun 23)</span>
-                  <span className="sm:hidden">UES</span>
+                  <span className="hidden sm:inline">Export by Company</span>
+                  <span className="sm:hidden">By Co.</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -3179,6 +3190,68 @@ const Orders = () => {
             </div>
             <DialogFooter>
               <Button onClick={() => setInvoiceWarningDialogOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={companyExportOpen} onOpenChange={setCompanyExportOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Export Orders by Company</DialogTitle>
+              <DialogDescription>
+                Select an operating company and a delivery date range. The export ignores on-screen filters.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Operating Company</Label>
+                <Combobox
+                  options={(companies || []).map((c: any) => ({ value: c.id, label: c.name }))}
+                  value={companyExportCompanyId}
+                  onValueChange={setCompanyExportCompanyId}
+                  placeholder="Select a company..."
+                  searchPlaceholder="Search companies..."
+                  modal
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Delivery Date Range</Label>
+                <DateRangePicker date={companyExportRange} onDateChange={setCompanyExportRange} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCompanyExportOpen(false)} disabled={uesExporting}>
+                Cancel
+              </Button>
+              <Button
+                disabled={
+                  uesExporting ||
+                  !companyExportCompanyId ||
+                  !companyExportRange?.from ||
+                  !companyExportRange?.to
+                }
+                onClick={async () => {
+                  if (!companyExportCompanyId || !companyExportRange?.from || !companyExportRange?.to) return;
+                  const fmt = (d: Date) =>
+                    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                  const startIso = `${fmt(companyExportRange.from)}T00:00:00`;
+                  const endIso = `${fmt(companyExportRange.to)}T23:59:59`;
+                  const label =
+                    (companies || []).find((c: any) => c.id === companyExportCompanyId)?.name ||
+                    "company";
+                  setCompanyExportOpen(false);
+                  await exportCompanyRangeToExcel(companyExportCompanyId, startIso, endIso, label);
+                }}
+              >
+                {uesExporting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" /> Export
+                  </>
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
