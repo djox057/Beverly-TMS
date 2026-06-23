@@ -2215,31 +2215,64 @@ const NewOrder = () => {
       let podUploaded = false;
       let newPodCount = 0;
 
-      for (const { files, category } of allFiles) {
-        if (files && files.length > 0) {
-          if (category === "BOL") bolUploaded = true;
-          if (category === "POD") {
-            podUploaded = true;
-            newPodCount = files.length;
-          }
+      // File-upload phase runs AFTER the order + stops already exist.
+      // Failures here must NOT be reported as "Error Creating Order" — the order
+      // is already saved. We collect failures and surface a warning instead.
+      const failedFileUploads: { category: string; fileName: string; message: string }[] = [];
 
-          for (let i = 0; i < files.length; i++) {
-            const file = files[i];
+      // Idempotency: if a previous attempt for this order already inserted
+      // file rows (e.g. user retried after a Storage hiccup), skip duplicates.
+      const { data: existingFileRows } = await withFetchRetry("Check existing files", () =>
+        supabase
+          .from("order_files")
+          .select("file_category, file_name")
+          .eq("order_id", orderId)
+      );
+      const existingFileKeys = new Set(
+        (existingFileRows || []).map((r: any) => `${r.file_category}::${r.file_name}`),
+      );
+
+      for (const { files, category } of allFiles) {
+        if (!files || files.length === 0) continue;
+        if (category === "BOL") bolUploaded = true;
+        if (category === "POD") {
+          podUploaded = true;
+          newPodCount = files.length;
+        }
+
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const dedupeKey = `${category}::${file.name}`;
+          if (existingFileKeys.has(dedupeKey)) {
+            console.info(`↩️ Skipping duplicate ${category} file already recorded: ${file.name}`);
+            continue;
+          }
+          try {
             const filePath = await withFetchRetry(`Upload ${category} file: ${file.name}`, () =>
-              uploadOrderFilePreserveName({ orderId, folder: category, file })
+              uploadOrderFilePreserveName({ orderId, folder: category, file }),
             );
-            const { error: fileError } = await withFetchRetry(`Record ${category} file: ${file.name}`, () =>
-              supabase.from("order_files").insert({
-              order_id: orderId,
-              file_name: file.name,
-              file_path: filePath,
-              file_size: file.size,
-              content_type: file.type,
-              file_category: category,
-              uploaded_by: profile?.full_name || profile?.email || "Unknown User",
-              })
+            const { error: fileError } = await withFetchRetry(
+              `Record ${category} file: ${file.name}`,
+              () =>
+                supabase.from("order_files").insert({
+                  order_id: orderId,
+                  file_name: file.name,
+                  file_path: filePath,
+                  file_size: file.size,
+                  content_type: file.type,
+                  file_category: category,
+                  uploaded_by: profile?.full_name || profile?.email || "Unknown User",
+                }),
             );
             if (fileError) throw fileError;
+            existingFileKeys.add(dedupeKey);
+          } catch (uploadErr: any) {
+            console.error(`❌ Failed to upload ${category} file "${file.name}":`, uploadErr);
+            failedFileUploads.push({
+              category,
+              fileName: file.name,
+              message: uploadErr?.message || String(uploadErr),
+            });
           }
         }
       }
@@ -2288,10 +2321,24 @@ const NewOrder = () => {
         }
       }
 
-      toast({
-        title: "Load Created",
-        description: `Load ${formatInternalLoadNumber(newInternalLoadNumber, selectedDriver1?.company?.name)} has been successfully created.`,
-      });
+      const loadLabel = formatInternalLoadNumber(
+        newInternalLoadNumber,
+        selectedDriver1?.company?.name,
+      );
+      if (failedFileUploads.length > 0) {
+        const categories = Array.from(new Set(failedFileUploads.map((f) => f.category))).join(", ");
+        toast({
+          title: `Load ${loadLabel} created — some files failed to upload`,
+          description: `${failedFileUploads.length} file(s) (${categories}) did not upload. Open the load from Orders and re-upload them. No need to recreate the load.`,
+          variant: "destructive",
+          duration: 12000,
+        });
+      } else {
+        toast({
+          title: "Load Created",
+          description: `Load ${loadLabel} has been successfully created.`,
+        });
+      }
 
       // Invalidate query cache to refetch next internal load number
       queryClient.invalidateQueries({
