@@ -15,6 +15,7 @@ export interface RecruiterStatementData {
   recruiterName: string;
   month: string; // YYYY-MM
   baseSalary: number;
+  departmentLabel?: string;
   workDaysInMonth: number;
   perDayRate: number;
   extraDayDates: string[]; // YYYY-MM-DD
@@ -88,7 +89,7 @@ const buildPdf = async (
       extraDaysAmount: data.extraDayDates.length * data.perDayRate,
       perDayRate: data.perDayRate,
       adjustments,
-      departmentLabel: "Recruiting",
+      departmentLabel: data.departmentLabel ?? "Recruiting",
       salary1Label: "Base Salary",
       hideBonusRow: true,
       extraRows,
