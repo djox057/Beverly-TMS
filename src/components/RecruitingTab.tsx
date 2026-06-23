@@ -776,6 +776,8 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
           recruiterName: previewRow.recruiter_name ?? "Recruiter",
           month: previewRow.month,
           baseSalary: previewRow.base_salary,
+          departmentLabel:
+            ROLE_OPTIONS.find((o) => o.value === selectedRole)?.label ?? "Recruiting",
           workDaysInMonth,
           perDayRate:
             workDaysInMonth > 0
