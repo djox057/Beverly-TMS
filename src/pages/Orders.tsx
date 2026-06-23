@@ -1160,12 +1160,12 @@ const Orders = () => {
     XLSX.writeFile(workbook, filename);
   }
 
-  // Hardcoded export: United Enterprise Solutions INC, delivery 2025-01-01 → 2025-06-23
+  // Hardcoded export: United Enterprise Solutions INC, delivery 2026-01-01 → 2026-06-23
   const exportUESToExcel = async () => {
     if (uesExporting) return;
     const UES_COMPANY_ID = "0fc3ad2c-eb06-4727-99d4-218aed6d89e7";
-    const START = "2025-01-01T00:00:00";
-    const END = "2025-06-23T23:59:59";
+    const START = "2026-01-01T00:00:00";
+    const END = "2026-06-23T23:59:59";
     setUesExporting(true);
     try {
       toast.info("Fetching UES orders...");
@@ -1189,13 +1189,14 @@ const Orders = () => {
         from += PAGE;
       }
       if (allFlat.length === 0) {
-        toast.warning("No UES orders found in Jan 1 – Jun 23, 2025");
+        toast.warning("No UES orders found in Jan 1 – Jun 23, 2026");
         return;
       }
       const enriched = await enrichOrdersWithRelations(allFlat);
       const transformed = transformOrders(enriched);
-      buildAndDownloadOrdersXlsx(transformed, `UES_orders_2025-01-01_to_2025-06-23.xlsx`);
+      buildAndDownloadOrdersXlsx(transformed, `UES_orders_2026-01-01_to_2026-06-23.xlsx`);
       toast.success(`Exported ${transformed.length} UES orders`);
+
     } catch (e: any) {
       console.error("UES export failed", e);
       toast.error(`Export failed: ${e?.message || "unknown error"}`);
