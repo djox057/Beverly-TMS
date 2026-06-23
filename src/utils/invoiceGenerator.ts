@@ -307,7 +307,7 @@ export const generateInvoicePDF = async (
       const baseFilename = `${invoiceNumber}.pdf`;
       console.log(`Preparing invoice ${baseFilename} for company ${companyName}`);
 
-      const isBgPrimeInvoice = derivedCompany === "BG Prime Inc";
+      const isBgPrimeInvoice = (order.bookedByCompanyName ?? derivedCompany) === "BG Prime Inc";
 
       doc.rect(130, 40, 30, 8);
       doc.rect(160, 40, 30, 8);
