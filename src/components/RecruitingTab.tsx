@@ -23,7 +23,7 @@ const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "maintenance", label: "Maintenance" },
   { value: "claims", label: "Claims" },
   { value: "safety", label: "Safety" },
-  { value: "afterhours", label: "After" },
+  { value: "afterhours", label: "Afterhours" },
 ];
 
 type Recruiter = {
