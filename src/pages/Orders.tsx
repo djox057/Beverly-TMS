@@ -1113,7 +1113,40 @@ const Orders = () => {
       Company: (order as any).driverCompanyName || order.companyName,
       "Booked By": order.bookedBy,
     }));
+    const sumNum = (fn: (o: any) => any) =>
+      filteredOrders.reduce((acc, o) => acc + (Number(fn(o)) || 0), 0);
+    const totalsRow: Record<string, any> = {
+      "Truck #": "TOTALS",
+      "Load #": "",
+      "Pickup Date": "",
+      "Pickup City": "",
+      "Pickup State": "",
+      "Delivery Date": "",
+      "Delivery City": "",
+      "Delivery State": "",
+      Miles: sumNum((o) => o.mileage),
+      ...(primaryRole !== "dispatch"
+        ? { "Driver Pay": sumNum((o) => (o as any).totalDriverPay) }
+        : {}),
+      Driver: "",
+      "Broker Name": "",
+      "Broker Load #": "",
+      Invoiced: "",
+      "Total Freight": sumNum((o) => o.totalFreightAmount),
+      Notes: "",
+      Company: "",
+      "Booked By": "",
+    };
+    exportData.push(totalsRow as any);
     const worksheet = XLSX.utils.json_to_sheet(exportData);
+    // Bold the totals (last) row
+    const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1");
+    const lastRow = range.e.r;
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const ref = XLSX.utils.encode_cell({ r: lastRow, c });
+      const cell = (worksheet as any)[ref];
+      if (cell) cell.s = { font: { bold: true } };
+    }
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
     XLSX.writeFile(workbook, `orders_${new Date().toISOString().split("T")[0]}.xlsx`);
