@@ -1562,18 +1562,22 @@ const Orders = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={exportUESToExcel}
+                  onClick={() => {
+                    setCompanyExportRange(undefined);
+                    setCompanyExportCompanyId("");
+                    setCompanyExportOpen(true);
+                  }}
                   disabled={uesExporting}
                   className="text-xs md:text-sm"
-                  title="Export all United Enterprise Solutions orders with delivery date Jan 1 – Jun 23, 2026"
+                  title="Export orders by operating company and delivery date range"
                 >
                   {uesExporting ? (
                     <Loader2 className="mr-1 md:mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Download className="mr-1 md:mr-2 h-4 w-4" />
                   )}
-                  <span className="hidden sm:inline">Export UES (Jan 1 – Jun 23)</span>
-                  <span className="sm:hidden">UES</span>
+                  <span className="hidden sm:inline">Export by Company</span>
+                  <span className="sm:hidden">By Co.</span>
                 </Button>
                 <Button
                   variant="outline"
