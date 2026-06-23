@@ -61,6 +61,8 @@ import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { toast } from "sonner";
 import { diagnoseLoadMiles } from "@/utils/diagnoseLoad";
 import { formatInternalLoadNumber, getCompanySuffix } from "@/utils/formatInternalLoadNumber";
+import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
+import { transformOrders } from "@/utils/ordersTransform";
 import { hasUpdateTracking } from "@/utils/orderChangeTracker";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
@@ -1093,7 +1095,12 @@ const Orders = () => {
     }));
   const exportToExcel = () => {
     if (!filteredOrders.length) return;
-    const exportData = filteredOrders.map((order) => ({
+    buildAndDownloadOrdersXlsx(filteredOrders, `orders_${new Date().toISOString().split("T")[0]}.xlsx`);
+  };
+
+  // Shared row+totals builder used by both exports
+  function buildAndDownloadOrdersXlsx(orders: any[], filename: string) {
+    const exportData = orders.map((order: any) => ({
       "Truck #": order.truckNumber,
       "Load #": formatInternalLoadNumber(order.internalLoadNumber, order.companyName || order.truckCompanyName),
       "Pickup Date": order.pickupDate,
@@ -1114,7 +1121,7 @@ const Orders = () => {
       "Booked By": order.bookedBy,
     }));
     const sumNum = (fn: (o: any) => any) =>
-      filteredOrders.reduce((acc, o) => acc + (Number(fn(o)) || 0), 0);
+      orders.reduce((acc: number, o: any) => acc + (Number(fn(o)) || 0), 0);
     const totalsRow: Record<string, any> = {
       "Truck #": "TOTALS",
       "Load #": "",
@@ -1149,7 +1156,52 @@ const Orders = () => {
     }
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
-    XLSX.writeFile(workbook, `orders_${new Date().toISOString().split("T")[0]}.xlsx`);
+    XLSX.writeFile(workbook, filename);
+  }
+
+  // Hardcoded export: United Enterprise Solutions INC, delivery 2025-01-01 → 2025-06-23
+  const [uesExporting, setUesExporting] = useState(false);
+  const exportUESToExcel = async () => {
+    if (uesExporting) return;
+    const UES_COMPANY_ID = "0fc3ad2c-eb06-4727-99d4-218aed6d89e7";
+    const START = "2025-01-01T00:00:00";
+    const END = "2025-06-23T23:59:59";
+    setUesExporting(true);
+    try {
+      toast.info("Fetching UES orders...");
+      const PAGE = 1000;
+      let from = 0;
+      const allFlat: any[] = [];
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("company_id", UES_COMPANY_ID)
+          .gte("delivery_datetime", START)
+          .lte("delivery_datetime", END)
+          .order("delivery_datetime", { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        const page = data || [];
+        allFlat.push(...page);
+        if (page.length < PAGE) break;
+        from += PAGE;
+      }
+      if (allFlat.length === 0) {
+        toast.warning("No UES orders found in Jan 1 – Jun 23, 2025");
+        return;
+      }
+      const enriched = await enrichOrdersWithRelations(allFlat);
+      const transformed = transformOrders(enriched);
+      buildAndDownloadOrdersXlsx(transformed, `UES_orders_2025-01-01_to_2025-06-23.xlsx`);
+      toast.success(`Exported ${transformed.length} UES orders`);
+    } catch (e: any) {
+      console.error("UES export failed", e);
+      toast.error(`Export failed: ${e?.message || "unknown error"}`);
+    } finally {
+      setUesExporting(false);
+    }
   };
   const toggleOrderLock = async (orderId: string, currentLockStatus: boolean) => {
     if (primaryRole === "manager" || primaryRole === "supervisor") {
