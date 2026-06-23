@@ -234,6 +234,9 @@ const Orders = () => {
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
   const [uesExporting, setUesExporting] = useState(false);
+  const [companyExportOpen, setCompanyExportOpen] = useState(false);
+  const [companyExportRange, setCompanyExportRange] = useState<DateRange | undefined>();
+  const [companyExportCompanyId, setCompanyExportCompanyId] = useState<string>("");
   const [driverFilter, setDriverFilter] = useState("all-drivers");
   const [brokerFilter, setBrokerFilter] = useState("all-brokers");
   const [lockedNotInvoicedFilter, setLockedNotInvoicedFilter] = useState(false);
