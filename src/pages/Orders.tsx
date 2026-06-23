@@ -3205,7 +3205,7 @@ const Orders = () => {
               <div className="space-y-2">
                 <Label>Operating Company</Label>
                 <Combobox
-                  options={(companies || []).map((c: any) => ({ value: c.id, label: c.name }))}
+                  options={(companies || []).map((c: any) => ({ value: c.name, label: c.name }))}
                   value={companyExportCompanyId}
                   onValueChange={setCompanyExportCompanyId}
                   placeholder="Select a company..."
@@ -3235,11 +3235,13 @@ const Orders = () => {
                     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
                   const startIso = `${fmt(companyExportRange.from)}T00:00:00`;
                   const endIso = `${fmt(companyExportRange.to)}T23:59:59`;
-                  const label =
-                    (companies || []).find((c: any) => c.id === companyExportCompanyId)?.name ||
-                    "company";
+                  const match = (companies || []).find((c: any) => c.name === companyExportCompanyId);
+                  if (!match) {
+                    toast.error("Selected company not found");
+                    return;
+                  }
                   setCompanyExportOpen(false);
-                  await exportCompanyRangeToExcel(companyExportCompanyId, startIso, endIso, label);
+                  await exportCompanyRangeToExcel(match.id, startIso, endIso, match.name);
                 }}
               >
                 {uesExporting ? (
