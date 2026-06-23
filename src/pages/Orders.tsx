@@ -3193,6 +3193,68 @@ const Orders = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <Dialog open={companyExportOpen} onOpenChange={setCompanyExportOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Export Orders by Company</DialogTitle>
+              <DialogDescription>
+                Select an operating company and a delivery date range. The export ignores on-screen filters.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Operating Company</Label>
+                <Combobox
+                  options={(companies || []).map((c: any) => ({ value: c.id, label: c.name }))}
+                  value={companyExportCompanyId}
+                  onValueChange={setCompanyExportCompanyId}
+                  placeholder="Select a company..."
+                  searchPlaceholder="Search companies..."
+                  modal
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Delivery Date Range</Label>
+                <DateRangePicker date={companyExportRange} onDateChange={setCompanyExportRange} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCompanyExportOpen(false)} disabled={uesExporting}>
+                Cancel
+              </Button>
+              <Button
+                disabled={
+                  uesExporting ||
+                  !companyExportCompanyId ||
+                  !companyExportRange?.from ||
+                  !companyExportRange?.to
+                }
+                onClick={async () => {
+                  if (!companyExportCompanyId || !companyExportRange?.from || !companyExportRange?.to) return;
+                  const fmt = (d: Date) =>
+                    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                  const startIso = `${fmt(companyExportRange.from)}T00:00:00`;
+                  const endIso = `${fmt(companyExportRange.to)}T23:59:59`;
+                  const label =
+                    (companies || []).find((c: any) => c.id === companyExportCompanyId)?.name ||
+                    "company";
+                  setCompanyExportOpen(false);
+                  await exportCompanyRangeToExcel(companyExportCompanyId, startIso, endIso, label);
+                }}
+              >
+                {uesExporting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" /> Export
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
