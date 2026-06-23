@@ -1160,7 +1160,6 @@ const Orders = () => {
   }
 
   // Hardcoded export: United Enterprise Solutions INC, delivery 2025-01-01 → 2025-06-23
-  const [uesExporting, setUesExporting] = useState(false);
   const exportUESToExcel = async () => {
     if (uesExporting) return;
     const UES_COMPANY_ID = "0fc3ad2c-eb06-4727-99d4-218aed6d89e7";
