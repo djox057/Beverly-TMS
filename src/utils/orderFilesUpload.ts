@@ -8,6 +8,65 @@ const isConflictError = (error: any): boolean => {
   return status === 409 || /already exists|conflict/i.test(msg);
 };
 
+const isTransientUploadError = (error: any): boolean => {
+  if (!error) return false;
+  const status = Number((error as any)?.statusCode ?? (error as any)?.status ?? 0);
+  if ([0, 408, 425, 429, 500, 502, 503, 504].includes(status)) return true;
+  const name = String((error as any)?.name ?? "");
+  if (name === "AbortError" || name === "TimeoutError") return true;
+  const msg = String((error as any)?.message ?? error ?? "");
+  return (
+    /Failed to fetch|NetworkError|network|fetch failed|load failed|aborted|timeout|body stream|stream already read|ECONN|socket hang up/i.test(
+      msg,
+    )
+  );
+};
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Read the File once into an ArrayBuffer and wrap it in a fresh Blob.
+ * Edge browser intermittently fails to re-stream the same File reference on
+ * retries or after the form re-renders (manifests as aborted upload /
+ * "body stream already read"). Uploading a buffered Blob avoids that.
+ */
+const bufferFileForUpload = async (
+  file: File,
+): Promise<{ body: Blob; contentType: string }> => {
+  const contentType = file.type || "application/octet-stream";
+  try {
+    const buf = await file.arrayBuffer();
+    return { body: new Blob([buf], { type: contentType }), contentType };
+  } catch {
+    // Fall back to the raw File if reading fails for any reason.
+    return { body: file, contentType };
+  }
+};
+
+const uploadWithRetry = async (
+  path: string,
+  body: Blob,
+  contentType: string,
+): Promise<{ error: any | null }> => {
+  const delays = [0, 300, 900, 2500];
+  let lastError: any = null;
+  for (let i = 0; i < delays.length; i++) {
+    if (delays[i] > 0) await sleep(delays[i]);
+    const { error } = await supabase.storage
+      .from(ORDER_FILES_BUCKET)
+      .upload(path, body, { upsert: false, contentType });
+    if (!error) return { error: null };
+    lastError = error;
+    if (isConflictError(error)) return { error };
+    if (!isTransientUploadError(error)) return { error };
+    console.warn(
+      `[orderFilesUpload] transient upload error (attempt ${i + 1}/${delays.length}) for ${path}:`,
+      (error as any)?.message || error,
+    );
+  }
+  return { error: lastError };
+};
+
 /**
  * Sanitizes a filename for Supabase Storage by:
  * - Replacing spaces, hyphens, and path separators with underscores
@@ -61,14 +120,15 @@ export const uploadOrderFilePreserveName = async (params: {
 
   const originalName = sanitizeFileName(file.name);
 
+  // Buffer once so retries don't re-stream a (possibly consumed) File reference.
+  const { body, contentType } = await bufferFileForUpload(file);
+
   // Try with sanitized original name (+ copy suffixes)
   for (let attempt = 1; attempt <= maxTries; attempt++) {
     const candidateName = addCopySuffix(originalName, attempt);
     const candidatePath = `${orderId}/${folder}/${candidateName}`;
 
-    const { error } = await supabase.storage
-      .from(ORDER_FILES_BUCKET)
-      .upload(candidatePath, file, { upsert: false });
+    const { error } = await uploadWithRetry(candidatePath, body, contentType);
 
     if (!error) return candidatePath;
     if (isConflictError(error)) continue;
@@ -83,9 +143,7 @@ export const uploadOrderFilePreserveName = async (params: {
   const uuidName = `${crypto.randomUUID()}${ext}`;
   const fallbackPath = `${orderId}/${folder}/${uuidName}`;
 
-  const { error: fallbackError } = await supabase.storage
-    .from(ORDER_FILES_BUCKET)
-    .upload(fallbackPath, file, { upsert: false });
+  const { error: fallbackError } = await uploadWithRetry(fallbackPath, body, contentType);
 
   if (!fallbackError) return fallbackPath;
 
