@@ -1,31 +1,30 @@
-## Change
+## Goal
+Let you export all orders whose **delivery date** is between **Jan 1 – Jun 23** for operating company **United Enterprise Solutions INC** to Excel, with a totals row at the bottom that sums **Miles**, **Driver Pay**, and **Total Freight**.
 
-In `src/utils/invoiceGenerator.ts`, the decision to hide the "Terms: NET 30" and "Due Date" block is currently driven by the suffix-derived company (`derivedCompany === "BG Prime Inc"`). Switch it to be driven by the order's actual booked-by company.
+## How you'll use it
+The Orders page already has the filters needed — no new UI required:
 
-### Edit
+1. On `/orders`, set the **Company** filter to `United Enterprise Solutions INC`.
+2. Set the **Delivery date range** to `01/01/2026 – 06/23/2026` (or the year you want).
+3. Wait for results to load, then click the existing **Export to Excel** button.
 
-At line 310, replace:
+The exported file will contain the same columns as today (Truck #, Load #, Pickup/Delivery date + city/state, Miles, Driver Pay, Driver, Broker, Invoiced, Total Freight, Notes, Company, Booked By) plus the new totals row.
 
-```ts
-const isBgPrimeInvoice = derivedCompany === "BG Prime Inc";
-```
+## What changes in code
+Single edit in `src/pages/Orders.tsx` inside `exportToExcel` (around line 1094):
 
-with:
+- After building `exportData`, compute three sums across the filtered rows:
+  - `Miles` → sum of `order.mileage`
+  - `Driver Pay` → sum of `order.totalDriverPay` (only included for non-`dispatch` roles, matching current column visibility)
+  - `Total Freight` → sum of `order.totalFreightAmount`
+- Append one extra row to `exportData` with:
+  - `"Truck #": "TOTALS"`
+  - the three sum fields populated
+  - all other fields left empty
+- Bold the totals row using ExcelJS-style cell styling via `XLSX.utils` (set `worksheet['!rows']` or apply `s` style to the last row's cells through `worksheet[cellRef].s = { font: { bold: true } }`).
+- Keep filename pattern `orders_<today>.xlsx`.
 
-```ts
-const isBgPrimeInvoice = (order.bookedByCompanyName ?? derivedCompany) === "BG Prime Inc";
-```
-
-That is the only place that controls the Terms/Due Date rows (lines 316–321, 326–329, 334–341); no other logic changes.
-
-### Effect on load 4000355995
-
-- Internal load number: `2679-BG` (suffix maps to BG Prime Inc)
-- Booked by: **BF Prime LLC**
-
-After the change, this invoice will show **Terms: NET 30** and **Due Date: today + 30 days**, because the booked-by company is BF Prime LLC, not BG Prime Inc. Only invoices actually booked by BG Prime Inc will continue to hide those two rows.
-
-### Out of scope
-
-- No change to suffix-based invoice numbering (`formatInternalLoadNumber`) or legal-entity resolution used elsewhere.
-- No change to the `isBgPrime` branch at line 515 — confirm with me if you also want that driven by booked-by, since it controls other layout pieces further down the PDF.
+## Out of scope
+- No new filter UI, no new dialog, no preset button.
+- No changes to which orders are exported beyond what the existing on-screen filters already produce (so the export reflects exactly what's visible).
+- No change to column set or column order.
