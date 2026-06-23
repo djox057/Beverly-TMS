@@ -1,30 +1,26 @@
-## Goal
-Let you export all orders whose **delivery date** is between **Jan 1 – Jun 23** for operating company **United Enterprise Solutions INC** to Excel, with a totals row at the bottom that sums **Miles**, **Driver Pay**, and **Total Freight**.
+## Add dedicated "Export UES Jan 1–Jun 23" button
 
-## How you'll use it
-The Orders page already has the filters needed — no new UI required:
+Add a **new, separate button** in the Orders page toolbar (next to the existing "Export to Excel" button) that runs a hardcoded export — independent of the page's current filters.
 
-1. On `/orders`, set the **Company** filter to `United Enterprise Solutions INC`.
-2. Set the **Delivery date range** to `01/01/2026 – 06/23/2026` (or the year you want).
-3. Wait for results to load, then click the existing **Export to Excel** button.
+### Behavior
 
-The exported file will contain the same columns as today (Truck #, Load #, Pickup/Delivery date + city/state, Miles, Driver Pay, Driver, Broker, Invoiced, Total Freight, Notes, Company, Booked By) plus the new totals row.
+- **Label:** `Export UES (Jan 1 – Jun 23)`
+- **Placement:** Orders page top-right toolbar, next to existing Export/Generate Invoices buttons
+- **Visibility:** Same roles as current export (Admin, Accounting, Manager)
+- **On click:** Fetches orders matching:
+  - Operating company = **United Enterprise Solutions INC**
+  - Delivery date between **2025-01-01** and **2025-06-23** (inclusive)
+  - Ignores all on-screen filters
+- **Output:** Excel file with the standard column set, plus a bold **TOTALS** row at the bottom summing **Miles**, **Driver Pay**, and **Total Freight**
+- **Filename:** `UES_orders_2025-01-01_to_2025-06-23.xlsx`
 
-## What changes in code
-Single edit in `src/pages/Orders.tsx` inside `exportToExcel` (around line 1094):
+### Technical notes
 
-- After building `exportData`, compute three sums across the filtered rows:
-  - `Miles` → sum of `order.mileage`
-  - `Driver Pay` → sum of `order.totalDriverPay` (only included for non-`dispatch` roles, matching current column visibility)
-  - `Total Freight` → sum of `order.totalFreightAmount`
-- Append one extra row to `exportData` with:
-  - `"Truck #": "TOTALS"`
-  - the three sum fields populated
-  - all other fields left empty
-- Bold the totals row using ExcelJS-style cell styling via `XLSX.utils` (set `worksheet['!rows']` or apply `s` style to the last row's cells through `worksheet[cellRef].s = { font: { bold: true } }`).
-- Keep filename pattern `orders_<today>.xlsx`.
+- In `src/pages/Orders.tsx`, add a new handler `handleExportUES` that queries Supabase directly with the hardcoded company id (looked up by name `United Enterprise Solutions INC`) and delivery date range — does not depend on `filteredOrders`.
+- Reuse the existing row-mapping logic and the `totalsRow` + bold styling already added for the standard export.
+- The existing "Export to Excel" button stays as-is (still filter-driven).
 
-## Out of scope
-- No new filter UI, no new dialog, no preset button.
-- No changes to which orders are exported beyond what the existing on-screen filters already produce (so the export reflects exactly what's visible).
-- No change to column set or column order.
+### Out of scope
+
+- No date picker or company picker — values are hardcoded per request.
+- No changes to the existing Export to Excel button.
