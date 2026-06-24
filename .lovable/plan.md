@@ -1,49 +1,59 @@
-## Problem
+## Goal
 
-In `src/pages/NewOrder.tsx`, the submit flow does this in order:
+On `/orders`, unlocked rows must always render first, sorted by pickup date ascending (earliest pickup at top). Locked rows render below in their existing order. Switching filters must not briefly show the previous filter's rows or a "locked-first" snapshot.
 
-1. RPC `create_order_with_unique_load_number` → order row created
-2. Insert `pickup_drops`
-3. Loop and upload RC / BOL / POD / ADDITIONAL files to Storage, then insert `order_files` rows
-4. Any `throw` in steps 2–3 falls into one `catch` that shows a single toast: **"Error Creating Order"**
+## Root cause
 
-When the RC upload step throws (intermittent, mostly on Edge), the user sees that toast and assumes the load wasn't created — but the order row + stops already exist. They re-create the load, which is what they're reporting as "creates the order just without RC".
+In `src/pages/Orders.tsx` `dataSource` (lines 552–584), the only sort applied is "locked vs. unlocked" — within unlocked, order is whatever the server returned (`created_at desc`). Pickup date is never used. Additionally, when filters change, `useFilteredOrdersSearch` flips `activeFilterKey` and the React Query cache for the new key starts empty/partial, so the table briefly renders an incomplete or out-of-order batch before the full result + unlocked-prefetch finishes.
 
-Two root causes:
+## Changes
 
-- **Reporting**: post-creation failures (file uploads) are reported with the same wording as pre-creation failures.
-- **Reliability on Edge**: Storage uploads via `uploadOrderFilePreserveName` only retry on `TypeError: Failed to fetch`. Edge intermittently fails the multipart upload with a different error shape (aborted request / "body stream already read" after Edge's network stack retries internally, or a transient 5xx from Storage). These aren't currently retried.
+### 1. `src/pages/Orders.tsx` — explicit unlocked sort
 
-## Fix
+Replace the three `[...results].sort((a,b) => a.locked === b.locked ? 0 : a.locked ? 1 : -1)` blocks with a single helper used by all branches (search results, filtered server results, default hook results):
 
-### 1. Separate "order created" from "files failed" (frontend only, `src/pages/NewOrder.tsx`)
+```ts
+const pickupTs = (o: any): number => {
+  // order.pickupDate is the formatted string used in the grid;
+  // fall back to raw pickup_datetime when present for correct sorting.
+  const raw = o.pickup_datetime ?? o.pickupDatetime ?? o.pickupDate;
+  if (!raw) return Number.POSITIVE_INFINITY; // nulls sort last among unlocked
+  const t = new Date(typeof raw === "string" ? raw.replace(" ", "T") : raw).getTime();
+  return Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
+};
 
-- Track a boolean `orderCreated` flag set to `true` immediately after the RPC + `pickup_drops` insert succeed.
-- Wrap the file-upload loop in its own try/catch. On failure:
-  - Keep the created order (don't redirect away from the upload list).
-  - Show a non-destructive warning toast: **"Load #XXXX created — some files failed to upload. Please re-upload them from Edit Order."** with the failing category/filename.
-  - Still navigate to `/orders` (or offer an "Open order" action) but don't show "Error Creating Order".
-- Only the existing `catch` for pre-creation failures keeps the current "Error Creating Order" wording.
+const sortUnlockedFirst = (rows: any[]) => {
+  const unlocked = rows.filter(o => !o.locked).sort((a, b) => pickupTs(a) - pickupTs(b));
+  const locked = rows.filter(o => o.locked); // preserve server order
+  return [...unlocked, ...locked];
+};
+```
 
-### 2. Make Storage uploads more resilient (`src/utils/orderFilesUpload.ts` + the upload loop)
+Apply `sortUnlockedFirst(...)` in all three `dataSource` branches (active search, active filter, default).
 
-- In `uploadOrderFilePreserveName`, retry transient upload errors (network errors, HTTP 5xx, `AbortError`) up to 3 times with exponential backoff (300ms / 900ms / 2.5s) before falling back to the UUID filename.
-- Before uploading, read the File into an `ArrayBuffer` once and upload a fresh `Blob` built from it. Edge has known issues re-streaming the same `File` reference on retry; using a buffered Blob avoids the "body stream already read" / aborted-upload failures we believe are causing this.
-- Broaden `withFetchRetry`'s `isNetworkErr` to also retry on `AbortError`, generic `TypeError` without a message, and Supabase Storage errors with HTTP status 502/503/504.
+### 2. `src/pages/Orders.tsx` — prevent stale flash on filter change
 
-### 3. Idempotency for `order_files` (`src/pages/NewOrder.tsx`)
+In the `hasActiveFilter` branch of `dataSource`, suppress the table data while a new filter is loading and the cache for the new key is empty/incomplete:
 
-- Before inserting an `order_files` row, skip if a row with the same `(order_id, file_category, file_name)` already exists, so retrying the failed step after the user re-clicks Save (now possible from Edit Order) doesn't duplicate file rows.
+- Track the last filter key that finished its initial load (a `useRef<string | null>`); update it after `searchFiltered` resolves (signal via `isFilteredLoading` flipping false and `filteredServerOrders.length > 0` for the current key).
+- While `isFilteredLoading || isPrefetchingUnlocked` and `filteredServerOrders.length === 0`, return `[]` from `dataSource` so the grid shows the existing empty / skeleton state instead of stale or partial rows.
+- Expose `isPrefetchingUnlocked` from `useFilteredOrdersSearch` (already returned) and consume it here.
+
+Also bump the `useMemo` dep list to include `isFilteredLoading` and `isPrefetchingUnlocked` so re-renders happen at the right time.
+
+### 3. No backend changes
+
+Server already returns `locked asc, created_at desc` and the unlocked-prefetch loop in `useFilteredOrdersSearch` already guarantees every unlocked row is in the cache before locked rows can dominate. The new client sort just reorders unlocked rows by pickup date once present.
 
 ## Out of scope
 
-- No DB migration. No RLS changes.
-- No change to the RPC or stops insertion logic — those steps are not the failure path the user is hitting.
+- Adding clickable column headers / multi-column sort.
+- Sort changes for the locked section.
+- Changes to Reports, Yard, or other pages.
 
 ## Verification
 
-- Manually fail an RC upload (e.g. block the storage URL in DevTools) → confirm:
-  - Order row still exists
-  - Warning toast (not error) shown
-  - User lands in a state where they can re-upload from Edit Order without creating a duplicate load
-- Repeat on Edge to confirm the buffered-Blob + extended retry path no longer throws on transient uploads.
+1. Apply a delivery date filter for last month → first visible rows are unlocked, ordered by pickup date ascending.
+2. Switch the date filter to a different month → no flash of the previous filter's rows or of locked-first ordering; grid shows loading/empty briefly, then the new unlocked-first / pickup-asc result.
+3. Clear filters → default page shows unlocked first sorted by pickup asc, locked underneath unchanged.
+4. Lock/unlock a row → optimistic patch keeps the row in the correct section and pickup-date position (cacheVersion already triggers re-sort).
