@@ -407,7 +407,7 @@ export async function generateRc(order: RcOrder): Promise<Uint8Array> {
 
 export async function downloadRc(order: RcOrder, filename?: string): Promise<void> {
   const bytes = await generateRc(order);
-  const blob = new Blob([bytes], { type: "application/pdf" });
+  const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -421,7 +421,7 @@ export async function downloadRc(order: RcOrder, filename?: string): Promise<voi
 
 export async function openRcForPrint(order: RcOrder): Promise<void> {
   const bytes = await generateRc(order);
-  const blob = new Blob([bytes], { type: "application/pdf" });
+  const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const win = window.open(url, "_blank");
   // Revoke later; printing tab needs the URL alive briefly
