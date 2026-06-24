@@ -3382,7 +3382,7 @@ const NewOrder = () => {
             {/* Driver-specific Pickup/Delivery Times for Load Confirmation */}
 
             {/* Generate Load Confirmation Button */}
-            <div className="flex justify-center mt-6">
+            <div className="flex justify-center gap-3 mt-6">
               <Button
                 type="button"
                 variant="outline"
@@ -3393,6 +3393,17 @@ const NewOrder = () => {
                 {isGeneratingConfirmation && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <FileText className="mr-2 h-4 w-4" />
                 Generate Load Confirmation
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGenerateRc}
+                disabled={isGeneratingRc || !truck || !driver1 || pickupsDrops.length < 2}
+                className="w-full max-w-md"
+              >
+                {isGeneratingRc && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <FileText className="mr-2 h-4 w-4" />
+                Generate RC PDF (BF Prime)
               </Button>
             </div>
 
