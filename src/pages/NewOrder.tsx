@@ -1296,7 +1296,6 @@ const NewOrder = () => {
       });
       return;
     }
-    void handleGenerateConfirmationLegacy;
     setIsGeneratingConfirmation(true);
     try {
       const selectedTruck = trucks?.find((t) => t.id === truck);
