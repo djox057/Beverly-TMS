@@ -573,28 +573,6 @@ const Orders = () => {
       return [...unlocked, ...locked];
     };
 
-    // Debug: log the first few rows' locked field types/values so we can see
-    // why unlocked rows aren't surfacing to the top of the filtered grid.
-    if (typeof window !== "undefined" && (window as any).__DEBUG_ORDER_SORT__ !== false) {
-      const sample =
-        (searchTerm && searchTerm.trim().length >= 3
-          ? searchResults
-          : hasActiveFilter
-          ? filteredServerOrders
-          : currentPageOrdersFromHook) || [];
-      if (sample.length > 0) {
-        const preview = sample.slice(0, 8).map((o: any) => ({
-          id: o?.id?.slice?.(0, 8),
-          locked: o?.locked,
-          lockedType: typeof o?.locked,
-          invoiced: o?.invoiced,
-          pickup: o?.pickupDate || o?.pickup_datetime,
-        }));
-        // eslint-disable-next-line no-console
-        console.log("[Orders.dataSource] first 8 rows:", preview, "total:", sample.length);
-      }
-    }
-
     const isActiveSearch = searchTerm && searchTerm.trim().length >= 3;
     if (isActiveSearch) {
       // LOCKED into server mode - never fall back to local orders during active search
@@ -651,8 +629,13 @@ const Orders = () => {
 
       // Always evaluate date filters client-side so they apply even during active search
       // (search results come from a load-number lookup that ignores date range).
+      // When the server-side filter is active, the server already enforced
+      // delivery/pickup ranges on `orders.delivery_datetime` / `pickup_datetime`,
+      // so re-applying here against the derived `order.deliveryDate`
+      // (sourced from pickup_drops.lastDelivery) would wrongly drop rows whose
+      // pickup_drops dates differ from the orders.*_datetime columns.
       let matchesDateAlways = true;
-      if (dateRange?.from && order.deliveryDate) {
+      if (!isServerFiltered && dateRange?.from && order.deliveryDate) {
         let dateStr = order.deliveryDate.split(" - ")[0];
         if (dateStr.includes(" ") && !dateStr.includes("T")) dateStr = dateStr.replace(" ", "T");
         const datePart = dateStr.split("T")[0];
@@ -671,12 +654,12 @@ const Orders = () => {
         } else {
           matchesDateAlways = false;
         }
-      } else if (dateRange?.from && !order.deliveryDate) {
+      } else if (!isServerFiltered && dateRange?.from && !order.deliveryDate) {
         matchesDateAlways = false;
       }
 
       let matchesPickupDateAlways = true;
-      if (pickupDateRange?.from && order.pickupDate) {
+      if (!isServerFiltered && pickupDateRange?.from && order.pickupDate) {
         let dateStr = order.pickupDate.split(" - ")[0];
         if (dateStr.includes(" ") && !dateStr.includes("T")) dateStr = dateStr.replace(" ", "T");
         const datePart = dateStr.split("T")[0];
@@ -695,7 +678,7 @@ const Orders = () => {
         } else {
           matchesPickupDateAlways = false;
         }
-      } else if (pickupDateRange?.from && !order.pickupDate) {
+      } else if (!isServerFiltered && pickupDateRange?.from && !order.pickupDate) {
         matchesPickupDateAlways = false;
       }
 
