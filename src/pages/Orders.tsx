@@ -817,20 +817,6 @@ const Orders = () => {
       );
     }) || [];
 
-  // When any filter/search narrows the list, always show unlocked orders first.
-  {
-    const _hasAnyNarrowing =
-      hasActiveFilter ||
-      (searchTerm && searchTerm.trim().length > 0) ||
-      missingDocsFilter !== "all";
-    if (_hasAnyNarrowing) {
-      filteredOrders.sort((a, b) => {
-        if (!!a.locked === !!b.locked) return 0;
-        return a.locked ? 1 : -1;
-      });
-    }
-  }
-
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
