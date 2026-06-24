@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
+import { downloadRc, type RcOrder } from "@/utils/rcGenerator";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -1283,6 +1284,76 @@ const NewOrder = () => {
       });
     } finally {
       setIsSendingEmail(false);
+    }
+  };
+  const [isGeneratingRc, setIsGeneratingRc] = useState(false);
+  const handleGenerateRc = async () => {
+    if (!truck || !driver1 || pickupsDrops.length < 2) {
+      toast({
+        title: "Missing Information",
+        description:
+          "Please fill in truck, driver, pickup and delivery information before generating RC PDF.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsGeneratingRc(true);
+    try {
+      const selectedTruck = trucks?.find((t) => t.id === truck);
+      const selectedDriver = drivers?.find((d) => d.id === driver1);
+      const pickups = pickupsDrops.filter((p) => p.type === "pickup");
+      const deliveries = pickupsDrops.filter((p) => p.type === "delivery");
+
+      const fmtDate = (dr?: DateRange) => {
+        if (!dr?.from) return "";
+        const d = dr.from;
+        return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
+      };
+      const fmtCsz = (l: any) =>
+        `${l.city || ""}${l.city && l.state ? ", " : ""}${l.state || ""}${(l.city || l.state) && l.zipCode ? " " : ""}${l.zipCode || ""}`.trim();
+      const fmtTime = (l: any) =>
+        (l.startTime || "") + (l.endTime ? ` - ${l.endTime}` : "");
+
+      const order: RcOrder = {
+        load: {
+          load_number: brokerLoadNumber || "",
+          driver: driver2 ? "TEAM" : selectedDriver?.name || "",
+          commodity: commodity || "",
+          truck: selectedTruck?.truck_number || "",
+          weight: weight || "",
+          trailer: trailer ? selectedTruck?.trailer?.trailer_number || "" : "",
+          miles: loadedMiles || "",
+          phone: selectedDriver?.phone || "",
+          rate: driverPrice || "",
+        },
+        pickups: pickups.map((p) => ({
+          shipper: p.companyName || "",
+          address: p.address || "",
+          csz: fmtCsz(p),
+          date: fmtDate(p.dateRange),
+          time: fmtTime(p),
+          num: "",
+        })),
+        deliveries: deliveries.map((d) => ({
+          receiver: d.companyName || "",
+          address: d.address || "",
+          csz: fmtCsz(d),
+          date: fmtDate(d.dateRange),
+          time: fmtTime(d),
+          num: "",
+        })),
+      };
+
+      await downloadRc(order, `rc_${order.load.load_number || "load"}.pdf`);
+      toast({ title: "RC PDF generated", description: "Editable PDF downloaded." });
+    } catch (err: any) {
+      toast({
+        title: "Failed to generate RC PDF",
+        description: err?.message || "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingRc(false);
     }
   };
   const handleGenerateConfirmation = async () => {
@@ -3311,7 +3382,7 @@ const NewOrder = () => {
             {/* Driver-specific Pickup/Delivery Times for Load Confirmation */}
 
             {/* Generate Load Confirmation Button */}
-            <div className="flex justify-center mt-6">
+            <div className="flex justify-center gap-3 mt-6">
               <Button
                 type="button"
                 variant="outline"
@@ -3322,6 +3393,17 @@ const NewOrder = () => {
                 {isGeneratingConfirmation && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <FileText className="mr-2 h-4 w-4" />
                 Generate Load Confirmation
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGenerateRc}
+                disabled={isGeneratingRc || !truck || !driver1 || pickupsDrops.length < 2}
+                className="w-full max-w-md"
+              >
+                {isGeneratingRc && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <FileText className="mr-2 h-4 w-4" />
+                Generate RC PDF (BF Prime)
               </Button>
             </div>
 
