@@ -573,28 +573,6 @@ const Orders = () => {
       return [...unlocked, ...locked];
     };
 
-    // Debug: log the first few rows' locked field types/values so we can see
-    // why unlocked rows aren't surfacing to the top of the filtered grid.
-    if (typeof window !== "undefined" && (window as any).__DEBUG_ORDER_SORT__ !== false) {
-      const sample =
-        (searchTerm && searchTerm.trim().length >= 3
-          ? searchResults
-          : hasActiveFilter
-          ? filteredServerOrders
-          : currentPageOrdersFromHook) || [];
-      if (sample.length > 0) {
-        const preview = sample.slice(0, 8).map((o: any) => ({
-          id: o?.id?.slice?.(0, 8),
-          locked: o?.locked,
-          lockedType: typeof o?.locked,
-          invoiced: o?.invoiced,
-          pickup: o?.pickupDate || o?.pickup_datetime,
-        }));
-        // eslint-disable-next-line no-console
-        console.log("[Orders.dataSource] first 8 rows:", preview, "total:", sample.length);
-      }
-    }
-
     const isActiveSearch = searchTerm && searchTerm.trim().length >= 3;
     if (isActiveSearch) {
       // LOCKED into server mode - never fall back to local orders during active search
