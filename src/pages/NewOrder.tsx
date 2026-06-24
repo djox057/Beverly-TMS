@@ -75,6 +75,8 @@ interface PickupDrop {
   companyName?: string;
   latitude?: number;
   longitude?: number;
+  puNumber?: string;
+  poNumber?: string;
 }
 const NewOrder = () => {
   const navigate = useNavigate();
