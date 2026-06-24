@@ -550,30 +550,55 @@ const Orders = () => {
   // (search/filter hooks use non-reactive getQueryData reads)
   const [cacheVersion, setCacheVersion] = useState(0);
 
+  // Sort helper: unlocked rows first (sorted by pickup datetime ascending,
+  // nulls last), then locked rows in their existing server order.
+  const dataSourceSorted = useMemo(() => {
+    // placeholder for closure typing; real logic below
+    return null;
+  }, []);
+
   const dataSource = useMemo(() => {
+    const pickupTs = (o: any): number => {
+      const raw =
+        o.pickup_datetime ?? o.pickupDatetime ?? o.pickupDate ?? null;
+      if (!raw) return Number.POSITIVE_INFINITY;
+      const s = typeof raw === "string" ? raw.split(" - ")[0] : raw;
+      const norm =
+        typeof s === "string" && s.includes(" ") && !s.includes("T")
+          ? s.replace(" ", "T")
+          : s;
+      const t = new Date(norm).getTime();
+      return Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
+    };
+    const sortUnlockedFirst = (rows: any[]) => {
+      const unlocked = rows
+        .filter((o) => !o.locked)
+        .sort((a, b) => pickupTs(a) - pickupTs(b));
+      const locked = rows.filter((o) => o.locked);
+      return [...unlocked, ...locked];
+    };
+
     const isActiveSearch = searchTerm && searchTerm.trim().length >= 3;
     if (isActiveSearch) {
       // LOCKED into server mode - never fall back to local orders during active search
       const results = searchResults || [];
-      // Sort unlocked orders first
-      return [...results].sort((a, b) => {
-        if (a.locked === b.locked) return 0;
-        return a.locked ? 1 : -1;
-      });
+      return sortUnlockedFirst(results);
     }
 
     // When filters are active, ONLY show server-side filtered results.
     // (Never show unfiltered local orders, even while loading.)
     if (hasActiveFilter) {
       const results = filteredServerOrders || [];
-      // Sort unlocked orders first when filters are active
-      return [...results].sort((a, b) => {
-        if (a.locked === b.locked) return 0;
-        return a.locked ? 1 : -1;
-      });
+      // Suppress stale/partial data while a new filter is still loading its
+      // first batch — prevents a brief flash of the previous filter's rows or
+      // a locked-first snapshot before the unlocked prefetch completes.
+      if ((isFilteredLoading || isPrefetchingUnlocked) && results.length === 0) {
+        return [];
+      }
+      return sortUnlockedFirst(results);
     }
 
-    return currentPageOrdersFromHook || [];
+    return sortUnlockedFirst(currentPageOrdersFromHook || []);
   }, [
     searchTerm,
     searchResults,
@@ -581,6 +606,7 @@ const Orders = () => {
     hasActiveFilter,
     filteredServerOrders,
     isFilteredLoading,
+    isPrefetchingUnlocked,
     cacheVersion,
   ]);
 
