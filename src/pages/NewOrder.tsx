@@ -3411,17 +3411,19 @@ const NewOrder = () => {
                 <FileText className="mr-2 h-4 w-4" />
                 Generate Load Confirmation
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGenerateRc}
-                disabled={isGeneratingRc || !truck || !driver1 || pickupsDrops.length < 2}
-                className="w-full max-w-md"
-              >
-                {isGeneratingRc && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <FileText className="mr-2 h-4 w-4" />
-                Generate RC PDF (BF Prime)
-              </Button>
+              {hasRole("admin") && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleGenerateRc}
+                  disabled={isGeneratingRc || !truck || !driver1 || pickupsDrops.length < 2}
+                  className="w-full max-w-md"
+                >
+                  {isGeneratingRc && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <FileText className="mr-2 h-4 w-4" />
+                  Generate RC PDF (BF Prime)
+                </Button>
+              )}
             </div>
 
             {/* Email to Driver File Upload */}
