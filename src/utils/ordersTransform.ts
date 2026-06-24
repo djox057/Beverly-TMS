@@ -113,7 +113,7 @@ export function transformOrders(allOrders: any[]) {
       // Convert to string to handle CSV numeric values in string operations
       brokerLoadNumber: order.broker_load_number != null ? String(order.broker_load_number) : null,
       status: order.status,
-      locked: order.locked,
+      locked: order.locked === true || order.locked === "true" || order.locked === 1,
       canceled: order.canceled === true || order.canceled === "true" || order.canceled === 1,
       // Handle invoiced boolean - convert string "true"/"false" to actual boolean
       invoiced: order.invoiced === true || order.invoiced === "true" || order.invoiced === 1,
