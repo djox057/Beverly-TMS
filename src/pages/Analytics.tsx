@@ -3104,6 +3104,16 @@ const Analytics = () => {
                         )}
                       </div>
                       <div className="flex items-center gap-1">
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">Min Gross $</span>
+                        <Input
+                          type="number"
+                          placeholder="e.g. 100000"
+                          value={minGrossFilter}
+                          onChange={(e) => setMinGrossFilter(e.target.value)}
+                          className="w-28 h-8 text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
                         <span className="text-sm text-muted-foreground whitespace-nowrap">Min Avg Trucks</span>
                         <Input
                           type="number"
@@ -3112,16 +3122,6 @@ const Analytics = () => {
                           value={minAvgTrucksFilter}
                           onChange={(e) => setMinAvgTrucksFilter(e.target.value)}
                           className="w-24 h-8 text-sm"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm text-muted-foreground whitespace-nowrap">Min Gross $</span>
-                        <Input
-                          type="number"
-                          placeholder="e.g. 100000"
-                          value={minGrossFilter}
-                          onChange={(e) => setMinGrossFilter(e.target.value)}
-                          className="w-28 h-8 text-sm"
                         />
                       </div>
                     </div>
