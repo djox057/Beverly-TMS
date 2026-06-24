@@ -111,7 +111,9 @@ export async function generateRc(order: RcOrder): Promise<Uint8Array> {
     const bytes = await loadTemplateBytes();
     const tpl = await PDFDocument.load(bytes);
     fillPage(tpl, order.load || {}, order.pickups[i], order.deliveries[i]);
-    tpl.getForm().flatten();
+    const tplForm = tpl.getForm();
+    tplForm.updateFieldAppearances();
+    tplForm.flatten();
     const [page] = await out.copyPages(tpl, [0]);
     out.addPage(page);
   }
