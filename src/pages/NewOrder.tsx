@@ -1050,6 +1050,8 @@ const NewOrder = () => {
               startTime: pickup.startTime || "",
               endTime: pickup.endTime || pickup.startTime || "",
               companyName: pickup.shipper || "",
+              puNumber: pickup.puNumber || "",
+              poNumber: pickup.poNumber || "",
             });
           });
         }
@@ -1070,6 +1072,8 @@ const NewOrder = () => {
               startTime: delivery.startTime || "",
               endTime: delivery.endTime || delivery.startTime || "",
               companyName: delivery.shipper || "",
+              puNumber: delivery.puNumber || "",
+              poNumber: delivery.poNumber || "",
             });
           });
         }
