@@ -550,13 +550,6 @@ const Orders = () => {
   // (search/filter hooks use non-reactive getQueryData reads)
   const [cacheVersion, setCacheVersion] = useState(0);
 
-  // Sort helper: unlocked rows first (sorted by pickup datetime ascending,
-  // nulls last), then locked rows in their existing server order.
-  const dataSourceSorted = useMemo(() => {
-    // placeholder for closure typing; real logic below
-    return null;
-  }, []);
-
   const dataSource = useMemo(() => {
     const pickupTs = (o: any): number => {
       const raw =
