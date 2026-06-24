@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
+import { downloadRc, type RcOrder } from "@/utils/rcGenerator";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
