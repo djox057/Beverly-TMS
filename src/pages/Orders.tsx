@@ -373,6 +373,7 @@ const Orders = () => {
     search: searchFiltered,
     reset: resetFiltered,
     summary: filteredSummary,
+    isPrefetchingUnlocked,
   } = useFilteredOrdersSearch();
 
   // Debounce search term for server-side search (matches Reports load-number filter)
