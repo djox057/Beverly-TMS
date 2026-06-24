@@ -651,8 +651,13 @@ const Orders = () => {
 
       // Always evaluate date filters client-side so they apply even during active search
       // (search results come from a load-number lookup that ignores date range).
+      // When the server-side filter is active, the server already enforced
+      // delivery/pickup ranges on `orders.delivery_datetime` / `pickup_datetime`,
+      // so re-applying here against the derived `order.deliveryDate`
+      // (sourced from pickup_drops.lastDelivery) would wrongly drop rows whose
+      // pickup_drops dates differ from the orders.*_datetime columns.
       let matchesDateAlways = true;
-      if (dateRange?.from && order.deliveryDate) {
+      if (!isServerFiltered && dateRange?.from && order.deliveryDate) {
         let dateStr = order.deliveryDate.split(" - ")[0];
         if (dateStr.includes(" ") && !dateStr.includes("T")) dateStr = dateStr.replace(" ", "T");
         const datePart = dateStr.split("T")[0];
@@ -671,12 +676,12 @@ const Orders = () => {
         } else {
           matchesDateAlways = false;
         }
-      } else if (dateRange?.from && !order.deliveryDate) {
+      } else if (!isServerFiltered && dateRange?.from && !order.deliveryDate) {
         matchesDateAlways = false;
       }
 
       let matchesPickupDateAlways = true;
-      if (pickupDateRange?.from && order.pickupDate) {
+      if (!isServerFiltered && pickupDateRange?.from && order.pickupDate) {
         let dateStr = order.pickupDate.split(" - ")[0];
         if (dateStr.includes(" ") && !dateStr.includes("T")) dateStr = dateStr.replace(" ", "T");
         const datePart = dateStr.split("T")[0];
@@ -695,7 +700,7 @@ const Orders = () => {
         } else {
           matchesPickupDateAlways = false;
         }
-      } else if (pickupDateRange?.from && !order.pickupDate) {
+      } else if (!isServerFiltered && pickupDateRange?.from && !order.pickupDate) {
         matchesPickupDateAlways = false;
       }
 
