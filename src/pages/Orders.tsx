@@ -1122,6 +1122,7 @@ const Orders = () => {
       "Total Freight": order.totalFreightAmount,
       Notes: order.notes,
       Company: (order as any).driverCompanyName || order.companyName,
+      "Booked By Company": order.bookedByCompanyName,
       "Booked By": order.bookedBy,
     }));
     const sumNum = (fn: (o: any) => any) =>
@@ -1146,6 +1147,7 @@ const Orders = () => {
       "Total Freight": sumNum((o) => o.totalFreightAmount),
       Notes: "",
       Company: "",
+      "Booked By Company": "",
       "Booked By": "",
     };
     exportData.push(totalsRow as any);
