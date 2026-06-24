@@ -268,6 +268,7 @@ const Analytics = () => {
   const [lostDayRawDatesByUser, setLostDayRawDatesByUser] = useState<Record<string, string[]>>({});
   const [ptoDaysByUser, setPtoDaysByUser] = useState<Record<string, number>>({});
   const [minGrossFilter, setMinGrossFilter] = useState<string>("");
+  const [minAvgTrucksFilter, setMinAvgTrucksFilter] = useState<string>("");
 
   // Salary selection and payment states
   const [salarySelectionMode, setSalarySelectionMode] = useState(false);
@@ -1857,6 +1858,11 @@ const Analytics = () => {
       if (minGross > 0 && stat.totalFreight < minGross) {
         return false;
       }
+      // Filter by minimum avg trucks
+      const minAvgTrucks = parseFloat(minAvgTrucksFilter);
+      if (minAvgTrucks > 0 && (stat.avgTrucks || 0) < minAvgTrucks) {
+        return false;
+      }
       // Filter by supervisor
       if (selectedSupervisor !== "all") {
         const dispatcherProfile = dispatcherProfiles[stat.name];
@@ -3105,6 +3111,17 @@ const Analytics = () => {
                           value={minGrossFilter}
                           onChange={(e) => setMinGrossFilter(e.target.value)}
                           className="w-28 h-8 text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">Min Avg Trucks</span>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          placeholder="e.g. 4.8"
+                          value={minAvgTrucksFilter}
+                          onChange={(e) => setMinAvgTrucksFilter(e.target.value)}
+                          className="w-24 h-8 text-sm"
                         />
                       </div>
                     </div>
