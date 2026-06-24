@@ -1319,6 +1319,8 @@ const NewOrder = () => {
         `${l.city || ""}${l.city && l.state ? ", " : ""}${l.state || ""}${(l.city || l.state) && l.zipCode ? " " : ""}${l.zipCode || ""}`.trim();
       const fmtTime = (l: any) =>
         (l.startTime || "") + (l.endTime ? ` - ${l.endTime}` : "");
+      const joinNums = (...vals: (string | undefined)[]) =>
+        Array.from(new Set(vals.map((v) => (v || "").trim()).filter(Boolean))).join(", ");
 
       const order: RcOrder = {
         load: {
@@ -1332,21 +1334,30 @@ const NewOrder = () => {
           phone: selectedDriver?.phone || "",
           rate: driverPrice || "",
         },
-        pickups: pickups.map((p) => ({
+        pickups: pickups.map((p, i) => ({
           shipper: p.companyName || "",
           address: p.address || "",
           csz: fmtCsz(p),
           date: fmtDate(p.dateRange),
           time: fmtTime(p),
-          num: "",
+          num: joinNums(
+            p.puNumber,
+            p.poNumber,
+            i === 0 ? pickupPuNumber : undefined,
+            i === 0 ? pickupPoNumber : undefined,
+          ),
         })),
-        deliveries: deliveries.map((d) => ({
+        deliveries: deliveries.map((d, i) => ({
           receiver: d.companyName || "",
           address: d.address || "",
           csz: fmtCsz(d),
           date: fmtDate(d.dateRange),
           time: fmtTime(d),
-          num: "",
+          num: joinNums(
+            d.puNumber,
+            d.poNumber,
+            i === 0 ? deliveryPoNumber : undefined,
+          ),
         })),
       };
 
