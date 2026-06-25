@@ -12,6 +12,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star, Send, Plus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useOrdersWithProgress } from "@/hooks/useOrdersWithProgress";
@@ -269,6 +270,25 @@ const Analytics = () => {
   const [ptoDaysByUser, setPtoDaysByUser] = useState<Record<string, number>>({});
   const [minGrossFilter, setMinGrossFilter] = useState<string>("");
   const [minAvgTrucksFilter, setMinAvgTrucksFilter] = useState<string>("");
+
+  // Loads tab custom rate thresholds (default under $3.00/mile, over $5.00/mile)
+  const [lowRateThreshold, setLowRateThreshold] = useState<number>(() => {
+    const saved = localStorage.getItem("analytics-lowRateThreshold");
+    return saved ? parseFloat(saved) : 3;
+  });
+  const [highRateThreshold, setHighRateThreshold] = useState<number>(() => {
+    const saved = localStorage.getItem("analytics-highRateThreshold");
+    return saved ? parseFloat(saved) : 5;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("analytics-lowRateThreshold", String(lowRateThreshold));
+  }, [lowRateThreshold]);
+
+  useEffect(() => {
+    localStorage.setItem("analytics-highRateThreshold", String(highRateThreshold));
+  }, [highRateThreshold]);
+
 
   // Salary selection and payment states
   const [salarySelectionMode, setSalarySelectionMode] = useState(false);
@@ -2811,21 +2831,21 @@ const Analytics = () => {
   };
   const { weekStart, weekEnd } = getChicagoWeekBounds();
 
-  // Filter loads booked today with rate <= 1.70, respecting role permissions
+  // Filter loads booked today with rate <= custom low threshold, respecting role permissions
   const qualifyingLoads = filteredOrders.filter((order) => {
     const createdAt = new Date(order.createdAt);
     const isToday = createdAt >= today && createdAt <= todayEnd;
     const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
-    const meetsRateThreshold = ratePerMile <= 1.7;
+    const meetsRateThreshold = ratePerMile <= lowRateThreshold;
     return isToday && meetsRateThreshold;
   });
 
-  // Filter loads booked this week with rate >= 4.00 (Chicago time, Monday reset)
+  // Filter loads booked this week with rate >= custom high threshold (Chicago time, Monday reset)
   const highRateLoads = filteredOrders.filter((order) => {
     const createdAt = new Date(order.createdAt);
     const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
     const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
-    const meetsRateThreshold = ratePerMile >= 4.0;
+    const meetsRateThreshold = ratePerMile >= highRateThreshold;
     return isThisWeek && meetsRateThreshold;
   });
 
@@ -3898,8 +3918,26 @@ const Analytics = () => {
 
           <TabsContent value="loads" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Loads Booked Today (Rate ≤ $1.70/mile)</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Loads Booked Today (Rate ≤ ${lowRateThreshold.toFixed(2)}/mile)</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="low-rate-threshold" className="text-sm text-muted-foreground whitespace-nowrap">
+                    Under $
+                  </Label>
+                  <Input
+                    id="low-rate-threshold"
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    value={lowRateThreshold}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      setLowRateThreshold(isNaN(value) ? 0 : value);
+                    }}
+                    className="w-20 h-8"
+                  />
+                  <span className="text-sm text-muted-foreground">/mile</span>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -3965,8 +4003,26 @@ const Analytics = () => {
 
             {hasRole("admin") && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Loads Booked This Week (Rate ≥ $4.00/mile)</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Loads Booked This Week (Rate ≥ ${highRateThreshold.toFixed(2)}/mile)</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="high-rate-threshold" className="text-sm text-muted-foreground whitespace-nowrap">
+                      Over $
+                    </Label>
+                    <Input
+                      id="high-rate-threshold"
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      value={highRateThreshold}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value);
+                        setHighRateThreshold(isNaN(value) ? 0 : value);
+                      }}
+                      className="w-20 h-8"
+                    />
+                    <span className="text-sm text-muted-foreground">/mile</span>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Table>
