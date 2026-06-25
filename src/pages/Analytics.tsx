@@ -2830,21 +2830,21 @@ const Analytics = () => {
   };
   const { weekStart, weekEnd } = getChicagoWeekBounds();
 
-  // Filter loads booked today with rate <= 1.70, respecting role permissions
+  // Filter loads booked today with rate <= custom low threshold, respecting role permissions
   const qualifyingLoads = filteredOrders.filter((order) => {
     const createdAt = new Date(order.createdAt);
     const isToday = createdAt >= today && createdAt <= todayEnd;
     const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
-    const meetsRateThreshold = ratePerMile <= 1.7;
+    const meetsRateThreshold = ratePerMile <= lowRateThreshold;
     return isToday && meetsRateThreshold;
   });
 
-  // Filter loads booked this week with rate >= 4.00 (Chicago time, Monday reset)
+  // Filter loads booked this week with rate >= custom high threshold (Chicago time, Monday reset)
   const highRateLoads = filteredOrders.filter((order) => {
     const createdAt = new Date(order.createdAt);
     const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
     const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
-    const meetsRateThreshold = ratePerMile >= 4.0;
+    const meetsRateThreshold = ratePerMile >= highRateThreshold;
     return isThisWeek && meetsRateThreshold;
   });
 
