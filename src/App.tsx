@@ -31,6 +31,7 @@ import Reports from "./pages/Reports";
 import YardArrivals from "./pages/YardArrivals";
 import Analytics from "./pages/Analytics";
 import DispatcherTier from "./pages/DispatcherTier";
+import DispatcherTierDetail from "./pages/DispatcherTierDetail";
 import Alerts from "./pages/Alerts";
 import Trips from "./pages/Trips";
 import BeverlyHeatmap from "./pages/BeverlyHeatmap";
@@ -183,6 +184,11 @@ const AppContent = () => {
         <Route path="/dispatcher-tier" element={
           <ProtectedRoute allowedRoles={['admin', 'manager']}>
             <Layout><DispatcherTier /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/dispatcher-tier/:id" element={
+          <ProtectedRoute allowedRoles={['admin', 'manager']}>
+            <Layout><DispatcherTierDetail /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/beverly-heatmap" element={
