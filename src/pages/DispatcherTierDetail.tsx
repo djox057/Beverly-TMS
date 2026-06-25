@@ -55,6 +55,7 @@ const DispatcherTierDetail = () => {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [driverNameMap, setDriverNameMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [companyStats, setCompanyStats] = useState<{ wkRpm: number; mRpm: number }>({ wkRpm: 0, mRpm: 0 });
 
   useEffect(() => {
     if (!id) return;
@@ -96,6 +97,36 @@ const DispatcherTierDetail = () => {
         .eq("canceled", false)
         .order("delivery_datetime", { ascending: false });
       setOrders((ords as OrderRow[]) || []);
+
+      // company-wide averages for the same periods
+      const now = new Date();
+      const weekStart = new Date(now);
+      const day = (weekStart.getDay() + 6) % 7;
+      weekStart.setDate(weekStart.getDate() - day);
+      weekStart.setHours(0, 0, 0, 0);
+      const { data: companyOrds } = await supabase
+        .from("orders")
+        .select("freight_amount, mileage, delivery_datetime, canceled")
+        .gte("delivery_datetime", since.toISOString())
+        .eq("canceled", false);
+      let wkFreight = 0, wkMiles = 0, mFreight = 0, mMiles = 0;
+      (companyOrds || []).forEach((o: any) => {
+        const d = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
+        if (!d) return;
+        const f = Number(o.freight_amount) || 0;
+        const m = Number(o.mileage) || 0;
+        mFreight += f;
+        mMiles += m;
+        if (d >= weekStart) {
+          wkFreight += f;
+          wkMiles += m;
+        }
+      });
+      setCompanyStats({
+        wkRpm: wkMiles > 0 ? wkFreight / wkMiles : 0,
+        mRpm: mMiles > 0 ? mFreight / mMiles : 0,
+      });
+
       setLoading(false);
     };
     load();
@@ -217,7 +248,7 @@ const DispatcherTierDetail = () => {
                 </div>
                 <div className="text-2xl font-bold">${stats.wkRpm.toFixed(2)}</div>
                 <div className="text-[10px] text-muted-foreground">
-                  {stats.wkRpm.toFixed(1)}
+                  company avg {companyStats.wkRpm.toFixed(1)}
                 </div>
               </div>
               <div>
@@ -262,7 +293,7 @@ const DispatcherTierDetail = () => {
                 </div>
                 <div className="text-2xl font-bold">${stats.mRpm.toFixed(2)}</div>
                 <div className="text-[10px] text-muted-foreground">
-                  {stats.mRpm.toFixed(1)}
+                  company avg {companyStats.mRpm.toFixed(1)}
                 </div>
               </div>
               <div>
