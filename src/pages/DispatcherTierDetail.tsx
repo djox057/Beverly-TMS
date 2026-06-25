@@ -30,6 +30,16 @@ type OrderRow = {
   pickup_datetime: string | null;
   freight_amount: number | null;
   mileage: number | null;
+  detention: number | null;
+  layover: number | null;
+  tonu: number | null;
+  extra_stop: number | null;
+  escort_fee: number | null;
+  other_additionals: number | null;
+  late_fee: number | null;
+  no_tracking_fee: number | null;
+  wrong_address_fee: number | null;
+  other_charges: number | null;
   driver_price: number | null;
   detention_driver: number | null;
   layover_driver: number | null;
@@ -48,6 +58,40 @@ type OrderRow = {
 
 const fmtCurrency = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+// Parse a "YYYY-MM-DD HH:MM:SS" or ISO datetime string as a LOCAL date-only Date
+// (matches Analytics' date filtering: strip the time portion and compare local dates).
+const parseLocalDateOnly = (s: string | null): Date | null => {
+  if (!s) return null;
+  const datePart = s.split("T")[0].split(" ")[0];
+  const m = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+};
+
+// Analytics' freight definition (totalFreightAmountNoLumper)
+const analyticsFreight = (o: any): number => {
+  const n = (v: any) => Number(v) || 0;
+  return (
+    n(o.freight_amount) +
+    n(o.detention) +
+    n(o.layover) +
+    n(o.tonu) +
+    n(o.extra_stop) +
+    n(o.escort_fee) +
+    n(o.other_additionals) -
+    n(o.late_fee) -
+    n(o.no_tracking_fee) -
+    n(o.wrong_address_fee) -
+    n(o.other_charges)
+  );
+};
+
+// Analytics includes canceled orders only when they carry a TONU charge.
+const includeOrder = (o: any): boolean => {
+  if (o.canceled && !(Number(o.tonu) > 0 || Number(o.tonu_driver) > 0)) return false;
+  return true;
+};
 
 const DispatcherTierDetail = () => {
   const { id } = useParams<{ id: string }>();
