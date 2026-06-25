@@ -59,6 +59,9 @@ type OrderRow = {
 const fmtCurrency = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
+// Offices included in Analytics' default "company" scope.
+const COMPANY_OFFICES = ["KRAGUJEVAC", "Čačak", "BG 1st floor", "BG 4th floor"] as const;
+
 // Parse a "YYYY-MM-DD HH:MM:SS" or ISO datetime string as a LOCAL date-only Date
 // (matches Analytics' date filtering: strip the time portion and compare local dates).
 const parseLocalDateOnly = (s: string | null): Date | null => {
@@ -202,11 +205,20 @@ const DispatcherTierDetail = () => {
       }
 
       // company-wide averages for the same periods
-      const { data: companyOrds } = await supabase
+      const { data: officeDispatchers } = await supabase
+        .from("profiles")
+        .select("user_id, office")
+        .in("office", COMPANY_OFFICES);
+      const officeDispatcherIds = (officeDispatchers || [])
+        .map((p: any) => p.user_id)
+        .filter(Boolean);
+
+      const { data: companyOrds } = officeDispatcherIds.length === 0 ? { data: [] as any[] } : await supabase
         .from("orders")
         .select(
           "freight_amount, mileage, pickup_datetime, delivery_datetime, canceled, detention, layover, tonu, extra_stop, escort_fee, other_additionals, late_fee, no_tracking_fee, wrong_address_fee, other_charges, tonu_driver"
         )
+        .in("booked_by", officeDispatcherIds)
         .or(
           `and(delivery_datetime.gte.${since.toISOString()},delivery_datetime.lt.${until.toISOString()}),and(pickup_datetime.gte.${since.toISOString()},pickup_datetime.lt.${until.toISOString()})`
         );

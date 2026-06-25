@@ -1,44 +1,22 @@
 ## Goal
-
-Make the "unlocked first, by pickup date ascending" sort on `/orders` actually surface the unlocked rows reported by the filter summary (e.g. "6 unlocked"), instead of starting the table with locked rows.
+Make the dispatcher-tier detail page "company avg" RPM match Analytics' "Avg Rate/Mile" (e.g. 3.35 for This Week, 3.30 for June 2026).
 
 ## Root cause
+The current company query in `src/pages/DispatcherTierDetail.tsx` pulls every order in the date window. Analytics scopes to orders booked by dispatchers in the four offices (KRAGUJEVAC, Čačak, BG 1st floor, BG 4th floor) and also applies the same "include canceled only if TONU > 0" rule. The unscoped query brings in orders booked by people outside those offices (or with no booker), which moves the RPM away from Analytics.
 
-In `src/utils/ordersTransform.ts` the `locked` field is passed through unchanged from the DB row:
+## Fix
+In `src/pages/DispatcherTierDetail.tsx`:
 
-```ts
-locked: order.locked,   // line 116 (and 406)
-```
+1. On load, fetch the list of dispatcher user_ids whose `profiles.office` is in `['KRAGUJEVAC','ČAČAK','BG 1st floor','BG 4th floor']` (use the same office list Analytics defaults to — pulled once from `profiles`, no hardcoding of UUIDs).
+2. Change the company-orders query to add `.in('booked_by', officeDispatcherIds)` (and keep the existing `or(...)` date filter and the post-fetch TONU/canceled rule).
+3. Keep the existing `analyticsFreight` formula and local-date filtering — they already match Analytics.
+4. Leave the dispatcher's own stats and the loads table unchanged.
 
-Unlike `invoiced`, `paid`, `canceled`, and `isRecovery` right next to it, `locked` is not normalized. When the API returns it as the string `"true"` / `"false"` (legacy / CSV-imported rows), every truthy string is treated as "locked" by the unlocked-first sort in `src/pages/Orders.tsx`:
-
-```ts
-const unlocked = rows.filter((o) => !o.locked) ...
-```
-
-`!"false"` is `false`, so rows whose `locked` is the string `"false"` are bucketed as locked and never lifted to the top. The summary counts them as unlocked (computed server-side from the real column), which is why the badge says "6 unlocked" while none appear first.
-
-## Change
-
-### `src/utils/ordersTransform.ts`
-
-Normalize `locked` to a real boolean in both transformer return blocks (lines ~116 and ~406), mirroring how `invoiced` / `paid` are handled:
-
-```ts
-locked: order.locked === true || order.locked === "true" || order.locked === 1,
-```
-
-No other call sites need to change — every consumer already treats `locked` as a boolean, and DB writes (`update({ locked: true/false })`) keep producing real booleans.
-
-## Out of scope
-
-- Backend column type changes / migration to coerce existing string values.
-- Any change to the sort helper, filter prefetch, or summary edge function.
-- Other transformer fields.
+## Technical notes
+- The dispatcher list query: `supabase.from('profiles').select('user_id, office').in('office', [...offices])`.
+- Offices list lives once at the top of the file as a constant so it can be adjusted later.
+- Company query already selects the fields needed for `analyticsFreight`; just adds the `booked_by` filter.
+- No schema changes, no edge functions.
 
 ## Verification
-
-1. Apply the pickup-date filter from the screenshot (Jun 01 – Jun 23, 2026). Badge still shows "6 unlocked" and those 6 rows now render at the top, ordered by pickup date ascending, before any locked row.
-2. Lock one of the 6 from the row action → it drops below the unlocked group; badge updates to "5 unlocked".
-3. Clear filters → unfiltered page still shows unlocked first / locked underneath, unchanged from current behavior for rows whose `locked` was already a real boolean.
-4. Switch filter to a different month → no flash of locked-first ordering (existing stale-flash guard still applies).
+After change, on the same week (Jun 22 – Jun 28) the company avg should read `3.35`, and for June 2026 it should read `3.30`, matching the Analytics screenshots.
