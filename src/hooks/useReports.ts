@@ -2174,6 +2174,30 @@ export const useReports = (options?: UseReportsOptions) => {
               : { data: [] };
             const truckByDriverId = new Map((trucksForOffDuty || []).map(t => [t.driver1_id, t]));
             
+            // Resolve current dispatcher profiles for these drivers.
+            // The main `dispatchersByUserId` map may be missing dispatchers from
+            // offices outside the current filter (RLS / scope), which would leave
+            // "Disp: <current>" blank for some drivers. Fetch any missing ones here.
+            const neededDispIds = [
+              ...new Set(
+                (realDriverData || [])
+                  .map((d: any) => d.dispatcher_id)
+                  .filter((uid: any) => uid && !dispatchersByUserId.has(uid))
+              ),
+            ];
+            const extraDispMap = new Map<string, any>();
+            if (neededDispIds.length > 0) {
+              const { data: extraDispProfiles } = await supabase
+                .from("profiles")
+                .select("user_id, full_name, email")
+                .in("user_id", neededDispIds);
+              (extraDispProfiles || []).forEach((p: any) => {
+                if (p.user_id) extraDispMap.set(p.user_id, p);
+              });
+            }
+            const resolveDispatcher = (uid: string | null | undefined) =>
+              (uid && (dispatchersByUserId.get(uid) || extraDispMap.get(uid))) || null;
+
             // Create truck-like objects from the stored driver data with real data enrichment
             const offDutyTrucks = inactiveDrivers.map((driver: any) => {
               // Find the driver's orders
