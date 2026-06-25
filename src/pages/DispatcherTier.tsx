@@ -169,18 +169,16 @@ const DispatcherTier = () => {
             {rows.map((r) => (
               <Card
                 key={r.id}
-                className={`hover:bg-muted/50 transition-colors ${!r.isActive ? "opacity-60" : ""}`}
+                className={`hover:bg-muted/50 transition-colors cursor-pointer ${!r.isActive ? "opacity-60" : ""}`}
+                onClick={() => navigate(`/dispatcher-tier/${r.id}`)}
               >
-                <CardContent className="p-4">
+                <CardContent className="p-4 space-y-3">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/10">
                       <User className="h-5 w-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div
-                        className="flex items-center gap-2 cursor-pointer"
-                        onClick={() => navigate(`/dispatcher-tier/${r.id}`)}
-                      >
+                      <div className="flex items-center gap-2">
                         <h3 className="font-semibold truncate hover:underline">{r.name}</h3>
                         {r.ext && (
                           <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -191,22 +189,22 @@ const DispatcherTier = () => {
                           <Badge variant="outline" className="text-xs">Off Duty</Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-2 flex-nowrap overflow-hidden">
-                        <Badge variant="outline" className="text-xs">
-                          <Truck className="h-3 w-3 mr-1" />
-                          {r.currentTrucks} now
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          Avg {r.avgTrucks.toFixed(1)} / 30d
-                        </Badge>
-                        {r.office !== "—" && (
-                          <Badge variant="secondary" className="text-xs whitespace-nowrap">
-                            <Building2 className="h-3 w-3 mr-1" />
-                            {r.office}
-                          </Badge>
-                        )}
-                      </div>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-nowrap overflow-hidden">
+                    <Badge variant="outline" className="text-xs">
+                      <Truck className="h-3 w-3 mr-1" />
+                      {r.currentTrucks} now
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Avg {r.avgTrucks.toFixed(1)} / 30d
+                    </Badge>
+                    {r.office !== "—" && (
+                      <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                        <Building2 className="h-3 w-3 mr-1" />
+                        {r.office}
+                      </Badge>
+                    )}
                   </div>
                 </CardContent>
               </Card>
