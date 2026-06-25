@@ -13,12 +13,14 @@ import {
 import { Search, User, Truck, Building2 } from "lucide-react";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 type SortKey = "name" | "currentTrucks" | "avgTrucks";
 type SortDir = "asc" | "desc";
 
 const DispatcherTier = () => {
   const { dispatchers, loading } = useFleetManagement();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("avgTrucks");
@@ -175,13 +177,21 @@ const DispatcherTier = () => {
                       <User className="h-5 w-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold truncate">{r.name}</h3>
+                      <div
+                        className="flex items-center gap-2 cursor-pointer"
+                        onClick={() => navigate(`/dispatcher-tier/${r.id}`)}
+                      >
+                        <h3 className="font-semibold truncate hover:underline">{r.name}</h3>
+                        {r.ext && (
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            Ext {r.ext}
+                          </span>
+                        )}
                         {!r.isActive && (
                           <Badge variant="outline" className="text-xs">Off Duty</Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <div className="flex items-center gap-2 mt-2 flex-nowrap overflow-hidden">
                         <Badge variant="outline" className="text-xs">
                           <Truck className="h-3 w-3 mr-1" />
                           {r.currentTrucks} now
@@ -196,9 +206,6 @@ const DispatcherTier = () => {
                           </Badge>
                         )}
                       </div>
-                      {r.ext && (
-                        <p className="text-xs text-muted-foreground mt-1">Ext {r.ext}</p>
-                      )}
                     </div>
                   </div>
                 </CardContent>
