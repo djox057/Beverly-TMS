@@ -56,6 +56,7 @@ const DispatcherTierDetail = () => {
   const [driverNameMap, setDriverNameMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [companyStats, setCompanyStats] = useState<{ wkRpm: number; mRpm: number }>({ wkRpm: 0, mRpm: 0 });
+  const [stopMap, setStopMap] = useState<Record<string, { pickup: string; delivery: string }>>({});
 
   useEffect(() => {
     if (!id) return;
@@ -97,6 +98,30 @@ const DispatcherTierDetail = () => {
         .eq("canceled", false)
         .order("delivery_datetime", { ascending: false });
       setOrders((ords as OrderRow[]) || []);
+
+      // pickup / delivery city-state for those orders
+      const orderIds = (ords || []).map((o: any) => o.id);
+      if (orderIds.length > 0) {
+        const { data: stops } = await supabase
+          .from("pickup_drops")
+          .select("order_id, type, sequence_number, city, state")
+          .in("order_id", orderIds)
+          .order("sequence_number", { ascending: true });
+        const map: Record<string, { pickup: string; delivery: string }> = {};
+        (stops || []).forEach((s: any) => {
+          if (!map[s.order_id]) map[s.order_id] = { pickup: "", delivery: "" };
+          const label = [s.city, s.state].filter(Boolean).join(", ");
+          if (s.type === "pickup" && (!map[s.order_id].pickup || (s.sequence_number ?? 999) < 2)) {
+            map[s.order_id].pickup = label;
+          }
+          if (s.type === "delivery") {
+            map[s.order_id].delivery = label;
+          }
+        });
+        setStopMap(map);
+      } else {
+        setStopMap({});
+      }
 
       // company-wide averages for the same periods
       const now = new Date();
@@ -248,7 +273,7 @@ const DispatcherTierDetail = () => {
                 </div>
                 <div className="text-2xl font-bold">${stats.wkRpm.toFixed(2)}</div>
                 <div className="text-[10px] text-muted-foreground">
-                  company avg {companyStats.wkRpm.toFixed(1)}
+                  company avg {companyStats.wkRpm.toFixed(2)}
                 </div>
               </div>
               <div>
@@ -293,7 +318,7 @@ const DispatcherTierDetail = () => {
                 </div>
                 <div className="text-2xl font-bold">${stats.mRpm.toFixed(2)}</div>
                 <div className="text-[10px] text-muted-foreground">
-                  company avg {companyStats.mRpm.toFixed(1)}
+                  company avg {companyStats.mRpm.toFixed(2)}
                 </div>
               </div>
               <div>
@@ -376,7 +401,9 @@ const DispatcherTierDetail = () => {
                   <TableHead>Load #</TableHead>
                   <TableHead>Driver</TableHead>
                   <TableHead>Pickup</TableHead>
+                  <TableHead>Pickup City, State</TableHead>
                   <TableHead>Delivery</TableHead>
+                  <TableHead>Delivery City, State</TableHead>
                   <TableHead className="text-right">Freight</TableHead>
                   <TableHead className="text-right">Driver Pay</TableHead>
                   <TableHead className="text-right">Miles</TableHead>
@@ -412,11 +439,13 @@ const DispatcherTierDetail = () => {
                           ? new Date(o.pickup_datetime).toLocaleDateString()
                           : "—"}
                       </TableCell>
+                      <TableCell>{stopMap[o.id]?.pickup || "—"}</TableCell>
                       <TableCell>
                         {o.delivery_datetime
                           ? new Date(o.delivery_datetime).toLocaleDateString()
                           : "—"}
                       </TableCell>
+                      <TableCell>{stopMap[o.id]?.delivery || "—"}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(f)}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(dp)}</TableCell>
                       <TableCell className="text-right">{m.toLocaleString()}</TableCell>
