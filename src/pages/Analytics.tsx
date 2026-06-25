@@ -3918,8 +3918,26 @@ const Analytics = () => {
 
           <TabsContent value="loads" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Loads Booked Today (Rate ≤ $1.70/mile)</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Loads Booked Today (Rate ≤ ${lowRateThreshold.toFixed(2)}/mile)</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="low-rate-threshold" className="text-sm text-muted-foreground whitespace-nowrap">
+                    Under $
+                  </Label>
+                  <Input
+                    id="low-rate-threshold"
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    value={lowRateThreshold}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      setLowRateThreshold(isNaN(value) ? 0 : value);
+                    }}
+                    className="w-20 h-8"
+                  />
+                  <span className="text-sm text-muted-foreground">/mile</span>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
