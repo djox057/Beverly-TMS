@@ -55,6 +55,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (linkError) {
       console.error('Error generating reset link:', linkError);
+      // Don't leak whether the email exists — return success silently
+      if ((linkError as any).code === 'user_not_found' || (linkError as any).status === 404) {
+        console.log('📧 No user found for email, returning success silently');
+        return new Response(
+          JSON.stringify({ success: true, message: 'Password reset email sent' }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
       throw new Error('Failed to generate password reset link');
     }
 
