@@ -99,6 +99,30 @@ const DispatcherTierDetail = () => {
         .order("delivery_datetime", { ascending: false });
       setOrders((ords as OrderRow[]) || []);
 
+      // pickup / delivery city-state for those orders
+      const orderIds = (ords || []).map((o: any) => o.id);
+      if (orderIds.length > 0) {
+        const { data: stops } = await supabase
+          .from("pickup_drops")
+          .select("order_id, type, sequence_number, city, state")
+          .in("order_id", orderIds)
+          .order("sequence_number", { ascending: true });
+        const map: Record<string, { pickup: string; delivery: string }> = {};
+        (stops || []).forEach((s: any) => {
+          if (!map[s.order_id]) map[s.order_id] = { pickup: "", delivery: "" };
+          const label = [s.city, s.state].filter(Boolean).join(", ");
+          if (s.type === "pickup" && (!map[s.order_id].pickup || (s.sequence_number ?? 999) < 2)) {
+            map[s.order_id].pickup = label;
+          }
+          if (s.type === "delivery") {
+            map[s.order_id].delivery = label;
+          }
+        });
+        setStopMap(map);
+      } else {
+        setStopMap({});
+      }
+
       // company-wide averages for the same periods
       const now = new Date();
       const weekStart = new Date(now);
