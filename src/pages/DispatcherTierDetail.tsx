@@ -127,8 +127,9 @@ const DispatcherTierDetail = () => {
           "id, load_number, delivery_datetime, pickup_datetime, freight_amount, mileage, driver_price, detention_driver, layover_driver, tonu_driver, extra_stop_driver, lumper_driver, late_fee_driver, no_tracking_fee_driver, wrong_address_fee_driver, other_charges_driver, other_additionals_driver, driver1_id, status, canceled"
         )
         .in("driver1_id", driverIds)
-        .gte("delivery_datetime", since.toISOString())
-        .lt("delivery_datetime", until.toISOString())
+        .or(
+          `and(delivery_datetime.gte.${since.toISOString()},delivery_datetime.lt.${until.toISOString()}),and(pickup_datetime.gte.${since.toISOString()},pickup_datetime.lt.${until.toISOString()})`
+        )
         .eq("canceled", false)
         .order("delivery_datetime", { ascending: false });
       setOrders((ords as OrderRow[]) || []);
@@ -160,21 +161,22 @@ const DispatcherTierDetail = () => {
       // company-wide averages for the same periods
       const { data: companyOrds } = await supabase
         .from("orders")
-        .select("freight_amount, mileage, delivery_datetime, canceled")
-        .gte("delivery_datetime", since.toISOString())
-        .lt("delivery_datetime", until.toISOString())
+        .select("freight_amount, mileage, pickup_datetime, delivery_datetime, canceled")
+        .or(
+          `and(delivery_datetime.gte.${since.toISOString()},delivery_datetime.lt.${until.toISOString()}),and(pickup_datetime.gte.${since.toISOString()},pickup_datetime.lt.${until.toISOString()})`
+        )
         .eq("canceled", false);
       let wkFreight = 0, wkMiles = 0, mFreight = 0, mMiles = 0;
       (companyOrds || []).forEach((o: any) => {
-        const d = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
-        if (!d) return;
+        const del = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
+        const pick = o.pickup_datetime ? new Date(o.pickup_datetime) : null;
         const f = Number(o.freight_amount) || 0;
         const m = Number(o.mileage) || 0;
-        if (d >= monthRange.start && d < monthRange.end) {
+        if (del && del >= monthRange.start && del < monthRange.end) {
           mFreight += f;
           mMiles += m;
         }
-        if (d >= weekRange.start && d < weekRange.end) {
+        if (pick && pick >= weekRange.start && pick < weekRange.end) {
           wkFreight += f;
           wkMiles += m;
         }
@@ -234,18 +236,18 @@ const DispatcherTierDetail = () => {
       wkLoads = 0,
       mLoads = 0;
     for (const o of orders) {
-      const d = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
-      if (!d) continue;
+      const del = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
+      const pick = o.pickup_datetime ? new Date(o.pickup_datetime) : null;
       const f = Number(o.freight_amount) || 0;
       const dp = driverPay(o);
       const m = Number(o.mileage) || 0;
-      if (d >= monthRange.start && d < monthRange.end) {
+      if (del && del >= monthRange.start && del < monthRange.end) {
         mFreight += f;
         mDriverPay += dp;
         mMiles += m;
         mLoads += 1;
       }
-      if (d >= weekRange.start && d < weekRange.end) {
+      if (pick && pick >= weekRange.start && pick < weekRange.end) {
         wkFreight += f;
         wkDriverPay += dp;
         wkMiles += m;
