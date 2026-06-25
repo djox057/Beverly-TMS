@@ -439,11 +439,13 @@ const DispatcherTierDetail = () => {
                           ? new Date(o.pickup_datetime).toLocaleDateString()
                           : "—"}
                       </TableCell>
+                      <TableCell>{stopMap[o.id]?.pickup || "—"}</TableCell>
                       <TableCell>
                         {o.delivery_datetime
                           ? new Date(o.delivery_datetime).toLocaleDateString()
                           : "—"}
                       </TableCell>
+                      <TableCell>{stopMap[o.id]?.delivery || "—"}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(f)}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(dp)}</TableCell>
                       <TableCell className="text-right">{m.toLocaleString()}</TableCell>
