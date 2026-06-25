@@ -401,7 +401,9 @@ const DispatcherTierDetail = () => {
                   <TableHead>Load #</TableHead>
                   <TableHead>Driver</TableHead>
                   <TableHead>Pickup</TableHead>
+                  <TableHead>Pickup City, State</TableHead>
                   <TableHead>Delivery</TableHead>
+                  <TableHead>Delivery City, State</TableHead>
                   <TableHead className="text-right">Freight</TableHead>
                   <TableHead className="text-right">Driver Pay</TableHead>
                   <TableHead className="text-right">Miles</TableHead>
