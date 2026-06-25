@@ -29,8 +29,17 @@ type OrderRow = {
   pickup_datetime: string | null;
   freight_amount: number | null;
   mileage: number | null;
-  total_driver_pay_effective: number | null;
-  total_driver_pay: number | null;
+  driver_price: number | null;
+  detention_driver: number | null;
+  layover_driver: number | null;
+  tonu_driver: number | null;
+  extra_stop_driver: number | null;
+  lumper_driver: number | null;
+  late_fee_driver: number | null;
+  no_tracking_fee_driver: number | null;
+  wrong_address_fee_driver: number | null;
+  other_charges_driver: number | null;
+  other_additionals_driver: number | null;
   driver1_id: string | null;
   status: string | null;
   canceled: boolean | null;
@@ -80,7 +89,7 @@ const DispatcherTierDetail = () => {
       const { data: ords } = await supabase
         .from("orders")
         .select(
-          "id, load_number, delivery_datetime, pickup_datetime, freight_amount, mileage, total_driver_pay, total_driver_pay_effective, driver1_id, status, canceled"
+          "id, load_number, delivery_datetime, pickup_datetime, freight_amount, mileage, driver_price, detention_driver, layover_driver, tonu_driver, extra_stop_driver, lumper_driver, late_fee_driver, no_tracking_fee_driver, wrong_address_fee_driver, other_charges_driver, other_additionals_driver, driver1_id, status, canceled"
         )
         .in("driver1_id", driverIds)
         .gte("delivery_datetime", since.toISOString())
@@ -304,8 +313,19 @@ const DispatcherTierDetail = () => {
                 {filteredOrders.map((o) => {
                   const f = Number(o.freight_amount) || 0;
                   const m = Number(o.mileage) || 0;
+                  const n = (v: any) => Number(v) || 0;
                   const dp =
-                    Number(o.total_driver_pay_effective ?? o.total_driver_pay) || 0;
+                    n(o.driver_price) +
+                    n(o.detention_driver) +
+                    n(o.layover_driver) +
+                    n(o.tonu_driver) +
+                    n(o.extra_stop_driver) +
+                    n(o.lumper_driver) +
+                    n(o.other_additionals_driver) -
+                    n(o.late_fee_driver) -
+                    n(o.no_tracking_fee_driver) -
+                    n(o.wrong_address_fee_driver) -
+                    n(o.other_charges_driver);
                   const comm = f - dp;
                   const rpm = m > 0 ? f / m : 0;
                   return (
