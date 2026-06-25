@@ -4003,8 +4003,26 @@ const Analytics = () => {
 
             {hasRole("admin") && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Loads Booked This Week (Rate ≥ $4.00/mile)</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Loads Booked This Week (Rate ≥ ${highRateThreshold.toFixed(2)}/mile)</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="high-rate-threshold" className="text-sm text-muted-foreground whitespace-nowrap">
+                      Over $
+                    </Label>
+                    <Input
+                      id="high-rate-threshold"
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      value={highRateThreshold}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value);
+                        setHighRateThreshold(isNaN(value) ? 0 : value);
+                      }}
+                      className="w-20 h-8"
+                    />
+                    <span className="text-sm text-muted-foreground">/mile</span>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Table>
