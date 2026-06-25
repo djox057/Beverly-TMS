@@ -97,6 +97,36 @@ const DispatcherTierDetail = () => {
         .eq("canceled", false)
         .order("delivery_datetime", { ascending: false });
       setOrders((ords as OrderRow[]) || []);
+
+      // company-wide averages for the same periods
+      const now = new Date();
+      const weekStart = new Date(now);
+      const day = (weekStart.getDay() + 6) % 7;
+      weekStart.setDate(weekStart.getDate() - day);
+      weekStart.setHours(0, 0, 0, 0);
+      const { data: companyOrds } = await supabase
+        .from("orders")
+        .select("freight_amount, mileage, delivery_datetime, canceled")
+        .gte("delivery_datetime", since.toISOString())
+        .eq("canceled", false);
+      let wkFreight = 0, wkMiles = 0, mFreight = 0, mMiles = 0;
+      (companyOrds || []).forEach((o: any) => {
+        const d = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
+        if (!d) return;
+        const f = Number(o.freight_amount) || 0;
+        const m = Number(o.mileage) || 0;
+        mFreight += f;
+        mMiles += m;
+        if (d >= weekStart) {
+          wkFreight += f;
+          wkMiles += m;
+        }
+      });
+      setCompanyStats({
+        wkRpm: wkMiles > 0 ? wkFreight / wkMiles : 0,
+        mRpm: mMiles > 0 ? mFreight / mMiles : 0,
+      });
+
       setLoading(false);
     };
     load();
