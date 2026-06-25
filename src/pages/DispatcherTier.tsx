@@ -1,15 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -17,12 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Search, User, Truck, Building2 } from "lucide-react";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { supabase } from "@/integrations/supabase/client";
 
-type SortKey = "name" | "office" | "currentTrucks" | "avgTrucks";
+type SortKey = "name" | "currentTrucks" | "avgTrucks";
 type SortDir = "asc" | "desc";
 
 const DispatcherTier = () => {
@@ -67,14 +59,18 @@ const DispatcherTier = () => {
   const offices = useMemo(() => {
     const set = new Set<string>();
     dispatchers.forEach((d) => {
-      if (d.dispatcher.office) set.add(d.dispatcher.office);
+      if ((d.dispatcher.roles || []).includes("dispatch") && d.dispatcher.office) {
+        set.add(d.dispatcher.office);
+      }
     });
     return Array.from(set).sort();
   }, [dispatchers]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const data = dispatchers.map((d) => {
+    const data = dispatchers
+      .filter((d) => (d.dispatcher.roles || []).includes("dispatch"))
+      .map((d) => {
       const currentTrucks = d.drivers.filter((dr: any) => dr.truck).length;
       return {
         id: d.dispatcher.id,
@@ -96,7 +92,6 @@ const DispatcherTier = () => {
     filtered.sort((a, b) => {
       let cmp = 0;
       if (sortKey === "name") cmp = (a.name || "").localeCompare(b.name || "");
-      else if (sortKey === "office") cmp = a.office.localeCompare(b.office);
       else if (sortKey === "currentTrucks") cmp = a.currentTrucks - b.currentTrucks;
       else if (sortKey === "avgTrucks") cmp = a.avgTrucks - b.avgTrucks;
       return sortDir === "asc" ? cmp : -cmp;
@@ -104,35 +99,19 @@ const DispatcherTier = () => {
     return filtered;
   }, [dispatchers, search, officeFilter, sortKey, sortDir, avgMap]);
 
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(sortDir === "asc" ? "desc" : "asc");
-    } else {
-      setSortKey(key);
-      setSortDir(key === "name" || key === "office" ? "asc" : "desc");
-    }
-  };
-
-  const SortIcon = ({ k }: { k: SortKey }) => {
-    if (sortKey !== k) return <ArrowUpDown className="ml-1 h-3 w-3 opacity-50" />;
-    return sortDir === "asc" ? (
-      <ArrowUp className="ml-1 h-3 w-3" />
-    ) : (
-      <ArrowDown className="ml-1 h-3 w-3" />
-    );
-  };
-
   return (
-    <div className="p-6 space-y-4">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Dispatcher Tier</h1>
-        <p className="text-muted-foreground text-sm">
-          Overview of all dispatchers with current and 30-day average truck counts.
-        </p>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Dispatcher Tier</h1>
+          <p className="text-muted-foreground">
+            Overview of all dispatchers with current and 30-day average truck counts
+          </p>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[240px] max-w-sm">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search dispatcher by name..."
@@ -142,7 +121,7 @@ const DispatcherTier = () => {
           />
         </div>
         <Select value={officeFilter} onValueChange={setOfficeFilter}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Office" />
           </SelectTrigger>
           <SelectContent>
@@ -154,103 +133,85 @@ const DispatcherTier = () => {
             ))}
           </SelectContent>
         </Select>
+        <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Sort: Name</SelectItem>
+            <SelectItem value="currentTrucks">Sort: Current Trucks</SelectItem>
+            <SelectItem value="avgTrucks">Sort: Avg Trucks (30d)</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortDir} onValueChange={(v) => setSortDir(v as SortDir)}>
+          <SelectTrigger className="w-[130px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">Descending</SelectItem>
+            <SelectItem value="asc">Ascending</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="text-sm text-muted-foreground ml-auto">
           {rows.length} dispatcher{rows.length === 1 ? "" : "s"}
         </div>
       </div>
 
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2 -ml-2"
-                  onClick={() => toggleSort("name")}
-                >
-                  Dispatcher <SortIcon k="name" />
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2 -ml-2"
-                  onClick={() => toggleSort("office")}
-                >
-                  Office <SortIcon k="office" />
-                </Button>
-              </TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Ext</TableHead>
-              <TableHead className="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2"
-                  onClick={() => toggleSort("currentTrucks")}
-                >
-                  Current Trucks <SortIcon k="currentTrucks" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2"
-                  onClick={() => toggleSort("avgTrucks")}
-                >
-                  Avg Trucks (30d) <SortIcon k="avgTrucks" />
-                </Button>
-              </TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  No dispatchers found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.name}</TableCell>
-                  <TableCell>{r.office}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {r.roles.map((role) => (
-                        <Badge key={role} variant="secondary" className="text-xs">
-                          {role}
-                        </Badge>
-                      ))}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-muted-foreground">Loading dispatchers...</div>
+        </div>
+      ) : (
+        <ScrollArea className="h-[calc(100vh-220px)]">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {rows.map((r) => (
+              <Card
+                key={r.id}
+                className={`hover:bg-muted/50 transition-colors ${!r.isActive ? "opacity-60" : ""}`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/10">
+                      <User className="h-5 w-5 text-primary" />
                     </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{r.ext || "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{r.currentTrucks}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {r.avgTrucks.toFixed(1)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={r.isActive ? "default" : "outline"}>
-                      {r.isActive ? "Active" : "Off Duty"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold truncate">{r.name}</h3>
+                        {!r.isActive && (
+                          <Badge variant="outline" className="text-xs">Off Duty</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <Badge variant="outline" className="text-xs">
+                          <Truck className="h-3 w-3 mr-1" />
+                          {r.currentTrucks} now
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          Avg {r.avgTrucks.toFixed(1)} / 30d
+                        </Badge>
+                        {r.office !== "—" && (
+                          <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                            <Building2 className="h-3 w-3 mr-1" />
+                            {r.office}
+                          </Badge>
+                        )}
+                      </div>
+                      {r.ext && (
+                        <p className="text-xs text-muted-foreground mt-1">Ext {r.ext}</p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {rows.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              No dispatchers found
+            </div>
+          )}
+        </ScrollArea>
+      )}
     </div>
   );
 };
