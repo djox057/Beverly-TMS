@@ -13,6 +13,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type OrderRow = {
   id: string;
@@ -21,6 +29,17 @@ type OrderRow = {
   pickup_datetime: string | null;
   freight_amount: number | null;
   mileage: number | null;
+  driver_price: number | null;
+  detention_driver: number | null;
+  layover_driver: number | null;
+  tonu_driver: number | null;
+  extra_stop_driver: number | null;
+  lumper_driver: number | null;
+  late_fee_driver: number | null;
+  no_tracking_fee_driver: number | null;
+  wrong_address_fee_driver: number | null;
+  other_charges_driver: number | null;
+  other_additionals_driver: number | null;
   driver1_id: string | null;
   status: string | null;
   canceled: boolean | null;
@@ -70,7 +89,7 @@ const DispatcherTierDetail = () => {
       const { data: ords } = await supabase
         .from("orders")
         .select(
-          "id, load_number, delivery_datetime, pickup_datetime, freight_amount, mileage, driver1_id, status, canceled"
+          "id, load_number, delivery_datetime, pickup_datetime, freight_amount, mileage, driver_price, detention_driver, layover_driver, tonu_driver, extra_stop_driver, lumper_driver, late_fee_driver, no_tracking_fee_driver, wrong_address_fee_driver, other_charges_driver, other_additionals_driver, driver1_id, status, canceled"
         )
         .in("driver1_id", driverIds)
         .gte("delivery_datetime", since.toISOString())
@@ -81,6 +100,22 @@ const DispatcherTierDetail = () => {
     };
     load();
   }, [id]);
+
+  const [driverFilter, setDriverFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("");
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      if (driverFilter !== "all" && o.driver1_id !== driverFilter) return false;
+      if (dateFilter) {
+        const d = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
+        if (!d) return false;
+        const iso = d.toISOString().slice(0, 10);
+        if (iso !== dateFilter) return false;
+      }
+      return true;
+    });
+  }, [orders, driverFilter, dateFilter]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -132,7 +167,7 @@ const DispatcherTierDetail = () => {
           <h1 className="text-2xl font-bold">
             {loading
               ? "Loading..."
-              : dispatcher?.full_name || dispatcher?.email || "Dispatcher"}
+              : dispatcher?.full_name || dispatcher?.email || "Unknown dispatcher"}
           </h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {dispatcher?.office && <Badge variant="secondary">{dispatcher.office}</Badge>}
@@ -155,6 +190,9 @@ const DispatcherTierDetail = () => {
                   <Gauge className="h-3 w-3" /> RPM
                 </div>
                 <div className="text-2xl font-bold">${stats.wkRpm.toFixed(2)}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  avg rpm this week
+                </div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
@@ -188,6 +226,9 @@ const DispatcherTierDetail = () => {
                   <Gauge className="h-3 w-3" /> RPM
                 </div>
                 <div className="text-2xl font-bold">${stats.mRpm.toFixed(2)}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  avg rpm last 30 days
+                </div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
@@ -211,12 +252,47 @@ const DispatcherTierDetail = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Loads (Last 30 Days)</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-base">Loads (Last 30 Days)</CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={driverFilter} onValueChange={setDriverFilter}>
+                <SelectTrigger className="w-[200px] h-9">
+                  <SelectValue placeholder="All drivers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All drivers</SelectItem>
+                  {Object.entries(driverNameMap).map(([id, name]) => (
+                    <SelectItem key={id} value={id}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-[170px] h-9"
+              />
+              {(driverFilter !== "all" || dateFilter) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDriverFilter("all");
+                    setDateFilter("");
+                  }}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="text-muted-foreground text-sm py-6 text-center">Loading...</div>
-          ) : orders.length === 0 ? (
+          ) : filteredOrders.length === 0 ? (
             <div className="text-muted-foreground text-sm py-6 text-center">No loads</div>
           ) : (
             <Table>
@@ -224,27 +300,51 @@ const DispatcherTierDetail = () => {
                 <TableRow>
                   <TableHead>Load #</TableHead>
                   <TableHead>Driver</TableHead>
+                  <TableHead>Pickup</TableHead>
                   <TableHead>Delivery</TableHead>
                   <TableHead className="text-right">Freight</TableHead>
+                  <TableHead className="text-right">Driver Pay</TableHead>
+                  <TableHead className="text-right">Comm.</TableHead>
                   <TableHead className="text-right">Miles</TableHead>
                   <TableHead className="text-right">RPM</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map((o) => {
+                {filteredOrders.map((o) => {
                   const f = Number(o.freight_amount) || 0;
                   const m = Number(o.mileage) || 0;
+                  const n = (v: any) => Number(v) || 0;
+                  const dp =
+                    n(o.driver_price) +
+                    n(o.detention_driver) +
+                    n(o.layover_driver) +
+                    n(o.tonu_driver) +
+                    n(o.extra_stop_driver) +
+                    n(o.lumper_driver) +
+                    n(o.other_additionals_driver) -
+                    n(o.late_fee_driver) -
+                    n(o.no_tracking_fee_driver) -
+                    n(o.wrong_address_fee_driver) -
+                    n(o.other_charges_driver);
+                  const comm = f - dp;
                   const rpm = m > 0 ? f / m : 0;
                   return (
                     <TableRow key={o.id}>
                       <TableCell className="font-medium">{o.load_number}</TableCell>
                       <TableCell>{driverNameMap[o.driver1_id || ""] || "—"}</TableCell>
                       <TableCell>
+                        {o.pickup_datetime
+                          ? new Date(o.pickup_datetime).toLocaleDateString()
+                          : "—"}
+                      </TableCell>
+                      <TableCell>
                         {o.delivery_datetime
                           ? new Date(o.delivery_datetime).toLocaleDateString()
                           : "—"}
                       </TableCell>
                       <TableCell className="text-right">{fmtCurrency(f)}</TableCell>
+                      <TableCell className="text-right">{fmtCurrency(dp)}</TableCell>
+                      <TableCell className="text-right">{fmtCurrency(comm)}</TableCell>
                       <TableCell className="text-right">{m.toLocaleString()}</TableCell>
                       <TableCell className="text-right">${rpm.toFixed(2)}</TableCell>
                     </TableRow>
