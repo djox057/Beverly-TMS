@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Truck, DollarSign, Gauge } from "lucide-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -104,6 +105,7 @@ const DispatcherTierDetail = () => {
   const [driverNameMap, setDriverNameMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [companyStats, setCompanyStats] = useState<{ wkRpm: number; mRpm: number }>({ wkRpm: 0, mRpm: 0 });
+  const [progress, setProgress] = useState<{ pct: number; label: string }>({ pct: 0, label: "" });
   const [stopMap, setStopMap] = useState<Record<string, { pickup: string; delivery: string }>>({});
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
@@ -141,6 +143,7 @@ const DispatcherTierDetail = () => {
     if (!id) return;
     const load = async () => {
       setLoading(true);
+      setProgress({ pct: 5, label: "Loading dispatcher profile..." });
       // dispatcher profile
       const { data: profile } = await supabase
         .from("profiles")
@@ -149,6 +152,7 @@ const DispatcherTierDetail = () => {
         .maybeSingle();
       setDispatcher(profile);
 
+      setProgress({ pct: 15, label: "Loading drivers..." });
       // drivers assigned to this dispatcher
       const { data: drivers } = await supabase
         .from("drivers")
@@ -182,6 +186,7 @@ const DispatcherTierDetail = () => {
       // Dispatcher's own orders — match Analytics by filtering on booked_by = full_name
       // (Analytics buckets dispatcher stats by orders.booked_by, NOT by driver assignment).
       const dispatcherName = profile?.full_name || "";
+      setProgress({ pct: 30, label: `Loading orders for ${dispatcherName || "dispatcher"}...` });
       const ords = dispatcherName
         ? await fetchAllPaged<OrderRow>(() =>
             supabase
@@ -201,6 +206,7 @@ const DispatcherTierDetail = () => {
       // pickup / delivery city-state for those orders
       const orderIds = ords.map((o: any) => o.id);
       if (orderIds.length > 0) {
+        setProgress({ pct: 55, label: `Loading pickup/delivery stops for ${orderIds.length} orders...` });
         // pickup_drops can exceed 1000 rows for a month — chunk + paginate.
         const stops: any[] = [];
         for (let i = 0; i < orderIds.length; i += 200) {
@@ -230,6 +236,7 @@ const DispatcherTierDetail = () => {
         setStopMap({});
       }
 
+      setProgress({ pct: 75, label: "Loading company-wide office dispatchers..." });
       // company-wide averages for the same periods
       const { data: officeDispatchers } = await supabase
         .from("profiles")
@@ -243,8 +250,13 @@ const DispatcherTierDetail = () => {
       // Paginate AND chunk the booked_by IN list (URL length + 1000-row cap).
       const companyOrds: any[] = [];
       if (officeDispatcherNames.length > 0) {
-        for (let i = 0; i < officeDispatcherNames.length; i += 50) {
+        const totalChunks = Math.ceil(officeDispatcherNames.length / 50);
+        for (let i = 0, ci = 0; i < officeDispatcherNames.length; i += 50, ci++) {
           const chunk = officeDispatcherNames.slice(i, i + 50);
+          setProgress({
+            pct: 75 + Math.round(((ci + 1) / totalChunks) * 20),
+            label: `Loading company orders (batch ${ci + 1}/${totalChunks})...`,
+          });
           const part = await fetchAllPaged<any>(() =>
             supabase
               .from("orders")
@@ -260,6 +272,7 @@ const DispatcherTierDetail = () => {
           companyOrds.push(...part);
         }
       }
+      setProgress({ pct: 95, label: "Computing averages..." });
       let wkFreight = 0, wkMiles = 0, mFreight = 0, mMiles = 0;
       (companyOrds || []).forEach((o: any) => {
         if (!includeOrder(o)) return;
@@ -281,6 +294,7 @@ const DispatcherTierDetail = () => {
         mRpm: mMiles > 0 ? mFreight / mMiles : 0,
       });
 
+      setProgress({ pct: 100, label: "Done" });
       setLoading(false);
     };
     load();
@@ -385,6 +399,18 @@ const DispatcherTierDetail = () => {
           </div>
         </div>
       </div>
+
+      {loading && (
+        <Card>
+          <CardContent className="py-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{progress.label || "Loading..."}</span>
+              <span className="font-medium tabular-nums">{progress.pct}%</span>
+            </div>
+            <Progress value={progress.pct} />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
