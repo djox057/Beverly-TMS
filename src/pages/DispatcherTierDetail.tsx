@@ -207,18 +207,19 @@ const DispatcherTierDetail = () => {
       // company-wide averages for the same periods
       const { data: officeDispatchers } = await supabase
         .from("profiles")
-        .select("user_id, office")
+        .select("user_id, full_name, office")
         .in("office", COMPANY_OFFICES);
-      const officeDispatcherIds = (officeDispatchers || [])
-        .map((p: any) => p.user_id)
+      // orders.booked_by stores the dispatcher's full_name (text), not user_id
+      const officeDispatcherNames = (officeDispatchers || [])
+        .map((p: any) => p.full_name)
         .filter(Boolean);
 
-      const { data: companyOrds } = officeDispatcherIds.length === 0 ? { data: [] as any[] } : await supabase
+      const { data: companyOrds } = officeDispatcherNames.length === 0 ? { data: [] as any[] } : await supabase
         .from("orders")
         .select(
           "freight_amount, mileage, pickup_datetime, delivery_datetime, canceled, detention, layover, tonu, extra_stop, escort_fee, other_additionals, late_fee, no_tracking_fee, wrong_address_fee, other_charges, tonu_driver"
         )
-        .in("booked_by", officeDispatcherIds)
+        .in("booked_by", officeDispatcherNames)
         .or(
           `and(delivery_datetime.gte.${since.toISOString()},delivery_datetime.lt.${until.toISOString()}),and(pickup_datetime.gte.${since.toISOString()},pickup_datetime.lt.${until.toISOString()})`
         );
