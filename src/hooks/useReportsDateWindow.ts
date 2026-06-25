@@ -472,9 +472,10 @@ const fetchIndividualDriverScope = async (
 const fetchAllOfficeDriverScopes = async (): Promise<Map<string, { driverIds: string[], dispatcherIds: string[] }>> => {
   console.time('[scope] fetchAllOfficeDriverScopes');
 
-  const [profilesRes, driversRes] = await Promise.all([
+  const [profilesRes, driversRes, offDutyRes] = await Promise.all([
     supabase.from("profiles").select("user_id, office"),
     supabase.from("drivers").select("id, dispatcher_id").eq("is_active", true),
+    supabase.from("dispatcher_status").select("dispatcher_id, inactive_trucks").eq("is_active", false),
   ]);
 
   if (profilesRes.error) {
@@ -484,6 +485,9 @@ const fetchAllOfficeDriverScopes = async (): Promise<Map<string, { driverIds: st
   if (driversRes.error) {
     console.timeEnd('[scope] fetchAllOfficeDriverScopes');
     throw driversRes.error;
+  }
+  if (offDutyRes.error) {
+    console.warn('[useReportsDateWindow] off-duty status fetch failed (non-fatal):', offDutyRes.error);
   }
 
   // Group dispatchers by office and build dispatcher→office lookup
@@ -497,22 +501,57 @@ const fetchAllOfficeDriverScopes = async (): Promise<Map<string, { driverIds: st
     dispatchersByOffice.set(p.office, arr);
   }
 
-  // Initialize result map with dispatcher IDs per office
-  const result = new Map<string, { driverIds: string[], dispatcherIds: string[] }>();
+  // Initialize working map: per-office driver-id Set (for de-dup) + dispatcher list
+  const working = new Map<string, { driverIds: Set<string>, dispatcherIds: string[] }>();
   for (const [office, dispIds] of dispatchersByOffice) {
-    result.set(office, { driverIds: [], dispatcherIds: dispIds });
+    working.set(office, { driverIds: new Set<string>(), dispatcherIds: dispIds });
   }
 
-  // Map each driver to their dispatcher's office
+  // Map each active driver to their current dispatcher's office
   for (const driver of driversRes.data || []) {
     if (!driver.dispatcher_id) continue;
     const office = dispatcherToOffice.get(driver.dispatcher_id);
     if (!office) continue;
-    const entry = result.get(office);
-    if (entry) entry.driverIds.push(driver.id);
+    const entry = working.get(office);
+    if (entry) entry.driverIds.add(driver.id);
+  }
+
+  // Also bucket off-duty snapshot drivers into the OFF-DUTY dispatcher's office.
+  // Off-duty groups are rendered under the off-duty dispatcher's office in the
+  // adapter, but the drivers' orders would otherwise only load when the office
+  // matching their CURRENT (replacement) dispatcher is visited.
+  let offDutyAdded = 0;
+  for (const status of offDutyRes.data || []) {
+    const dispId = (status as any).dispatcher_id;
+    if (!dispId) continue;
+    const office = dispatcherToOffice.get(dispId);
+    if (!office) continue;
+    let entry = working.get(office);
+    if (!entry) {
+      entry = { driverIds: new Set<string>(), dispatcherIds: [] };
+      working.set(office, entry);
+    }
+    const inactive = ((status as any).inactive_trucks as any[]) || [];
+    for (const d of inactive) {
+      const id = d?.id;
+      if (!id) continue;
+      if (!entry.driverIds.has(id)) {
+        entry.driverIds.add(id);
+        offDutyAdded++;
+      }
+    }
+  }
+
+  // Convert Sets to arrays for downstream consumers
+  const result = new Map<string, { driverIds: string[], dispatcherIds: string[] }>();
+  for (const [office, entry] of working) {
+    result.set(office, { driverIds: Array.from(entry.driverIds), dispatcherIds: entry.dispatcherIds });
   }
 
   const totalDrivers = Array.from(result.values()).reduce((sum, e) => sum + e.driverIds.length, 0);
+  if (offDutyAdded > 0) {
+    console.log(`[useReportsDateWindow] ➕ Merged ${offDutyAdded} off-duty snapshot driver ids into office scopes`);
+  }
   console.log(`[useReportsDateWindow] ✅ Pre-computed scopes: ${result.size} offices, ${totalDrivers} total drivers`);
   console.timeEnd('[scope] fetchAllOfficeDriverScopes');
   return result;
