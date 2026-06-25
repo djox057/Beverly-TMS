@@ -241,13 +241,14 @@ const DispatcherTierDetail = () => {
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
-      const d = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
-      // Loads table reflects the selected month period
+      if (!includeOrder(o)) return false;
+      const d = parseLocalDateOnly(o.delivery_datetime);
+      // Loads table reflects the selected month period (by delivery date)
       if (!d) return false;
       if (d < monthRange.start || d >= monthRange.end) return false;
       if (driverFilter !== "all" && o.driver1_id !== driverFilter) return false;
       if (dateFilter) {
-        const iso = d.toISOString().slice(0, 10);
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         if (iso !== dateFilter) return false;
       }
       return true;
