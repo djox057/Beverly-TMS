@@ -130,7 +130,9 @@ const DispatcherTierDetail = () => {
         </Button>
         <div>
           <h1 className="text-2xl font-bold">
-            {dispatcher?.full_name || dispatcher?.email || "Dispatcher"}
+            {loading
+              ? "Loading..."
+              : dispatcher?.full_name || dispatcher?.email || "Dispatcher"}
           </h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {dispatcher?.office && <Badge variant="secondary">{dispatcher.office}</Badge>}
@@ -226,7 +228,6 @@ const DispatcherTierDetail = () => {
                   <TableHead className="text-right">Freight</TableHead>
                   <TableHead className="text-right">Miles</TableHead>
                   <TableHead className="text-right">RPM</TableHead>
-                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -246,11 +247,6 @@ const DispatcherTierDetail = () => {
                       <TableCell className="text-right">{fmtCurrency(f)}</TableCell>
                       <TableCell className="text-right">{m.toLocaleString()}</TableCell>
                       <TableCell className="text-right">${rpm.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {o.status || "—"}
-                        </Badge>
-                      </TableCell>
                     </TableRow>
                   );
                 })}
