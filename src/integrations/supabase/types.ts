@@ -1489,6 +1489,44 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatcher_tier_comments: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          content: string
+          created_at: string
+          dispatcher_id: string
+          id: string
+          parent_id: string | null
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          content: string
+          created_at?: string
+          dispatcher_id: string
+          id?: string
+          parent_id?: string | null
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          content?: string
+          created_at?: string
+          dispatcher_id?: string
+          id?: string
+          parent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatcher_tier_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "dispatcher_tier_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_cash_advances: {
         Row: {
           amount: number
