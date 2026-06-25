@@ -281,9 +281,10 @@ const DispatcherTierDetail = () => {
       wkLoads = 0,
       mLoads = 0;
     for (const o of orders) {
-      const del = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
-      const pick = o.pickup_datetime ? new Date(o.pickup_datetime) : null;
-      const f = Number(o.freight_amount) || 0;
+      if (!includeOrder(o)) continue;
+      const del = parseLocalDateOnly(o.delivery_datetime);
+      const pick = parseLocalDateOnly(o.pickup_datetime);
+      const f = analyticsFreight(o);
       const dp = driverPay(o);
       const m = Number(o.mileage) || 0;
       if (del && del >= monthRange.start && del < monthRange.end) {
