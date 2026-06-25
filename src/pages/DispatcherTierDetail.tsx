@@ -59,6 +59,9 @@ type OrderRow = {
 const fmtCurrency = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
+// Offices included in Analytics' default "company" scope.
+const COMPANY_OFFICES = ["KRAGUJEVAC", "Čačak", "BG 1st floor", "BG 4th floor"];
+
 // Parse a "YYYY-MM-DD HH:MM:SS" or ISO datetime string as a LOCAL date-only Date
 // (matches Analytics' date filtering: strip the time portion and compare local dates).
 const parseLocalDateOnly = (s: string | null): Date | null => {
