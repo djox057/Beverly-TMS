@@ -2373,10 +2373,10 @@ export const useReports = (options?: UseReportsOptions) => {
                 dispatcher: offDutyDispatcherInfo?.full_name || offDutyDispatcherInfo?.email || "Unknown",
                 dispatcherId: offDutyDispatcherId,
                 // Get current dispatcher name for drivers in off-duty section
-                currentDispatcherName: realDriver?.dispatcher_id 
-                  ? (dispatchersByUserId.get(realDriver.dispatcher_id)?.full_name || 
-                     dispatchersByUserId.get(realDriver.dispatcher_id)?.email || null)
-                  : null,
+                currentDispatcherName: (() => {
+                  const info = resolveDispatcher(realDriver?.dispatcher_id);
+                  return info ? (info.full_name || info.email || null) : null;
+                })(),
                 status: truckStatus,
                 pickup: formatStopInfo(currentOrder?.pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
                 delivery: formatStopInfo(currentOrder?.deliveryStop, currentOrder?.delivery_datetime, currentOrder?.delivery_end_datetime),
