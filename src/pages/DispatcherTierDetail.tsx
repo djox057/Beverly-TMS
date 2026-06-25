@@ -400,6 +400,18 @@ const DispatcherTierDetail = () => {
         </div>
       </div>
 
+      {loading && (
+        <Card>
+          <CardContent className="py-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{progress.label || "Loading..."}</span>
+              <span className="font-medium tabular-nums">{progress.pct}%</span>
+            </div>
+            <Progress value={progress.pct} />
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
