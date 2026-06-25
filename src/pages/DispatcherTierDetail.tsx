@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Truck, DollarSign, Gauge } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -57,6 +58,37 @@ const DispatcherTierDetail = () => {
   const [loading, setLoading] = useState(true);
   const [companyStats, setCompanyStats] = useState<{ wkRpm: number; mRpm: number }>({ wkRpm: 0, mRpm: 0 });
   const [stopMap, setStopMap] = useState<Record<string, { pickup: string; delivery: string }>>({});
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
+
+  // Week range (Mon..Sun) for current weekOffset
+  const weekRange = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now);
+    const day = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - day + weekOffset * 7);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    return { start, end };
+  }, [weekOffset]);
+
+  // Month range for current monthOffset
+  const monthRange = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + monthOffset + 1, 1);
+    return { start, end };
+  }, [monthOffset]);
+
+  const fmtWeek = (r: { start: Date; end: Date }) => {
+    const e = new Date(r.end);
+    e.setDate(e.getDate() - 1);
+    const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+    return `${r.start.toLocaleDateString(undefined, opts)} – ${e.toLocaleDateString(undefined, opts)}`;
+  };
+  const fmtMonth = (r: { start: Date; end: Date }) =>
+    r.start.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
   useEffect(() => {
     if (!id) return;
@@ -86,8 +118,9 @@ const DispatcherTierDetail = () => {
         return;
       }
 
-      const since = new Date();
-      since.setDate(since.getDate() - 30);
+      // Fetch a range that covers both the selected week and month
+      const since = new Date(Math.min(weekRange.start.getTime(), monthRange.start.getTime()));
+      const until = new Date(Math.max(weekRange.end.getTime(), monthRange.end.getTime()));
       const { data: ords } = await supabase
         .from("orders")
         .select(
@@ -95,6 +128,7 @@ const DispatcherTierDetail = () => {
         )
         .in("driver1_id", driverIds)
         .gte("delivery_datetime", since.toISOString())
+        .lt("delivery_datetime", until.toISOString())
         .eq("canceled", false)
         .order("delivery_datetime", { ascending: false });
       setOrders((ords as OrderRow[]) || []);
@@ -124,15 +158,11 @@ const DispatcherTierDetail = () => {
       }
 
       // company-wide averages for the same periods
-      const now = new Date();
-      const weekStart = new Date(now);
-      const day = (weekStart.getDay() + 6) % 7;
-      weekStart.setDate(weekStart.getDate() - day);
-      weekStart.setHours(0, 0, 0, 0);
       const { data: companyOrds } = await supabase
         .from("orders")
         .select("freight_amount, mileage, delivery_datetime, canceled")
         .gte("delivery_datetime", since.toISOString())
+        .lt("delivery_datetime", until.toISOString())
         .eq("canceled", false);
       let wkFreight = 0, wkMiles = 0, mFreight = 0, mMiles = 0;
       (companyOrds || []).forEach((o: any) => {
@@ -140,9 +170,11 @@ const DispatcherTierDetail = () => {
         if (!d) return;
         const f = Number(o.freight_amount) || 0;
         const m = Number(o.mileage) || 0;
-        mFreight += f;
-        mMiles += m;
-        if (d >= weekStart) {
+        if (d >= monthRange.start && d < monthRange.end) {
+          mFreight += f;
+          mMiles += m;
+        }
+        if (d >= weekRange.start && d < weekRange.end) {
           wkFreight += f;
           wkMiles += m;
         }
@@ -155,32 +187,27 @@ const DispatcherTierDetail = () => {
       setLoading(false);
     };
     load();
-  }, [id]);
+  }, [id, weekRange, monthRange]);
 
   const [driverFilter, setDriverFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("");
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
+      const d = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
+      // Loads table reflects the selected month period
+      if (!d) return false;
+      if (d < monthRange.start || d >= monthRange.end) return false;
       if (driverFilter !== "all" && o.driver1_id !== driverFilter) return false;
       if (dateFilter) {
-        const d = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
-        if (!d) return false;
         const iso = d.toISOString().slice(0, 10);
         if (iso !== dateFilter) return false;
       }
       return true;
     });
-  }, [orders, driverFilter, dateFilter]);
+  }, [orders, driverFilter, dateFilter, monthRange]);
 
   const stats = useMemo(() => {
-    const now = new Date();
-    // Current week: Monday start
-    const weekStart = new Date(now);
-    const day = (weekStart.getDay() + 6) % 7; // Mon=0
-    weekStart.setDate(weekStart.getDate() - day);
-    weekStart.setHours(0, 0, 0, 0);
-
     const driverPay = (o: OrderRow) => {
       const n = (v: any) => Number(v) || 0;
       return (
@@ -212,11 +239,13 @@ const DispatcherTierDetail = () => {
       const f = Number(o.freight_amount) || 0;
       const dp = driverPay(o);
       const m = Number(o.mileage) || 0;
-      mFreight += f;
-      mDriverPay += dp;
-      mMiles += m;
-      mLoads += 1;
-      if (d >= weekStart) {
+      if (d >= monthRange.start && d < monthRange.end) {
+        mFreight += f;
+        mDriverPay += dp;
+        mMiles += m;
+        mLoads += 1;
+      }
+      if (d >= weekRange.start && d < weekRange.end) {
         wkFreight += f;
         wkDriverPay += dp;
         wkMiles += m;
@@ -237,7 +266,7 @@ const DispatcherTierDetail = () => {
       mLoads,
       mRpm: mMiles > 0 ? mFreight / mMiles : 0,
     };
-  }, [orders]);
+  }, [orders, weekRange, monthRange]);
 
   return (
     <div className="p-6 space-y-6">
@@ -261,8 +290,16 @@ const DispatcherTierDetail = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Current Week (Mon–Sun)
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setWeekOffset((v) => v - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span>
+                {weekOffset === 0 ? "Current Week (Mon–Sun)" : "Week"} · {fmtWeek(weekRange)}
+              </span>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setWeekOffset((v) => v + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -306,8 +343,16 @@ const DispatcherTierDetail = () => {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Last 30 Days
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setMonthOffset((v) => v - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span>
+                {monthOffset === 0 ? "Current Month" : "Month"} · {fmtMonth(monthRange)}
+              </span>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setMonthOffset((v) => v + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -353,7 +398,7 @@ const DispatcherTierDetail = () => {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle className="text-base">Loads (Last 30 Days)</CardTitle>
+            <CardTitle className="text-base">Loads ({fmtMonth(monthRange)})</CardTitle>
             <div className="flex flex-wrap items-center gap-2">
               <Select value={driverFilter} onValueChange={setDriverFilter}>
                 <SelectTrigger className="w-[200px] h-9">
