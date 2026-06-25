@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Truck, DollarSign, Gauge } from "lucide-react";
+import { ArrowLeft, Truck, DollarSign, Gauge, MessageSquare } from "lucide-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import DispatcherTierCommentsDialog from "@/components/DispatcherTierCommentsDialog";
 import {
   Table,
   TableBody,
@@ -106,6 +107,19 @@ const DispatcherTierDetail = () => {
   const [loading, setLoading] = useState(true);
   const [companyStats, setCompanyStats] = useState<{ wkRpm: number; mRpm: number }>({ wkRpm: 0, mRpm: 0 });
   const [progress, setProgress] = useState<{ pct: number; label: string }>({ pct: 0, label: "" });
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentCount, setCommentCount] = useState(0);
+
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      const { count } = await supabase
+        .from("dispatcher_tier_comments")
+        .select("id", { count: "exact", head: true })
+        .eq("dispatcher_id", id);
+      setCommentCount(count || 0);
+    })();
+  }, [id, commentsOpen]);
   const [stopMap, setStopMap] = useState<Record<string, { pickup: string; delivery: string }>>({});
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
@@ -398,6 +412,15 @@ const DispatcherTierDetail = () => {
             {dispatcher?.ext && <span>Ext {dispatcher.ext}</span>}
           </div>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-2"
+          onClick={() => setCommentsOpen(true)}
+        >
+          <MessageSquare className="h-4 w-4 mr-1" />
+          Comments ({commentCount})
+        </Button>
       </div>
 
       {loading && (
@@ -410,6 +433,15 @@ const DispatcherTierDetail = () => {
             <Progress value={progress.pct} />
           </CardContent>
         </Card>
+      )}
+
+      {id && (
+        <DispatcherTierCommentsDialog
+          open={commentsOpen}
+          onOpenChange={setCommentsOpen}
+          dispatcherId={id}
+          dispatcherName={dispatcher?.full_name || dispatcher?.email || "Dispatcher"}
+        />
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
