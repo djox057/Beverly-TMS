@@ -63,8 +63,8 @@ const DispatcherTierDetail = () => {
       // dispatcher profile
       const { data: profile } = await supabase
         .from("profiles")
-        .select("id, full_name, email, ext, office, roles")
-        .eq("id", id)
+        .select("user_id, full_name, email, ext, office")
+        .eq("user_id", id)
         .maybeSingle();
       setDispatcher(profile);
 
@@ -125,9 +125,28 @@ const DispatcherTierDetail = () => {
     weekStart.setDate(weekStart.getDate() - day);
     weekStart.setHours(0, 0, 0, 0);
 
+    const driverPay = (o: OrderRow) => {
+      const n = (v: any) => Number(v) || 0;
+      return (
+        n(o.driver_price) +
+        n(o.detention_driver) +
+        n(o.layover_driver) +
+        n(o.tonu_driver) +
+        n(o.extra_stop_driver) +
+        n(o.lumper_driver) +
+        n(o.other_additionals_driver) -
+        n(o.late_fee_driver) -
+        n(o.no_tracking_fee_driver) -
+        n(o.wrong_address_fee_driver) -
+        n(o.other_charges_driver)
+      );
+    };
+
     let wkFreight = 0,
+      wkDriverPay = 0,
       wkMiles = 0,
       mFreight = 0,
+      mDriverPay = 0,
       mMiles = 0,
       wkLoads = 0,
       mLoads = 0;
@@ -135,22 +154,29 @@ const DispatcherTierDetail = () => {
       const d = o.delivery_datetime ? new Date(o.delivery_datetime) : null;
       if (!d) continue;
       const f = Number(o.freight_amount) || 0;
+      const dp = driverPay(o);
       const m = Number(o.mileage) || 0;
       mFreight += f;
+      mDriverPay += dp;
       mMiles += m;
       mLoads += 1;
       if (d >= weekStart) {
         wkFreight += f;
+        wkDriverPay += dp;
         wkMiles += m;
         wkLoads += 1;
       }
     }
     return {
       wkFreight,
+      wkDriverPay,
+      wkComm: wkFreight - wkDriverPay,
       wkMiles,
       wkLoads,
       wkRpm: wkMiles > 0 ? wkFreight / wkMiles : 0,
       mFreight,
+      mDriverPay,
+      mComm: mFreight - mDriverPay,
       mMiles,
       mLoads,
       mRpm: mMiles > 0 ? mFreight / mMiles : 0,
@@ -184,14 +210,14 @@ const DispatcherTierDetail = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               <div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <Gauge className="h-3 w-3" /> RPM
                 </div>
                 <div className="text-2xl font-bold">${stats.wkRpm.toFixed(2)}</div>
                 <div className="text-[10px] text-muted-foreground">
-                  avg rpm this week
+                  {stats.wkRpm.toFixed(1)}
                 </div>
               </div>
               <div>
@@ -202,13 +228,22 @@ const DispatcherTierDetail = () => {
               </div>
               <div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Truck className="h-3 w-3" /> Miles
+                </div>
+                <div className="text-2xl font-bold">{stats.wkMiles.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" /> Comm
+                </div>
+                <div className="text-2xl font-bold">{fmtCurrency(stats.wkComm)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <Truck className="h-3 w-3" /> Loads
                 </div>
                 <div className="text-2xl font-bold">{stats.wkLoads}</div>
               </div>
-            </div>
-            <div className="text-xs text-muted-foreground mt-2">
-              {stats.wkMiles.toLocaleString()} miles
             </div>
           </CardContent>
         </Card>
@@ -220,14 +255,14 @@ const DispatcherTierDetail = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               <div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <Gauge className="h-3 w-3" /> RPM
                 </div>
                 <div className="text-2xl font-bold">${stats.mRpm.toFixed(2)}</div>
                 <div className="text-[10px] text-muted-foreground">
-                  avg rpm last 30 days
+                  {stats.mRpm.toFixed(1)}
                 </div>
               </div>
               <div>
@@ -238,13 +273,22 @@ const DispatcherTierDetail = () => {
               </div>
               <div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Truck className="h-3 w-3" /> Miles
+                </div>
+                <div className="text-2xl font-bold">{stats.mMiles.toLocaleString()}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" /> Comm
+                </div>
+                <div className="text-2xl font-bold">{fmtCurrency(stats.mComm)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <Truck className="h-3 w-3" /> Loads
                 </div>
                 <div className="text-2xl font-bold">{stats.mLoads}</div>
               </div>
-            </div>
-            <div className="text-xs text-muted-foreground mt-2">
-              {stats.mMiles.toLocaleString()} miles
             </div>
           </CardContent>
         </Card>
@@ -304,8 +348,8 @@ const DispatcherTierDetail = () => {
                   <TableHead>Delivery</TableHead>
                   <TableHead className="text-right">Freight</TableHead>
                   <TableHead className="text-right">Driver Pay</TableHead>
-                  <TableHead className="text-right">Comm.</TableHead>
                   <TableHead className="text-right">Miles</TableHead>
+                  <TableHead className="text-right">Comm.</TableHead>
                   <TableHead className="text-right">RPM</TableHead>
                 </TableRow>
               </TableHeader>
@@ -344,8 +388,8 @@ const DispatcherTierDetail = () => {
                       </TableCell>
                       <TableCell className="text-right">{fmtCurrency(f)}</TableCell>
                       <TableCell className="text-right">{fmtCurrency(dp)}</TableCell>
-                      <TableCell className="text-right">{fmtCurrency(comm)}</TableCell>
                       <TableCell className="text-right">{m.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{fmtCurrency(comm)}</TableCell>
                       <TableCell className="text-right">${rpm.toFixed(2)}</TableCell>
                     </TableRow>
                   );
