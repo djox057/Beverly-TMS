@@ -56,6 +56,7 @@ const DispatcherTierDetail = () => {
   const [driverNameMap, setDriverNameMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [companyStats, setCompanyStats] = useState<{ wkRpm: number; mRpm: number }>({ wkRpm: 0, mRpm: 0 });
+  const [stopMap, setStopMap] = useState<Record<string, { pickup: string; delivery: string }>>({});
 
   useEffect(() => {
     if (!id) return;
