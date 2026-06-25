@@ -2008,6 +2008,29 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
     // Add off-duty dispatcher groups from dispatcher_status table
     if (offDutyStatuses && offDutyStatuses.length > 0) {
+      // PASS 1: tag every active-group truck with its original (off-duty) dispatcher
+      // name. This must run regardless of priorityOffice so that when the
+      // covering dispatcher is in a different office than the off-duty
+      // dispatcher, the "Disp: <off-duty name>" annotation still appears.
+      for (const offDutyStatus of offDutyStatuses) {
+        const inactive = (offDutyStatus.inactive_trucks as any[]) || [];
+        if (inactive.length === 0) continue;
+        const dispId = offDutyStatus.dispatcher_id;
+        if (!dispId) continue;
+        const info = dispatcherMap.get(dispId);
+        const name = info?.full_name || info?.email || "Unknown";
+        for (const driver of inactive) {
+          if (!driver?.id) continue;
+          for (const group of groupedData) {
+            for (const truck of group.trucks) {
+              if (truck.driverId === driver.id) {
+                truck.originalDispatcherName = name;
+              }
+            }
+          }
+        }
+      }
+
       // Build a map of ALL dispatchers (active scope + off-duty) for profile lookups
       const allDispatcherIds = offDutyStatuses.map(s => s.dispatcher_id).filter(Boolean);
       // We may not have profiles for off-duty dispatchers in our `dispatchers` query
@@ -2039,14 +2062,6 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
               const currentDispInfo = dispatcherMap.get(realDriver.dispatcher_id);
               if (currentDispInfo) {
                 driverToCurrentDispatcher.set(driver.id, currentDispInfo.full_name || currentDispInfo.email || "Unknown");
-              }
-            }
-            // Also tag the driver in active groups with their off-duty dispatcher name
-            for (const group of groupedData) {
-              for (const truck of group.trucks) {
-                if (truck.driverId === driver.id) {
-                  truck.originalDispatcherName = offDutyDispatcherName;
-                }
               }
             }
           }
