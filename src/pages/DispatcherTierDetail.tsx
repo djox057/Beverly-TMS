@@ -54,6 +54,7 @@ const DispatcherTierDetail = () => {
   const [dispatcher, setDispatcher] = useState<any>(null);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [driverNameMap, setDriverNameMap] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
   const [companyStats, setCompanyStats] = useState<{ wkRpm: number; mRpm: number }>({ wkRpm: 0, mRpm: 0 });
 
   useEffect(() => {
