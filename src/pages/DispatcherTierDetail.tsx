@@ -273,7 +273,7 @@ const DispatcherTierDetail = () => {
                 </div>
                 <div className="text-2xl font-bold">${stats.wkRpm.toFixed(2)}</div>
                 <div className="text-[10px] text-muted-foreground">
-                  company avg {companyStats.wkRpm.toFixed(1)}
+                  company avg {companyStats.wkRpm.toFixed(2)}
                 </div>
               </div>
               <div>
@@ -318,7 +318,7 @@ const DispatcherTierDetail = () => {
                 </div>
                 <div className="text-2xl font-bold">${stats.mRpm.toFixed(2)}</div>
                 <div className="text-[10px] text-muted-foreground">
-                  company avg {companyStats.mRpm.toFixed(1)}
+                  company avg {companyStats.mRpm.toFixed(2)}
                 </div>
               </div>
               <div>
