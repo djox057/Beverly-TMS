@@ -2104,6 +2104,21 @@ export const useReports = (options?: UseReportsOptions) => {
         const driverToOffDutyDispatcher = new Map<string, string>();
         
         if (offDutyStatuses && offDutyStatuses.length > 0) {
+          // Make sure we have profile rows for every off-duty dispatcher, even
+          // if RLS / office scope hid them from the main dispatchers list.
+          const missingOffDutyIds = offDutyStatuses
+            .map((s: any) => s.dispatcher_id)
+            .filter((uid: any) => uid && !dispatchersByUserId.has(uid));
+          if (missingOffDutyIds.length > 0) {
+            const { data: extra } = await supabase
+              .from("profiles")
+              .select("user_id, full_name, email, office, ext")
+              .in("user_id", missingOffDutyIds);
+            (extra || []).forEach((p: any) => {
+              if (p.user_id) dispatchersByUserId.set(p.user_id, p);
+            });
+          }
+
           for (const offDutyStatus of offDutyStatuses) {
             const inactiveDrivers = (offDutyStatus.inactive_trucks as any[]) || [];
             const offDutyDispatcherInfo = dispatchersByUserId.get(offDutyStatus.dispatcher_id);
