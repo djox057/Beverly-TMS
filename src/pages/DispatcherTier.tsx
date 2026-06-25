@@ -10,10 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, User, Truck, Building2 } from "lucide-react";
+import { Search, User, Truck, Building2, MessageSquare } from "lucide-react";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import DispatcherTierCommentsDialog from "@/components/DispatcherTierCommentsDialog";
 
 type SortKey = "name" | "currentTrucks" | "avgTrucks";
 type SortDir = "asc" | "desc";
@@ -26,6 +28,23 @@ const DispatcherTier = () => {
   const [sortKey, setSortKey] = useState<SortKey>("avgTrucks");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [avgMap, setAvgMap] = useState<Record<string, number>>({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [commentsOpen, setCommentsOpen] = useState<{ id: string; name: string } | null>(null);
+
+  const reloadCommentCounts = async () => {
+    const { data } = await supabase
+      .from("dispatcher_tier_comments")
+      .select("dispatcher_id");
+    const acc: Record<string, number> = {};
+    (data || []).forEach((r: any) => {
+      acc[r.dispatcher_id] = (acc[r.dispatcher_id] || 0) + 1;
+    });
+    setCommentCounts(acc);
+  };
+
+  useEffect(() => {
+    reloadCommentCounts();
+  }, []);
 
   useEffect(() => {
     const fetchAvg = async () => {
@@ -188,6 +207,18 @@ const DispatcherTier = () => {
                         {!r.isActive && (
                           <Badge variant="outline" className="text-xs">Off Duty</Badge>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 ml-auto"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCommentsOpen({ id: r.id, name: r.name || "" });
+                          }}
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                          {commentCounts[r.id] || 0}
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -216,6 +247,20 @@ const DispatcherTier = () => {
             </div>
           )}
         </ScrollArea>
+      )}
+
+      {commentsOpen && (
+        <DispatcherTierCommentsDialog
+          open={!!commentsOpen}
+          onOpenChange={(o) => {
+            if (!o) {
+              setCommentsOpen(null);
+              reloadCommentCounts();
+            }
+          }}
+          dispatcherId={commentsOpen.id}
+          dispatcherName={commentsOpen.name}
+        />
       )}
     </div>
   );
