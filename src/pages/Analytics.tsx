@@ -270,6 +270,25 @@ const Analytics = () => {
   const [minGrossFilter, setMinGrossFilter] = useState<string>("");
   const [minAvgTrucksFilter, setMinAvgTrucksFilter] = useState<string>("");
 
+  // Loads tab custom rate thresholds (default under $3.00/mile, over $5.00/mile)
+  const [lowRateThreshold, setLowRateThreshold] = useState<number>(() => {
+    const saved = localStorage.getItem("analytics-lowRateThreshold");
+    return saved ? parseFloat(saved) : 3;
+  });
+  const [highRateThreshold, setHighRateThreshold] = useState<number>(() => {
+    const saved = localStorage.getItem("analytics-highRateThreshold");
+    return saved ? parseFloat(saved) : 5;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("analytics-lowRateThreshold", String(lowRateThreshold));
+  }, [lowRateThreshold]);
+
+  useEffect(() => {
+    localStorage.setItem("analytics-highRateThreshold", String(highRateThreshold));
+  }, [highRateThreshold]);
+
+
   // Salary selection and payment states
   const [salarySelectionMode, setSalarySelectionMode] = useState(false);
   const [selectedDispatcherIds, setSelectedDispatcherIds] = useState<Set<string>>(new Set());
