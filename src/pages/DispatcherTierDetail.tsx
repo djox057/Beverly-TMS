@@ -154,40 +154,66 @@ const DispatcherTierDetail = () => {
         .from("drivers")
         .select("id, name")
         .eq("dispatcher_id", id);
-      const driverIds = (drivers || []).map((d: any) => d.id);
       const nameMap: Record<string, string> = {};
       (drivers || []).forEach((d: any) => (nameMap[d.id] = d.name));
       setDriverNameMap(nameMap);
 
-      if (driverIds.length === 0) {
-        setOrders([]);
-        setLoading(false);
-        return;
-      }
-
       // Fetch a range that covers both the selected week and month
       const since = new Date(Math.min(weekRange.start.getTime(), monthRange.start.getTime()));
       const until = new Date(Math.max(weekRange.end.getTime(), monthRange.end.getTime()));
-      const { data: ords } = await supabase
-        .from("orders")
-        .select(
-          "id, load_number, delivery_datetime, pickup_datetime, freight_amount, mileage, detention, layover, tonu, extra_stop, escort_fee, other_additionals, late_fee, no_tracking_fee, wrong_address_fee, other_charges, driver_price, detention_driver, layover_driver, tonu_driver, extra_stop_driver, lumper_driver, late_fee_driver, no_tracking_fee_driver, wrong_address_fee_driver, other_charges_driver, other_additionals_driver, driver1_id, status, canceled"
-        )
-        .in("driver1_id", driverIds)
-        .or(
-          `and(delivery_datetime.gte.${since.toISOString()},delivery_datetime.lt.${until.toISOString()}),and(pickup_datetime.gte.${since.toISOString()},pickup_datetime.lt.${until.toISOString()})`
-        )
-        .order("delivery_datetime", { ascending: false });
-      setOrders((ords as OrderRow[]) || []);
+
+      // Helper: paginate any query past Supabase's 1000-row limit.
+      const fetchAllPaged = async <T,>(builder: () => any): Promise<T[]> => {
+        const PAGE = 1000;
+        const out: T[] = [];
+        for (let from = 0; from < 50000; from += PAGE) {
+          const { data, error } = await builder().range(from, from + PAGE - 1);
+          if (error) {
+            console.error("[DispatcherTierDetail] paginated fetch error", error);
+            break;
+          }
+          if (!data || data.length === 0) break;
+          out.push(...(data as T[]));
+          if (data.length < PAGE) break;
+        }
+        return out;
+      };
+
+      // Dispatcher's own orders — match Analytics by filtering on booked_by = full_name
+      // (Analytics buckets dispatcher stats by orders.booked_by, NOT by driver assignment).
+      const dispatcherName = profile?.full_name || "";
+      const ords = dispatcherName
+        ? await fetchAllPaged<OrderRow>(() =>
+            supabase
+              .from("orders")
+              .select(
+                "id, load_number, delivery_datetime, pickup_datetime, freight_amount, mileage, detention, layover, tonu, extra_stop, escort_fee, other_additionals, late_fee, no_tracking_fee, wrong_address_fee, other_charges, driver_price, detention_driver, layover_driver, tonu_driver, extra_stop_driver, lumper_driver, late_fee_driver, no_tracking_fee_driver, wrong_address_fee_driver, other_charges_driver, other_additionals_driver, driver1_id, status, canceled"
+              )
+              .eq("booked_by", dispatcherName)
+              .or(
+                `and(delivery_datetime.gte.${since.toISOString()},delivery_datetime.lt.${until.toISOString()}),and(pickup_datetime.gte.${since.toISOString()},pickup_datetime.lt.${until.toISOString()})`
+              )
+              .order("delivery_datetime", { ascending: false })
+          )
+        : [];
+      setOrders(ords);
 
       // pickup / delivery city-state for those orders
-      const orderIds = (ords || []).map((o: any) => o.id);
+      const orderIds = ords.map((o: any) => o.id);
       if (orderIds.length > 0) {
-        const { data: stops } = await supabase
-          .from("pickup_drops")
-          .select("order_id, type, sequence_number, city, state")
-          .in("order_id", orderIds)
-          .order("sequence_number", { ascending: true });
+        // pickup_drops can exceed 1000 rows for a month — chunk + paginate.
+        const stops: any[] = [];
+        for (let i = 0; i < orderIds.length; i += 200) {
+          const chunk = orderIds.slice(i, i + 200);
+          const part = await fetchAllPaged<any>(() =>
+            supabase
+              .from("pickup_drops")
+              .select("order_id, type, sequence_number, city, state")
+              .in("order_id", chunk)
+              .order("sequence_number", { ascending: true })
+          );
+          stops.push(...part);
+        }
         const map: Record<string, { pickup: string; delivery: string }> = {};
         (stops || []).forEach((s: any) => {
           if (!map[s.order_id]) map[s.order_id] = { pickup: "", delivery: "" };
@@ -214,15 +240,26 @@ const DispatcherTierDetail = () => {
         .map((p: any) => p.full_name)
         .filter(Boolean);
 
-      const { data: companyOrds } = officeDispatcherNames.length === 0 ? { data: [] as any[] } : await supabase
-        .from("orders")
-        .select(
-          "freight_amount, mileage, pickup_datetime, delivery_datetime, canceled, detention, layover, tonu, extra_stop, escort_fee, other_additionals, late_fee, no_tracking_fee, wrong_address_fee, other_charges, tonu_driver"
-        )
-        .in("booked_by", officeDispatcherNames)
-        .or(
-          `and(delivery_datetime.gte.${since.toISOString()},delivery_datetime.lt.${until.toISOString()}),and(pickup_datetime.gte.${since.toISOString()},pickup_datetime.lt.${until.toISOString()})`
-        );
+      // Paginate AND chunk the booked_by IN list (URL length + 1000-row cap).
+      const companyOrds: any[] = [];
+      if (officeDispatcherNames.length > 0) {
+        for (let i = 0; i < officeDispatcherNames.length; i += 50) {
+          const chunk = officeDispatcherNames.slice(i, i + 50);
+          const part = await fetchAllPaged<any>(() =>
+            supabase
+              .from("orders")
+              .select(
+                "freight_amount, mileage, pickup_datetime, delivery_datetime, canceled, detention, layover, tonu, extra_stop, escort_fee, other_additionals, late_fee, no_tracking_fee, wrong_address_fee, other_charges, tonu_driver"
+              )
+              .in("booked_by", chunk)
+              .or(
+                `and(delivery_datetime.gte.${since.toISOString()},delivery_datetime.lt.${until.toISOString()}),and(pickup_datetime.gte.${since.toISOString()},pickup_datetime.lt.${until.toISOString()})`
+              )
+              .order("id", { ascending: true })
+          );
+          companyOrds.push(...part);
+        }
+      }
       let wkFreight = 0, wkMiles = 0, mFreight = 0, mMiles = 0;
       (companyOrds || []).forEach((o: any) => {
         if (!includeOrder(o)) return;
