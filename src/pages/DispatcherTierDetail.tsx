@@ -248,7 +248,7 @@ const DispatcherTierDetail = () => {
                 </div>
                 <div className="text-2xl font-bold">${stats.wkRpm.toFixed(2)}</div>
                 <div className="text-[10px] text-muted-foreground">
-                  {stats.wkRpm.toFixed(1)}
+                  company avg {companyStats.wkRpm.toFixed(1)}
                 </div>
               </div>
               <div>
