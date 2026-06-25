@@ -507,7 +507,7 @@ const DispatcherTierDetail = () => {
               </TableHeader>
               <TableBody>
                 {filteredOrders.map((o) => {
-                  const f = Number(o.freight_amount) || 0;
+                  const f = analyticsFreight(o);
                   const m = Number(o.mileage) || 0;
                   const n = (v: any) => Number(v) || 0;
                   const dp =
