@@ -65,6 +65,7 @@ serve(async (req) => {
     const apiKey2 = Deno.env.get('SAMSARA_API_KEY_2');
     const apiKey3 = Deno.env.get('SAMSARA_API_KEY_3');
     const apiKey4 = Deno.env.get('SAMSARA_API_KEY_4');
+    const apiKey5 = Deno.env.get('SAMSARA_API_KEY_5');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -172,7 +173,7 @@ serve(async (req) => {
 
     if (trucksError) throw trucksError;
     // --- Fetch from Samsara with 15s AbortController per call ---
-    const apiKeys = [apiKey1, apiKey2, apiKey3, apiKey4].filter(Boolean) as string[];
+    const apiKeys = [apiKey1, apiKey2, apiKey3, apiKey4, apiKey5].filter(Boolean) as string[];
     const allVehicles: any[] = [];
     let anySuccess = false;
 
