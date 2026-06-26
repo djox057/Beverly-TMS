@@ -1,0 +1,2 @@
+ALTER TABLE public.dispatcher_tier_comments ADD COLUMN IF NOT EXISTS sentiment TEXT NOT NULL DEFAULT 'negative' CHECK (sentiment IN ('positive','negative'));
+UPDATE public.dispatcher_tier_comments SET sentiment = 'negative' WHERE sentiment IS NULL OR sentiment NOT IN ('positive','negative');

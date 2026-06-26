@@ -10,8 +10,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash2, Reply, MessageSquare, Loader2 } from "lucide-react";
+import { Trash2, Reply, MessageSquare, Loader2, ThumbsUp, ThumbsDown, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Comment = {
   id: string;
@@ -21,6 +29,7 @@ type Comment = {
   author_name: string | null;
   content: string;
   created_at: string;
+  sentiment?: "positive" | "negative" | null;
 };
 
 interface Props {
@@ -51,9 +60,12 @@ export const DispatcherTierCommentsDialog = ({
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(false);
   const [newComment, setNewComment] = useState("");
+  const [newSentiment, setNewSentiment] = useState<"positive" | "negative" | "">("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [filter, setFilter] = useState<"all" | "positive" | "negative">("all");
+  const [openReplies, setOpenReplies] = useState<Record<string, boolean>>({});
 
   const load = async () => {
     setLoading(true);
@@ -76,7 +88,11 @@ export const DispatcherTierCommentsDialog = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, dispatcherId]);
 
-  const post = async (content: string, parentId: string | null) => {
+  const post = async (
+    content: string,
+    parentId: string | null,
+    sentiment: "positive" | "negative",
+  ) => {
     if (!user) {
       toast({ title: "Sign in to comment", variant: "destructive" });
       return;
@@ -90,6 +106,7 @@ export const DispatcherTierCommentsDialog = ({
       author_id: user.id,
       author_name: profile?.full_name || user.email || "Unknown",
       content: text,
+      sentiment,
     });
     setSubmitting(false);
     if (error) {
@@ -102,6 +119,7 @@ export const DispatcherTierCommentsDialog = ({
       setReplyTo(null);
     } else {
       setNewComment("");
+      setNewSentiment("");
     }
     load();
   };
@@ -119,7 +137,9 @@ export const DispatcherTierCommentsDialog = ({
     load();
   };
 
-  const topLevel = comments.filter((c) => !c.parent_id);
+  const topLevel = comments.filter(
+    (c) => !c.parent_id && (filter === "all" || c.sentiment === filter),
+  );
   const repliesOf = (id: string) => comments.filter((c) => c.parent_id === id);
 
   return (
@@ -139,14 +159,40 @@ export const DispatcherTierCommentsDialog = ({
             onChange={(e) => setNewComment(e.target.value)}
             rows={3}
           />
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center gap-2">
+            <Select value={newSentiment} onValueChange={(v) => setNewSentiment(v as any)}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Sentiment..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="positive">
+                  <span className="flex items-center gap-2"><ThumbsUp className="h-3.5 w-3.5 text-green-600" /> Positive</span>
+                </SelectItem>
+                <SelectItem value="negative">
+                  <span className="flex items-center gap-2"><ThumbsDown className="h-3.5 w-3.5 text-red-600" /> Negative</span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               size="sm"
-              onClick={() => post(newComment, null)}
-              disabled={submitting || !newComment.trim()}
+              onClick={() => newSentiment && post(newComment, null, newSentiment)}
+              disabled={submitting || !newComment.trim() || !newSentiment}
             >
               Post comment
             </Button>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-xs text-muted-foreground">Filter:</span>
+            <Select value={filter} onValueChange={(v) => setFilter(v as any)}>
+              <SelectTrigger className="w-[160px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="positive">Positive only</SelectItem>
+                <SelectItem value="negative">Negative only</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -161,12 +207,24 @@ export const DispatcherTierCommentsDialog = ({
             </div>
           ) : (
             <div className="space-y-4">
-              {topLevel.map((c) => (
+              {topLevel.map((c) => {
+                const replies = repliesOf(c.id);
+                const isOpen = !!openReplies[c.id];
+                return (
                 <div key={c.id} className="border rounded-md p-3 bg-muted/30">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="text-sm font-medium">
+                      <div className="text-sm font-medium flex items-center gap-2">
                         {c.author_name || "Unknown"}
+                        {c.sentiment === "positive" ? (
+                          <Badge variant="outline" className="text-[10px] border-green-600 text-green-700">
+                            <ThumbsUp className="h-3 w-3 mr-1" />Positive
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] border-red-600 text-red-700">
+                            <ThumbsDown className="h-3 w-3 mr-1" />Negative
+                          </Badge>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {fmtDate(c.created_at)}
@@ -220,7 +278,7 @@ export const DispatcherTierCommentsDialog = ({
                         </Button>
                         <Button
                           size="sm"
-                          onClick={() => post(replyText, c.id)}
+                          onClick={() => post(replyText, c.id, c.sentiment || "negative")}
                           disabled={submitting || !replyText.trim()}
                         >
                           Reply
@@ -229,9 +287,22 @@ export const DispatcherTierCommentsDialog = ({
                     </div>
                   )}
 
-                  {repliesOf(c.id).length > 0 && (
-                    <div className="mt-3 pl-4 border-l-2 border-muted space-y-2">
-                      {repliesOf(c.id).map((r) => (
+                  {replies.length > 0 && (
+                    <div className="mt-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() =>
+                          setOpenReplies((p) => ({ ...p, [c.id]: !isOpen }))
+                        }
+                      >
+                        {isOpen ? <ChevronDown className="h-3.5 w-3.5 mr-1" /> : <ChevronRight className="h-3.5 w-3.5 mr-1" />}
+                        {replies.length} {replies.length === 1 ? "reply" : "replies"}
+                      </Button>
+                      {isOpen && (
+                        <div className="mt-2 pl-4 border-l-2 border-muted space-y-2">
+                          {replies.map((r) => (
                         <div key={r.id} className="bg-background rounded-md p-2">
                           <div className="flex items-start justify-between gap-2">
                             <div>
@@ -257,11 +328,14 @@ export const DispatcherTierCommentsDialog = ({
                             {r.content}
                           </div>
                         </div>
-                      ))}
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </ScrollArea>
