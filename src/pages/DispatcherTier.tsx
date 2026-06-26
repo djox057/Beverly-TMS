@@ -17,7 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import DispatcherTierCommentsDialog from "@/components/DispatcherTierCommentsDialog";
 
-type SortKey = "name" | "currentTrucks" | "avgTrucks";
+type SortKey = "name" | "currentTrucks" | "avgTrucks" | "rpm" | "gross" | "cut" | "overall";
 type SortDir = "asc" | "desc";
 
 const DispatcherTier = () => {
@@ -25,9 +25,10 @@ const DispatcherTier = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [officeFilter, setOfficeFilter] = useState<string>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("avgTrucks");
+  const [sortKey, setSortKey] = useState<SortKey>("overall");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [avgMap, setAvgMap] = useState<Record<string, number>>({});
+  const [driverMetrics, setDriverMetrics] = useState<Record<string, { freight: number; pay: number; miles: number }>>({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [commentsOpen, setCommentsOpen] = useState<{ id: string; name: string } | null>(null);
 
@@ -48,9 +49,9 @@ const DispatcherTier = () => {
 
   useEffect(() => {
     const fetchAvg = async () => {
-      const end = new Date();
-      const start = new Date();
-      start.setDate(start.getDate() - 30);
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = now;
       const fmt = (d: Date) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
           d.getDate()
@@ -77,6 +78,63 @@ const DispatcherTier = () => {
     fetchAvg();
   }, []);
 
+  // Load all orders with delivery date in current month and aggregate per driver
+  useEffect(() => {
+    const fetchMonthOrders = async () => {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const cols = [
+        "id", "driver1_id", "canceled", "freight_amount", "driver_price",
+        "loaded_miles", "dh_miles", "additional_miles",
+        "detention_driver", "extra_stop_driver", "layover_driver", "lumper_driver",
+        "tonu_driver", "no_tracking_fee_driver", "wrong_address_fee_driver",
+        "other_additionals_driver", "late_fee_driver", "other_charges_driver",
+      ].join(",");
+      const PAGE = 1000;
+      let lastId = "00000000-0000-0000-0000-000000000000";
+      const acc: Record<string, { freight: number; pay: number; miles: number }> = {};
+      for (let i = 0; i < 50; i++) {
+        const { data, error } = await supabase
+          .from("orders")
+          .select(cols)
+          .eq("canceled", false)
+          .gte("delivery_datetime", monthStart.toISOString())
+          .lt("delivery_datetime", monthEnd.toISOString())
+          .gt("id", lastId)
+          .order("id", { ascending: true })
+          .limit(PAGE);
+        if (error) { console.error("[DispatcherTier] orders fetch", error); break; }
+        if (!data || data.length === 0) break;
+        for (const o of data as any[]) {
+          const did = o.driver1_id;
+          if (!did) continue;
+          const pay =
+            (Number(o.driver_price) || 0) +
+            (Number(o.detention_driver) || 0) +
+            (Number(o.extra_stop_driver) || 0) +
+            (Number(o.layover_driver) || 0) +
+            (Number(o.lumper_driver) || 0) +
+            (Number(o.tonu_driver) || 0) +
+            (Number(o.no_tracking_fee_driver) || 0) +
+            (Number(o.wrong_address_fee_driver) || 0) +
+            (Number(o.other_additionals_driver) || 0) -
+            (Number(o.late_fee_driver) || 0) -
+            (Number(o.other_charges_driver) || 0);
+          const miles = (Number(o.loaded_miles) || 0) + (Number(o.dh_miles) || 0);
+          if (!acc[did]) acc[did] = { freight: 0, pay: 0, miles: 0 };
+          acc[did].freight += Number(o.freight_amount) || 0;
+          acc[did].pay += pay;
+          acc[did].miles += miles;
+        }
+        lastId = (data[data.length - 1] as any).id;
+        if (data.length < PAGE) break;
+      }
+      setDriverMetrics(acc);
+    };
+    fetchMonthOrders();
+  }, []);
+
   const offices = useMemo(() => {
     const set = new Set<string>();
     dispatchers.forEach((d) => {
@@ -92,7 +150,16 @@ const DispatcherTier = () => {
     const data = dispatchers
       .filter((d) => (d.dispatcher.roles || []).includes("dispatch"))
       .map((d) => {
-      const currentTrucks = d.drivers.filter((dr: any) => dr.truck).length;
+      const truckIds = new Set<string>();
+      d.drivers.forEach((dr: any) => { if (dr.truck?.id) truckIds.add(dr.truck.id); });
+      const currentTrucks = truckIds.size;
+      let freight = 0, pay = 0, miles = 0;
+      d.drivers.forEach((dr: any) => {
+        const m = driverMetrics[dr.id];
+        if (m) { freight += m.freight; pay += m.pay; miles += m.miles; }
+      });
+      const rpm = miles > 0 ? freight / miles : 0;
+      const cut = freight - pay;
       return {
         id: d.dispatcher.id,
         name: d.dispatcher.full_name || d.dispatcher.email,
@@ -103,6 +170,9 @@ const DispatcherTier = () => {
         isActive: d.isActive,
         currentTrucks,
         avgTrucks: avgMap[d.dispatcher.id] ?? 0,
+        rpm,
+        gross: freight,
+        cut,
       };
     });
     const filtered = data.filter((r) => {
@@ -110,15 +180,34 @@ const DispatcherTier = () => {
       if (q && !r.name?.toLowerCase().includes(q)) return false;
       return true;
     });
-    filtered.sort((a, b) => {
+    // Compute averages among filtered rows that have data (for Overall score)
+    const withData = filtered.filter((r) => r.gross > 0);
+    const n = withData.length || 1;
+    const avgRpm = withData.reduce((s, r) => s + r.rpm, 0) / n || 1;
+    const avgGross = withData.reduce((s, r) => s + r.gross, 0) / n || 1;
+    const avgCut = withData.reduce((s, r) => s + r.cut, 0) / n || 1;
+    // Weighted-average score: rpm dominates. Example: rpm 16.67% above avg => +18% overall.
+    const W_RPM = 1.08, W_GROSS = 0.2, W_CUT = 0.2;
+    const enriched = filtered.map((r) => {
+      const rRpm = avgRpm > 0 ? r.rpm / avgRpm : 0;
+      const rGross = avgGross > 0 ? r.gross / avgGross : 0;
+      const rCut = avgCut !== 0 ? r.cut / avgCut : 0;
+      const overall = 1 + W_RPM * (rRpm - 1) + W_GROSS * (rGross - 1) + W_CUT * (rCut - 1);
+      return { ...r, overall };
+    });
+    enriched.sort((a, b) => {
       let cmp = 0;
       if (sortKey === "name") cmp = (a.name || "").localeCompare(b.name || "");
       else if (sortKey === "currentTrucks") cmp = a.currentTrucks - b.currentTrucks;
       else if (sortKey === "avgTrucks") cmp = a.avgTrucks - b.avgTrucks;
+      else if (sortKey === "rpm") cmp = a.rpm - b.rpm;
+      else if (sortKey === "gross") cmp = a.gross - b.gross;
+      else if (sortKey === "cut") cmp = a.cut - b.cut;
+      else if (sortKey === "overall") cmp = a.overall - b.overall;
       return sortDir === "asc" ? cmp : -cmp;
     });
-    return filtered;
-  }, [dispatchers, search, officeFilter, sortKey, sortDir, avgMap]);
+    return enriched;
+  }, [dispatchers, search, officeFilter, sortKey, sortDir, avgMap, driverMetrics]);
 
   return (
     <div className="p-6 space-y-6">
@@ -126,7 +215,7 @@ const DispatcherTier = () => {
         <div>
           <h1 className="text-2xl font-bold">Dispatcher Tier</h1>
           <p className="text-muted-foreground">
-            Overview of all dispatchers with current and 30-day average truck counts
+            Overview of all dispatchers with current month performance
           </p>
         </div>
       </div>
@@ -161,7 +250,11 @@ const DispatcherTier = () => {
           <SelectContent>
             <SelectItem value="name">Sort: Name</SelectItem>
             <SelectItem value="currentTrucks">Sort: Current Trucks</SelectItem>
-            <SelectItem value="avgTrucks">Sort: Avg Trucks (30d)</SelectItem>
+            <SelectItem value="avgTrucks">Sort: Avg Trucks (MTD)</SelectItem>
+            <SelectItem value="rpm">Sort: RPM (MTD)</SelectItem>
+            <SelectItem value="gross">Sort: Gross (MTD)</SelectItem>
+            <SelectItem value="cut">Sort: Cut (MTD)</SelectItem>
+            <SelectItem value="overall">Sort: Overall (MTD)</SelectItem>
           </SelectContent>
         </Select>
         <Select value={sortDir} onValueChange={(v) => setSortDir(v as SortDir)}>
@@ -228,7 +321,7 @@ const DispatcherTier = () => {
                       {r.currentTrucks} now
                     </Badge>
                     <Badge variant="secondary" className="text-xs">
-                      Avg {r.avgTrucks.toFixed(1)} / 30d
+                      Avg {r.avgTrucks.toFixed(1)} MTD
                     </Badge>
                     {r.office !== "—" && (
                       <Badge variant="secondary" className="text-xs whitespace-nowrap">
@@ -236,6 +329,14 @@ const DispatcherTier = () => {
                         {r.office}
                       </Badge>
                     )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <Badge variant="outline">RPM ${r.rpm.toFixed(2)}</Badge>
+                    <Badge variant="outline">Gross ${Math.round(r.gross).toLocaleString()}</Badge>
+                    <Badge variant="outline">Cut ${Math.round(r.cut).toLocaleString()}</Badge>
+                    <Badge variant={r.overall >= 1 ? "default" : "secondary"}>
+                      Overall {(r.overall * 100).toFixed(0)}%
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>
