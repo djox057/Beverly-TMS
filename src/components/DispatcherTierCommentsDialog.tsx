@@ -13,13 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2, Reply, MessageSquare, Loader2, ThumbsUp, ThumbsDown, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 type Comment = {
   id: string;
@@ -160,19 +154,19 @@ export const DispatcherTierCommentsDialog = ({
             rows={3}
           />
           <div className="flex justify-between items-center gap-2">
-            <Select value={newSentiment} onValueChange={(v) => setNewSentiment(v as any)}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Sentiment..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="positive">
-                  <span className="flex items-center gap-2"><ThumbsUp className="h-3.5 w-3.5 text-green-600" /> Positive</span>
-                </SelectItem>
-                <SelectItem value="negative">
-                  <span className="flex items-center gap-2"><ThumbsDown className="h-3.5 w-3.5 text-red-600" /> Negative</span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <ToggleGroup
+              type="single"
+              value={newSentiment}
+              onValueChange={(v) => setNewSentiment(v as "positive" | "negative" | "")}
+              className="border rounded-md p-1"
+            >
+              <ToggleGroupItem value="positive" aria-label="Positive" className="text-xs data-[state=on]:bg-green-100 data-[state=on]:text-green-700 dark:data-[state=on]:bg-green-900/30">
+                <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Positive
+              </ToggleGroupItem>
+              <ToggleGroupItem value="negative" aria-label="Negative" className="text-xs data-[state=on]:bg-red-100 data-[state=on]:text-red-700 dark:data-[state=on]:bg-red-900/30">
+                <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Negative
+              </ToggleGroupItem>
+            </ToggleGroup>
             <Button
               size="sm"
               onClick={() => newSentiment && post(newComment, null, newSentiment)}
@@ -183,16 +177,19 @@ export const DispatcherTierCommentsDialog = ({
           </div>
           <div className="flex items-center gap-2 pt-1">
             <span className="text-xs text-muted-foreground">Filter:</span>
-            <Select value={filter} onValueChange={(v) => setFilter(v as any)}>
-              <SelectTrigger className="w-[160px] h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="positive">Positive only</SelectItem>
-                <SelectItem value="negative">Negative only</SelectItem>
-              </SelectContent>
-            </Select>
+            <ToggleGroup
+              type="single"
+              value={filter}
+              onValueChange={(v) => setFilter(v as "all" | "positive" | "negative")}
+              className="border rounded-md p-1"
+            >
+              <ToggleGroupItem value="positive" aria-label="Positive only" className="text-xs data-[state=on]:bg-green-100 data-[state=on]:text-green-700 dark:data-[state=on]:bg-green-900/30">
+                <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Positive
+              </ToggleGroupItem>
+              <ToggleGroupItem value="negative" aria-label="Negative only" className="text-xs data-[state=on]:bg-red-100 data-[state=on]:text-red-700 dark:data-[state=on]:bg-red-900/30">
+                <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Negative
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
         </div>
 
