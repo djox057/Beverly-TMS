@@ -28,7 +28,8 @@ const DispatcherTier = () => {
   const [sortKey, setSortKey] = useState<SortKey>("overall");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [avgMap, setAvgMap] = useState<Record<string, number>>({});
-  const [driverMetrics, setDriverMetrics] = useState<Record<string, { freight: number; pay: number; miles: number }>>({});
+  // Aggregates keyed by booked_by (full_name or user_id), matching Analytics
+  const [dispMetrics, setDispMetrics] = useState<Record<string, { freight: number; pay: number; miles: number }>>({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [commentsOpen, setCommentsOpen] = useState<{ id: string; name: string } | null>(null);
 
@@ -78,15 +79,24 @@ const DispatcherTier = () => {
     fetchAvg();
   }, []);
 
-  // Load all orders with delivery date in current month and aggregate per driver
+  // Load all orders with delivery date in current month and aggregate per booked_by (dispatcher)
   useEffect(() => {
     const fetchMonthOrders = async () => {
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      // Fetch company drivers so we can match Analytics' getEffectiveDriverPay
+      const { data: companyDrv } = await supabase
+        .from("drivers")
+        .select("id")
+        .eq("is_company_driver", true);
+      const companySet = new Set<string>((companyDrv || []).map((d: any) => d.id));
       const cols = [
-        "id", "driver1_id", "canceled", "freight_amount", "driver_price",
-        "loaded_miles", "dh_miles", "additional_miles",
+        "id", "booked_by", "driver1_id", "canceled",
+        "freight_amount", "detention", "layover", "tonu", "extra_stop",
+        "escort_fee", "other_additionals", "late_fee", "no_tracking_fee",
+        "wrong_address_fee", "other_charges",
+        "driver_price", "loaded_miles", "dh_miles", "additional_miles",
         "detention_driver", "extra_stop_driver", "layover_driver", "lumper_driver",
         "tonu_driver", "no_tracking_fee_driver", "wrong_address_fee_driver",
         "other_additionals_driver", "late_fee_driver", "other_charges_driver",
@@ -107,9 +117,21 @@ const DispatcherTier = () => {
         if (error) { console.error("[DispatcherTier] orders fetch", error); break; }
         if (!data || data.length === 0) break;
         for (const o of data as any[]) {
-          const did = o.driver1_id;
-          if (!did) continue;
-          const pay =
+          const key = o.booked_by;
+          if (!key) continue;
+          const freight =
+            (Number(o.freight_amount) || 0) +
+            (Number(o.detention) || 0) +
+            (Number(o.layover) || 0) +
+            (Number(o.tonu) || 0) +
+            (Number(o.extra_stop) || 0) +
+            (Number(o.escort_fee) || 0) +
+            (Number(o.other_additionals) || 0) -
+            (Number(o.late_fee) || 0) -
+            (Number(o.no_tracking_fee) || 0) -
+            (Number(o.wrong_address_fee) || 0) -
+            (Number(o.other_charges) || 0);
+          const rawPay =
             (Number(o.driver_price) || 0) +
             (Number(o.detention_driver) || 0) +
             (Number(o.extra_stop_driver) || 0) +
@@ -121,16 +143,21 @@ const DispatcherTier = () => {
             (Number(o.other_additionals_driver) || 0) -
             (Number(o.late_fee_driver) || 0) -
             (Number(o.other_charges_driver) || 0);
-          const miles = (Number(o.loaded_miles) || 0) + (Number(o.dh_miles) || 0);
-          if (!acc[did]) acc[did] = { freight: 0, pay: 0, miles: 0 };
-          acc[did].freight += Number(o.freight_amount) || 0;
-          acc[did].pay += pay;
-          acc[did].miles += miles;
+          // Company driver: pay equals freight (0% cut), mirroring Analytics
+          const pay = o.driver1_id && companySet.has(o.driver1_id) ? freight : rawPay;
+          const miles =
+            (Number(o.loaded_miles) || 0) +
+            (Number(o.dh_miles) || 0) +
+            (Number(o.additional_miles) || 0);
+          if (!acc[key]) acc[key] = { freight: 0, pay: 0, miles: 0 };
+          acc[key].freight += freight;
+          acc[key].pay += pay;
+          acc[key].miles += miles;
         }
         lastId = (data[data.length - 1] as any).id;
         if (data.length < PAGE) break;
       }
-      setDriverMetrics(acc);
+      setDispMetrics(acc);
     };
     fetchMonthOrders();
   }, []);
@@ -153,13 +180,17 @@ const DispatcherTier = () => {
       const truckIds = new Set<string>();
       d.drivers.forEach((dr: any) => { if (dr.truck?.id) truckIds.add(dr.truck.id); });
       const currentTrucks = truckIds.size;
-      let freight = 0, pay = 0, miles = 0;
-      d.drivers.forEach((dr: any) => {
-        const m = driverMetrics[dr.id];
-        if (m) { freight += m.freight; pay += m.pay; miles += m.miles; }
-      });
+      // Match Analytics: orders aggregated by booked_by, which is full_name or user_id
+      const m =
+        dispMetrics[d.dispatcher.id] ||
+        dispMetrics[d.dispatcher.full_name || ""] ||
+        dispMetrics[d.dispatcher.email || ""];
+      const freight = m?.freight || 0;
+      const pay = m?.pay || 0;
+      const miles = m?.miles || 0;
       const rpm = miles > 0 ? freight / miles : 0;
       const cut = freight - pay;
+      const avgTrucks = avgMap[d.dispatcher.id] ?? 0;
       return {
         id: d.dispatcher.id,
         name: d.dispatcher.full_name || d.dispatcher.email,
@@ -169,7 +200,7 @@ const DispatcherTier = () => {
         roles: d.dispatcher.roles || [],
         isActive: d.isActive,
         currentTrucks,
-        avgTrucks: avgMap[d.dispatcher.id] ?? 0,
+        avgTrucks,
         rpm,
         gross: freight,
         cut,
@@ -180,8 +211,8 @@ const DispatcherTier = () => {
       if (q && !r.name?.toLowerCase().includes(q)) return false;
       return true;
     });
-    // Compute averages among filtered rows that have data (for Overall score)
-    const withData = filtered.filter((r) => r.gross > 0);
+    // Compute averages among filtered rows eligible for Overall (need >1 avg trucks & gross)
+    const withData = filtered.filter((r) => r.gross > 0 && r.avgTrucks > 1);
     const n = withData.length || 1;
     const avgRpm = withData.reduce((s, r) => s + r.rpm, 0) / n || 1;
     const avgGross = withData.reduce((s, r) => s + r.gross, 0) / n || 1;
@@ -189,6 +220,9 @@ const DispatcherTier = () => {
     // Weighted-average score: rpm dominates. Example: rpm 16.67% above avg => +18% overall.
     const W_RPM = 1.08, W_GROSS = 0.2, W_CUT = 0.2;
     const enriched = filtered.map((r) => {
+      if (!(r.avgTrucks > 1)) {
+        return { ...r, overall: NaN };
+      }
       const rRpm = avgRpm > 0 ? r.rpm / avgRpm : 0;
       const rGross = avgGross > 0 ? r.gross / avgGross : 0;
       const rCut = avgCut !== 0 ? r.cut / avgCut : 0;
@@ -203,11 +237,15 @@ const DispatcherTier = () => {
       else if (sortKey === "rpm") cmp = a.rpm - b.rpm;
       else if (sortKey === "gross") cmp = a.gross - b.gross;
       else if (sortKey === "cut") cmp = a.cut - b.cut;
-      else if (sortKey === "overall") cmp = a.overall - b.overall;
+      else if (sortKey === "overall") {
+        const av = Number.isFinite(a.overall) ? a.overall : -Infinity;
+        const bv = Number.isFinite(b.overall) ? b.overall : -Infinity;
+        cmp = av - bv;
+      }
       return sortDir === "asc" ? cmp : -cmp;
     });
     return enriched;
-  }, [dispatchers, search, officeFilter, sortKey, sortDir, avgMap, driverMetrics]);
+  }, [dispatchers, search, officeFilter, sortKey, sortDir, avgMap, dispMetrics]);
 
   return (
     <div className="p-6 space-y-6">
@@ -334,8 +372,8 @@ const DispatcherTier = () => {
                     <Badge variant="outline">RPM ${r.rpm.toFixed(2)}</Badge>
                     <Badge variant="outline">Gross ${Math.round(r.gross).toLocaleString()}</Badge>
                     <Badge variant="outline">Cut ${Math.round(r.cut).toLocaleString()}</Badge>
-                    <Badge variant={r.overall >= 1 ? "default" : "secondary"}>
-                      Overall {(r.overall * 100).toFixed(0)}%
+                    <Badge variant={Number.isFinite(r.overall) && r.overall >= 1 ? "default" : "secondary"}>
+                      Overall {Number.isFinite(r.overall) ? `${(r.overall * 100).toFixed(0)}%` : "NaN"}
                     </Badge>
                   </div>
                 </CardContent>
