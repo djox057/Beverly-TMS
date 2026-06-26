@@ -181,7 +181,7 @@ const DispatcherTier = () => {
       return true;
     });
     // Compute averages among filtered rows that have data (for Overall score)
-    const withData = filtered.filter((r) => r.gross > 0 || r.miles > 0);
+    const withData = filtered.filter((r) => r.gross > 0);
     const n = withData.length || 1;
     const avgRpm = withData.reduce((s, r) => s + r.rpm, 0) / n || 1;
     const avgGross = withData.reduce((s, r) => s + r.gross, 0) / n || 1;
