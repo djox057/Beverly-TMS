@@ -13,13 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trash2, Reply, MessageSquare, Loader2, ThumbsUp, ThumbsDown, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 type Comment = {
   id: string;
