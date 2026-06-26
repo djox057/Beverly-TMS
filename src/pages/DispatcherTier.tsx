@@ -215,7 +215,7 @@ const DispatcherTier = () => {
         <div>
           <h1 className="text-2xl font-bold">Dispatcher Tier</h1>
           <p className="text-muted-foreground">
-            Overview of all dispatchers with current and 30-day average truck counts
+            Overview of all dispatchers with current month performance
           </p>
         </div>
       </div>
@@ -250,7 +250,11 @@ const DispatcherTier = () => {
           <SelectContent>
             <SelectItem value="name">Sort: Name</SelectItem>
             <SelectItem value="currentTrucks">Sort: Current Trucks</SelectItem>
-            <SelectItem value="avgTrucks">Sort: Avg Trucks (30d)</SelectItem>
+            <SelectItem value="avgTrucks">Sort: Avg Trucks (MTD)</SelectItem>
+            <SelectItem value="rpm">Sort: RPM (MTD)</SelectItem>
+            <SelectItem value="gross">Sort: Gross (MTD)</SelectItem>
+            <SelectItem value="cut">Sort: Cut (MTD)</SelectItem>
+            <SelectItem value="overall">Sort: Overall (MTD)</SelectItem>
           </SelectContent>
         </Select>
         <Select value={sortDir} onValueChange={(v) => setSortDir(v as SortDir)}>
@@ -317,7 +321,7 @@ const DispatcherTier = () => {
                       {r.currentTrucks} now
                     </Badge>
                     <Badge variant="secondary" className="text-xs">
-                      Avg {r.avgTrucks.toFixed(1)} / 30d
+                      Avg {r.avgTrucks.toFixed(1)} MTD
                     </Badge>
                     {r.office !== "—" && (
                       <Badge variant="secondary" className="text-xs whitespace-nowrap">
@@ -325,6 +329,14 @@ const DispatcherTier = () => {
                         {r.office}
                       </Badge>
                     )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <Badge variant="outline">RPM ${r.rpm.toFixed(2)}</Badge>
+                    <Badge variant="outline">Gross ${Math.round(r.gross).toLocaleString()}</Badge>
+                    <Badge variant="outline">Cut ${Math.round(r.cut).toLocaleString()}</Badge>
+                    <Badge variant={r.overall >= 1 ? "default" : "secondary"}>
+                      Overall {(r.overall * 100).toFixed(0)}%
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>
