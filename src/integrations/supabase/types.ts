@@ -1498,6 +1498,7 @@ export type Database = {
           dispatcher_id: string
           id: string
           parent_id: string | null
+          sentiment: string
         }
         Insert: {
           author_id?: string | null
@@ -1507,6 +1508,7 @@ export type Database = {
           dispatcher_id: string
           id?: string
           parent_id?: string | null
+          sentiment?: string
         }
         Update: {
           author_id?: string | null
@@ -1516,6 +1518,7 @@ export type Database = {
           dispatcher_id?: string
           id?: string
           parent_id?: string | null
+          sentiment?: string
         }
         Relationships: [
           {
