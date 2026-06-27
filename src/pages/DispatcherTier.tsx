@@ -217,8 +217,10 @@ const DispatcherTier = () => {
     const avgRpm = withData.reduce((s, r) => s + r.rpm, 0) / n || 1;
     const avgGross = withData.reduce((s, r) => s + r.gross, 0) / n || 1;
     const avgCut = withData.reduce((s, r) => s + r.cut, 0) / n || 1;
+    const avgTrucksMean = withData.reduce((s, r) => s + r.avgTrucks, 0) / n || 1;
     // Weighted-average score: rpm dominates. Example: rpm 16.67% above avg => +18% overall.
-    const W_RPM = 1.08, W_GROSS = 0.2, W_CUT = 0.2;
+    // Trucks add a tiny bonus so larger fleets get a slight edge when all else is equal.
+    const W_RPM = 1.08, W_GROSS = 0.2, W_CUT = 0.2, W_TRUCKS = 0.05;
     const enriched = filtered.map((r) => {
       if (!(r.avgTrucks > 1)) {
         return { ...r, overall: NaN };
@@ -226,7 +228,13 @@ const DispatcherTier = () => {
       const rRpm = avgRpm > 0 ? r.rpm / avgRpm : 0;
       const rGross = avgGross > 0 ? r.gross / avgGross : 0;
       const rCut = avgCut !== 0 ? r.cut / avgCut : 0;
-      const overall = 1 + W_RPM * (rRpm - 1) + W_GROSS * (rGross - 1) + W_CUT * (rCut - 1);
+      const rTrucks = avgTrucksMean > 0 ? r.avgTrucks / avgTrucksMean : 0;
+      const overall =
+        1 +
+        W_RPM * (rRpm - 1) +
+        W_GROSS * (rGross - 1) +
+        W_CUT * (rCut - 1) +
+        W_TRUCKS * (rTrucks - 1);
       return { ...r, overall };
     });
     enriched.sort((a, b) => {
