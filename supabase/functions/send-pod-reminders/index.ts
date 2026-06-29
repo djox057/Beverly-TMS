@@ -27,6 +27,23 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    const url = new URL(req.url);
+    const force = url.searchParams.get("force") === "1";
+
+    // Only run at 08:00 Chicago time (skip duplicate CDT/CST cron entry)
+    const chicagoHour = parseInt(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Chicago", hour: "2-digit", hour12: false,
+      }).format(new Date()), 10,
+    );
+    if (!force && chicagoHour !== 8) {
+      console.log(`⏭️ Skipping: Chicago hour is ${chicagoHour}, not 8`);
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, chicagoHour }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
