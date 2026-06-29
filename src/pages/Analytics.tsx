@@ -4424,7 +4424,8 @@ const Analytics = () => {
                                 bonusAmount +
                                 adjustmentsTotal;
                             // Same total but using POD-only base rate (extras/food/bonus/adjustments don't depend on freight)
-                            const fullTotalPod = fullTotal - baseRate + baseRatePod;
+                            // Clamp to 0 — POD-only portion represents what is currently payable; it can never go negative.
+                            const fullTotalPod = Math.max(0, fullTotal - baseRate + baseRatePod);
 
                             // Helper to render rank icon
                             const renderRankIcon = () => {
@@ -5236,21 +5237,12 @@ const Analytics = () => {
                                         </span>
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        <div className="text-xs space-y-1">
-                                          <div>
-                                            POD-only: $
-                                            {fullTotalPod.toLocaleString(undefined, {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            })}
-                                          </div>
-                                          <div>
-                                            All orders: $
-                                            {fullTotal.toLocaleString(undefined, {
-                                              minimumFractionDigits: 2,
-                                              maximumFractionDigits: 2,
-                                            })}
-                                          </div>
+                                        <div className="text-xs max-w-xs">
+                                          Payment for orders without an uploaded POD is held
+                                          until the POD is uploaded. The first amount is what is
+                                          currently payable (POD-confirmed orders only); the
+                                          second is the full amount including orders still
+                                          awaiting POD.
                                         </div>
                                       </TooltipContent>
                                     </Tooltip>
