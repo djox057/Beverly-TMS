@@ -16,7 +16,6 @@ interface TruckRow {
   driver1_id: string | null;
   driver2_id: string | null;
   company_id: string | null;
-  active: boolean | null;
 }
 
 interface DriverRow {
@@ -55,7 +54,7 @@ interface OrderFileRow {
 interface OrderRow {
   id: string;
   truck_id: string | null;
-  internal_load_number: number | null;
+  internal_load_number: number | string | null;
   broker_load_number: string | null;
   pickup_datetime: string | null;
   canceled: boolean | null;
@@ -70,11 +69,10 @@ async function fetchFleetMapData() {
   // 1) Active trucks (have a driver or location)
   const { data: trucks, error: trucksErr } = await supabase
     .from("trucks")
-    .select("id, truck_number, driver1_id, driver2_id, company_id, active")
-    .eq("active", true)
+    .select("id, truck_number, driver1_id, driver2_id, company_id")
     .order("truck_number");
   if (trucksErr) throw trucksErr;
-  const truckList = (trucks || []) as TruckRow[];
+  const truckList = ((trucks as any[]) || []) as TruckRow[];
 
   const driverIds = Array.from(
     new Set(
@@ -127,7 +125,7 @@ async function fetchFleetMapData() {
     );
     for (const res of all) {
       if (res.error) throw res.error;
-      orders = orders.concat((res.data || []) as OrderRow[]);
+      orders = orders.concat(((res.data as any[]) || []) as OrderRow[]);
     }
     orders = orders.filter((o) => o.notes !== "GAME|OVER");
   }
