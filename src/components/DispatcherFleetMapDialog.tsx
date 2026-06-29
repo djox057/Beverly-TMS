@@ -121,6 +121,7 @@ export function DispatcherFleetMapView({
   const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; lngLat: [number, number] }>>(new Map());
   const locationMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const homeMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const routeAddedRef = useRef(false);
   const tokenRef = useRef<string>('');
   const initStartedRef = useRef(false);
   
@@ -228,55 +229,126 @@ export function DispatcherFleetMapView({
     return null;
   };
 
-  // Show next pickup/delivery marker for selected truck
+  // Show pickup AND delivery markers + route line for selected truck
   useEffect(() => {
     // Clear previous location markers
     locationMarkersRef.current.forEach((m) => m.remove());
     locationMarkersRef.current = [];
+    // Clear previous route
+    if (map.current && routeAddedRef.current) {
+      try {
+        if (map.current.getLayer('fleet-route-line')) map.current.removeLayer('fleet-route-line');
+        if (map.current.getSource('fleet-route')) map.current.removeSource('fleet-route');
+      } catch { /* ignore */ }
+      routeAddedRef.current = false;
+    }
 
     if (!map.current || !selectedTruck?.currentOrder) {
       return;
     }
 
     const order = selectedTruck.currentOrder;
-    const nextStop = getNextStop(order);
 
-    if (!nextStop) return;
+    const makeStopMarker = (lng: number, lat: number, kind: 'pickup' | 'delivery') => {
+      const el = document.createElement('div');
+      const isPickup = kind === 'pickup';
+      const emoji = isPickup ? '📦' : '🎯';
+      const label = isPickup ? 'PICKUP' : 'DELIVERY';
+      const bgColor = isPickup ? 'hsl(var(--warning))' : 'hsl(var(--destructive))';
+      el.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));">
+          <div style="font-size: 36px;">${emoji}</div>
+          <div style="
+            background: ${bgColor};
+            color: hsl(var(--primary-foreground));
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            margin-top: -4px;
+            white-space: nowrap;
+          ">${label}</div>
+        </div>
+      `;
+      const m = new mapboxgl.Marker(el).setLngLat([lng, lat]).addTo(map.current!);
+      locationMarkersRef.current.push(m);
+    };
 
-    // Create marker for next stop
-    const markerEl = document.createElement('div');
-    const isPickup = nextStop.type === 'pickup';
-    const emoji = isPickup ? '📦' : '🎯';
-    const label = isPickup ? 'PICKUP' : 'DELIVERY';
-    const bgColor = isPickup ? 'hsl(var(--warning))' : 'hsl(var(--destructive))';
+    const pLat = toFiniteCoordinate(order.pickupLatitude);
+    const pLng = toFiniteCoordinate(order.pickupLongitude);
+    const dLat = toFiniteCoordinate(order.deliveryLatitude);
+    const dLng = toFiniteCoordinate(order.deliveryLongitude);
 
-    markerEl.innerHTML = `
-      <div style="display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));">
-        <div style="font-size: 36px;">${emoji}</div>
-        <div style="
-          background: ${bgColor};
-          color: hsl(var(--primary-foreground));
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 10px;
-          font-weight: 700;
-          margin-top: -4px;
-          white-space: nowrap;
-        ">${label}</div>
-      </div>
-    `;
+    if (pLat !== null && pLng !== null) makeStopMarker(pLng, pLat, 'pickup');
+    if (dLat !== null && dLng !== null) makeStopMarker(dLng, dLat, 'delivery');
 
-    const marker = new mapboxgl.Marker(markerEl)
-      .setLngLat([nextStop.lng, nextStop.lat])
-      .addTo(map.current);
-    locationMarkersRef.current.push(marker);
-
-    // Make the "next stop" visible by fitting bounds to include truck + stop
-    if (selectedMarkerData?.lngLat) {
-      const bounds = new mapboxgl.LngLatBounds();
-      bounds.extend(selectedMarkerData.lngLat);
-      bounds.extend([nextStop.lng, nextStop.lat]);
+    // Fit bounds to include truck + visible stops
+    const bounds = new mapboxgl.LngLatBounds();
+    if (selectedMarkerData?.lngLat) bounds.extend(selectedMarkerData.lngLat);
+    if (pLat !== null && pLng !== null) bounds.extend([pLng, pLat]);
+    if (dLat !== null && dLng !== null) bounds.extend([dLng, dLat]);
+    if (!bounds.isEmpty()) {
       map.current.fitBounds(bounds, { padding: 90, duration: 800, maxZoom: 9 });
+    }
+
+    // Build route: truck -> (pickup if not picked up yet) -> delivery
+    const routeCoords: Array<{ lat: number; lon: number }> = [];
+    if (selectedMarkerData?.lngLat) {
+      routeCoords.push({ lon: selectedMarkerData.lngLat[0], lat: selectedMarkerData.lngLat[1] });
+    }
+    if (!order.hasBOL && pLat !== null && pLng !== null) {
+      routeCoords.push({ lat: pLat, lon: pLng });
+    }
+    if (dLat !== null && dLng !== null) {
+      routeCoords.push({ lat: dLat, lon: dLng });
+    }
+
+    if (routeCoords.length >= 2 && tokenRef.current) {
+      const coordStr = routeCoords.map((c) => `${c.lon},${c.lat}`).join(';');
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordStr}?geometries=geojson&overview=full&access_token=${tokenRef.current}`;
+      let cancelled = false;
+      fetch(url)
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled || !map.current) return;
+          const geom = data?.routes?.[0]?.geometry;
+          if (!geom) return;
+          try {
+            if (map.current.getLayer('fleet-route-line')) map.current.removeLayer('fleet-route-line');
+            if (map.current.getSource('fleet-route')) map.current.removeSource('fleet-route');
+            map.current.addSource('fleet-route', {
+              type: 'geojson',
+              data: { type: 'Feature', properties: {}, geometry: geom },
+            });
+            map.current.addLayer({
+              id: 'fleet-route-line',
+              type: 'line',
+              source: 'fleet-route',
+              layout: { 'line-cap': 'round', 'line-join': 'round' },
+              paint: {
+                'line-color': 'hsl(217 91% 60%)',
+                'line-width': 4,
+                'line-opacity': 0.85,
+              },
+            });
+            routeAddedRef.current = true;
+          } catch (e) {
+            console.warn('[FleetMap] route layer add failed', e);
+          }
+        })
+        .catch((e) => console.warn('[FleetMap] route fetch failed', e));
+      return () => {
+        cancelled = true;
+        locationMarkersRef.current.forEach((m) => m.remove());
+        locationMarkersRef.current = [];
+        if (map.current && routeAddedRef.current) {
+          try {
+            if (map.current.getLayer('fleet-route-line')) map.current.removeLayer('fleet-route-line');
+            if (map.current.getSource('fleet-route')) map.current.removeSource('fleet-route');
+          } catch { /* ignore */ }
+          routeAddedRef.current = false;
+        }
+      };
     }
 
     return () => {
