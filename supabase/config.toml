@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.translate-yard-note]
 verify_jwt = false
+
+[functions.send-pod-reminders]
+verify_jwt = false
