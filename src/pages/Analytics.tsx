@@ -1799,6 +1799,7 @@ const Analytics = () => {
           latestPickupDate: string | null;
           totalFreightPod: number;
           totalDriverRatePod: number;
+          noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number }[];
         },
       ]) => {
         const cut = stats.totalFreight - stats.totalDriverRate;
@@ -1848,6 +1849,7 @@ const Analytics = () => {
           latestPickupDate: stats.latestPickupDate,
           totalFreightPod: stats.totalFreightPod,
           cutPod,
+          noPodOrders: stats.noPodOrders,
         };
       },
     )
