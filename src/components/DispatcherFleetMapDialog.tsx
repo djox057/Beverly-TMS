@@ -658,12 +658,49 @@ export function DispatcherFleetMapView({
     // Clear previous home markers
     homeMarkersRef.current.forEach((m) => m.remove());
     homeMarkersRef.current = [];
+    // Clear previous radius layers/source
+    if (map.current) {
+      try {
+        if (map.current.getLayer('driver-home-radius-zones-outline')) map.current.removeLayer('driver-home-radius-zones-outline');
+        if (map.current.getLayer('driver-home-radius-zones-fill')) map.current.removeLayer('driver-home-radius-zones-fill');
+        if (map.current.getSource('driver-home-radius-zones')) map.current.removeSource('driver-home-radius-zones');
+      } catch { /* ignore */ }
+    }
     if (!map.current || !selectedTruck) return;
     const lat = toFiniteCoordinate(selectedTruck.homeLatitude);
     const lng = toFiniteCoordinate(selectedTruck.homeLongitude);
     if (lat === null || lng === null) return;
     const warningToken = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
     const warningColor = warningToken ? `hsl(${warningToken})` : 'hsl(38 92% 50%)';
+    // Add radius around home
+    try {
+      const circle = createRadiusCircle(lng, lat);
+      map.current.addSource('driver-home-radius-zones', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            properties: { id: selectedTruck.id },
+            geometry: { type: 'Polygon', coordinates: [circle] },
+          }],
+        },
+      });
+      map.current.addLayer({
+        id: 'driver-home-radius-zones-fill',
+        type: 'fill',
+        source: 'driver-home-radius-zones',
+        paint: { 'fill-color': warningColor, 'fill-opacity': 0.18 },
+      });
+      map.current.addLayer({
+        id: 'driver-home-radius-zones-outline',
+        type: 'line',
+        source: 'driver-home-radius-zones',
+        paint: { 'line-color': warningColor, 'line-opacity': 0.8, 'line-width': 2 },
+      });
+    } catch (e) {
+      console.warn('[FleetMap] home radius add failed', e);
+    }
     const homeEl = document.createElement('div');
     homeEl.style.cursor = 'default';
     homeEl.title = `${selectedTruck.driverName}${selectedTruck.homeCity || selectedTruck.homeState ? ` — ${[selectedTruck.homeCity, selectedTruck.homeState].filter(Boolean).join(', ')}` : ''}`;
@@ -689,6 +726,13 @@ export function DispatcherFleetMapView({
     return () => {
       homeMarkersRef.current.forEach((m) => m.remove());
       homeMarkersRef.current = [];
+      if (map.current) {
+        try {
+          if (map.current.getLayer('driver-home-radius-zones-outline')) map.current.removeLayer('driver-home-radius-zones-outline');
+          if (map.current.getLayer('driver-home-radius-zones-fill')) map.current.removeLayer('driver-home-radius-zones-fill');
+          if (map.current.getSource('driver-home-radius-zones')) map.current.removeSource('driver-home-radius-zones');
+        } catch { /* ignore */ }
+      }
     };
   }, [singleHomeOnly, selectedTruck]);
 
