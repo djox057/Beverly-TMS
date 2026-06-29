@@ -1705,6 +1705,8 @@ const Analytics = () => {
         totalDhMiles: number;
         orderCount: number;
         latestPickupDate: string | null;
+        totalFreightPod: number;
+        totalDriverRatePod: number;
       }
     > = {};
 
@@ -1718,6 +1720,8 @@ const Analytics = () => {
           totalDhMiles: 0,
           orderCount: 0,
           latestPickupDate: null,
+          totalFreightPod: 0,
+          totalDriverRatePod: 0,
         };
       }
       const orderFreight = Number(order.totalFreightAmountNoLumper) || 0;
@@ -1729,6 +1733,10 @@ const Analytics = () => {
       acc[dispatcher].totalMiles += orderMiles;
       acc[dispatcher].totalDhMiles += orderDhMiles;
       acc[dispatcher].orderCount += 1;
+      if (orderHasPOD(order)) {
+        acc[dispatcher].totalFreightPod += orderFreight;
+        acc[dispatcher].totalDriverRatePod += orderDriverPay;
+      }
       const pickupDate = order.pickupDate || order.pickupDatetime;
       if (pickupDate) {
         const pickupStr = typeof pickupDate === "string" ? pickupDate : String(pickupDate);
@@ -1749,6 +1757,8 @@ const Analytics = () => {
             totalDhMiles: 0,
             orderCount: 0,
             latestPickupDate: null,
+            totalFreightPod: 0,
+            totalDriverRatePod: 0,
           };
         }
         acc[entityId].totalFreight += agg.totalFreight;
@@ -1756,6 +1766,9 @@ const Analytics = () => {
         acc[entityId].totalMiles += agg.totalMiles;
         acc[entityId].totalDhMiles += agg.totalDhMiles;
         acc[entityId].orderCount += agg.orderCount;
+        // Locked aggregates have no POD-presence breakdown; assume all-POD (treat as completed).
+        acc[entityId].totalFreightPod += agg.totalFreight;
+        acc[entityId].totalDriverRatePod += agg.totalDriverPayEffective;
       }
     }
 
