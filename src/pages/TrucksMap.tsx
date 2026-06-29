@@ -66,6 +66,31 @@ interface OrderRow {
 
 const FLEET_QUERY_KEY = ["trucks-map-fleet"] as const;
 
+function composeAddress(stop: {
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip_code?: string | null;
+} | null | undefined): string | undefined {
+  if (!stop) return undefined;
+  const stateZip = [stop.state, stop.zip_code].filter(Boolean).join(" ").trim();
+  return [stop.address, stop.city, stateZip].filter(Boolean).join(", ") || undefined;
+}
+
+function haversineMiles(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const R = 3958.8;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
 async function fetchFleetMapData() {
   // 1) Active trucks (have a driver or location)
   const { data: trucks, error: trucksErr } = await supabase
@@ -225,8 +250,8 @@ export default function TrucksMap() {
               companyName,
             ),
             brokerLoadNumber: current.broker_load_number || undefined,
-            pickupAddress: pickup?.address,
-            deliveryAddress: delivery?.address,
+            pickupAddress: composeAddress(pickup),
+            deliveryAddress: composeAddress(delivery),
             pickupCity: pickup?.city || undefined,
             pickupState: pickup?.state || undefined,
             deliveryCity: delivery?.city || undefined,
@@ -243,12 +268,31 @@ export default function TrucksMap() {
           };
         }
 
+        // Compute miles from truck GPS to next stop (haversine * 1.3 road factor)
+        let milesAway: number | null = null;
+        if (currentOrder && loc?.latitude != null && loc?.longitude != null) {
+          const nextLat = currentOrder.hasBOL
+            ? currentOrder.deliveryLatitude
+            : currentOrder.pickupLatitude;
+          const nextLng = currentOrder.hasBOL
+            ? currentOrder.deliveryLongitude
+            : currentOrder.pickupLongitude;
+          if (nextLat != null && nextLng != null) {
+            milesAway = Math.round(
+              haversineMiles(
+                { lat: loc.latitude, lng: loc.longitude },
+                { lat: nextLat, lng: nextLng },
+              ) * 1.3,
+            );
+          }
+        }
+
         return {
           id: t.id,
           truckNumber,
           driverName: driver1?.name || "No driver",
           driver2Name: driver2?.name || undefined,
-          milesAway: null,
+          milesAway,
           driveMinutes: driver1?.hos_drive_minutes ?? 0,
           shiftMinutes: driver1?.hos_shift_minutes ?? 0,
           breakMinutes: driver1?.hos_break_minutes ?? 0,
