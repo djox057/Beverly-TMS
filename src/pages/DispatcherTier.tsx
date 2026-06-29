@@ -206,13 +206,8 @@ const DispatcherTier = () => {
         cut,
       };
     });
-    const filtered = data.filter((r) => {
-      if (officeFilter !== "all" && r.office !== officeFilter) return false;
-      if (q && !r.name?.toLowerCase().includes(q)) return false;
-      return true;
-    });
-    // Compute averages among filtered rows eligible for Overall (need >1 avg trucks & gross)
-    const withData = filtered.filter((r) => r.gross > 0 && r.avgTrucks > 1);
+    // Compute averages from the FULL dataset so search/filters don't change Overall score.
+    const withData = data.filter((r) => r.gross > 0 && r.avgTrucks > 1);
     const n = withData.length || 1;
     const avgRpm = withData.reduce((s, r) => s + r.rpm, 0) / n || 1;
     const avgGross = withData.reduce((s, r) => s + r.gross, 0) / n || 1;
@@ -221,7 +216,7 @@ const DispatcherTier = () => {
     // Weighted-average score: rpm dominates. Example: rpm 16.67% above avg => +18% overall.
     // Trucks add a tiny bonus so larger fleets get a slight edge when all else is equal.
     const W_RPM = 1.08, W_GROSS = 0.2, W_CUT = 0.2, W_TRUCKS = 0.05;
-    const enriched = filtered.map((r) => {
+    const enrichedAll = data.map((r) => {
       if (!(r.avgTrucks > 1)) {
         return { ...r, overall: NaN };
       }
@@ -236,6 +231,11 @@ const DispatcherTier = () => {
         W_CUT * (rCut - 1) +
         W_TRUCKS * (rTrucks - 1);
       return { ...r, overall };
+    });
+    const enriched = enrichedAll.filter((r) => {
+      if (officeFilter !== "all" && r.office !== officeFilter) return false;
+      if (q && !r.name?.toLowerCase().includes(q)) return false;
+      return true;
     });
     enriched.sort((a, b) => {
       let cmp = 0;
