@@ -1707,7 +1707,7 @@ const Analytics = () => {
         latestPickupDate: string | null;
         totalFreightPod: number;
         totalDriverRatePod: number;
-        noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number }[];
+        noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number; driverPay: number }[];
       }
     > = {};
 
@@ -1746,6 +1746,7 @@ const Analytics = () => {
           brokerLoadNumber: (order as any).brokerLoadNumber ?? null,
           internalLoadNumber: (order as any).internalLoadNumber ?? null,
           freight: orderFreight,
+          driverPay: orderDriverPay,
         });
       }
       const pickupDate = order.pickupDate || order.pickupDatetime;
@@ -1799,7 +1800,7 @@ const Analytics = () => {
           latestPickupDate: string | null;
           totalFreightPod: number;
           totalDriverRatePod: number;
-          noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number }[];
+          noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number; driverPay: number }[];
         },
       ]) => {
         const cut = stats.totalFreight - stats.totalDriverRate;
@@ -5261,29 +5262,51 @@ const Analytics = () => {
                                           second is the full amount including orders still
                                           awaiting POD. Canceled orders count as POD-confirmed.
                                         </div>
-                                        {stat.noPodOrders && stat.noPodOrders.length > 0 && (
-                                          <div>
-                                            <div className="font-medium mb-1">
-                                              Loads missing POD ({stat.noPodOrders.length}):
-                                            </div>
-                                            <div className="max-h-48 overflow-y-auto space-y-0.5">
-                                              {stat.noPodOrders.map((o, i) => {
-                                                const ln = o.brokerLoadNumber || o.loadNumber || o.internalLoadNumber || "—";
-                                                return (
-                                                  <div key={i} className="flex justify-between gap-3">
-                                                    <span className="font-mono">{ln}</span>
-                                                    <span className="text-muted-foreground">
-                                                      ${o.freight.toLocaleString(undefined, {
-                                                        minimumFractionDigits: 0,
-                                                        maximumFractionDigits: 0,
-                                                      })}
-                                                    </span>
-                                                  </div>
-                                                );
-                                              })}
-                                            </div>
-                                          </div>
-                                        )}
+                                         {stat.noPodOrders && stat.noPodOrders.length > 0 && (() => {
+                                           const totalEarn = stat.noPodOrders.reduce(
+                                             (s, o) => s + o.freight * rGross + (o.freight - o.driverPay) * rCut,
+                                             0,
+                                           );
+                                           const gPct = (rGross * 100).toFixed(rGross * 100 % 1 === 0 ? 0 : 2);
+                                           const cPct = (rCut * 100).toFixed(rCut * 100 % 1 === 0 ? 0 : 2);
+                                           return (
+                                             <div>
+                                               <div className="font-medium mb-1">
+                                                 Loads missing POD ({stat.noPodOrders.length}) — held: $
+                                                 {totalEarn.toLocaleString(undefined, {
+                                                   minimumFractionDigits: 2,
+                                                   maximumFractionDigits: 2,
+                                                 })}
+                                               </div>
+                                               <div className="text-[10px] text-muted-foreground mb-1">
+                                                 {gPct}% of Freight + {cPct}% of (Freight − Driver Pay)
+                                               </div>
+                                               <div className="max-h-48 overflow-y-auto space-y-0.5">
+                                                 {stat.noPodOrders.map((o, i) => {
+                                                   const ln = o.brokerLoadNumber || o.loadNumber || o.internalLoadNumber || "—";
+                                                   const earn = o.freight * rGross + (o.freight - o.driverPay) * rCut;
+                                                   return (
+                                                     <div key={i} className="flex justify-between gap-3">
+                                                       <span className="font-mono">{ln}</span>
+                                                       <span className="text-muted-foreground">
+                                                         ${o.freight.toLocaleString(undefined, {
+                                                           minimumFractionDigits: 0,
+                                                           maximumFractionDigits: 0,
+                                                         })}
+                                                       </span>
+                                                       <span className="text-green-600 font-medium">
+                                                         +${earn.toLocaleString(undefined, {
+                                                           minimumFractionDigits: 2,
+                                                           maximumFractionDigits: 2,
+                                                         })}
+                                                       </span>
+                                                     </div>
+                                                   );
+                                                 })}
+                                               </div>
+                                             </div>
+                                           );
+                                         })()}
                                       </div>
                                     </PopoverContent>
                                   </Popover>
