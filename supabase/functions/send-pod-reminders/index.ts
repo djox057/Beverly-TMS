@@ -21,6 +21,21 @@ function chicagoYesterdayISO(): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Format "2026-06-28T07:00:00+00:00" → "06/28/2026 07:00" (treat as naive wall time)
+function formatDelivery(dt: string | null | undefined): string {
+  if (!dt) return "";
+  const m = String(dt).match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return String(dt);
+  const [, y, mo, d, hh, mm] = m;
+  return `${mo}/${d}/${y} ${hh}:${mm}`;
+}
+
+// Fine = 30% of (freight*1% + (freight - driver_pay)*5%)
+function calcFine(freight: number, driverPay: number): number {
+  const base = freight * 0.01 + (freight - driverPay) * 0.05;
+  return Math.max(0, base) * 0.30;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -62,10 +77,8 @@ const handler = async (req: Request): Promise<Response> => {
       .from("orders")
       .select(`
         id, load_number, internal_load_number, status, delivery_datetime,
-        pod_force_complete, driver_price,
-        trucks:truck_id ( truck_number, dispatcher_id,
-          profiles:dispatcher_id ( full_name, email )
-        ),
+        pod_force_complete, driver_price, freight_amount, booked_by,
+        trucks:truck_id ( truck_number ),
         order_files ( file_category )
       `)
       .gte("delivery_datetime", start)
@@ -81,11 +94,24 @@ const handler = async (req: Request): Promise<Response> => {
       return !files.some((f: any) => f.file_category === "POD");
     });
 
-    // Group by dispatcher
+    // booked_by is the dispatcher's display name (text). Look up profiles by full_name.
+    const bookerNames = Array.from(new Set(missing.map((o: any) => o.booked_by).filter(Boolean)));
+    const bookerMap = new Map<string, { full_name: string | null; email: string | null }>();
+    if (bookerNames.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .in("full_name", bookerNames);
+      for (const p of profs || []) {
+        bookerMap.set((p as any).full_name, { full_name: (p as any).full_name, email: (p as any).email });
+      }
+    }
+
+    // Group by booker (the dispatcher who booked the load)
     const byDispatcher = new Map<string, { name: string; email: string; orders: any[] }>();
     for (const o of missing) {
       const t: any = o.trucks;
-      const p: any = t?.profiles;
+      const p = o.booked_by ? bookerMap.get(o.booked_by) : null;
       if (!p?.email) continue;
       const key = p.email;
       if (!byDispatcher.has(key)) {
@@ -97,6 +123,7 @@ const handler = async (req: Request): Promise<Response> => {
         truck_number: t?.truck_number,
         delivery_datetime: o.delivery_datetime,
         driver_price: Number(o.driver_price) || 0,
+        freight_amount: Number(o.freight_amount) || 0,
       });
     }
 
@@ -106,13 +133,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     for (const [, group] of byDispatcher) {
       const rows = group.orders.map((o) => {
-        const fine = (o.driver_price * 0.3).toFixed(2);
+        const fine = calcFine(o.freight_amount, o.driver_price).toFixed(2);
         return `
           <tr>
             <td style="padding:8px;border-bottom:1px solid #eee;">${o.internal_load_number || ""}</td>
             <td style="padding:8px;border-bottom:1px solid #eee;">${o.load_number || ""}</td>
             <td style="padding:8px;border-bottom:1px solid #eee;">${o.truck_number || ""}</td>
-            <td style="padding:8px;border-bottom:1px solid #eee;">${o.delivery_datetime || ""}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;">${formatDelivery(o.delivery_datetime)}</td>
             <td style="padding:8px;border-bottom:1px solid #eee;color:#b91c1c;font-weight:bold;">$${fine}</td>
           </tr>`;
       }).join("");
