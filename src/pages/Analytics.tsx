@@ -1746,6 +1746,7 @@ const Analytics = () => {
           brokerLoadNumber: (order as any).brokerLoadNumber ?? null,
           internalLoadNumber: (order as any).internalLoadNumber ?? null,
           freight: orderFreight,
+          driverPay: orderDriverPay,
         });
       }
       const pickupDate = order.pickupDate || order.pickupDatetime;
