@@ -307,6 +307,7 @@ const Drivers = () => {
       // Search filter
       const matchesSearch =
         driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
