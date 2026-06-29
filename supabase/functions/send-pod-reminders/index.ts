@@ -83,7 +83,7 @@ const handler = async (req: Request): Promise<Response> => {
       `)
       .gte("delivery_datetime", start)
       .lt("delivery_datetime", end)
-      .neq("status", "canceled");
+      .eq("canceled", false);
 
     if (error) throw error;
 
