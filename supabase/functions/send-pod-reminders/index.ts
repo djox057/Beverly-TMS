@@ -79,7 +79,6 @@ const handler = async (req: Request): Promise<Response> => {
         id, load_number, internal_load_number, status, delivery_datetime,
         pod_force_complete, driver_price, freight_amount, booked_by,
         trucks:truck_id ( truck_number ),
-        booker:profiles!orders_booked_by_fkey ( full_name, email ),
         order_files ( file_category )
       `)
       .gte("delivery_datetime", start)
@@ -95,11 +94,24 @@ const handler = async (req: Request): Promise<Response> => {
       return !files.some((f: any) => f.file_category === "POD");
     });
 
+    // Look up booker profiles by user_id
+    const bookerIds = Array.from(new Set(missing.map((o: any) => o.booked_by).filter(Boolean)));
+    const bookerMap = new Map<string, { full_name: string | null; email: string | null }>();
+    if (bookerIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .in("user_id", bookerIds);
+      for (const p of profs || []) {
+        bookerMap.set((p as any).user_id, { full_name: (p as any).full_name, email: (p as any).email });
+      }
+    }
+
     // Group by booker (the dispatcher who booked the load)
     const byDispatcher = new Map<string, { name: string; email: string; orders: any[] }>();
     for (const o of missing) {
       const t: any = o.trucks;
-      const p: any = o.booker;
+      const p = o.booked_by ? bookerMap.get(o.booked_by) : null;
       if (!p?.email) continue;
       const key = p.email;
       if (!byDispatcher.has(key)) {
