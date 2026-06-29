@@ -1,194 +1,285 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
-import { Loader2, Search, MapPin, Truck as TruckIcon } from "lucide-react";
-import { useTrucks } from "@/hooks/useTrucks";
-import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, Search, Truck as TruckIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
+import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 
-let cachedMapboxToken: string | null = null;
-async function getMapboxToken(): Promise<string> {
-  if (cachedMapboxToken) return cachedMapboxToken;
-  const { data, error } = await supabase.functions.invoke("get-mapbox-token");
-  if (error || !data?.token) return "";
-  cachedMapboxToken = data.token;
-  return data.token;
+interface TruckRow {
+  id: string;
+  truck_number: string | null;
+  driver1_id: string | null;
+  driver2_id: string | null;
+  company_id: string | null;
+  active: boolean | null;
 }
 
-interface MarkerInfo {
-  truckId: string;
-  truckNumber: string;
-  driverName: string;
-  driver2Name?: string;
-  latitude: number;
-  longitude: number;
-  timestamp: string;
+interface DriverRow {
+  id: string;
+  name: string | null;
+  company_id: string | null;
+  hos_drive_minutes: number | null;
+  hos_shift_minutes: number | null;
+  hos_break_minutes: number | null;
+  hos_cycle_minutes: number | null;
+  home_latitude: number | null;
+  home_longitude: number | null;
+  home_city: string | null;
+  home_state: string | null;
 }
 
-function formatRelative(iso: string): string {
-  if (!iso) return "—";
-  const diffMs = Date.now() - new Date(iso).getTime();
-  if (Number.isNaN(diffMs)) return "—";
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
+interface PickupDropRow {
+  id: string;
+  order_id: string;
+  type: string;
+  sequence_number: number | null;
+  address: string;
+  city: string | null;
+  state: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  datetime: string | null;
+  arrived_at: string | null;
+}
+
+interface OrderFileRow {
+  order_id: string;
+  file_category: string | null;
+}
+
+interface OrderRow {
+  id: string;
+  truck_id: string | null;
+  internal_load_number: number | null;
+  broker_load_number: string | null;
+  pickup_datetime: string | null;
+  canceled: boolean | null;
+  notes: string | null;
+  pickup_drops?: PickupDropRow[];
+  order_files?: OrderFileRow[];
+}
+
+const FLEET_QUERY_KEY = ["trucks-map-fleet"] as const;
+
+async function fetchFleetMapData() {
+  // 1) Active trucks (have a driver or location)
+  const { data: trucks, error: trucksErr } = await supabase
+    .from("trucks")
+    .select("id, truck_number, driver1_id, driver2_id, company_id, active")
+    .eq("active", true)
+    .order("truck_number");
+  if (trucksErr) throw trucksErr;
+  const truckList = (trucks || []) as TruckRow[];
+
+  const driverIds = Array.from(
+    new Set(
+      truckList
+        .flatMap((t) => [t.driver1_id, t.driver2_id])
+        .filter((v): v is string => !!v),
+    ),
+  );
+
+  const [driversRes, companiesRes] = await Promise.all([
+    driverIds.length
+      ? supabase
+          .from("drivers")
+          .select(
+            "id, name, company_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, home_latitude, home_longitude, home_city, home_state",
+          )
+          .in("id", driverIds)
+      : Promise.resolve({ data: [] as DriverRow[], error: null as any }),
+    supabase.from("companies").select("id, name"),
+  ]);
+  if (driversRes.error) throw driversRes.error;
+  if (companiesRes.error) throw companiesRes.error;
+
+  const driverMap = new Map<string, DriverRow>(
+    ((driversRes.data || []) as DriverRow[]).map((d) => [d.id, d]),
+  );
+  const companyMap = new Map<string, string>(
+    (companiesRes.data || []).map((c: any) => [c.id, c.name as string]),
+  );
+
+  // 2) Recent non-canceled orders for these trucks (last 60 days)
+  const truckIds = truckList.map((t) => t.id);
+  let orders: OrderRow[] = [];
+  if (truckIds.length) {
+    const cutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+    // chunk in 200s
+    const chunks: string[][] = [];
+    for (let i = 0; i < truckIds.length; i += 200) chunks.push(truckIds.slice(i, i + 200));
+    const all = await Promise.all(
+      chunks.map((ids) =>
+        supabase
+          .from("orders")
+          .select(
+            "id, truck_id, internal_load_number, broker_load_number, pickup_datetime, canceled, notes, pickup_drops(id, order_id, type, sequence_number, address, city, state, latitude, longitude, datetime, arrived_at), order_files(order_id, file_category)",
+          )
+          .in("truck_id", ids)
+          .eq("canceled", false)
+          .gte("pickup_datetime", cutoff),
+      ),
+    );
+    for (const res of all) {
+      if (res.error) throw res.error;
+      orders = orders.concat((res.data || []) as OrderRow[]);
+    }
+    orders = orders.filter((o) => o.notes !== "GAME|OVER");
+  }
+
+  // group orders by truck
+  const ordersByTruck = new Map<string, OrderRow[]>();
+  for (const o of orders) {
+    if (!o.truck_id) continue;
+    const arr = ordersByTruck.get(o.truck_id) || [];
+    arr.push(o);
+    ordersByTruck.set(o.truck_id, arr);
+  }
+
+  return { truckList, driverMap, companyMap, ordersByTruck };
+}
+
+function pickCurrentOrder(allOrders: OrderRow[]): OrderRow | null {
+  if (!allOrders.length) return null;
+  const sorted = [...allOrders].sort((a, b) => {
+    const aT = new Date(a.pickup_datetime || "9999-12-31").getTime();
+    const bT = new Date(b.pickup_datetime || "9999-12-31").getTime();
+    return aT - bT;
+  });
+  const last = sorted[sorted.length - 1];
+  const lastHasBOL = last.order_files?.some((f) => f.file_category === "BOL");
+  if (lastHasBOL) return last;
+  if (sorted.length >= 2) {
+    const prev = sorted[sorted.length - 2];
+    const prevHasPOD = prev.order_files?.some((f) => f.file_category === "POD");
+    if (prevHasPOD) return last;
+    const lastWithBOL = [...sorted]
+      .reverse()
+      .find((o) => o.order_files?.some((f) => f.file_category === "BOL"));
+    return lastWithBOL || last;
+  }
+  return last;
 }
 
 export default function TrucksMap() {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
-  const popupRef = useRef<mapboxgl.Popup | null>(null);
-  const [mapReady, setMapReady] = useState(false);
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const { data: trucks = [], isLoading: trucksLoading } = useTrucks();
+  const { data: fleet, isLoading: fleetLoading } = useQuery({
+    queryKey: FLEET_QUERY_KEY,
+    queryFn: fetchFleetMapData,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
   const { data: locations = [], isLoading: locsLoading } = useSamsaraLocations();
 
-  const markers: MarkerInfo[] = useMemo(() => {
-    if (!trucks.length || !locations.length) return [];
-    return trucks
-      .map((t: any) => {
-        const tn = (t.truck_number || "").trim();
-        const loc = locations.find(
-          (l) => l.truck_id === t.id || (l.truck_number || "").trim() === tn,
-        );
+  // Build full TruckData[] for the fleet map (only trucks with a Samsara location)
+  const trucksWithData = useMemo(() => {
+    if (!fleet) return [];
+    const locByTruckId = new Map<string, (typeof locations)[number]>();
+    const locByNumber = new Map<string, (typeof locations)[number]>();
+    for (const l of locations) {
+      if (l.truck_id) locByTruckId.set(l.truck_id, l);
+      if (l.truck_number)
+        locByNumber.set((l.truck_number || "").trim(), l);
+    }
+
+    return fleet.truckList
+      .map((t) => {
+        const truckNumber = (t.truck_number || "").trim();
+        const loc = locByTruckId.get(t.id) || locByNumber.get(truckNumber);
         if (!loc) return null;
+
+        const driver1 = t.driver1_id ? fleet.driverMap.get(t.driver1_id) : null;
+        const driver2 = t.driver2_id ? fleet.driverMap.get(t.driver2_id) : null;
+        const companyId = driver1?.company_id || t.company_id || null;
+        const companyName = companyId ? fleet.companyMap.get(companyId) : null;
+
+        const orders = fleet.ordersByTruck.get(t.id) || [];
+        const current = pickCurrentOrder(orders);
+
+        let currentOrder: any = undefined;
+        if (current) {
+          const stops = current.pickup_drops || [];
+          const pickups = stops
+            .filter((s) => s.type === "pickup")
+            .sort((a, b) => (a.sequence_number || 0) - (b.sequence_number || 0));
+          const deliveries = stops
+            .filter((s) => s.type === "delivery")
+            .sort((a, b) => (a.sequence_number || 0) - (b.sequence_number || 0));
+          const pickup = pickups[0] || null;
+          const delivery = deliveries[deliveries.length - 1] || null;
+          const hasBOL =
+            current.order_files?.some((f) => f.file_category === "BOL") || false;
+          const hasPOD =
+            current.order_files?.some((f) => f.file_category === "POD") || false;
+          currentOrder = {
+            id: current.id,
+            loadNumber: formatInternalLoadNumber(
+              current.internal_load_number,
+              companyName,
+            ),
+            brokerLoadNumber: current.broker_load_number || undefined,
+            pickupAddress: pickup?.address,
+            deliveryAddress: delivery?.address,
+            pickupCity: pickup?.city || undefined,
+            pickupState: pickup?.state || undefined,
+            deliveryCity: delivery?.city || undefined,
+            deliveryState: delivery?.state || undefined,
+            pickupLatitude: pickup?.latitude ?? null,
+            pickupLongitude: pickup?.longitude ?? null,
+            deliveryLatitude: delivery?.latitude ?? null,
+            deliveryLongitude: delivery?.longitude ?? null,
+            pickupDatetime: pickup?.datetime || undefined,
+            deliveryDatetime: delivery?.datetime || undefined,
+            hasBOL,
+            hasPOD,
+            pickupArrived: !!pickup?.arrived_at,
+          };
+        }
+
         return {
-          truckId: t.id,
-          truckNumber: tn,
-          driverName: t.driver1?.full_name || "Unassigned",
-          driver2Name: t.driver2?.full_name,
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-          timestamp: loc.timestamp,
-        } as MarkerInfo;
+          id: t.id,
+          truckNumber,
+          driverName: driver1?.name || "No driver",
+          driver2Name: driver2?.name || undefined,
+          milesAway: null,
+          driveMinutes: driver1?.hos_drive_minutes ?? 0,
+          shiftMinutes: driver1?.hos_shift_minutes ?? 0,
+          breakMinutes: driver1?.hos_break_minutes ?? 0,
+          cycleMinutes: driver1?.hos_cycle_minutes ?? 0,
+          homeLatitude: driver1?.home_latitude ?? null,
+          homeLongitude: driver1?.home_longitude ?? null,
+          homeCity: driver1?.home_city ?? null,
+          homeState: driver1?.home_state ?? null,
+          currentOrder,
+        };
       })
-      .filter(Boolean) as MarkerInfo[];
-  }, [trucks, locations]);
+      .filter(Boolean) as Array<{
+        id: string;
+        truckNumber: string;
+        driverName: string;
+        driver2Name?: string;
+      }> & any[];
+  }, [fleet, locations]);
 
-  const filtered = useMemo(() => {
+  const filteredTrucks = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return markers;
-    return markers.filter(
-      (m) =>
-        m.truckNumber.toLowerCase().includes(q) ||
-        m.driverName.toLowerCase().includes(q) ||
-        (m.driver2Name || "").toLowerCase().includes(q),
+    if (!q) return trucksWithData;
+    return trucksWithData.filter(
+      (t: any) =>
+        t.truckNumber.toLowerCase().includes(q) ||
+        (t.driverName || "").toLowerCase().includes(q) ||
+        (t.driver2Name || "").toLowerCase().includes(q),
     );
-  }, [markers, search]);
+  }, [trucksWithData, search]);
 
-  // Init map once
-  useEffect(() => {
-    let cancelled = false;
-    if (!mapContainer.current || mapRef.current) return;
-    (async () => {
-      const token = await getMapboxToken();
-      if (cancelled || !token || !mapContainer.current) return;
-      mapboxgl.accessToken = token;
-      const m = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: "mapbox://styles/mapbox/streets-v12",
-        center: [-97, 39],
-        zoom: 4,
-      });
-      m.addControl(new mapboxgl.NavigationControl({ visualizePitch: false }), "top-right");
-      m.addControl(new mapboxgl.FullscreenControl(), "top-right");
-      m.on("load", () => {
-        if (cancelled) return;
-        mapRef.current = m;
-        setMapReady(true);
-      });
-    })();
-    return () => {
-      cancelled = true;
-      markersRef.current.forEach((mk) => mk.remove());
-      markersRef.current.clear();
-      popupRef.current?.remove();
-      popupRef.current = null;
-      mapRef.current?.remove();
-      mapRef.current = null;
-    };
-  }, []);
-
-  // Render / update markers
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-
-    const visibleIds = new Set(filtered.map((m) => m.truckId));
-
-    // Remove markers no longer visible
-    markersRef.current.forEach((marker, id) => {
-      if (!visibleIds.has(id)) {
-        marker.remove();
-        markersRef.current.delete(id);
-      }
-    });
-
-    filtered.forEach((m) => {
-      const existing = markersRef.current.get(m.truckId);
-      const lngLat: [number, number] = [m.longitude, m.latitude];
-      if (existing) {
-        existing.setLngLat(lngLat);
-        return;
-      }
-      const el = document.createElement("div");
-      el.style.cursor = "pointer";
-      el.innerHTML = `
-        <div style="
-          background: hsl(217 91% 60%);
-          color: #fff;
-          padding: 3px 7px;
-          border-radius: 4px;
-          font: 600 11px/1 system-ui, sans-serif;
-          border: 2px solid #fff;
-          box-shadow: 0 1px 4px rgba(0,0,0,.35);
-          white-space: nowrap;
-        ">${m.truckNumber}</div>
-      `;
-      const marker = new mapboxgl.Marker({ element: el, anchor: "center" })
-        .setLngLat(lngLat)
-        .addTo(map);
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
-        setSelectedId(m.truckId);
-      });
-      markersRef.current.set(m.truckId, marker);
-    });
-  }, [filtered, mapReady]);
-
-  // Fly to / popup on selection
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady || !selectedId) return;
-    const m = markers.find((x) => x.truckId === selectedId);
-    if (!m) return;
-    map.flyTo({ center: [m.longitude, m.latitude], zoom: 10, speed: 1.4 });
-    popupRef.current?.remove();
-    popupRef.current = new mapboxgl.Popup({ offset: 18, closeButton: true })
-      .setLngLat([m.longitude, m.latitude])
-      .setHTML(
-        `<div style="font: 12px/1.4 system-ui, sans-serif; min-width: 180px;">
-          <div style="font-weight:700;font-size:13px;margin-bottom:4px;">Truck ${m.truckNumber}</div>
-          <div><strong>Driver:</strong> ${m.driverName}</div>
-          ${m.driver2Name ? `<div><strong>Co-Driver:</strong> ${m.driver2Name}</div>` : ""}
-          <div style="color:#666;margin-top:4px;">Updated ${formatRelative(m.timestamp)}</div>
-        </div>`,
-      )
-      .addTo(map);
-  }, [selectedId, markers, mapReady]);
-
-  const loading = trucksLoading || locsLoading;
+  const loading = fleetLoading || locsLoading;
 
   return (
     <div className="flex h-[calc(100vh-3rem)] w-full overflow-hidden bg-background">
@@ -210,38 +301,40 @@ export default function TrucksMap() {
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>
-              {filtered.length} of {markers.length} truck{markers.length === 1 ? "" : "s"}
+              {filteredTrucks.length} of {trucksWithData.length} truck
+              {trucksWithData.length === 1 ? "" : "s"}
             </span>
             {loading && <Loader2 className="h-3 w-3 animate-spin" />}
           </div>
         </div>
         <ScrollArea className="flex-1">
           <div className="divide-y">
-            {filtered.length === 0 && !loading && (
+            {filteredTrucks.length === 0 && !loading && (
               <div className="p-4 text-center text-xs text-muted-foreground">
                 No trucks match this search.
               </div>
             )}
-            {filtered.map((m) => (
-              <button
-                key={m.truckId}
-                onClick={() => setSelectedId(m.truckId)}
-                className={cn(
-                  "flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
-                  selectedId === m.truckId && "bg-accent",
-                )}
+            {filteredTrucks.map((m: any) => (
+              <div
+                key={m.id}
+                className="flex flex-col gap-0.5 px-3 py-2 text-sm hover:bg-accent"
               >
                 <div className="flex w-full items-center justify-between gap-2">
                   <span className="font-semibold text-foreground">#{m.truckNumber}</span>
-                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-normal">
-                    {formatRelative(m.timestamp)}
-                  </Badge>
+                  {m.currentOrder?.loadNumber && (
+                    <Badge
+                      variant="secondary"
+                      className="h-5 px-1.5 text-[10px] font-normal"
+                    >
+                      {m.currentOrder.loadNumber}
+                    </Badge>
+                  )}
                 </div>
                 <span className="truncate text-xs text-muted-foreground">
                   {m.driverName}
                   {m.driver2Name ? ` + ${m.driver2Name}` : ""}
                 </span>
-              </button>
+              </div>
             ))}
           </div>
         </ScrollArea>
@@ -249,19 +342,7 @@ export default function TrucksMap() {
 
       {/* Map */}
       <div className="relative flex-1">
-        <div ref={mapContainer} className="absolute inset-0" />
-        {(!mapReady || loading) && (
-          <div className="pointer-events-none absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-2 rounded-md bg-background/90 px-3 py-1.5 text-xs shadow">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            {loading ? "Loading truck locations…" : "Initializing map…"}
-          </div>
-        )}
-        {mapReady && !loading && markers.length === 0 && (
-          <div className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 rounded-md bg-background/95 px-4 py-3 text-center text-sm shadow">
-            <MapPin className="h-5 w-5 text-muted-foreground" />
-            <span>No truck locations available right now.</span>
-          </div>
-        )}
+        <DispatcherFleetMapView trucks={filteredTrucks as any} />
       </div>
     </div>
   );
