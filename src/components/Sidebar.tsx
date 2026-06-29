@@ -71,6 +71,7 @@ const navigation = [
   { name: "BG Loads", href: "/bg-loads", icon: FileText },
   { name: "Loads at the Yard", href: "/yard-loads", icon: Warehouse, roles: ['manager', 'admin', 'chicago_management', 'yard', 'afterhours'] },
   { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin', 'chicago_management', 'safety', 'dispatch'] },
+  { name: "Live Map", href: "/trucks-map", icon: MapPin },
   { name: "Trucks", href: "/trucks", icon: Truck },
   { name: "Trailers", href: "/trailers", icon: Package },
   { name: "Drivers", href: "/drivers", icon: UserCheck },
