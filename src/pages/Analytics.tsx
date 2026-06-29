@@ -1770,6 +1770,7 @@ const Analytics = () => {
             latestPickupDate: null,
             totalFreightPod: 0,
             totalDriverRatePod: 0,
+            noPodOrders: [],
           };
         }
         acc[entityId].totalFreight += agg.totalFreight;
