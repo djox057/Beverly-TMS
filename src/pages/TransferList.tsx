@@ -554,7 +554,7 @@ const TransferList = () => {
   const { data: drivers = [] } = useDrivers();
   const { data: companies = [] } = useCompanies();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>("ues");
+  const [activeTab, setActiveTab] = useState<string>("bf_prime");
 
   const canEdit = hasRole("admin") || hasRole("manager") || hasRole("safety");
   const { roles } = useAuthContext();
@@ -657,7 +657,7 @@ const TransferList = () => {
   }, [transferRows, driverMap, truckMap, profileMap, drugTestMap]);
 
   const filteredRows = useMemo(() => {
-    let rows = enrichedRows.filter((row: any) => (row.transfer_type || 'bf_prime_united') === activeTab);
+    let rows = enrichedRows.filter((row: any) => (row.transfer_type || 'bf_prime') === activeTab);
     // Hide rows where the driver is done (inactive)
     rows = rows.filter((row) => {
       if (!row.driver_id) return true;
@@ -850,13 +850,9 @@ const TransferList = () => {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(tab) => {
-          setActiveTab(tab);
-          setCompanyFilter(tab === "ues" ? "Beverly Freight Inc" : "all");
-        }}>
+      <Tabs value={activeTab} onValueChange={(tab) => setActiveTab(tab)}>
         <TabsList>
-          <TabsTrigger value="bf_prime_united">BF Prime United Transfer</TabsTrigger>
-          <TabsTrigger value="ues">UES Transfer</TabsTrigger>
+          <TabsTrigger value="bf_prime">BF Prime Transfers</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -1269,7 +1265,7 @@ function TransferRowDialog({
         const { error } = await supabase.from("transfer_list" as any).insert({
           ...payload,
           created_by: userId,
-          transfer_type: transferType || 'ues',
+          transfer_type: transferType || 'bf_prime',
         } as any);
         if (error) throw error;
       }
