@@ -315,7 +315,6 @@ const Drivers = () => {
         driver.dispatcher_info?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (normalizedSearchDigits.length > 0 && normalizedPhone.includes(normalizedSearchDigits));
 
-
       // Status filter
       const matchesStatus =
         statusFilter === "all" ||
