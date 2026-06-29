@@ -307,13 +307,13 @@ const Drivers = () => {
       // Search filter
       const matchesSearch =
         driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         driver.dispatcher_info?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (normalizedSearchDigits.length > 0 && normalizedPhone.includes(normalizedSearchDigits));
-
 
       // Status filter
       const matchesStatus =
@@ -2319,7 +2319,7 @@ const Drivers = () => {
               <div className="relative w-80">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
-                  placeholder="Search drivers by name, phone, truck, city..."
+                  placeholder="Search drivers by name, email, phone, truck, city..."
                   className="pl-10"
                   value={searchTerm}
                   onChange={(e) => handleSearchChange(e.target.value)}
