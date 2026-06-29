@@ -82,7 +82,7 @@ const navigation = [
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
   { name: "Dispatcher Tier", href: "/dispatcher-tier", icon: Trophy, roles: ['admin', 'manager'] },
-  // { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch', 'afterhours'] },
+  { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch', 'afterhours'] },
   { name: "Turnover List", href: "/turnover-list", icon: RefreshCw, roles: ['admin'] },
   { name: "Roadside Inspection", href: "/roadside-inspection", icon: AlertTriangle },
   { name: "Beverly Heatmap", href: "/beverly-heatmap", icon: MapPin, roles: ['manager', 'admin', 'chicago_management', 'dispatch'] },

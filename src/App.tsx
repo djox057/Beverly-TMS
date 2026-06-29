@@ -45,7 +45,7 @@ import NotFound from "./pages/NotFound";
 import Problems from "./pages/Problems";
 import DailyReport from "./pages/DailyReport";
 import Billboard from "./pages/Billboard";
-// import TransferList from "./pages/TransferList";
+import TransferList from "./pages/TransferList";
 import TurnoverList from "./pages/TurnoverList";
 import RoadsideInspection from "./pages/RoadsideInspection";
 import TruckSales from "./pages/TruckSales";
@@ -252,11 +252,11 @@ const AppContent = () => {
             <Billboard />
           </ProtectedRoute>
         } />
-        {/* <Route path="/transfer-list" element={
+        <Route path="/transfer-list" element={
           <ProtectedRoute excludedRoles={['yard']}>
             <Layout><TransferList /></Layout>
           </ProtectedRoute>
-        } /> */}
+        } />
         <Route path="/turnover-list" element={
           <ProtectedRoute requiredRole="admin">
             <Layout><TurnoverList /></Layout>
