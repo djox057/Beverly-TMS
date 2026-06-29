@@ -94,16 +94,16 @@ const handler = async (req: Request): Promise<Response> => {
       return !files.some((f: any) => f.file_category === "POD");
     });
 
-    // Look up booker profiles by user_id
-    const bookerIds = Array.from(new Set(missing.map((o: any) => o.booked_by).filter(Boolean)));
+    // booked_by is the dispatcher's display name (text). Look up profiles by full_name.
+    const bookerNames = Array.from(new Set(missing.map((o: any) => o.booked_by).filter(Boolean)));
     const bookerMap = new Map<string, { full_name: string | null; email: string | null }>();
-    if (bookerIds.length) {
+    if (bookerNames.length) {
       const { data: profs } = await supabase
         .from("profiles")
-        .select("user_id, full_name, email")
-        .in("user_id", bookerIds);
+        .select("full_name, email")
+        .in("full_name", bookerNames);
       for (const p of profs || []) {
-        bookerMap.set((p as any).user_id, { full_name: (p as any).full_name, email: (p as any).email });
+        bookerMap.set((p as any).full_name, { full_name: (p as any).full_name, email: (p as any).email });
       }
     }
 
