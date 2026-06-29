@@ -5220,33 +5220,34 @@ const Analytics = () => {
                                   </TableCell>
                                 )}
                                 <TableCell className="text-right">
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="cursor-help">
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <span className="cursor-pointer">
+                                        $
+                                        {fullTotalPod.toLocaleString(undefined, {
+                                          minimumFractionDigits: 0,
+                                          maximumFractionDigits: 0,
+                                        })}
+                                        <span className="text-muted-foreground">/</span>
+                                        <span className="text-muted-foreground">
                                           $
-                                          {fullTotalPod.toLocaleString(undefined, {
-                                            minimumFractionDigits: 0,
-                                            maximumFractionDigits: 0,
-                                          })}
-                                          <span className="text-muted-foreground">/</span>$
                                           {fullTotal.toLocaleString(undefined, {
                                             minimumFractionDigits: 0,
                                             maximumFractionDigits: 0,
                                           })}
                                         </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <div className="text-xs max-w-xs">
-                                          Payment for orders without an uploaded POD is held
-                                          until the POD is uploaded. The first amount is what is
-                                          currently payable (POD-confirmed orders only); the
-                                          second is the full amount including orders still
-                                          awaiting POD.
-                                        </div>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
+                                      </span>
+                                    </PopoverTrigger>
+                                    <PopoverContent>
+                                      <div className="text-xs max-w-xs">
+                                        Payment for orders without an uploaded POD is held
+                                        until the POD is uploaded. The first amount is what is
+                                        currently payable (POD-confirmed orders only); the
+                                        second is the full amount including orders still
+                                        awaiting POD.
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
                                 </TableCell>
                                 {/* Paid column - only show when actually paid */}
                                 <TableCell className="text-right">
