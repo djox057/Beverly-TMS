@@ -99,6 +99,10 @@ interface DispatcherFleetMapViewProps {
   externalSelectedTruckId?: string | null;
   /** Fly to truck on selection (marker click or external change). */
   flyToOnSelect?: boolean;
+  /** Called when a truck marker is clicked. */
+  onTruckSelect?: (truckId: string) => void;
+  /** Called when the popup is closed. */
+  onPopupClose?: () => void;
 }
 
 export function DispatcherFleetMapView({
@@ -109,6 +113,8 @@ export function DispatcherFleetMapView({
   fullAddress = false,
   externalSelectedTruckId,
   flyToOnSelect = false,
+  onTruckSelect,
+  onPopupClose,
 }: DispatcherFleetMapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -151,13 +157,14 @@ export function DispatcherFleetMapView({
     console.log('[FleetMap] Truck selected:', truckId);
     setSelectedTruckId(truckId);
     setPopupTick((n) => n + 1);
+    onTruckSelect?.(truckId);
     if (flyToOnSelect) {
       const md = markersRef.current.get(truckId);
       if (md && map.current) {
         map.current.flyTo({ center: md.lngLat, zoom: Math.max(map.current.getZoom(), 8), duration: 800 });
       }
     }
-  }, [flyToOnSelect]);
+  }, [flyToOnSelect, onTruckSelect]);
 
   // Sync external selection
   useEffect(() => {
@@ -175,7 +182,8 @@ export function DispatcherFleetMapView({
   // Close popup
   const closePopup = useCallback(() => {
     setSelectedTruckId(null);
-  }, []);
+    onPopupClose?.();
+  }, [onPopupClose]);
 
   const toFiniteCoordinate = (value?: number | string | null) => {
     const numericValue = typeof value === 'string' ? Number(value) : value;
