@@ -413,6 +413,15 @@ export default function TrucksMap() {
           fullAddress
           flyToOnSelect
           externalSelectedTruckId={selectedTruckId}
+          onTruckSelect={(id) => {
+            const t = (trucksWithData as any[]).find((x) => x.id === id);
+            if (t) setSearch(t.truckNumber);
+            setSelectedTruckId(id);
+          }}
+          onPopupClose={() => {
+            setSearch("");
+            setSelectedTruckId(null);
+          }}
         />
       </div>
     </div>
