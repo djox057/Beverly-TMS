@@ -34,6 +34,7 @@ import DispatcherTier from "./pages/DispatcherTier";
 import DispatcherTierDetail from "./pages/DispatcherTierDetail";
 import Alerts from "./pages/Alerts";
 import Trips from "./pages/Trips";
+import TrucksMap from "./pages/TrucksMap";
 import BeverlyHeatmap from "./pages/BeverlyHeatmap";
 
 import Repairs from "./pages/Repairs";
@@ -219,6 +220,11 @@ const AppContent = () => {
         <Route path="/trips" element={
           <ProtectedRoute excludedRoles={['afterhours', 'driver']}>
             <Layout><Trips /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/trucks-map" element={
+          <ProtectedRoute>
+            <Layout><TrucksMap /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/stuff" element={
