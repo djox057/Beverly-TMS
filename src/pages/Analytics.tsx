@@ -48,6 +48,7 @@ import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 import RecruitingTab from "@/components/RecruitingTab";
+import { orderHasPOD } from "@/pages/Reports/helpers";
 import { DayInput } from "@/components/DayInput";
 import crownImage from "@/assets/crown.png";
 const isWeekday = (date: Date) => {
@@ -1704,6 +1705,8 @@ const Analytics = () => {
         totalDhMiles: number;
         orderCount: number;
         latestPickupDate: string | null;
+        totalFreightPod: number;
+        totalDriverRatePod: number;
       }
     > = {};
 
@@ -1717,6 +1720,8 @@ const Analytics = () => {
           totalDhMiles: 0,
           orderCount: 0,
           latestPickupDate: null,
+          totalFreightPod: 0,
+          totalDriverRatePod: 0,
         };
       }
       const orderFreight = Number(order.totalFreightAmountNoLumper) || 0;
@@ -1728,6 +1733,10 @@ const Analytics = () => {
       acc[dispatcher].totalMiles += orderMiles;
       acc[dispatcher].totalDhMiles += orderDhMiles;
       acc[dispatcher].orderCount += 1;
+      if (orderHasPOD(order)) {
+        acc[dispatcher].totalFreightPod += orderFreight;
+        acc[dispatcher].totalDriverRatePod += orderDriverPay;
+      }
       const pickupDate = order.pickupDate || order.pickupDatetime;
       if (pickupDate) {
         const pickupStr = typeof pickupDate === "string" ? pickupDate : String(pickupDate);
@@ -1748,6 +1757,8 @@ const Analytics = () => {
             totalDhMiles: 0,
             orderCount: 0,
             latestPickupDate: null,
+            totalFreightPod: 0,
+            totalDriverRatePod: 0,
           };
         }
         acc[entityId].totalFreight += agg.totalFreight;
@@ -1755,6 +1766,9 @@ const Analytics = () => {
         acc[entityId].totalMiles += agg.totalMiles;
         acc[entityId].totalDhMiles += agg.totalDhMiles;
         acc[entityId].orderCount += agg.orderCount;
+        // Locked aggregates have no POD-presence breakdown; assume all-POD (treat as completed).
+        acc[entityId].totalFreightPod += agg.totalFreight;
+        acc[entityId].totalDriverRatePod += agg.totalDriverPayEffective;
       }
     }
 
@@ -1771,9 +1785,12 @@ const Analytics = () => {
           totalDhMiles: number;
           orderCount: number;
           latestPickupDate: string | null;
+          totalFreightPod: number;
+          totalDriverRatePod: number;
         },
       ]) => {
         const cut = stats.totalFreight - stats.totalDriverRate;
+        const cutPod = stats.totalFreightPod - stats.totalDriverRatePod;
         const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
         const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
         const avgDhMiles = stats.orderCount > 0 ? stats.totalDhMiles / stats.orderCount : 0;
@@ -1817,6 +1834,8 @@ const Analytics = () => {
           turnover: turnoverMap[validUserId] || 0,
           emptyDays: emptyDaysMap[validUserId] || 0,
           latestPickupDate: stats.latestPickupDate,
+          totalFreightPod: stats.totalFreightPod,
+          cutPod,
         };
       },
     )
@@ -4336,6 +4355,8 @@ const Analytics = () => {
                             // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
                             const { grossPct: rGross, cutPct: rCut, salary1Label: rSalLabel, bonus5Label: rBonLabel } = getDispatcherRates(stat.userId, stat.name);
                             const baseRate = stat.totalFreight * rGross + stat.cut * rCut;
+                            const baseRatePod =
+                              (stat.totalFreightPod || 0) * rGross + (stat.cutPod || 0) * rCut;
 
                             // Carry-over adjustment: if prev month's salary column changed after being paid
                             // calculated_salary = base rate stored at time of payment
@@ -4402,6 +4423,8 @@ const Analytics = () => {
                                 foodAllowance +
                                 bonusAmount +
                                 adjustmentsTotal;
+                            // Same total but using POD-only base rate (extras/food/bonus/adjustments don't depend on freight)
+                            const fullTotalPod = fullTotal - baseRate + baseRatePod;
 
                             // Helper to render rank icon
                             const renderRankIcon = () => {
@@ -5196,13 +5219,42 @@ const Analytics = () => {
                                   </TableCell>
                                 )}
                                 <TableCell className="text-right">
-                                  <span>
-                                    $
-                                    {fullTotal.toLocaleString(undefined, {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                  </span>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="cursor-help">
+                                          $
+                                          {fullTotalPod.toLocaleString(undefined, {
+                                            minimumFractionDigits: 0,
+                                            maximumFractionDigits: 0,
+                                          })}
+                                          <span className="text-muted-foreground">/</span>$
+                                          {fullTotal.toLocaleString(undefined, {
+                                            minimumFractionDigits: 0,
+                                            maximumFractionDigits: 0,
+                                          })}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <div className="text-xs space-y-1">
+                                          <div>
+                                            POD-only: $
+                                            {fullTotalPod.toLocaleString(undefined, {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            })}
+                                          </div>
+                                          <div>
+                                            All orders: $
+                                            {fullTotal.toLocaleString(undefined, {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            })}
+                                          </div>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 </TableCell>
                                 {/* Paid column - only show when actually paid */}
                                 <TableCell className="text-right">
