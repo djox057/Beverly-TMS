@@ -30,10 +30,12 @@ function formatDelivery(dt: string | null | undefined): string {
   return `${mo}/${d}/${y} ${hh}:${mm}`;
 }
 
-// Fine = 30% of (freight*1% + (freight - driver_pay)*5%)
-function calcFine(freight: number, driverPay: number): number {
+// Fine range: 30% if POD not uploaded within 24 hours, 50% after 48 hours.
+// Base = freight*1% + (freight - driver_pay)*5%
+function calcFineRange(freight: number, driverPay: number): { min: number; max: number } {
   const base = freight * 0.01 + (freight - driverPay) * 0.05;
-  return Math.max(0, base) * 0.30;
+  const positiveBase = Math.max(0, base);
+  return { min: positiveBase * 0.30, max: positiveBase * 0.50 };
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -133,14 +135,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     for (const [, group] of byDispatcher) {
       const rows = group.orders.map((o) => {
-        const fine = calcFine(o.freight_amount, o.driver_price).toFixed(2);
+        const { min, max } = calcFineRange(o.freight_amount, o.driver_price);
+        const fine = `$${min.toFixed(2)} - $${max.toFixed(2)}`;
         return `
           <tr>
             <td style="padding:8px;border-bottom:1px solid #eee;">${o.internal_load_number || ""}</td>
             <td style="padding:8px;border-bottom:1px solid #eee;">${o.load_number || ""}</td>
             <td style="padding:8px;border-bottom:1px solid #eee;">${o.truck_number || ""}</td>
             <td style="padding:8px;border-bottom:1px solid #eee;">${formatDelivery(o.delivery_datetime)}</td>
-            <td style="padding:8px;border-bottom:1px solid #eee;color:#b91c1c;font-weight:bold;">$${fine}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;color:#b91c1c;font-weight:bold;">${fine}</td>
           </tr>`;
       }).join("");
 
@@ -154,8 +157,8 @@ const handler = async (req: Request): Promise<Response> => {
             <strong>still ${group.orders.length > 1 ? "have" : "has"} no POD uploaded</strong>.</p>
 
           <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px;margin:14px 0;color:#9a3412;">
-            ⚠️ Failure to upload the POD within <strong>24 hours of receiving this email</strong>
-            will result in a fine of <strong>30% of the load's driver pay</strong>.
+            ⚠️ Not uploading the POD within <strong>24 hours of delivery</strong> is a <strong>30% charge</strong>.
+            Not uploading the POD within <strong>48 hours of delivery</strong> is a <strong>50% charge</strong>.
           </div>
 
           <table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;">
@@ -165,7 +168,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <th style="padding:8px;border-bottom:2px solid #ddd;">Load #</th>
                 <th style="padding:8px;border-bottom:2px solid #ddd;">Truck</th>
                 <th style="padding:8px;border-bottom:2px solid #ddd;">Delivery</th>
-                <th style="padding:8px;border-bottom:2px solid #ddd;">Potential Fine (30%)</th>
+                <th style="padding:8px;border-bottom:2px solid #ddd;">Potential Fine (30% - 50%)</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
