@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, Truck as TruckIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -279,12 +279,11 @@ export default function TrucksMap() {
   }, [trucksWithData, search]);
 
   // Auto-select when search narrows to exactly one truck
-  useMemo(() => {
+  useEffect(() => {
     if (search.trim() && filteredTrucks.length === 1) {
       const only = (filteredTrucks[0] as any).id as string;
       if (only !== selectedTruckId) setSelectedTruckId(only);
     }
-    return null;
   }, [search, filteredTrucks, selectedTruckId]);
 
   const loading = fleetLoading || locsLoading;
