@@ -618,16 +618,13 @@ const TransferList = () => {
     return map;
   }, [profiles]);
 
-  const ALLOWED_SAFETY_NAMES = ["Anastasija Zdravkovic-Anja", "Nina Blesic-Rose"];
-
   const safetyUserList = useMemo(() => {
     const ids = new Set<string>();
     safetyUsers.forEach((r: any) => ids.add(r.user_id));
     return Array.from(ids).map((uid) => {
       const p = profileMap.get(uid);
       return { user_id: uid, name: p?.name || uid };
-    }).filter((u) => ALLOWED_SAFETY_NAMES.includes(u.name))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    }).sort((a, b) => a.name.localeCompare(b.name));
   }, [safetyUsers, profileMap]);
 
   const drugTestMap = useMemo(() => {
