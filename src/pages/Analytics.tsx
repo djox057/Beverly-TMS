@@ -1707,7 +1707,7 @@ const Analytics = () => {
         latestPickupDate: string | null;
         totalFreightPod: number;
         totalDriverRatePod: number;
-        noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number }[];
+        noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number; driverPay: number }[];
       }
     > = {};
 
@@ -1800,7 +1800,7 @@ const Analytics = () => {
           latestPickupDate: string | null;
           totalFreightPod: number;
           totalDriverRatePod: number;
-          noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number }[];
+          noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number; driverPay: number }[];
         },
       ]) => {
         const cut = stats.totalFreight - stats.totalDriverRate;
