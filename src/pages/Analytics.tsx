@@ -1707,6 +1707,7 @@ const Analytics = () => {
         latestPickupDate: string | null;
         totalFreightPod: number;
         totalDriverRatePod: number;
+        noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number }[];
       }
     > = {};
 
@@ -1722,6 +1723,7 @@ const Analytics = () => {
           latestPickupDate: null,
           totalFreightPod: 0,
           totalDriverRatePod: 0,
+          noPodOrders: [],
         };
       }
       const orderFreight = Number(order.totalFreightAmountNoLumper) || 0;
@@ -1733,9 +1735,18 @@ const Analytics = () => {
       acc[dispatcher].totalMiles += orderMiles;
       acc[dispatcher].totalDhMiles += orderDhMiles;
       acc[dispatcher].orderCount += 1;
-      if (orderHasPOD(order)) {
+      // Canceled orders that reached this point have TONU values; treat them as POD-confirmed
+      // (payment isn't held waiting on a POD that will never exist).
+      if (orderHasPOD(order) || order.canceled) {
         acc[dispatcher].totalFreightPod += orderFreight;
         acc[dispatcher].totalDriverRatePod += orderDriverPay;
+      } else {
+        acc[dispatcher].noPodOrders.push({
+          loadNumber: (order as any).loadNumber ?? null,
+          brokerLoadNumber: (order as any).brokerLoadNumber ?? null,
+          internalLoadNumber: (order as any).internalLoadNumber ?? null,
+          freight: orderFreight,
+        });
       }
       const pickupDate = order.pickupDate || order.pickupDatetime;
       if (pickupDate) {
