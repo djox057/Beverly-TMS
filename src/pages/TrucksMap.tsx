@@ -40,6 +40,7 @@ interface PickupDropRow {
   address: string;
   city: string | null;
   state: string | null;
+  zip_code: string | null;
   latitude: number | null;
   longitude: number | null;
   datetime: string | null;
@@ -116,7 +117,7 @@ async function fetchFleetMapData() {
         supabase
           .from("orders")
           .select(
-            "id, truck_id, internal_load_number, broker_load_number, pickup_datetime, canceled, notes, pickup_drops(id, order_id, type, sequence_number, address, city, state, latitude, longitude, datetime, arrived_at), order_files(order_id, file_category)",
+            "id, truck_id, internal_load_number, broker_load_number, pickup_datetime, canceled, notes, pickup_drops(id, order_id, type, sequence_number, address, city, state, zip_code, latitude, longitude, datetime, arrived_at), order_files(order_id, file_category)",
           )
           .in("truck_id", ids)
           .eq("canceled", false)
