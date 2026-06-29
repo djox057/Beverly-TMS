@@ -1785,9 +1785,12 @@ const Analytics = () => {
           totalDhMiles: number;
           orderCount: number;
           latestPickupDate: string | null;
+          totalFreightPod: number;
+          totalDriverRatePod: number;
         },
       ]) => {
         const cut = stats.totalFreight - stats.totalDriverRate;
+        const cutPod = stats.totalFreightPod - stats.totalDriverRatePod;
         const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
         const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
         const avgDhMiles = stats.orderCount > 0 ? stats.totalDhMiles / stats.orderCount : 0;
@@ -1831,6 +1834,8 @@ const Analytics = () => {
           turnover: turnoverMap[validUserId] || 0,
           emptyDays: emptyDaysMap[validUserId] || 0,
           latestPickupDate: stats.latestPickupDate,
+          totalFreightPod: stats.totalFreightPod,
+          cutPod,
         };
       },
     )
