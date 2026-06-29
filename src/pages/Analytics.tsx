@@ -4355,6 +4355,8 @@ const Analytics = () => {
                             // Salary display: Total Freight * 0.01 + Total Comm. * 0.05 (simple base rate)
                             const { grossPct: rGross, cutPct: rCut, salary1Label: rSalLabel, bonus5Label: rBonLabel } = getDispatcherRates(stat.userId, stat.name);
                             const baseRate = stat.totalFreight * rGross + stat.cut * rCut;
+                            const baseRatePod =
+                              (stat.totalFreightPod || 0) * rGross + (stat.cutPod || 0) * rCut;
 
                             // Carry-over adjustment: if prev month's salary column changed after being paid
                             // calculated_salary = base rate stored at time of payment
@@ -4421,6 +4423,8 @@ const Analytics = () => {
                                 foodAllowance +
                                 bonusAmount +
                                 adjustmentsTotal;
+                            // Same total but using POD-only base rate (extras/food/bonus/adjustments don't depend on freight)
+                            const fullTotalPod = fullTotal - baseRate + baseRatePod;
 
                             // Helper to render rank icon
                             const renderRankIcon = () => {
