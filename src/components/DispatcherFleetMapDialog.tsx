@@ -692,20 +692,20 @@ export function DispatcherFleetMapView({
     };
   }, [singleHomeOnly, selectedTruck]);
 
-  // Click outside to close popup
+  // Click outside to close popup (but keep search value in parent)
   useEffect(() => {
     if (!selectedTruckId) return;
-    
+
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest('.fleet-popup-panel')) return;
       if (target.closest('.truck-marker-fleet')) return;
-      closePopup();
+      setSelectedTruckId(null);
     };
-    
+
     window.addEventListener('click', handleClickOutside);
     return () => window.removeEventListener('click', handleClickOutside);
-  }, [selectedTruckId, closePopup]);
+  }, [selectedTruckId]);
 
   // Calculate popup position based on marker's screen position
   const popupStyle = useMemo(() => {
