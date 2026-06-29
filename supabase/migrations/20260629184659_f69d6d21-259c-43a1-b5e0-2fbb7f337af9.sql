@@ -1,0 +1,2 @@
+UPDATE public.orders SET booked_by = TRIM(booked_by) WHERE booked_by IS NOT NULL AND booked_by <> TRIM(booked_by);
+UPDATE public.profiles SET full_name = TRIM(full_name) WHERE full_name IS NOT NULL AND full_name <> TRIM(full_name);
