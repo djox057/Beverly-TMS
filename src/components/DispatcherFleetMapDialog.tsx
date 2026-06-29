@@ -87,9 +87,29 @@ interface TruckData {
 
 interface DispatcherFleetMapViewProps {
   trucks: TruckData[];
+  /** Only show home marker for the currently-selected truck. */
+  singleHomeOnly?: boolean;
+  /** Pin the popup to the bottom-right of the map container. */
+  pinnedPopup?: boolean;
+  /** Hide Miles Away and ETA rows in the popup. */
+  hideMilesAndEta?: boolean;
+  /** Show full pickup/delivery addresses (not just city/state). */
+  fullAddress?: boolean;
+  /** Externally controlled selected truck id (overrides internal selection). */
+  externalSelectedTruckId?: string | null;
+  /** Fly to truck on selection (marker click or external change). */
+  flyToOnSelect?: boolean;
 }
 
-export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) {
+export function DispatcherFleetMapView({
+  trucks,
+  singleHomeOnly = false,
+  pinnedPopup = false,
+  hideMilesAndEta = false,
+  fullAddress = false,
+  externalSelectedTruckId,
+  flyToOnSelect = false,
+}: DispatcherFleetMapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; lngLat: [number, number] }>>(new Map());
@@ -131,7 +151,26 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
     console.log('[FleetMap] Truck selected:', truckId);
     setSelectedTruckId(truckId);
     setPopupTick((n) => n + 1);
-  }, []);
+    if (flyToOnSelect) {
+      const md = markersRef.current.get(truckId);
+      if (md && map.current) {
+        map.current.flyTo({ center: md.lngLat, zoom: Math.max(map.current.getZoom(), 8), duration: 800 });
+      }
+    }
+  }, [flyToOnSelect]);
+
+  // Sync external selection
+  useEffect(() => {
+    if (externalSelectedTruckId === undefined) return;
+    setSelectedTruckId(externalSelectedTruckId);
+    setPopupTick((n) => n + 1);
+    if (externalSelectedTruckId && flyToOnSelect) {
+      const md = markersRef.current.get(externalSelectedTruckId);
+      if (md && map.current) {
+        map.current.flyTo({ center: md.lngLat, zoom: Math.max(map.current.getZoom(), 8), duration: 800 });
+      }
+    }
+  }, [externalSelectedTruckId, flyToOnSelect]);
 
   // Close popup
   const closePopup = useCallback(() => {
@@ -370,7 +409,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
 
           const warningToken = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
           const warningColor = warningToken ? `hsl(${warningToken})` : 'hsl(38 92% 50%)';
-          const homeLocations = trucksRef.current
+          const homeLocations = singleHomeOnly ? [] : trucksRef.current
             .map((truck) => ({
               truck,
               lat: toFiniteCoordinate(truck.homeLatitude),
@@ -531,7 +570,47 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
       map.current = null;
       initStartedRef.current = false;
     };
-  }, [locations?.length, trucksSignature, handleTruckClick]);
+  }, [locations?.length, trucksSignature, handleTruckClick, singleHomeOnly]);
+
+  // Per-selection home marker (only when singleHomeOnly)
+  useEffect(() => {
+    if (!singleHomeOnly) return;
+    // Clear previous home markers
+    homeMarkersRef.current.forEach((m) => m.remove());
+    homeMarkersRef.current = [];
+    if (!map.current || !selectedTruck) return;
+    const lat = toFiniteCoordinate(selectedTruck.homeLatitude);
+    const lng = toFiniteCoordinate(selectedTruck.homeLongitude);
+    if (lat === null || lng === null) return;
+    const warningToken = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim();
+    const warningColor = warningToken ? `hsl(${warningToken})` : 'hsl(38 92% 50%)';
+    const homeEl = document.createElement('div');
+    homeEl.style.cursor = 'default';
+    homeEl.title = `${selectedTruck.driverName}${selectedTruck.homeCity || selectedTruck.homeState ? ` — ${[selectedTruck.homeCity, selectedTruck.homeState].filter(Boolean).join(', ')}` : ''}`;
+    const badge = document.createElement('div');
+    badge.style.width = '34px';
+    badge.style.height = '34px';
+    badge.style.borderRadius = '9999px';
+    badge.style.background = warningColor;
+    badge.style.color = 'hsl(var(--warning-foreground))';
+    badge.style.border = '2px solid hsl(var(--background))';
+    badge.style.boxShadow = '0 2px 8px hsl(var(--foreground) / 0.35)';
+    badge.style.display = 'flex';
+    badge.style.alignItems = 'center';
+    badge.style.justifyContent = 'center';
+    badge.style.fontSize = '20px';
+    badge.style.lineHeight = '1';
+    badge.textContent = '🏠';
+    homeEl.appendChild(badge);
+    const homeMarker = new mapboxgl.Marker({ element: homeEl, anchor: 'center' })
+      .setLngLat([lng, lat])
+      .addTo(map.current);
+    homeMarkersRef.current.push(homeMarker);
+    return () => {
+      homeMarkersRef.current.forEach((m) => m.remove());
+      homeMarkersRef.current = [];
+    };
+  }, [singleHomeOnly, selectedTruck]);
 
   // Click outside to close popup
   useEffect(() => {
@@ -552,6 +631,9 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
   const popupStyle = useMemo(() => {
     // popupTick triggers recalculation on map move
     void popupTick;
+    if (pinnedPopup) {
+      return { right: '12px', bottom: '12px', left: 'auto', top: 'auto' } as React.CSSProperties;
+    }
     if (!selectedMarkerData || !map.current || !mapContainer.current) return { display: 'none' };
     
     const point = map.current.project(selectedMarkerData.lngLat);
@@ -571,7 +653,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
       left: `${left}px`,
       top: `${top}px`,
     };
-  }, [selectedMarkerData, selectedTruckId, popupTick]);
+  }, [selectedMarkerData, selectedTruckId, popupTick, pinnedPopup]);
 
   // Calculate ETA based on miles away (rough estimate: 50 mph average)
   const calculateETA = (milesAway?: number | null) => {
@@ -617,9 +699,9 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
       )}
 
       {/* Driver info popup - follows the truck marker */}
-      {selectedTruck && selectedMarkerData && (
+      {selectedTruck && (pinnedPopup || selectedMarkerData) && (
         <div
-          className="fleet-popup-panel absolute w-[340px] rounded-lg overflow-hidden shadow-xl border border-border"
+          className={`fleet-popup-panel absolute ${pinnedPopup ? 'w-[280px]' : 'w-[340px]'} rounded-lg overflow-hidden shadow-xl border border-border`}
           style={{ ...popupStyle, zIndex: 9999 }}
         >
           {/* Header */}
@@ -669,8 +751,8 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
             {selectedTruck.currentOrder && (
               <div className="flex items-start justify-between text-sm">
                 <span className="text-[hsl(199_89%_48%)]">Pickup:</span>
-                <span className="font-medium text-foreground text-right max-w-[200px] truncate">
-                  {formatLocation(
+                <span className={`font-medium text-foreground text-right ${fullAddress ? 'max-w-[180px] break-words' : 'max-w-[200px] truncate'}`}>
+                  {(fullAddress ? selectedTruck.currentOrder.pickupAddress : null) || formatLocation(
                     selectedTruck.currentOrder.pickupCity,
                     selectedTruck.currentOrder.pickupState,
                     selectedTruck.currentOrder.pickupAddress
@@ -683,8 +765,8 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
             {selectedTruck.currentOrder && (
               <div className="flex items-start justify-between text-sm">
                 <span className="text-[hsl(199_89%_48%)]">Delivery:</span>
-                <span className="font-medium text-foreground text-right max-w-[200px] truncate">
-                  {formatLocation(
+                <span className={`font-medium text-foreground text-right ${fullAddress ? 'max-w-[180px] break-words' : 'max-w-[200px] truncate'}`}>
+                  {(fullAddress ? selectedTruck.currentOrder.deliveryAddress : null) || formatLocation(
                     selectedTruck.currentOrder.deliveryCity,
                     selectedTruck.currentOrder.deliveryState,
                     selectedTruck.currentOrder.deliveryAddress
@@ -693,21 +775,22 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
               </div>
             )}
 
-            {/* Miles Away */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-[hsl(199_89%_48%)]">Miles Away:</span>
-              <span className="font-medium text-foreground">
-                {selectedTruck.milesAway != null ? `${selectedTruck.milesAway} mi` : '—'}
-              </span>
-            </div>
-
-            {/* ETA (calculated from miles) */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-[hsl(199_89%_48%)]">ETA:</span>
-              <span className="font-medium text-foreground">
-                {calculateETA(selectedTruck.milesAway) || '—'}
-              </span>
-            </div>
+            {!hideMilesAndEta && (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[hsl(199_89%_48%)]">Miles Away:</span>
+                  <span className="font-medium text-foreground">
+                    {selectedTruck.milesAway != null ? `${selectedTruck.milesAway} mi` : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[hsl(199_89%_48%)]">ETA:</span>
+                  <span className="font-medium text-foreground">
+                    {calculateETA(selectedTruck.milesAway) || '—'}
+                  </span>
+                </div>
+              </>
+            )}
 
             {/* HOS Circles */}
             <div className="pt-2 border-t border-border">
