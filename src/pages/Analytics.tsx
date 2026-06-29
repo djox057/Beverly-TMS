@@ -1707,6 +1707,7 @@ const Analytics = () => {
         latestPickupDate: string | null;
         totalFreightPod: number;
         totalDriverRatePod: number;
+        noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number }[];
       }
     > = {};
 
@@ -1722,6 +1723,7 @@ const Analytics = () => {
           latestPickupDate: null,
           totalFreightPod: 0,
           totalDriverRatePod: 0,
+          noPodOrders: [],
         };
       }
       const orderFreight = Number(order.totalFreightAmountNoLumper) || 0;
@@ -1733,9 +1735,18 @@ const Analytics = () => {
       acc[dispatcher].totalMiles += orderMiles;
       acc[dispatcher].totalDhMiles += orderDhMiles;
       acc[dispatcher].orderCount += 1;
-      if (orderHasPOD(order)) {
+      // Canceled orders that reached this point have TONU values; treat them as POD-confirmed
+      // (payment isn't held waiting on a POD that will never exist).
+      if (orderHasPOD(order) || order.canceled) {
         acc[dispatcher].totalFreightPod += orderFreight;
         acc[dispatcher].totalDriverRatePod += orderDriverPay;
+      } else {
+        acc[dispatcher].noPodOrders.push({
+          loadNumber: (order as any).loadNumber ?? null,
+          brokerLoadNumber: (order as any).brokerLoadNumber ?? null,
+          internalLoadNumber: (order as any).internalLoadNumber ?? null,
+          freight: orderFreight,
+        });
       }
       const pickupDate = order.pickupDate || order.pickupDatetime;
       if (pickupDate) {
@@ -1759,6 +1770,7 @@ const Analytics = () => {
             latestPickupDate: null,
             totalFreightPod: 0,
             totalDriverRatePod: 0,
+            noPodOrders: [],
           };
         }
         acc[entityId].totalFreight += agg.totalFreight;
@@ -1787,6 +1799,7 @@ const Analytics = () => {
           latestPickupDate: string | null;
           totalFreightPod: number;
           totalDriverRatePod: number;
+          noPodOrders: { loadNumber: string | null; brokerLoadNumber: string | null; internalLoadNumber: string | null; freight: number }[];
         },
       ]) => {
         const cut = stats.totalFreight - stats.totalDriverRate;
@@ -1836,6 +1849,7 @@ const Analytics = () => {
           latestPickupDate: stats.latestPickupDate,
           totalFreightPod: stats.totalFreightPod,
           cutPod,
+          noPodOrders: stats.noPodOrders,
         };
       },
     )
@@ -5239,12 +5253,37 @@ const Analytics = () => {
                                       </span>
                                     </PopoverTrigger>
                                     <PopoverContent>
-                                      <div className="text-xs max-w-xs">
-                                        Payment for orders without an uploaded POD is held
-                                        until the POD is uploaded. The first amount is what is
-                                        currently payable (POD-confirmed orders only); the
-                                        second is the full amount including orders still
-                                        awaiting POD.
+                                      <div className="text-xs max-w-xs space-y-2">
+                                        <div>
+                                          Payment for orders without an uploaded POD is held
+                                          until the POD is uploaded. The first amount is what is
+                                          currently payable (POD-confirmed orders only); the
+                                          second is the full amount including orders still
+                                          awaiting POD. Canceled orders count as POD-confirmed.
+                                        </div>
+                                        {stat.noPodOrders && stat.noPodOrders.length > 0 && (
+                                          <div>
+                                            <div className="font-medium mb-1">
+                                              Loads missing POD ({stat.noPodOrders.length}):
+                                            </div>
+                                            <div className="max-h-48 overflow-y-auto space-y-0.5">
+                                              {stat.noPodOrders.map((o, i) => {
+                                                const ln = o.brokerLoadNumber || o.loadNumber || o.internalLoadNumber || "—";
+                                                return (
+                                                  <div key={i} className="flex justify-between gap-3">
+                                                    <span className="font-mono">{ln}</span>
+                                                    <span className="text-muted-foreground">
+                                                      ${o.freight.toLocaleString(undefined, {
+                                                        minimumFractionDigits: 0,
+                                                        maximumFractionDigits: 0,
+                                                      })}
+                                                    </span>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
                                     </PopoverContent>
                                   </Popover>
