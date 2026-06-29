@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, Truck as TruckIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -166,6 +166,7 @@ function pickCurrentOrder(allOrders: OrderRow[]): OrderRow | null {
 
 export default function TrucksMap() {
   const [search, setSearch] = useState("");
+  const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
 
   const { data: fleet, isLoading: fleetLoading } = useQuery({
     queryKey: FLEET_QUERY_KEY,
@@ -277,6 +278,14 @@ export default function TrucksMap() {
     );
   }, [trucksWithData, search]);
 
+  // Auto-select when search narrows to exactly one truck
+  useEffect(() => {
+    if (search.trim() && filteredTrucks.length === 1) {
+      const only = (filteredTrucks[0] as any).id as string;
+      if (only !== selectedTruckId) setSelectedTruckId(only);
+    }
+  }, [search, filteredTrucks, selectedTruckId]);
+
   const loading = fleetLoading || locsLoading;
 
   return (
@@ -315,7 +324,11 @@ export default function TrucksMap() {
             {filteredTrucks.map((m: any) => (
               <div
                 key={m.id}
-                className="flex flex-col gap-0.5 px-3 py-2 text-sm hover:bg-accent"
+                onClick={() => setSelectedTruckId(m.id)}
+                className={cn(
+                  "flex cursor-pointer flex-col gap-0.5 px-3 py-2 text-sm hover:bg-accent",
+                  selectedTruckId === m.id && "bg-accent",
+                )}
               >
                 <div className="flex w-full items-center justify-between gap-2">
                   <span className="font-semibold text-foreground">#{m.truckNumber}</span>
@@ -332,6 +345,11 @@ export default function TrucksMap() {
                   {m.driverName}
                   {m.driver2Name ? ` + ${m.driver2Name}` : ""}
                 </span>
+                {m.currentOrder?.brokerLoadNumber && (
+                  <span className="truncate text-[10px] text-muted-foreground">
+                    Broker #: {m.currentOrder.brokerLoadNumber}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -340,7 +358,15 @@ export default function TrucksMap() {
 
       {/* Map */}
       <div className="relative flex-1">
-        <DispatcherFleetMapView trucks={filteredTrucks as any} />
+        <DispatcherFleetMapView
+          trucks={filteredTrucks as any}
+          singleHomeOnly
+          pinnedPopup
+          hideMilesAndEta
+          fullAddress
+          flyToOnSelect
+          externalSelectedTruckId={selectedTruckId}
+        />
       </div>
     </div>
   );
