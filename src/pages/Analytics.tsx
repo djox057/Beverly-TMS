@@ -5286,21 +5286,15 @@ const Analytics = () => {
                                                    const ln = o.brokerLoadNumber || o.loadNumber || o.internalLoadNumber || "—";
                                                    const earn = o.freight * rGross + (o.freight - o.driverPay) * rCut;
                                                    return (
-                                                     <div key={i} className="flex justify-between gap-3">
-                                                       <span className="font-mono">{ln}</span>
-                                                       <span className="text-muted-foreground">
-                                                         ${o.freight.toLocaleString(undefined, {
-                                                           minimumFractionDigits: 0,
-                                                           maximumFractionDigits: 0,
-                                                         })}
-                                                       </span>
-                                                       <span className="text-green-600 font-medium">
-                                                         +${earn.toLocaleString(undefined, {
-                                                           minimumFractionDigits: 2,
-                                                           maximumFractionDigits: 2,
-                                                         })}
-                                                       </span>
-                                                     </div>
+                                                      <div key={i} className="flex justify-between gap-3">
+                                                        <span className="font-mono">{ln}</span>
+                                                        <span className="text-green-600 font-medium">
+                                                          +${earn.toLocaleString(undefined, {
+                                                            minimumFractionDigits: 2,
+                                                            maximumFractionDigits: 2,
+                                                          })}
+                                                        </span>
+                                                      </div>
                                                    );
                                                  })}
                                                </div>
