@@ -7,6 +7,7 @@ import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Combobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 
@@ -193,6 +194,7 @@ function pickCurrentOrder(allOrders: OrderRow[]): OrderRow | null {
 export default function TrucksMap() {
   const [search, setSearch] = useState("");
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
+  const [companyFilter, setCompanyFilter] = useState<string>("");
 
   const { data: fleet, isLoading: fleetLoading } = useQuery({
     queryKey: FLEET_QUERY_KEY,
@@ -292,6 +294,8 @@ export default function TrucksMap() {
           truckNumber,
           driverName: driver1?.name || "No driver",
           driver2Name: driver2?.name || undefined,
+          companyId: companyId || null,
+          companyName: companyName || null,
           milesAway,
           driveMinutes: driver1?.hos_drive_minutes ?? 0,
           shiftMinutes: driver1?.hos_shift_minutes ?? 0,
@@ -312,16 +316,33 @@ export default function TrucksMap() {
       }> & any[];
   }, [fleet, locations]);
 
+  // Company options sorted by name (only companies present in fleet)
+  const companyOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of trucksWithData as any[]) {
+      if (t.companyId && t.companyName) map.set(t.companyId, t.companyName);
+    }
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [trucksWithData]);
+
   const filteredTrucks = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return trucksWithData;
-    return trucksWithData.filter(
-      (t: any) =>
-        t.truckNumber.toLowerCase().includes(q) ||
-        (t.driverName || "").toLowerCase().includes(q) ||
-        (t.driver2Name || "").toLowerCase().includes(q),
-    );
-  }, [trucksWithData, search]);
+    let list = trucksWithData as any[];
+    if (companyFilter) {
+      list = list.filter((t) => t.companyId === companyFilter);
+    }
+    if (q) {
+      list = list.filter(
+        (t: any) =>
+          t.truckNumber.toLowerCase().includes(q) ||
+          (t.driverName || "").toLowerCase().includes(q) ||
+          (t.driver2Name || "").toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [trucksWithData, search, companyFilter]);
 
   // Auto-select when search narrows to exactly one truck
   useEffect(() => {
@@ -349,6 +370,17 @@ export default function TrucksMap() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search truck # or driver"
               className="h-9 pl-8 text-sm"
+            />
+          </div>
+          <div className="mt-2">
+            <Combobox
+              options={[{ value: "", label: "All companies" }, ...companyOptions]}
+              value={companyFilter}
+              onValueChange={(v) => setCompanyFilter(v)}
+              placeholder="Filter by company"
+              searchPlaceholder="Search company..."
+              emptyText="No companies found."
+              className="h-9 text-sm"
             />
           </div>
           <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
