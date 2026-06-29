@@ -30,10 +30,12 @@ function formatDelivery(dt: string | null | undefined): string {
   return `${mo}/${d}/${y} ${hh}:${mm}`;
 }
 
-// Fine = 30% of (freight*1% + (freight - driver_pay)*5%)
-function calcFine(freight: number, driverPay: number): number {
+// Fine range: 30% if POD not uploaded within 24 hours, 50% after 48 hours.
+// Base = freight*1% + (freight - driver_pay)*5%
+function calcFineRange(freight: number, driverPay: number): { min: number; max: number } {
   const base = freight * 0.01 + (freight - driverPay) * 0.05;
-  return Math.max(0, base) * 0.30;
+  const positiveBase = Math.max(0, base);
+  return { min: positiveBase * 0.30, max: positiveBase * 0.50 };
 }
 
 const handler = async (req: Request): Promise<Response> => {
