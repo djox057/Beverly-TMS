@@ -369,7 +369,10 @@ export default function TrucksMap() {
             {filteredTrucks.map((m: any) => (
               <div
                 key={m.id}
-                onClick={() => setSelectedTruckId(m.id)}
+                onClick={() => {
+                  setSearch(m.truckNumber);
+                  setSelectedTruckId(m.id);
+                }}
                 className={cn(
                   "flex cursor-pointer flex-col gap-0.5 px-3 py-2 text-sm hover:bg-accent",
                   selectedTruckId === m.id && "bg-accent",
@@ -407,7 +410,6 @@ export default function TrucksMap() {
           trucks={filteredTrucks as any}
           singleHomeOnly
           pinnedPopup
-          hideMilesAndEta
           fullAddress
           flyToOnSelect
           externalSelectedTruckId={selectedTruckId}
