@@ -570,7 +570,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                             <div className="space-y-3">
                               <h4 className="font-medium text-sm">Extra Days in {format(selectedDate, "MMMM")}</h4>
                               <p className="text-xs text-muted-foreground">
-                                Holidays are excluded from extra day calculations.
+                                Holidays that fall on Saturday or Sunday count toward extra days.
                               </p>
                               <div className="space-y-3">
                                 {usersWithExtraDays.map(({ user, extraDays }) => (
