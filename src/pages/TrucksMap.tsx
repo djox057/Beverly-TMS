@@ -199,6 +199,20 @@ export default function TrucksMap() {
   const [search, setSearch] = useState("");
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
   const [companyFilter, setCompanyFilter] = useState<string>("");
+  const { profile, getPrimaryRole } = useAuthContext();
+  const { individualOverrideDriverIds } = useIndividualMode();
+  const primaryRole = getPrimaryRole();
+  const isDispatch = primaryRole === "dispatch";
+  const isAfterhours = primaryRole === "afterhours";
+  const afterhoursDriverIds = individualOverrideDriverIds || [];
+  const canUseIndividual =
+    isDispatch || (isAfterhours && afterhoursDriverIds.length > 0);
+  const [individualOnly, setIndividualOnly] = useState<boolean>(isDispatch);
+
+  useEffect(() => {
+    // Default ON for dispatchers; afterhours default OFF (user toggles in)
+    if (isDispatch) setIndividualOnly(true);
+  }, [isDispatch]);
 
   const { data: fleet, isLoading: fleetLoading } = useQuery({
     queryKey: FLEET_QUERY_KEY,
@@ -337,6 +351,18 @@ export default function TrucksMap() {
   const filteredTrucks = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = trucksWithData as any[];
+    if (individualOnly && canUseIndividual) {
+      if (isDispatch && profile?.user_id) {
+        list = list.filter((t) => t.dispatcherId === profile.user_id);
+      } else if (isAfterhours) {
+        const set = new Set(afterhoursDriverIds);
+        list = list.filter(
+          (t) =>
+            (t.driver1Id && set.has(t.driver1Id)) ||
+            (t.driver2Id && set.has(t.driver2Id)),
+        );
+      }
+    }
     if (companyFilter) {
       list = list.filter((t) => t.companyId === companyFilter);
     }
@@ -349,7 +375,17 @@ export default function TrucksMap() {
       );
     }
     return list;
-  }, [trucksWithData, search, companyFilter]);
+  }, [
+    trucksWithData,
+    search,
+    companyFilter,
+    individualOnly,
+    canUseIndividual,
+    isDispatch,
+    isAfterhours,
+    profile?.user_id,
+    afterhoursDriverIds,
+  ]);
 
   // Auto-select when search narrows to exactly one truck
   useEffect(() => {
@@ -366,10 +402,22 @@ export default function TrucksMap() {
       {/* Sidebar list */}
       <aside className="flex w-80 flex-col border-r bg-card">
         <div className="border-b p-3">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <TruckIcon className="h-4 w-4" />
-            Live Fleet Map
-          </h2>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <TruckIcon className="h-4 w-4" />
+              Live Fleet Map
+            </h2>
+            {canUseIndividual && (
+              <Button
+                size="sm"
+                variant={individualOnly ? "default" : "outline"}
+                className="h-7 px-2 text-xs"
+                onClick={() => setIndividualOnly((v) => !v)}
+              >
+                Individual
+              </Button>
+            )}
+          </div>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
