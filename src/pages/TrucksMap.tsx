@@ -118,7 +118,7 @@ async function fetchFleetMapData() {
       ? supabase
           .from("drivers")
           .select(
-            "id, name, company_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, home_latitude, home_longitude, home_city, home_state",
+            "id, name, company_id, dispatcher_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, home_latitude, home_longitude, home_city, home_state",
           )
           .in("id", driverIds)
       : Promise.resolve({ data: [] as DriverRow[], error: null as any }),
