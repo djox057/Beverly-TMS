@@ -379,8 +379,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     existingSchedules.forEach((schedule) => {
       const scheduleDate = new Date(schedule.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
       if (isWithinInterval(scheduleDate, { start: monthStart, end: monthEnd })) {
-        // Only count weekend days (Sat/Sun), exclude holidays
-        if (isWeekend(scheduleDate) && !isHoliday(scheduleDate)) {
+        // Count weekend days (Sat/Sun). Holidays that fall on a weekend still count.
+        if (isWeekend(scheduleDate)) {
           if (workCounts[schedule.user_id]) {
             workCounts[schedule.user_id].count++;
           }
@@ -534,10 +534,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       if (s.user_id !== userId) return false;
                       if (s.scheduled_date < monthStartStr || s.scheduled_date > monthEndStr) return false;
                       const scheduleDate = new Date(s.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
-                      // Only count weekend days (Sat/Sun), exclude holidays
-                      if (!isWeekend(scheduleDate)) return false;
-                      if (isHoliday(scheduleDate)) return false;
-                      return true;
+                      // Count weekend days (Sat/Sun); weekend holidays still count.
+                      return isWeekend(scheduleDate);
                     })
                     .map((s) => s.scheduled_date)
                     .sort();
@@ -721,8 +719,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                         if (s.user_id !== schedule.user_id) return false;
                                         if (s.scheduled_date < monthStartStr || s.scheduled_date >= selectedDateStr) return false;
                                         const scheduleDate = new Date(s.scheduled_date + "T12:00:00");
-                                        // Only count weekend days (Sat/Sun), exclude holidays
-                                        return isWeekend(scheduleDate) && !isHoliday(scheduleDate);
+                                        // Count weekend days (Sat/Sun); weekend holidays still count.
+                                        return isWeekend(scheduleDate);
                                       },
                                     ).length;
                                     const isExtra = daysWorkedBefore >= 1;
@@ -802,7 +800,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                           if (s.user_id !== schedule.user_id) return false;
                                           if (s.scheduled_date < monthStartStr || s.scheduled_date >= selectedDateStr) return false;
                                           const scheduleDate = new Date(s.scheduled_date + "T12:00:00");
-                                          return isWeekend(scheduleDate) && !isHoliday(scheduleDate);
+                                          return isWeekend(scheduleDate);
                                         },
                                       ).length;
                                       const isExtra = daysWorkedBefore >= 1;
