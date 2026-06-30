@@ -8,8 +8,11 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useIndividualMode } from "@/contexts/IndividualModeContext";
 
 interface TruckRow {
   id: string;
@@ -23,6 +26,7 @@ interface DriverRow {
   id: string;
   name: string | null;
   company_id: string | null;
+  dispatcher_id: string | null;
   hos_drive_minutes: number | null;
   hos_shift_minutes: number | null;
   hos_break_minutes: number | null;
