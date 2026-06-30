@@ -2,7 +2,6 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const TEST_RECIPIENT = "jon@bfprime.net";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -175,7 +174,7 @@ const handler = async (req: Request): Promise<Response> => {
           </table>
 
           <p style="color:#666;font-size:12px;margin-top:24px;">
-            Originally addressed to: ${group.email} (sent to ${TEST_RECIPIENT} for testing).
+            Sent to: ${group.email}
           </p>
         </div>`;
 
@@ -189,13 +188,13 @@ const handler = async (req: Request): Promise<Response> => {
         },
         body: JSON.stringify({
           from: "Dispatch Alerts <jon@bfprime.net>",
-          to: [TEST_RECIPIENT],
+          to: [group.email],
           subject,
           html,
         }),
       });
       const body = await res.json();
-      console.log(`Sent to ${TEST_RECIPIENT} (orig ${group.email}):`, res.status, body?.id || body);
+      console.log(`Sent to ${group.email}:`, res.status, body?.id || body);
       sent.push({ dispatcher: group.email, count: group.orders.length, ok: res.ok, id: body?.id });
     }
 
