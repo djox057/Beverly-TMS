@@ -6969,54 +6969,63 @@ const Reports = () => {
                   <Edit3 className="h-4 w-4 mr-2" />
                   Edit Order
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    if (!zoomedLoad?.orderId) return;
-                    try {
-                      const { data: order, error: orderErr } = await supabase
-                        .from("orders")
-                        .select("truck_id")
-                        .eq("id", zoomedLoad.orderId)
-                        .maybeSingle();
-                      if (orderErr) throw orderErr;
-                      if (!order?.truck_id) {
-                        toast({
-                          title: "No truck assigned",
-                          description: "This load has no truck assigned.",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-                      const { data: truck, error: truckErr } = await supabase
-                        .from("trucks")
-                        .select("truck_number, vin, make, model")
-                        .eq("id", order.truck_id)
-                        .maybeSingle();
-                      if (truckErr) throw truckErr;
-                      if (!truck) throw new Error("Truck not found");
-                      const bytes = await generateLeaseAgreementPdf({
-                        truckNumber: truck.truck_number || zoomedLoad.truckNumber,
-                        vin: truck.vin,
-                        make: truck.make,
-                        model: truck.model,
-                      });
-                      downloadLeaseAgreement(
-                        bytes,
-                        `Lease_Agreement_${truck.truck_number || zoomedLoad.truckNumber}.pdf`,
-                      );
-                    } catch (err: any) {
-                      toast({
-                        title: "Failed to generate lease agreement",
-                        description: err?.message || String(err),
-                        variant: "destructive",
-                      });
-                    }
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Lease Agreement
-                </Button>
+                {(() => {
+                  const leaseTemplate = getLeaseTemplateForCompany(zoomedLoad?.companyName);
+                  if (!leaseTemplate) return null;
+                  return (
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        if (!zoomedLoad?.orderId) return;
+                        try {
+                          const { data: order, error: orderErr } = await supabase
+                            .from("orders")
+                            .select("truck_id")
+                            .eq("id", zoomedLoad.orderId)
+                            .maybeSingle();
+                          if (orderErr) throw orderErr;
+                          if (!order?.truck_id) {
+                            toast({
+                              title: "No truck assigned",
+                              description: "This load has no truck assigned.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          const { data: truck, error: truckErr } = await supabase
+                            .from("trucks")
+                            .select("truck_number, vin, make, model")
+                            .eq("id", order.truck_id)
+                            .maybeSingle();
+                          if (truckErr) throw truckErr;
+                          if (!truck) throw new Error("Truck not found");
+                          const bytes = await generateLeaseAgreementPdf(
+                            {
+                              truckNumber: truck.truck_number || zoomedLoad.truckNumber,
+                              vin: truck.vin,
+                              make: truck.make,
+                              model: truck.model,
+                            },
+                            leaseTemplate,
+                          );
+                          downloadLeaseAgreement(
+                            bytes,
+                            `Lease_Agreement_${truck.truck_number || zoomedLoad.truckNumber}.pdf`,
+                          );
+                        } catch (err: any) {
+                          toast({
+                            title: "Failed to generate lease agreement",
+                            description: err?.message || String(err),
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Lease Agreement
+                    </Button>
+                  );
+                })()}
               </div>
             </DialogTitle>
             <DialogDescription className="sr-only">View load details, pickup and delivery stops</DialogDescription>
