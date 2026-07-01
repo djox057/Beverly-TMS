@@ -828,9 +828,12 @@ export function DispatcherFleetMapView({
       {selectedTruck && minimized && (
         <button
           type="button"
-          onClick={() => setMinimized(false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setMinimized(false);
+          }}
           aria-label={`Restore vehicle ${selectedTruck.truckNumber}`}
-          className="absolute bottom-4 right-4 z-[10000] flex items-center gap-2 rounded-full bg-[hsl(199_89%_48%)] text-white shadow-xl border border-border pl-2 pr-3 py-2 hover:brightness-110"
+          className="fleet-popup-panel absolute bottom-4 right-4 z-[10000] flex items-center gap-2 rounded-full bg-[hsl(199_89%_48%)] text-white shadow-xl border border-border pl-2 pr-3 py-2 hover:brightness-110"
         >
           <span className="text-lg leading-none">🚚</span>
           <span className="text-xs font-semibold">{selectedTruck.truckNumber}</span>
