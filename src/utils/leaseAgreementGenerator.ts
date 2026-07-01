@@ -94,7 +94,11 @@ export async function generateLeaseAgreementPdf(
 
   drawCentered(`Lease unit ID: #${truckNumber}`, regions.equipmentId);
   drawCentered(vin ? `VIN: ${vin}` : "VIN:", regions.vin);
-  drawCentered(makeModel ? `Make/Model: ${makeModel}` : "Make/Model:", regions.makeModel);
+  if (template === "UES") {
+    drawCentered(makeModel ? `Make/Model: ${makeModel}` : "Make/Model:", regions.makeModel);
+  } else {
+    drawCentered(makeModel || " ", regions.makeModel);
+  }
 
   return pdf.save();
 }
