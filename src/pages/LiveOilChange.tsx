@@ -250,6 +250,7 @@ const LiveOilChange = () => {
                               }
                             }}
                             className={bareInput}
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell className="font-medium">{t.truck_number}</TableCell>
@@ -270,6 +271,7 @@ const LiveOilChange = () => {
                               }
                             }}
                             className={bareInput}
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell>
@@ -284,6 +286,7 @@ const LiveOilChange = () => {
                               }
                             }}
                             className={cn(bareInput, "no-spinner")}
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell className="text-muted-foreground">
@@ -326,6 +329,7 @@ const LiveOilChange = () => {
                             }}
                             className={bareInput}
                             placeholder="—"
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell>
@@ -340,6 +344,7 @@ const LiveOilChange = () => {
                               }
                             }}
                             className={cn(bareInput, "no-spinner")}
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell className={cn(milesSinceAF != null && milesSinceAF > 60000 && "text-destructive font-semibold")}>
