@@ -204,6 +204,38 @@ const EditOrder = () => {
             i === index ? { ...it, file_path: filePath, file_name: file.name } : it,
           ),
         );
+        // Also mirror the receipt into Additional Documents so it appears there.
+        try {
+          const additionalPath = await uploadOrderFilePreserveName({
+            orderId: id,
+            folder: "ADDITIONAL",
+            file,
+          });
+          const { data: inserted, error: insertErr } = await supabase
+            .from("order_files")
+            .insert({
+              order_id: id,
+              file_name: file.name,
+              file_path: additionalPath,
+              file_size: file.size,
+              content_type: file.type,
+              file_category: "ADDITIONAL",
+              uploaded_by: profile?.full_name || profile?.email || "Unknown User",
+            })
+            .select()
+            .single();
+          if (insertErr) throw insertErr;
+          if (inserted) {
+            setExistingFiles((prev) => [...prev, inserted]);
+          }
+        } catch (mirrorErr: any) {
+          console.error("[lumper] mirror to additional failed", mirrorErr);
+          toast({
+            title: "Additional documents not updated",
+            description: mirrorErr?.message || "Lumper receipt uploaded but could not be mirrored to Additional Documents",
+            variant: "destructive",
+          });
+        }
         toast({ title: "Receipt uploaded" });
       } catch (err: any) {
         console.error("[lumper] upload failed", err);
@@ -216,7 +248,7 @@ const EditOrder = () => {
         setUploadingLumperIndex(null);
       }
     },
-    [id],
+    [id, profile?.full_name, profile?.email],
   );
 
   const handleDeleteLumperReceipt = useCallback(
