@@ -183,6 +183,10 @@ export const MissingPodTab = () => {
     const searchValue = r.internal_load_number
       ? formatInternalLoadNumber(r.internal_load_number)
       : r.load_number || "";
+    // Clear other Reports filters so the load stands out
+    localStorage.setItem("reports-truckDriverFilter", "");
+    localStorage.setItem("reports-dispatchNameFilter", "");
+    localStorage.setItem("reports-companyFilter", "");
     if (searchValue) {
       localStorage.setItem("reports-loadNumberFilter", searchValue);
     }
