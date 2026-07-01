@@ -233,8 +233,8 @@ const LiveOilChange = () => {
   }, [trucks, search, companyFilter, sourceFilter, milesFilter]);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
+    <div className="py-6 px-2 space-y-6">
+      <div className="flex items-center gap-3 px-2">
         <Droplet className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-3xl font-bold text-foreground">Live Oil Change</h1>
@@ -282,7 +282,7 @@ const LiveOilChange = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-2">
           <div className="overflow-x-auto">
             <Table className="table-fixed">
               <TableHeader>
@@ -290,10 +290,11 @@ const LiveOilChange = () => {
                   <TableHead className="w-[120px]">Source</TableHead>
                   <TableHead className="w-[80px]">Unit</TableHead>
                   <TableHead className="w-[130px]">Last oil change date</TableHead>
-                  <TableHead className="w-[170px]">Last oil change mileage</TableHead>
+                  <TableHead className="w-[110px] whitespace-normal leading-tight">Last oil change mileage</TableHead>
                   <TableHead className="w-[120px]">Last Update</TableHead>
                   <TableHead className="w-[180px]">Total mileage - last update</TableHead>
-                  <TableHead className="w-[170px]">Miles since last oil change</TableHead>
+                  <TableHead className="w-[90px] whitespace-normal leading-tight">Miles since last oil change</TableHead>
+                  <TableHead className="w-[130px] whitespace-normal leading-tight">Odometer</TableHead>
                   <TableHead className="w-[180px]">Note</TableHead>
                   <TableHead className="w-[90px] whitespace-normal leading-tight">last OC<br/>invoice</TableHead>
                   <TableHead className="w-[110px]">AIR FILTER</TableHead>
@@ -303,13 +304,13 @@ const LiveOilChange = () => {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       No trucks found
                     </TableCell>
                   </TableRow>
