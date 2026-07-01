@@ -5532,6 +5532,9 @@ const Analytics = () => {
               <RecruitingTab monthOptions={monthOptions} />
             </TabsContent>
           )}
+          <TabsContent value="missing-pod" className="space-y-6">
+            <MissingPodTab />
+          </TabsContent>
         </Tabs>
 
         {/* Bonuses Dialog */}
