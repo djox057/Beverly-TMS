@@ -15,6 +15,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 
 type TruckRow = {
   id: string;
@@ -254,10 +255,11 @@ const LiveOilChange = () => {
                       t.miles != null && t.air_filter != null
                         ? t.miles - t.air_filter
                         : null;
+                    const { yellow: yThr, red: rThr } = getOilChangeThresholds(t.source);
                     const rowTone =
-                      milesSinceOil != null && milesSinceOil > 28000
+                      milesSinceOil != null && milesSinceOil > rThr
                         ? "bg-red-100 hover:bg-red-200 dark:bg-red-950/40 dark:hover:bg-red-950/60"
-                        : milesSinceOil != null && milesSinceOil > 26000
+                        : milesSinceOil != null && milesSinceOil > yThr
                         ? "bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-950/40 dark:hover:bg-yellow-950/60"
                         : "";
                     return (

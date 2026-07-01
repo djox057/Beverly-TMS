@@ -1745,6 +1745,7 @@ export const useReports = (options?: UseReportsOptions) => {
               maintenance_check_date: truck.maintenance_check_date || null,
               last_oil_change_miles: truck.last_oil_change_miles ?? null,
               truck_miles: truck.miles ?? null,
+              source: truck.source ?? null,
               // DOT inspection dates
               dot_inspection_date: truck.dot_inspection_date || null,
               trailer_dot_inspection_date: truck.trailer?.dot_inspection_date || null,
