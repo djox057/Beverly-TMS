@@ -499,6 +499,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     individualMode: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? false : individualMode,
     currentUserDispatcherId: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : currentUserDispatcherId,
     individualOverrideDriverIds: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : individualOverrideDriverIds,
+    bookedByName: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : userFullName,
     spotlightDriverId: spotlightDriverId ?? null,
   });
 
