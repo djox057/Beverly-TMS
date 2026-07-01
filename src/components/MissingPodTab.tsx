@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 
@@ -202,7 +203,7 @@ export const MissingPodTab = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[140px]">Internal #</TableHead>
+                  <TableHead className="w-[180px]">Internal #</TableHead>
                   <TableHead className="w-[140px]">Load #</TableHead>
                   <TableHead className="w-[100px]">Truck</TableHead>
                   <TableHead>Driver</TableHead>
@@ -216,13 +217,22 @@ export const MissingPodTab = () => {
                 {filtered.map((r) => {
                   const delivery = toNaiveDate(r.delivery_datetime);
                   return (
-                    <TableRow
-                      key={r.order_id}
-                      className="cursor-pointer hover:bg-muted/60"
-                      onClick={() => openOrder(r.order_id)}
-                    >
+                    <TableRow key={r.order_id} className="hover:bg-muted/60">
                       <TableCell className="font-mono">
-                        {r.internal_load_number ? formatInternalLoadNumber(r.internal_load_number) : "—"}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => openOrder(r.order_id)}
+                            aria-label="Open order"
+                          >
+                            <ArrowRight className="h-4 w-4" />
+                          </Button>
+                          <span>
+                            {r.internal_load_number ? formatInternalLoadNumber(r.internal_load_number) : "—"}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>{r.load_number || "—"}</TableCell>
                       <TableCell>{r.truck_number || "—"}</TableCell>
