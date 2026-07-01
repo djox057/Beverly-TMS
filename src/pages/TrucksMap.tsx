@@ -180,19 +180,12 @@ function pickCurrentOrder(allOrders: OrderRow[]): OrderRow | null {
     const bT = new Date(b.pickup_datetime || "9999-12-31").getTime();
     return aT - bT;
   });
-  const last = sorted[sorted.length - 1];
-  const lastHasBOL = last.order_files?.some((f) => f.file_category === "BOL");
-  if (lastHasBOL) return last;
-  if (sorted.length >= 2) {
-    const prev = sorted[sorted.length - 2];
-    const prevHasPOD = prev.order_files?.some((f) => f.file_category === "POD");
-    if (prevHasPOD) return last;
-    const lastWithBOL = [...sorted]
-      .reverse()
-      .find((o) => o.order_files?.some((f) => f.file_category === "BOL"));
-    return lastWithBOL || last;
-  }
-  return last;
+  // Current/active load = the newest order that hasn't been POD-completed yet.
+  // If every order has a POD (driver is idle between loads), fall back to the newest.
+  const active = [...sorted]
+    .reverse()
+    .find((o) => !o.order_files?.some((f) => f.file_category === "POD"));
+  return active || sorted[sorted.length - 1];
 }
 
 export default function TrucksMap() {
