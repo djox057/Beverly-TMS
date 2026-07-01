@@ -4626,6 +4626,7 @@ export type Database = {
       }
       trucks: {
         Row: {
+          air_filter: number | null
           company_id: string | null
           created_at: string
           dispatcher_id: string | null
@@ -4642,17 +4643,20 @@ export type Database = {
           insurance_expiration_date: string | null
           ipass: string | null
           is_active: boolean
+          last_oil_change_miles: number | null
           left_by_driver_id: string | null
           maintenance_check_date: string | null
           make: string | null
           miles: number | null
           miles_away: number | null
           miles_away_updated_at: string | null
+          miles_updated_at: string | null
           model: string | null
           needs_recovery: boolean | null
           oil_change_date: string | null
           plate: string | null
           plate_expiration_date: string | null
+          source: string | null
           status: string | null
           termination_date: string | null
           tires_swap_date: string | null
@@ -4666,6 +4670,7 @@ export type Database = {
           year: number | null
         }
         Insert: {
+          air_filter?: number | null
           company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
@@ -4682,17 +4687,20 @@ export type Database = {
           insurance_expiration_date?: string | null
           ipass?: string | null
           is_active?: boolean
+          last_oil_change_miles?: number | null
           left_by_driver_id?: string | null
           maintenance_check_date?: string | null
           make?: string | null
           miles?: number | null
           miles_away?: number | null
           miles_away_updated_at?: string | null
+          miles_updated_at?: string | null
           model?: string | null
           needs_recovery?: boolean | null
           oil_change_date?: string | null
           plate?: string | null
           plate_expiration_date?: string | null
+          source?: string | null
           status?: string | null
           termination_date?: string | null
           tires_swap_date?: string | null
@@ -4706,6 +4714,7 @@ export type Database = {
           year?: number | null
         }
         Update: {
+          air_filter?: number | null
           company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
@@ -4722,17 +4731,20 @@ export type Database = {
           insurance_expiration_date?: string | null
           ipass?: string | null
           is_active?: boolean
+          last_oil_change_miles?: number | null
           left_by_driver_id?: string | null
           maintenance_check_date?: string | null
           make?: string | null
           miles?: number | null
           miles_away?: number | null
           miles_away_updated_at?: string | null
+          miles_updated_at?: string | null
           model?: string | null
           needs_recovery?: boolean | null
           oil_change_date?: string | null
           plate?: string | null
           plate_expiration_date?: string | null
+          source?: string | null
           status?: string | null
           termination_date?: string | null
           tires_swap_date?: string | null
