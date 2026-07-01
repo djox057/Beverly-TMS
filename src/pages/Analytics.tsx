@@ -48,6 +48,7 @@ import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 import RecruitingTab from "@/components/RecruitingTab";
+import MissingPodTab from "@/components/MissingPodTab";
 import { orderHasPOD } from "@/pages/Reports/helpers";
 import { DayInput } from "@/components/DayInput";
 import crownImage from "@/assets/crown.png";
