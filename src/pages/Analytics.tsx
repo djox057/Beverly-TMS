@@ -3184,8 +3184,8 @@ const Analytics = () => {
               </CardHeader>
               <CardContent>
                 {/* Totals Section */}
-                <div className="mb-6 p-4 sm:p-6 bg-muted/50 rounded-lg border">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-8">
+                 <div className="mb-6 p-4 sm:p-6 bg-muted/50 rounded-lg border">
+                   <div className={`grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-8 ${hasRole("admin") ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}>
                     <div className="text-center">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Freight</p>
                       <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">
@@ -3196,6 +3196,25 @@ const Analytics = () => {
                         })}
                       </p>
                     </div>
+                     {hasRole("admin") && (
+                       <div className="text-center">
+                         <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Driver Pay</p>
+                         <p className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">
+                           $
+                           {totals.totalDriverRate.toLocaleString(undefined, {
+                             minimumFractionDigits: 2,
+                             maximumFractionDigits: 2,
+                           })}
+                         </p>
+                         <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                           12%: $
+                           {(totals.totalDriverRate * 0.12).toLocaleString(undefined, {
+                             minimumFractionDigits: 2,
+                             maximumFractionDigits: 2,
+                           })}
+                         </p>
+                       </div>
+                     )}
                     <div className="text-center">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Miles</p>
                       <p className="text-lg sm:text-2xl font-bold">{totals.totalMiles.toLocaleString()}</p>
