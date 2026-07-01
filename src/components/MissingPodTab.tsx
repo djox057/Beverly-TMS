@@ -7,8 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, FileEdit, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 
@@ -173,6 +179,16 @@ export const MissingPodTab = () => {
     navigate(`/edit-order/${id}`);
   };
 
+  const openInReports = (r: Row) => {
+    const searchValue = r.internal_load_number
+      ? formatInternalLoadNumber(r.internal_load_number)
+      : r.load_number || "";
+    if (searchValue) {
+      localStorage.setItem("reports-loadNumberFilter", searchValue);
+    }
+    navigate(`/reports`);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -220,15 +236,28 @@ export const MissingPodTab = () => {
                     <TableRow key={r.order_id} className="hover:bg-muted/60">
                       <TableCell className="font-mono">
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => openOrder(r.order_id)}
-                            aria-label="Open order"
-                          >
-                            <ArrowRight className="h-4 w-4" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                aria-label="Open"
+                              >
+                                <ArrowRight className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem onClick={() => openOrder(r.order_id)}>
+                                <FileEdit className="h-4 w-4 mr-2" />
+                                Open in Edit Order
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openInReports(r)}>
+                                <BarChart3 className="h-4 w-4 mr-2" />
+                                Open in Reports
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           <span>
                             {r.internal_load_number ? formatInternalLoadNumber(r.internal_load_number) : "—"}
                           </span>
