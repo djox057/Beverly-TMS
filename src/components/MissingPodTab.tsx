@@ -67,8 +67,8 @@ export const MissingPodTab = () => {
       // Chicago "now" as naive
       const nowChicago = toZonedTime(new Date(), CHICAGO_TZ);
       const cutoff = new Date(nowChicago.getTime() - 24 * 60 * 60 * 1000);
-      // Look back 60 days
-      const lookback = new Date(nowChicago.getTime() - 60 * 24 * 60 * 60 * 1000);
+      // Look back 4 days
+      const lookback = new Date(nowChicago.getTime() - 4 * 24 * 60 * 60 * 1000);
 
       const pad = (n: number) => String(n).padStart(2, "0");
       const toWall = (d: Date) =>
@@ -179,7 +179,7 @@ export const MissingPodTab = () => {
           <div>
             <CardTitle>Missing POD</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Loads where POD is 24h+ overdue since delivery. Timer freezes when POD is uploaded.
+              Loads delivered within the last 4 days where POD is 24h+ overdue. Timer freezes when POD is uploaded.
             </p>
           </div>
           <Input
@@ -229,7 +229,11 @@ export const MissingPodTab = () => {
                       <TableCell>{r.driver_name || "—"}</TableCell>
                       <TableCell>{r.booked_by || "—"}</TableCell>
                       <TableCell>{delivery ? formatDT(delivery) : "—"}</TableCell>
-                      <TableCell className="font-semibold text-destructive">
+                      <TableCell
+                        className={`font-semibold ${
+                          r.elapsedMs < 48 * 60 * 60 * 1000 ? "text-yellow-500" : "text-destructive"
+                        }`}
+                      >
                         {formatElapsed(r.elapsedMs)}
                       </TableCell>
                       <TableCell>
