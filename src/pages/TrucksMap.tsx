@@ -180,11 +180,11 @@ function pickCurrentOrder(allOrders: OrderRow[]): OrderRow | null {
     const bT = new Date(b.pickup_datetime || "9999-12-31").getTime();
     return aT - bT;
   });
-  // Current/active load = the newest order that hasn't been POD-completed yet.
-  // If every order has a POD (driver is idle between loads), fall back to the newest.
+  // Current/active load = the newest order that has a BOL (driver picked it up).
+  // Fall back to the newest overall if none have a BOL yet.
   const active = [...sorted]
     .reverse()
-    .find((o) => !o.order_files?.some((f) => f.file_category === "POD"));
+    .find((o) => o.order_files?.some((f) => f.file_category === "BOL"));
   return active || sorted[sorted.length - 1];
 }
 
