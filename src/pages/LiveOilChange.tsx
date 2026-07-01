@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 type TruckRow = {
   id: string;
@@ -59,6 +60,11 @@ const parseDateInput = (raw: string): string | null => {
 
 const LiveOilChange = () => {
   const queryClient = useQueryClient();
+  const { getPrimaryRole } = useAuthContext();
+  const primaryRole = getPrimaryRole();
+  // Dispatch may only edit the "Total mileage - last update" (miles) field.
+  const canEditAll = primaryRole !== 'dispatch';
+  const canEditMiles = true;
   const [search, setSearch] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({});
 
