@@ -82,7 +82,7 @@ const navigation = [
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
-  { name: "Dispatcher Tier", href: "/dispatcher-tier", icon: Trophy, roles: ['admin', 'manager', 'chicago_management'] },
+  { name: "Dispatcher Tier", href: "/dispatcher-tier", icon: Trophy, roles: ['admin', 'manager', 'chicago_management'], strict: true },
   { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch', 'afterhours'] },
   { name: "Turnover List", href: "/turnover-list", icon: RefreshCw, roles: ['admin'] },
   { name: "Roadside Inspection", href: "/roadside-inspection", icon: AlertTriangle },
@@ -202,6 +202,10 @@ export const Sidebar = () => {
     
     // Filter out items based on role restrictions
     const filteredNav = navigation.filter(item => {
+      // Strict items must match the user's primary role directly (bypasses hasRole inheritance)
+      if ((item as any).strict) {
+        return !!primaryRole && (item.roles || []).includes(primaryRole);
+      }
       // If item has role restrictions, check if user has one of those roles
       if (item.roles && item.roles.length > 0) {
         return item.roles.some(role => hasRole(role as any));
