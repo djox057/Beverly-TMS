@@ -4811,39 +4811,49 @@ const Reports = () => {
                                                     };
                                                     if (alert.icon === "dot") {
                                                       return (
-                                                        <Tooltip>
-                                                          <TooltipTrigger asChild>
-                                                            <img
-                                                              src={dotInspectionIcon}
-                                                              alt="DOT Inspection"
-                                                              className="h-4 w-4"
-                                                              style={{
-                                                                filter:
-                                                                  alert.color === "red"
-                                                                    ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
-                                                                    : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)",
-                                                              }}
-                                                            />
-                                                          </TooltipTrigger>
-                                                          <TooltipContent>
+                                                        <Popover>
+                                                          <PopoverTrigger asChild>
+                                                            <button
+                                                              className="inline-flex"
+                                                              onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                              <img
+                                                                src={dotInspectionIcon}
+                                                                alt="DOT Inspection"
+                                                                className="h-4 w-4 cursor-pointer"
+                                                                style={{
+                                                                  filter:
+                                                                    alert.color === "red"
+                                                                      ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
+                                                                      : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)",
+                                                                }}
+                                                              />
+                                                            </button>
+                                                          </PopoverTrigger>
+                                                          <PopoverContent className="w-auto max-w-xs p-3">
                                                             <p className="text-xs">{alert.tooltip}</p>
-                                                          </TooltipContent>
-                                                        </Tooltip>
+                                                          </PopoverContent>
+                                                        </Popover>
                                                       );
                                                     }
                                                     const IconComp = IconMap[alert.icon];
                                                     if (!IconComp) return null;
                                                     return (
-                                                      <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                          <IconComp
-                                                            className={`h-3.5 w-3.5 ${alert.color === "red" ? "text-red-500" : "text-yellow-500"}`}
-                                                          />
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
+                                                      <Popover>
+                                                        <PopoverTrigger asChild>
+                                                          <button
+                                                            className="inline-flex"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                          >
+                                                            <IconComp
+                                                              className={`h-3.5 w-3.5 cursor-pointer ${alert.color === "red" ? "text-red-500" : "text-yellow-500"}`}
+                                                            />
+                                                          </button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto max-w-xs p-3">
                                                           <p className="text-xs">{alert.tooltip}</p>
-                                                        </TooltipContent>
-                                                      </Tooltip>
+                                                        </PopoverContent>
+                                                      </Popover>
                                                     );
                                                   }
                                                   // 2+ alerts: show count badge with popover
