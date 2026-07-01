@@ -274,49 +274,53 @@ const fetchLockedOrdersForDateWindow = async (
 
   const startDateStr = formatDateForQuery(dateWindow.startDate);
   const endDateStr = formatDateForQuery(dateWindow.endDate);
-  const driverIdsStr = driverIds.join(',');
+  const driverChunks = chunkDriverIds(driverIds);
 
-  console.log(`[useReportsDateWindow] Fetching locked orders for window: ${startDateStr} to ${endDateStr}`);
+  console.log(`[useReportsDateWindow] Fetching locked orders for ${driverIds.length} drivers (${driverChunks.length} chunk(s)), window: ${startDateStr} to ${endDateStr}`);
 
   try {
-    // Step 1: Fetch flat locked orders with date filter (same as unlocked query pattern)
+    // Step 1: Fetch flat locked orders (chunked driver IDs to keep URL length safe)
     const BATCH_SIZE = 1000;
-    let allOrders: any[] = [];
-    let offset = 0;
-    let hasMore = true;
+    const ordersById = new Map<string, any>();
 
-    while (hasMore) {
-      const { data: batch, error } = await supabase
-        .from("orders")
-        .select(`
-          id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
-          created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
-          canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
-          is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
-          freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-          tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
-          bol_force_complete, pod_force_complete, weight_bol
-        `)
-        .eq("locked", true)
-        .eq("canceled", false)
-        .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr}),original_driver1_id.in.(${driverIdsStr}),original_driver2_id.in.(${driverIdsStr})`)
-        .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59)`)
-        .order("pickup_datetime", { ascending: false })
-        .range(offset, offset + BATCH_SIZE - 1);
+    await Promise.all(driverChunks.map(async (chunk) => {
+      const chunkStr = chunk.join(',');
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: batch, error } = await supabase
+          .from("orders")
+          .select(`
+            id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
+            created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
+            canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
+            is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
+            freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
+            tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
+            bol_force_complete, pod_force_complete, weight_bol
+          `)
+          .eq("locked", true)
+          .eq("canceled", false)
+          .or(`driver1_id.in.(${chunkStr}),driver2_id.in.(${chunkStr}),original_driver1_id.in.(${chunkStr}),original_driver2_id.in.(${chunkStr})`)
+          .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59)`)
+          .order("pickup_datetime", { ascending: false })
+          .range(offset, offset + BATCH_SIZE - 1);
 
-      if (error) {
-        console.error('[useReportsDateWindow] Error fetching locked orders batch:', error);
-        throw error;
+        if (error) {
+          console.error('[useReportsDateWindow] Error fetching locked orders batch:', error);
+          throw error;
+        }
+
+        if (batch) {
+          for (const o of batch) ordersById.set(o.id, o);
+        }
+
+        hasMore = batch?.length === BATCH_SIZE;
+        offset += BATCH_SIZE;
       }
+    }));
 
-      if (batch) {
-        allOrders = allOrders.concat(batch);
-      }
-
-      hasMore = batch?.length === BATCH_SIZE;
-      offset += BATCH_SIZE;
-    }
-
+    const allOrders = Array.from(ordersById.values());
     console.log(`[useReportsDateWindow] Fetched ${allOrders.length} locked orders from database`);
 
     if (allOrders.length === 0) return [];
