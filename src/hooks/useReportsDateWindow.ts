@@ -47,6 +47,14 @@ export interface ReportsDateWindowOptions {
    */
   individualOverrideDriverIds?: string[] | null;
   /**
+   * Current user's full name (from profile.full_name). When Individual mode is
+   * ON and this is provided, the scope is expanded to also include drivers
+   * appearing on orders booked by the current user (`orders.booked_by = name`).
+   * This surfaces recovery/transfer loads booked by the dispatcher even when
+   * the load is now assigned to another dispatcher's driver.
+   */
+  bookedByName?: string | null;
+  /**
    * Optional spotlight driver id. When set and the driver belongs to the
    * current office scope, the hook publishes [spotlightDriverId] first so
    * the matched row renders immediately, then expands to the full office
