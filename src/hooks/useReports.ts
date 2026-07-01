@@ -1743,6 +1743,8 @@ export const useReports = (options?: UseReportsOptions) => {
               oil_change_date: truck.oil_change_date || null,
               tires_swap_date: truck.tires_swap_date || null,
               maintenance_check_date: truck.maintenance_check_date || null,
+              last_oil_change_miles: truck.last_oil_change_miles ?? null,
+              truck_miles: truck.miles ?? null,
               // DOT inspection dates
               dot_inspection_date: truck.dot_inspection_date || null,
               trailer_dot_inspection_date: truck.trailer?.dot_inspection_date || null,

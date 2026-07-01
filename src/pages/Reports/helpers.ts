@@ -444,7 +444,9 @@ export const getStatusColors = (status: string) => {
 };
 
 // Helper to get maintenance icon status for trucks
-export const getMaintenanceIconStatus = (truck: any): { show: boolean; color: string; tooltip: string } => {
+export const getMaintenanceIconStatus = (
+  truck: any
+): { show: boolean; color: string; tooltip: string; oilMilesSince: number | null; oilTriggered: boolean } => {
   const dates = [
     { name: "Oil Change", date: truck.oil_change_date },
     { name: "Tires Swap", date: truck.tires_swap_date },
@@ -469,12 +471,30 @@ export const getMaintenanceIconStatus = (truck: any): { show: boolean; color: st
     }
   }
   
-  if (dueSoon.length === 0) {
-    return { show: false, color: "", tooltip: "" };
+  // Miles since last oil change — trigger on high mileage even if date is fine
+  const oilMilesSince =
+    truck.truck_miles != null && truck.last_oil_change_miles != null
+      ? truck.truck_miles - truck.last_oil_change_miles
+      : null;
+
+  let oilTriggered = false;
+  let milesColor: "red" | "yellow" | null = null;
+  if (oilMilesSince != null) {
+    if (oilMilesSince > 28000) { milesColor = "red"; oilTriggered = true; }
+    else if (oilMilesSince > 26000) { milesColor = "yellow"; oilTriggered = true; }
   }
-  
-  const color = minDays <= 7 ? "red" : "yellow";
-  return { show: true, color, tooltip: dueSoon.join(", ") };
+  if (oilTriggered && oilMilesSince != null) {
+    dueSoon.unshift(`Oil Change: ${oilMilesSince.toLocaleString()} mi since last change`);
+  }
+
+  if (dueSoon.length === 0) {
+    return { show: false, color: "", tooltip: "", oilMilesSince, oilTriggered: false };
+  }
+
+  const dateColor = minDays <= 7 ? "red" : minDays <= 30 ? "yellow" : null;
+  // Red wins over yellow
+  const color = dateColor === "red" || milesColor === "red" ? "red" : "yellow";
+  return { show: true, color, tooltip: dueSoon.join(", "), oilMilesSince, oilTriggered };
 };
 
 // Helper to check if a delivery stop time is >= 16:00 (late delivery)

@@ -2005,6 +2005,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         oil_change_date: truck?.oil_change_date || null,
         tires_swap_date: truck?.tires_swap_date || null,
         maintenance_check_date: truck?.maintenance_check_date || null,
+        // Oil change miles tracking
+        last_oil_change_miles: truck?.last_oil_change_miles ?? null,
+        truck_miles: truck?.miles ?? null,
         // DOT inspection dates (snake_case to match helper functions)
         dot_inspection_date: truck?.dot_inspection_date || null,
         trailer_dot_inspection_date: trailerInfo?.dot_inspection_date || null,
