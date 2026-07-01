@@ -180,12 +180,28 @@ function pickCurrentOrder(allOrders: OrderRow[]): OrderRow | null {
     const bT = new Date(b.pickup_datetime || "9999-12-31").getTime();
     return aT - bT;
   });
-  // Current/active load = the newest order that has a BOL (driver picked it up).
-  // Fall back to the newest overall if none have a BOL yet.
-  const active = [...sorted]
-    .reverse()
-    .find((o) => o.order_files?.some((f) => f.file_category === "BOL"));
-  return active || sorted[sorted.length - 1];
+
+  const now = Date.now();
+  const hasFile = (order: OrderRow, category: "BOL" | "POD") =>
+    order.order_files?.some((f) => f.file_category === category) || false;
+  const pickupTime = (order: OrderRow) =>
+    order.pickup_datetime ? new Date(order.pickup_datetime).getTime() : Infinity;
+
+  const openOrders = sorted.filter((order) => !hasFile(order, "POD"));
+  const startedOpenOrders = openOrders.filter((order) => pickupTime(order) <= now);
+
+  // Current load preference:
+  // 1) Active/open load with BOL and no POD
+  // 2) Active/open load with no POD whose pickup time has started
+  // 3) Earliest upcoming open load
+  // 4) Latest historical BOL load
+  return (
+    [...startedOpenOrders].reverse().find((order) => hasFile(order, "BOL")) ||
+    startedOpenOrders[startedOpenOrders.length - 1] ||
+    openOrders[0] ||
+    [...sorted].reverse().find((order) => hasFile(order, "BOL")) ||
+    sorted[sorted.length - 1]
+  );
 }
 
 export default function TrucksMap() {
