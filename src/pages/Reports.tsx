@@ -4994,36 +4994,17 @@ const Reports = () => {
                                                   // 1. Maintenance / Oil Change
                                                   const maintenanceStatus = getMaintenanceIconStatus(truck);
                                                   if (maintenanceStatus.show) {
-                                                    const milesLabel =
-                                                      maintenanceStatus.oilMilesSince != null
-                                                        ? `${Math.round(maintenanceStatus.oilMilesSince / 1000)}k`
-                                                        : null;
                                                     icons.push({
                                                       key: "maintenance",
                                                       label: "Oil Change",
                                                       tooltip: maintenanceStatus.tooltip,
                                                       color: maintenanceStatus.color === "red" ? "red" : "yellow",
                                                       renderIcon: () => (
-                                                        <span
-                                                          className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded font-semibold text-[10px] leading-none ${
-                                                            maintenanceStatus.color === "red"
-                                                              ? "bg-red-500 text-white"
-                                                              : "bg-yellow-400 text-black"
-                                                          }`}
-                                                        >
-                                                          <img
-                                                            src={wrenchIcon}
-                                                            alt="Maintenance"
-                                                            className="h-3 w-3"
-                                                            style={{
-                                                              filter:
-                                                                maintenanceStatus.color === "red"
-                                                                  ? "invert(100%)"
-                                                                  : "none",
-                                                            }}
-                                                          />
-                                                          {milesLabel && <span>{milesLabel}</span>}
-                                                        </span>
+                                                        <img
+                                                          src={wrenchIcon}
+                                                          alt="Maintenance"
+                                                          className="h-4 w-4"
+                                                        />
                                                       ),
                                                     });
                                                   }
