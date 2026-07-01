@@ -129,6 +129,7 @@ export function DispatcherFleetMapView({
   const [noLocationsFound, setNoLocationsFound] = useState(false);
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
   const [popupTick, setPopupTick] = useState(0);
+  const [minimized, setMinimized] = useState(false);
 
   const { data: locations } = useSamsaraLocations();
 
@@ -157,6 +158,7 @@ export function DispatcherFleetMapView({
   const handleTruckClick = useCallback((truckId: string) => {
     console.log('[FleetMap] Truck selected:', truckId);
     setSelectedTruckId(truckId);
+    setMinimized(false);
     setPopupTick((n) => n + 1);
     onTruckSelect?.(truckId);
     if (flyToOnSelect) {
@@ -171,6 +173,7 @@ export function DispatcherFleetMapView({
   useEffect(() => {
     if (externalSelectedTruckId === undefined) return;
     setSelectedTruckId(externalSelectedTruckId);
+    setMinimized(false);
     setPopupTick((n) => n + 1);
     if (externalSelectedTruckId && flyToOnSelect) {
       const md = markersRef.current.get(externalSelectedTruckId);
@@ -180,11 +183,10 @@ export function DispatcherFleetMapView({
     }
   }, [externalSelectedTruckId, flyToOnSelect]);
 
-  // Close popup
-  const closePopup = useCallback(() => {
-    setSelectedTruckId(null);
-    onPopupClose?.();
-  }, [onPopupClose]);
+  // Minimize popup into a small floating truck icon (does not deselect)
+  const minimizePopup = useCallback(() => {
+    setMinimized(true);
+  }, []);
 
   const toFiniteCoordinate = (value?: number | string | null) => {
     const numericValue = typeof value === 'string' ? Number(value) : value;
@@ -822,8 +824,21 @@ export function DispatcherFleetMapView({
         </div>
       )}
 
+      {/* Minimized floating icon */}
+      {selectedTruck && minimized && (
+        <button
+          type="button"
+          onClick={() => setMinimized(false)}
+          aria-label={`Restore vehicle ${selectedTruck.truckNumber}`}
+          className="absolute bottom-4 right-4 z-[10000] flex items-center gap-2 rounded-full bg-[hsl(199_89%_48%)] text-white shadow-xl border border-border pl-2 pr-3 py-2 hover:brightness-110"
+        >
+          <span className="text-lg leading-none">🚚</span>
+          <span className="text-xs font-semibold">{selectedTruck.truckNumber}</span>
+        </button>
+      )}
+
       {/* Driver info popup - follows the truck marker */}
-      {selectedTruck && (pinnedPopup || selectedMarkerData) && (
+      {selectedTruck && !minimized && (pinnedPopup || selectedMarkerData) && (
         <div
           className={`fleet-popup-panel absolute ${pinnedPopup ? 'w-[280px]' : 'w-[340px]'} rounded-lg overflow-hidden shadow-xl border border-border`}
           style={{ ...popupStyle, zIndex: 9999 }}
@@ -837,8 +852,9 @@ export function DispatcherFleetMapView({
             <button
               type="button"
               className="text-white/80 hover:text-white"
-              onClick={closePopup}
-              aria-label="Close"
+              onClick={minimizePopup}
+              aria-label="Minimize"
+              title="Minimize"
             >
               <X className="h-4 w-4" />
             </button>
