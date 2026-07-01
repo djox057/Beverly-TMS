@@ -740,20 +740,6 @@ export default function YardArrivals() {
       if (recoveryDriverId) {
         // Assign recovery driver as the new driver1_id
         updateData.driver1_id = recoveryDriverId;
-        
-        // Update recovery driver's company to match original driver's company
-        const { data: originalDriver } = await supabase
-          .from('drivers')
-          .select('company_id')
-          .eq('id', statusDialogData.driverId)
-          .single();
-
-        if (originalDriver?.company_id) {
-          await supabase
-            .from('drivers')
-            .update({ company_id: originalDriver.company_id })
-            .eq('id', recoveryDriverId);
-        }
       }
       await supabase.from("trucks").update(updateData).eq("id", statusDialogData.truckId);
     }
@@ -767,23 +753,7 @@ export default function YardArrivals() {
   // Handler to assign recovery driver only
   const handleAssignRecoveryDriver = async (recoveryDriverId: string) => {
     if (!statusDialogData?.truckId) return;
-    
-    // Update recovery driver's company to match original driver's company
-    if (statusDialogData.driverId) {
-      const { data: originalDriver } = await supabase
-        .from('drivers')
-        .select('company_id')
-        .eq('id', statusDialogData.driverId)
-        .single();
 
-      if (originalDriver?.company_id) {
-        await supabase
-          .from('drivers')
-          .update({ company_id: originalDriver.company_id })
-          .eq('id', recoveryDriverId);
-      }
-    }
-    
     // Assign recovery driver as driver1_id
     await supabase.from("trucks").update({ driver1_id: recoveryDriverId }).eq("id", statusDialogData.truckId);
     
