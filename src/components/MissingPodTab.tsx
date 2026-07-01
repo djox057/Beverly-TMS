@@ -179,7 +179,7 @@ export const MissingPodTab = () => {
           <div>
             <CardTitle>Missing POD</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Loads where POD is 24h+ overdue since delivery. Timer freezes when POD is uploaded.
+              Loads delivered within the last 4 days where POD is 24h+ overdue. Timer freezes when POD is uploaded.
             </p>
           </div>
           <Input
