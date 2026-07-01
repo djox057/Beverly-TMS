@@ -406,6 +406,62 @@ const LiveOilChange = () => {
                           {fmtNum(milesSinceOil)}
                         </TableCell>
                         <TableCell>
+                          {(() => {
+                            const fileName = odometerFileMap[t.id] ?? null;
+                            const inputId = `odom-${t.id}`;
+                            return (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  id={inputId}
+                                  type="file"
+                                  accept="image/*,application/pdf"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) uploadOdometer(t.id, f);
+                                    e.target.value = "";
+                                  }}
+                                />
+                                {fileName ? (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-1"
+                                      onClick={() => viewOdometer(t.id, fileName)}
+                                      title="View odometer"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-1"
+                                      onClick={() => document.getElementById(inputId)?.click()}
+                                      title="Replace odometer"
+                                    >
+                                      <RefreshCcw className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 px-1 text-xs"
+                                    onClick={() => document.getElementById(inputId)?.click()}
+                                    title="Upload odometer"
+                                  >
+                                    <Upload className="h-3.5 w-3.5 mr-1" /> Upload
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell>
                           <Textarea
                             value={notes[t.id] ?? ""}
                             onChange={(e) => setNotes((s) => ({ ...s, [t.id]: e.target.value }))}
