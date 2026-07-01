@@ -229,7 +229,11 @@ export const MissingPodTab = () => {
                       <TableCell>{r.driver_name || "—"}</TableCell>
                       <TableCell>{r.booked_by || "—"}</TableCell>
                       <TableCell>{delivery ? formatDT(delivery) : "—"}</TableCell>
-                      <TableCell className="font-semibold text-destructive">
+                      <TableCell
+                        className={`font-semibold ${
+                          r.elapsedMs < 48 * 60 * 60 * 1000 ? "text-yellow-500" : "text-destructive"
+                        }`}
+                      >
                         {formatElapsed(r.elapsedMs)}
                       </TableCell>
                       <TableCell>
