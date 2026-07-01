@@ -583,22 +583,6 @@ export default function YardLoads() {
         recovery_date: new Date().toISOString(),
       });
 
-      // Update recovery driver's company to match original driver's company
-      if (data.transferDriverId && selectedOrderForTransfer.originalDriverId) {
-        const { data: originalDriver } = await supabase
-          .from('drivers')
-          .select('company_id')
-          .eq('id', selectedOrderForTransfer.originalDriverId)
-          .single();
-
-        if (originalDriver?.company_id) {
-          await supabase
-            .from('drivers')
-            .update({ company_id: originalDriver.company_id })
-            .eq('id', data.transferDriverId);
-        }
-      }
-
       toast.success("Transfer driver assigned successfully");
       queryClient.invalidateQueries({ queryKey: ["yard-loads-orders"] });
       // Real-time subscription will update orders cache
