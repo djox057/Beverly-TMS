@@ -5004,6 +5004,12 @@ const Reports = () => {
                                                           src={wrenchIcon}
                                                           alt="Maintenance"
                                                           className="h-4 w-4"
+                                                          style={{
+                                                            filter:
+                                                              maintenanceStatus.color === "red"
+                                                                ? "brightness(0) saturate(100%) invert(29%) sepia(94%) saturate(3661%) hue-rotate(347deg) brightness(96%) contrast(93%)"
+                                                                : "brightness(0) saturate(100%) invert(72%) sepia(83%) saturate(858%) hue-rotate(1deg) brightness(101%) contrast(101%)",
+                                                          }}
                                                         />
                                                       ),
                                                     });
