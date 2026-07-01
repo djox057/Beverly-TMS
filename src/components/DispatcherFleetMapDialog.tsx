@@ -82,6 +82,26 @@ interface TruckData {
     hasBOL: boolean;
     hasPOD: boolean;
     pickupArrived: boolean;
+    pickupStops?: Array<{
+      address?: string;
+      city?: string;
+      state?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      datetime?: string;
+      arrived?: boolean;
+      sequence?: number;
+    }>;
+    deliveryStops?: Array<{
+      address?: string;
+      city?: string;
+      state?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      datetime?: string;
+      arrived?: boolean;
+      sequence?: number;
+    }>;
   };
 }
 
@@ -251,11 +271,17 @@ export function DispatcherFleetMapView({
 
     const order = selectedTruck.currentOrder;
 
-    const makeStopMarker = (lng: number, lat: number, kind: 'pickup' | 'delivery') => {
+    const makeStopMarker = (
+      lng: number,
+      lat: number,
+      kind: 'pickup' | 'delivery',
+      indexLabel?: string,
+    ) => {
       const el = document.createElement('div');
       const isPickup = kind === 'pickup';
-      const emoji = isPickup ? '📦' : '🎯';
-      const label = isPickup ? 'PICKUP' : 'DELIVERY';
+      const emoji = isPickup ? '📍' : '🎯';
+      const baseLabel = isPickup ? 'PICKUP' : 'DELIVERY';
+      const label = indexLabel ? `${baseLabel} ${indexLabel}` : baseLabel;
       const bgColor = isPickup ? 'hsl(var(--warning))' : 'hsl(var(--destructive))';
       el.innerHTML = `
         <div style="display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));">
@@ -276,34 +302,68 @@ export function DispatcherFleetMapView({
       locationMarkersRef.current.push(m);
     };
 
-    const pLat = toFiniteCoordinate(order.pickupLatitude);
-    const pLng = toFiniteCoordinate(order.pickupLongitude);
-    const dLat = toFiniteCoordinate(order.deliveryLatitude);
-    const dLng = toFiniteCoordinate(order.deliveryLongitude);
+    // Prefer full arrays (multi-drop / multi-pickup); fall back to legacy single fields
+    type StopCoord = { lat: number; lng: number; arrived: boolean };
+    const pickupCoords: StopCoord[] = [];
+    const deliveryCoords: StopCoord[] = [];
 
-    if (pLat !== null && pLng !== null) makeStopMarker(pLng, pLat, 'pickup');
-    if (dLat !== null && dLng !== null) makeStopMarker(dLng, dLat, 'delivery');
+    if (order.pickupStops && order.pickupStops.length > 0) {
+      order.pickupStops.forEach((s) => {
+        const lat = toFiniteCoordinate(s.latitude);
+        const lng = toFiniteCoordinate(s.longitude);
+        if (lat !== null && lng !== null) pickupCoords.push({ lat, lng, arrived: !!s.arrived });
+      });
+    } else {
+      const pLat = toFiniteCoordinate(order.pickupLatitude);
+      const pLng = toFiniteCoordinate(order.pickupLongitude);
+      if (pLat !== null && pLng !== null)
+        pickupCoords.push({ lat: pLat, lng: pLng, arrived: !!order.pickupArrived });
+    }
+
+    if (order.deliveryStops && order.deliveryStops.length > 0) {
+      order.deliveryStops.forEach((s) => {
+        const lat = toFiniteCoordinate(s.latitude);
+        const lng = toFiniteCoordinate(s.longitude);
+        if (lat !== null && lng !== null) deliveryCoords.push({ lat, lng, arrived: !!s.arrived });
+      });
+    } else {
+      const dLat = toFiniteCoordinate(order.deliveryLatitude);
+      const dLng = toFiniteCoordinate(order.deliveryLongitude);
+      if (dLat !== null && dLng !== null)
+        deliveryCoords.push({ lat: dLat, lng: dLng, arrived: false });
+    }
+
+    pickupCoords.forEach((c, i) =>
+      makeStopMarker(c.lng, c.lat, 'pickup', pickupCoords.length > 1 ? `${i + 1}` : undefined),
+    );
+    deliveryCoords.forEach((c, i) =>
+      makeStopMarker(
+        c.lng,
+        c.lat,
+        'delivery',
+        deliveryCoords.length > 1 ? `${i + 1}` : undefined,
+      ),
+    );
 
     // Fit bounds to include truck + visible stops
     const bounds = new mapboxgl.LngLatBounds();
     if (selectedMarkerData?.lngLat) bounds.extend(selectedMarkerData.lngLat);
-    if (pLat !== null && pLng !== null) bounds.extend([pLng, pLat]);
-    if (dLat !== null && dLng !== null) bounds.extend([dLng, dLat]);
+    pickupCoords.forEach((c) => bounds.extend([c.lng, c.lat]));
+    deliveryCoords.forEach((c) => bounds.extend([c.lng, c.lat]));
     if (!bounds.isEmpty()) {
       map.current.fitBounds(bounds, { padding: 90, duration: 800, maxZoom: 9 });
     }
 
-    // Build route: truck -> (pickup if not picked up yet) -> delivery
+    // Build route: truck -> remaining pickups (any not yet arrived) -> all deliveries in order
     const routeCoords: Array<{ lat: number; lon: number }> = [];
     if (selectedMarkerData?.lngLat) {
       routeCoords.push({ lon: selectedMarkerData.lngLat[0], lat: selectedMarkerData.lngLat[1] });
     }
-    if (!order.hasBOL && pLat !== null && pLng !== null) {
-      routeCoords.push({ lat: pLat, lon: pLng });
-    }
-    if (dLat !== null && dLng !== null) {
-      routeCoords.push({ lat: dLat, lon: dLng });
-    }
+    const remainingPickups = order.hasBOL
+      ? []
+      : pickupCoords.filter((c) => !c.arrived);
+    remainingPickups.forEach((c) => routeCoords.push({ lat: c.lat, lon: c.lng }));
+    deliveryCoords.forEach((c) => routeCoords.push({ lat: c.lat, lon: c.lng }));
 
     if (routeCoords.length >= 2 && tokenRef.current) {
       const coordStr = routeCoords.map((c) => `${c.lon},${c.lat}`).join(';');
