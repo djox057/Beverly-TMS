@@ -708,7 +708,7 @@ export const getGlobalOrdersVersion = (): number => {
  */
 export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const queryClient = useQueryClient();
-  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, individualOverrideDriverIds, spotlightDriverId } = options;
+  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, individualOverrideDriverIds, bookedByName, spotlightDriverId } = options;
   
   // Calculate current date window
   const currentWindow = useMemo(() => {
@@ -734,7 +734,8 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     individualMode && individualOverrideDriverIds
       ? `override:${individualOverrideDriverIds.length}:${individualOverrideDriverIds.slice(0, 3).join(',')}`
       : 'no-override',
-  ], [individualMode, currentUserDispatcherId, individualOverrideDriverIds]);
+    individualMode ? (bookedByName || 'no-booked-by') : 'no-booked-by',
+  ], [individualMode, currentUserDispatcherId, individualOverrideDriverIds, bookedByName]);
 
   // Primary query: fetches driver scopes (all offices at once, or single dispatcher)
   // Does NOT refetch when selectedDate or priorityOffice changes
@@ -749,8 +750,8 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
           console.log(`[useReportsDateWindow] Individual mode (override): ${ids.length} drivers`);
           return { driverIds: ids, dispatcherIds: [currentUserDispatcherId], allScopes: null };
         }
-        // Individual mode: single dispatcher scope
-        const scope = await fetchIndividualDriverScope(currentUserDispatcherId);
+        // Individual mode: single dispatcher scope (+ booked-by expansion)
+        const scope = await fetchIndividualDriverScope(currentUserDispatcherId, bookedByName);
         if (scope.driverIds.length === 0) {
           console.log('[useReportsDateWindow] No drivers found for individual dispatcher');
           return { driverIds: scope.driverIds, dispatcherIds: scope.dispatcherIds, allScopes: null };
