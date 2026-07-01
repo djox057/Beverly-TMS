@@ -1,14 +1,11 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, parseISO } from "date-fns";
-import { CalendarIcon, Droplet, Search } from "lucide-react";
+import { format, parse, parseISO, isValid } from "date-fns";
+import { Droplet, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -34,6 +31,23 @@ const fmtDate = (iso: string | null) => {
 
 const fmtNum = (n: number | null | undefined) =>
   n == null || Number.isNaN(n) ? "" : Number(n).toLocaleString();
+
+// Shared bare-input style — blends with row background, no borders/ring.
+const bareInput =
+  "h-7 px-1 border-0 bg-transparent shadow-none rounded-none " +
+  "focus-visible:ring-0 focus-visible:ring-offset-0 " +
+  "hover:bg-muted/40 focus:bg-muted/60 transition-colors";
+
+const parseDateInput = (raw: string): string | null => {
+  const s = raw.trim();
+  if (!s) return null;
+  const formats = ["MM/dd/yyyy", "M/d/yyyy", "MM-dd-yyyy", "yyyy-MM-dd"];
+  for (const f of formats) {
+    const d = parse(s, f, new Date());
+    if (isValid(d)) return format(d, "yyyy-MM-dd");
+  }
+  return "__invalid__";
+};
 
 const LiveOilChange = () => {
   const queryClient = useQueryClient();
@@ -102,20 +116,20 @@ const LiveOilChange = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[130px]">Source</TableHead>
-                  <TableHead className="w-[90px]">Unit</TableHead>
-                  <TableHead className="w-[150px]">Last oil change date</TableHead>
-                  <TableHead className="w-[140px]">Last oil change mileage</TableHead>
-                  <TableHead className="w-[130px]">Last Update</TableHead>
-                  <TableHead className="w-[150px]">Total mileage - last update</TableHead>
-                  <TableHead className="w-[140px]">Miles since last oil change</TableHead>
-                  <TableHead className="min-w-[160px]">Note</TableHead>
+                  <TableHead className="w-[120px]">Source</TableHead>
+                  <TableHead className="w-[80px]">Unit</TableHead>
+                  <TableHead className="w-[130px]">Last oil change date</TableHead>
+                  <TableHead className="w-[170px]">Last oil change mileage</TableHead>
+                  <TableHead className="w-[120px]">Last Update</TableHead>
+                  <TableHead className="w-[180px]">Total mileage - last update</TableHead>
+                  <TableHead className="w-[170px]">Miles since last oil change</TableHead>
+                  <TableHead className="w-[180px]">Note</TableHead>
                   <TableHead className="w-[140px]">last OC invoice</TableHead>
-                  <TableHead className="w-[120px]">AIR FILTER</TableHead>
-                  <TableHead className="w-[140px]">mil since last AF</TableHead>
+                  <TableHead className="w-[110px]">AIR FILTER</TableHead>
+                  <TableHead className="w-[150px]">mil since last AF</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -152,36 +166,28 @@ const LiveOilChange = () => {
                                 updateTruck.mutate({ id: t.id, patch: { source: v } });
                               }
                             }}
-                            className="h-8"
+                            className={bareInput}
                           />
                         </TableCell>
                         <TableCell className="font-medium">{t.truck_number}</TableCell>
                         <TableCell>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn(
-                                  "h-8 w-full justify-start font-normal",
-                                  !t.oil_change_date && "text-muted-foreground"
-                                )}
-                              >
-                                <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                                {t.oil_change_date ? fmtDate(t.oil_change_date) : "Set"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={t.oil_change_date ? parseISO(t.oil_change_date) : undefined}
-                                onSelect={(d) => {
-                                  const iso = d ? format(d, "yyyy-MM-dd") : null;
-                                  updateTruck.mutate({ id: t.id, patch: { oil_change_date: iso } });
-                                }}
-                              />
-                            </PopoverContent>
-                          </Popover>
+                          <Input
+                            key={t.oil_change_date ?? "empty"}
+                            defaultValue={fmtDate(t.oil_change_date)}
+                            placeholder="MM/DD/YYYY"
+                            onBlur={(e) => {
+                              const parsed = parseDateInput(e.target.value);
+                              if (parsed === "__invalid__") {
+                                toast({ title: "Invalid date", description: "Use MM/DD/YYYY", variant: "destructive" });
+                                e.target.value = fmtDate(t.oil_change_date);
+                                return;
+                              }
+                              if (parsed !== (t.oil_change_date ?? null)) {
+                                updateTruck.mutate({ id: t.id, patch: { oil_change_date: parsed } });
+                              }
+                            }}
+                            className={bareInput}
+                          />
                         </TableCell>
                         <TableCell>
                           <Input
@@ -194,7 +200,7 @@ const LiveOilChange = () => {
                                 updateTruck.mutate({ id: t.id, patch: { last_oil_change_miles: v as any } });
                               }
                             }}
-                            className="h-8"
+                            className={cn(bareInput, "no-spinner")}
                           />
                         </TableCell>
                         <TableCell className="text-muted-foreground">
@@ -211,7 +217,7 @@ const LiveOilChange = () => {
                                 updateTruck.mutate({ id: t.id, patch: { miles: v as any } });
                               }
                             }}
-                            className="h-8"
+                            className={cn(bareInput, "no-spinner")}
                           />
                         </TableCell>
                         <TableCell className={cn(milesSinceOil != null && milesSinceOil > 25000 && "text-destructive font-semibold")}>
@@ -221,7 +227,7 @@ const LiveOilChange = () => {
                           <Textarea
                             value={notes[t.id] ?? ""}
                             onChange={(e) => setNotes((s) => ({ ...s, [t.id]: e.target.value }))}
-                            className="h-8 min-h-8 py-1"
+                            className={cn(bareInput, "min-h-7 py-1 resize-none")}
                             placeholder="—"
                           />
                         </TableCell>
@@ -229,7 +235,7 @@ const LiveOilChange = () => {
                           <Input
                             value={invoices[t.id] ?? ""}
                             onChange={(e) => setInvoices((s) => ({ ...s, [t.id]: e.target.value }))}
-                            className="h-8"
+                            className={bareInput}
                             placeholder="—"
                           />
                         </TableCell>
@@ -244,7 +250,7 @@ const LiveOilChange = () => {
                                 updateTruck.mutate({ id: t.id, patch: { air_filter: v as any } });
                               }
                             }}
-                            className="h-8"
+                            className={cn(bareInput, "no-spinner")}
                           />
                         </TableCell>
                         <TableCell className={cn(milesSinceAF != null && milesSinceAF > 60000 && "text-destructive font-semibold")}>
