@@ -189,7 +189,7 @@ const fetchOrdersForDateWindow = async (
         bol_force_complete, pod_force_complete, weight_bol
       `)
       .eq("locked", false)
-      .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr})`)
+      .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr}),original_driver1_id.in.(${driverIdsStr}),original_driver2_id.in.(${driverIdsStr})`)
       .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59),status.eq.in_transit,status.eq.pending`)
       .order("pickup_datetime", { ascending: false })
       .range(offset, offset + BATCH_SIZE - 1);
@@ -289,7 +289,7 @@ const fetchLockedOrdersForDateWindow = async (
         `)
         .eq("locked", true)
         .eq("canceled", false)
-        .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr})`)
+        .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr}),original_driver1_id.in.(${driverIdsStr}),original_driver2_id.in.(${driverIdsStr})`)
         .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59)`)
         .order("pickup_datetime", { ascending: false })
         .range(offset, offset + BATCH_SIZE - 1);
@@ -383,7 +383,7 @@ const fetchGapFillOrders = async (
       `)
       .eq("locked", true)
       .eq("canceled", false)  // ADDED: exclude canceled
-      .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr})`)
+      .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr}),original_driver1_id.in.(${driverIdsStr}),original_driver2_id.in.(${driverIdsStr})`)
       // FIXED: Same nested date filter as main query
       .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59)`)
       .limit(500);

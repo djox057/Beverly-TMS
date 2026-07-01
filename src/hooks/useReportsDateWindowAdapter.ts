@@ -1658,6 +1658,25 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         existing.push(order);
         ordersByDriverId.set(order.driver2_id, existing);
       }
+      // Fallback: yard/unassigned load (driver1_id is null) — attach to the
+      // original driver row so it doesn't disappear from Reports while it
+      // waits for a recovery driver to be assigned.
+      if (!order.driver1_id && !order.driver2_id) {
+        if (order.original_driver1_id) {
+          const existing = ordersByDriverId.get(order.original_driver1_id) || [];
+          if (!existing.includes(order)) {
+            existing.push(order);
+            ordersByDriverId.set(order.original_driver1_id, existing);
+          }
+        }
+        if (order.original_driver2_id && order.original_driver2_id !== order.original_driver1_id) {
+          const existing = ordersByDriverId.get(order.original_driver2_id) || [];
+          if (!existing.includes(order)) {
+            existing.push(order);
+            ordersByDriverId.set(order.original_driver2_id, existing);
+          }
+        }
+      }
       // Add to transfer drivers — only if order is still a recovery load
       if (order.is_recovery) {
       for (const transfer of order.order_transfers || []) {
