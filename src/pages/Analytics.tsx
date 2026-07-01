@@ -48,6 +48,7 @@ import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 import RecruitingTab from "@/components/RecruitingTab";
+import MissingPodTab from "@/components/MissingPodTab";
 import { orderHasPOD } from "@/pages/Reports/helpers";
 import { DayInput } from "@/components/DayInput";
 import crownImage from "@/assets/crown.png";
@@ -124,6 +125,17 @@ const Analytics = () => {
   const { hasRole, profile, getPrimaryRole, roles } = useAuthContext();
   const isAdmin = roles.includes("admin");
   const canViewSalaries = roles.includes("admin") || roles.includes("chicago_management");
+
+  // Persist active tab so returning from an edit-order deep-link restores it
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "performance";
+    const saved = localStorage.getItem("analyticsActiveTab");
+    if (saved) {
+      localStorage.removeItem("analyticsActiveTab");
+      return saved;
+    }
+    return "performance";
+  });
 
   // Debug navigation function
   const navigateToEditOrder = (orderId: string) => {
@@ -3007,7 +3019,7 @@ const Analytics = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="performance" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <TabsList>
               <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
@@ -3021,6 +3033,7 @@ const Analytics = () => {
                 <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Dispatcher Salaries"}</TabsTrigger>
               )}
               {roles.includes("admin") && <TabsTrigger value="recruiting">Other Salaries</TabsTrigger>}
+              <TabsTrigger value="missing-pod">Missing POD</TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => setShowCharts((s) => !s)}>
@@ -5519,6 +5532,9 @@ const Analytics = () => {
               <RecruitingTab monthOptions={monthOptions} />
             </TabsContent>
           )}
+          <TabsContent value="missing-pod" className="space-y-6">
+            <MissingPodTab />
+          </TabsContent>
         </Tabs>
 
         {/* Bonuses Dialog */}
