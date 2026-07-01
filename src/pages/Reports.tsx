@@ -5136,21 +5136,38 @@ const Reports = () => {
                                                   const visible = icons.slice(0, MAX_VISIBLE);
                                                   const overflow = icons.slice(MAX_VISIBLE);
 
-                                                  const renderSingleIcon = (icon: DriverIcon) => (
-                                                    <Tooltip key={icon.key}>
-                                                      <TooltipTrigger asChild>
+                                                  const renderSingleIcon = (icon: DriverIcon) => {
+                                                    // Icons with their own click action keep it (open dialog, etc.)
+                                                    // and expose their label as a hover title for context.
+                                                    if (icon.onClick) {
+                                                      return (
                                                         <button
+                                                          key={icon.key}
                                                           className="inline-flex"
-                                                          onClick={icon.onClick || ((e) => e.stopPropagation())}
+                                                          onClick={icon.onClick}
+                                                          title={icon.tooltip}
                                                         >
                                                           {icon.renderIcon()}
                                                         </button>
-                                                      </TooltipTrigger>
-                                                      <TooltipContent>
-                                                        <p className="text-xs">{icon.tooltip}</p>
-                                                      </TooltipContent>
-                                                    </Tooltip>
-                                                  );
+                                                      );
+                                                    }
+                                                    // Otherwise show tooltip content in a click-triggered popover.
+                                                    return (
+                                                      <Popover key={icon.key}>
+                                                        <PopoverTrigger asChild>
+                                                          <button
+                                                            className="inline-flex"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                          >
+                                                            {icon.renderIcon()}
+                                                          </button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto max-w-xs p-3">
+                                                          <p className="text-xs">{icon.tooltip}</p>
+                                                        </PopoverContent>
+                                                      </Popover>
+                                                    );
+                                                  };
 
                                                   return (
                                                     <>
