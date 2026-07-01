@@ -82,6 +82,26 @@ interface TruckData {
     hasBOL: boolean;
     hasPOD: boolean;
     pickupArrived: boolean;
+    pickupStops?: Array<{
+      address?: string;
+      city?: string;
+      state?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      datetime?: string;
+      arrived?: boolean;
+      sequence?: number;
+    }>;
+    deliveryStops?: Array<{
+      address?: string;
+      city?: string;
+      state?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      datetime?: string;
+      arrived?: boolean;
+      sequence?: number;
+    }>;
   };
 }
 
