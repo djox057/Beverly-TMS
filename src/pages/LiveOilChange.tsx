@@ -228,9 +228,9 @@ const LiveOilChange = () => {
                         : null;
                     const rowTone =
                       milesSinceOil != null && milesSinceOil > 28000
-                        ? "bg-red-100 hover:bg-red-150 dark:bg-red-950/40 dark:hover:bg-red-950/60"
+                        ? "bg-red-100 hover:bg-red-200 dark:bg-red-950/40 dark:hover:bg-red-950/60"
                         : milesSinceOil != null && milesSinceOil > 26000
-                        ? "bg-yellow-100 hover:bg-yellow-150 dark:bg-yellow-950/40 dark:hover:bg-yellow-950/60"
+                        ? "bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-950/40 dark:hover:bg-yellow-950/60"
                         : "";
                     return (
                       <TableRow key={t.id} className={rowTone}>
