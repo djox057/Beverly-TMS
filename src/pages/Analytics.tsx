@@ -126,6 +126,17 @@ const Analytics = () => {
   const isAdmin = roles.includes("admin");
   const canViewSalaries = roles.includes("admin") || roles.includes("chicago_management");
 
+  // Persist active tab so returning from an edit-order deep-link restores it
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "performance";
+    const saved = localStorage.getItem("analyticsActiveTab");
+    if (saved) {
+      localStorage.removeItem("analyticsActiveTab");
+      return saved;
+    }
+    return "performance";
+  });
+
   // Debug navigation function
   const navigateToEditOrder = (orderId: string) => {
     console.log("=== NAVIGATION DEBUG ===");
