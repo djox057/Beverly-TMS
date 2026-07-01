@@ -48,6 +48,13 @@ import { TruckFilesManager } from "@/components/TruckFilesManager";
 import { TrailerFilesManager } from "@/components/TrailerFilesManager";
 import { DriverFilesManager } from "@/components/DriverFilesManager";
 
+// Parse yyyy-MM-dd (or full ISO) as a local date to avoid UTC->local off-by-one.
+const parseLocalDate = (date: string): Date => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return new Date(date);
+};
+
 const formatDate = (date: string | null) => {
   if (!date) return "N/A";
   return format(parseLocalDate(date), "MM/dd/yyyy");
