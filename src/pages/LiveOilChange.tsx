@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid } from "date-fns";
-import { Droplet, Search } from "lucide-react";
+import { Droplet, Search, Upload, Eye, RefreshCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -83,6 +84,73 @@ const LiveOilChange = () => {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
+
+  // Odometer files: map truckId -> filename (or null when missing)
+  const { data: trucksListForFiles } = useQuery({
+    queryKey: ["live-oil-change-truck-ids"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("trucks").select("id").eq("is_active", true);
+      if (error) throw error;
+      return (data ?? []).map(t => t.id as string);
+    },
+  });
+
+  const { data: odometerFileMap = {}, refetch: refetchOdometer } = useQuery({
+    queryKey: ["odometer-file-map", (trucksListForFiles ?? []).join(",")],
+    queryFn: async () => {
+      const map: Record<string, string | null> = {};
+      const ids = trucksListForFiles ?? [];
+      await Promise.all(
+        ids.map(async (id) => {
+          const { data } = await supabase.storage
+            .from("truck-odometer-files").list(id, { limit: 5 });
+          map[id] = data && data.length > 0 ? data[0].name : null;
+        }),
+      );
+      return map;
+    },
+    enabled: (trucksListForFiles ?? []).length > 0,
+  });
+
+  const uploadOdometer = async (truckId: string, file: File) => {
+    const allowed = file.type.startsWith("image/") || file.type === "application/pdf";
+    if (!allowed) {
+      toast({ title: "Invalid file", description: "Only images or PDF are allowed", variant: "destructive" });
+      return;
+    }
+    // Remove any existing files first (replace behavior)
+    const { data: existing } = await supabase.storage
+      .from("truck-odometer-files").list(truckId, { limit: 100 });
+    if (existing && existing.length > 0) {
+      await supabase.storage
+        .from("truck-odometer-files")
+        .remove(existing.map((f) => `${truckId}/${f.name}`));
+    }
+    const ext = file.name.split(".").pop() || "bin";
+    const safeName = `odometer-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("truck-odometer-files")
+      .upload(`${truckId}/${safeName}`, file, { upsert: true, contentType: file.type });
+    if (error) {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Odometer uploaded" });
+    refetchOdometer();
+  };
+
+  const viewOdometer = async (truckId: string, fileName: string) => {
+    const { data, error } = await supabase.storage
+      .from("truck-odometer-files")
+      .createSignedUrl(`${truckId}/${fileName}`, 300);
+    if (error || !data?.signedUrl) {
+      toast({ title: "Cannot open file", description: error?.message, variant: "destructive" });
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  };
+
   const { getPrimaryRole } = useAuthContext();
   const primaryRole = getPrimaryRole();
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
@@ -165,8 +233,8 @@ const LiveOilChange = () => {
   }, [trucks, search, companyFilter, sourceFilter, milesFilter]);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
+    <div className="py-6 px-2 space-y-6">
+      <div className="flex items-center gap-3 px-2">
         <Droplet className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-3xl font-bold text-foreground">Live Oil Change</h1>
@@ -214,7 +282,7 @@ const LiveOilChange = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-2">
           <div className="overflow-x-auto">
             <Table className="table-fixed">
               <TableHeader>
@@ -222,10 +290,11 @@ const LiveOilChange = () => {
                   <TableHead className="w-[120px]">Source</TableHead>
                   <TableHead className="w-[80px]">Unit</TableHead>
                   <TableHead className="w-[130px]">Last oil change date</TableHead>
-                  <TableHead className="w-[170px]">Last oil change mileage</TableHead>
+                  <TableHead className="w-[110px] whitespace-normal leading-tight">Last oil change mileage</TableHead>
                   <TableHead className="w-[120px]">Last Update</TableHead>
                   <TableHead className="w-[180px]">Total mileage - last update</TableHead>
-                  <TableHead className="w-[170px]">Miles since last oil change</TableHead>
+                  <TableHead className="w-[90px] whitespace-normal leading-tight">Miles since last oil change</TableHead>
+                  <TableHead className="w-[130px] whitespace-normal leading-tight">Odometer</TableHead>
                   <TableHead className="w-[180px]">Note</TableHead>
                   <TableHead className="w-[90px] whitespace-normal leading-tight">last OC<br/>invoice</TableHead>
                   <TableHead className="w-[110px]">AIR FILTER</TableHead>
@@ -235,13 +304,13 @@ const LiveOilChange = () => {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       No trucks found
                     </TableCell>
                   </TableRow>
@@ -335,6 +404,62 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell>
                           {fmtNum(milesSinceOil)}
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const fileName = odometerFileMap[t.id] ?? null;
+                            const inputId = `odom-${t.id}`;
+                            return (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  id={inputId}
+                                  type="file"
+                                  accept="image/*,application/pdf"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) uploadOdometer(t.id, f);
+                                    e.target.value = "";
+                                  }}
+                                />
+                                {fileName ? (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-1"
+                                      onClick={() => viewOdometer(t.id, fileName)}
+                                      title="View odometer"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-1"
+                                      onClick={() => document.getElementById(inputId)?.click()}
+                                      title="Replace odometer"
+                                    >
+                                      <RefreshCcw className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 px-1 text-xs"
+                                    onClick={() => document.getElementById(inputId)?.click()}
+                                    title="Upload odometer"
+                                  >
+                                    <Upload className="h-3.5 w-3.5 mr-1" /> Upload
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <Textarea
