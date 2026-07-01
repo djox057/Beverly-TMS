@@ -259,7 +259,7 @@ export const Sidebar = () => {
     // Accounting role: all pages except Analytics + Maintenance and Repairs + Fuel Reports + EFS Requests (financial + operational oversight)
     if (primaryRole === 'accounting') {
       return [
-        ...filteredNav.filter(item => item.href !== '/analytics' && item.href !== '/beverly-heatmap' && item.href !== '/truck-sales'),
+        ...filteredNav.filter(item => item.href !== '/analytics' && item.href !== '/beverly-heatmap' && item.href !== '/truck-sales' && item.href !== '/live-oil-change'),
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
@@ -268,7 +268,7 @@ export const Sidebar = () => {
     
     // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Reports, Yard Arrivals, Trips, Fleets, Alerts)
     if (hasRole('safety')) {
-      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals', '/trips', '/fleets', '/transfer-list', '/roadside-inspection', '/live-oil-change'];
+      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals', '/trips', '/fleets', '/transfer-list', '/roadside-inspection'];
       return [
         ...filteredNav.filter(item => safetyPages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
@@ -292,10 +292,10 @@ export const Sidebar = () => {
       return filteredNav.filter(item => yardPages.includes(item.href));
     }
     
-    // Dispatch and Afterhours roles: all navigation + EFS Requests
+    // Dispatch and Afterhours roles: all navigation + EFS Requests (afterhours cannot see Live Oil Change)
     if (primaryRole === 'dispatch' || primaryRole === 'afterhours') {
       return [
-        ...filteredNav,
+        ...filteredNav.filter(item => !(primaryRole === 'afterhours' && item.href === '/live-oil-change')),
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
       ];
     }

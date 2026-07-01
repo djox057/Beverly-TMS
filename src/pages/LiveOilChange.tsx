@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 type TruckRow = {
   id: string;
@@ -59,6 +60,11 @@ const parseDateInput = (raw: string): string | null => {
 
 const LiveOilChange = () => {
   const queryClient = useQueryClient();
+  const { getPrimaryRole } = useAuthContext();
+  const primaryRole = getPrimaryRole();
+  // Dispatch may only edit the "Total mileage - last update" (miles) field.
+  const canEditAll = primaryRole !== 'dispatch';
+  const canEditMiles = true;
   const [search, setSearch] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({});
 
@@ -244,6 +250,7 @@ const LiveOilChange = () => {
                               }
                             }}
                             className={bareInput}
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell className="font-medium">{t.truck_number}</TableCell>
@@ -264,6 +271,7 @@ const LiveOilChange = () => {
                               }
                             }}
                             className={bareInput}
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell>
@@ -278,6 +286,7 @@ const LiveOilChange = () => {
                               }
                             }}
                             className={cn(bareInput, "no-spinner")}
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell className="text-muted-foreground">
@@ -320,6 +329,7 @@ const LiveOilChange = () => {
                             }}
                             className={bareInput}
                             placeholder="—"
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell>
@@ -334,6 +344,7 @@ const LiveOilChange = () => {
                               }
                             }}
                             className={cn(bareInput, "no-spinner")}
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell className={cn(milesSinceAF != null && milesSinceAF > 60000 && "text-destructive font-semibold")}>
