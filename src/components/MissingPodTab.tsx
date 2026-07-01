@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 
@@ -104,18 +104,11 @@ export const MissingPodTab = () => {
         const delivery = toNaiveDate((o as any).delivery_datetime);
         if (!delivery) continue;
 
-        let elapsedMs: number;
-        let frozen = false;
-        let podUploadedIso: string | null = null;
-        if (podFiles.length > 0) {
-          // Convert POD created_at (UTC) to Chicago naive
-          const podChicago = toZonedTime(podFiles[0], CHICAGO_TZ);
-          elapsedMs = podChicago.getTime() - delivery.getTime();
-          frozen = true;
-          podUploadedIso = podFiles[0].toISOString();
-        } else {
-          elapsedMs = nowChicago.getTime() - delivery.getTime();
-        }
+        // Hide orders that already have a POD uploaded
+        if (podFiles.length > 0) continue;
+        const elapsedMs = nowChicago.getTime() - delivery.getTime();
+        const frozen = false;
+        const podUploadedIso: string | null = null;
         if (elapsedMs < 24 * 60 * 60 * 1000) continue;
 
         const drv: any = (o as any).drivers;
@@ -202,27 +195,35 @@ export const MissingPodTab = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[140px]">Internal #</TableHead>
+                  <TableHead className="w-[170px]">Internal #</TableHead>
                   <TableHead className="w-[140px]">Load #</TableHead>
                   <TableHead className="w-[100px]">Truck</TableHead>
                   <TableHead>Driver</TableHead>
                   <TableHead>Dispatcher</TableHead>
                   <TableHead className="w-[170px]">Delivery</TableHead>
                   <TableHead className="w-[140px]">POD Late By</TableHead>
-                  <TableHead className="w-[110px]">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((r) => {
                   const delivery = toNaiveDate(r.delivery_datetime);
                   return (
-                    <TableRow
-                      key={r.order_id}
-                      className="cursor-pointer hover:bg-muted/60"
-                      onClick={() => openOrder(r.order_id)}
-                    >
+                    <TableRow key={r.order_id}>
                       <TableCell className="font-mono">
-                        {r.internal_load_number ? formatInternalLoadNumber(r.internal_load_number) : "—"}
+                        <div className="flex items-center gap-2">
+                          <span>
+                            {r.internal_load_number ? formatInternalLoadNumber(r.internal_load_number) : "—"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => openOrder(r.order_id)}
+                            className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                            title="Open edit order"
+                            aria-label="Open edit order"
+                          >
+                            <ArrowRight className="h-4 w-4" />
+                          </button>
+                        </div>
                       </TableCell>
                       <TableCell>{r.load_number || "—"}</TableCell>
                       <TableCell>{r.truck_number || "—"}</TableCell>
@@ -235,13 +236,6 @@ export const MissingPodTab = () => {
                         }`}
                       >
                         {formatElapsed(r.elapsedMs)}
-                      </TableCell>
-                      <TableCell>
-                        {r.frozen ? (
-                          <Badge variant="secondary">Uploaded</Badge>
-                        ) : (
-                          <Badge variant="destructive">Missing</Badge>
-                        )}
                       </TableCell>
                     </TableRow>
                   );
