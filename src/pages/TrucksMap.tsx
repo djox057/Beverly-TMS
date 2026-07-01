@@ -269,6 +269,16 @@ export default function TrucksMap() {
             .sort((a, b) => (a.sequence_number || 0) - (b.sequence_number || 0));
           const pickup = pickups[0] || null;
           const delivery = deliveries[deliveries.length - 1] || null;
+          const mapStop = (s: PickupDropRow) => ({
+            address: composeAddress(s),
+            city: s.city || undefined,
+            state: s.state || undefined,
+            latitude: s.latitude ?? null,
+            longitude: s.longitude ?? null,
+            datetime: s.datetime || undefined,
+            arrived: !!s.arrived_at,
+            sequence: s.sequence_number ?? 0,
+          });
           const hasBOL =
             current.order_files?.some((f) => f.file_category === "BOL") || false;
           const hasPOD =
@@ -292,6 +302,8 @@ export default function TrucksMap() {
             deliveryLongitude: delivery?.longitude ?? null,
             pickupDatetime: pickup?.datetime || undefined,
             deliveryDatetime: delivery?.datetime || undefined,
+            pickupStops: pickups.map(mapStop),
+            deliveryStops: deliveries.map(mapStop),
             hasBOL,
             hasPOD,
             pickupArrived: !!pickup?.arrived_at,
