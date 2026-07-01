@@ -458,7 +458,6 @@ export const getMaintenanceIconStatus = (
   truck: any
 ): { show: boolean; color: string; tooltip: string; oilMilesSince: number | null; oilTriggered: boolean } => {
   const dates = [
-    { name: "Oil Change", date: truck.oil_change_date },
     { name: "Tires Swap", date: truck.tires_swap_date },
     { name: "Maintenance Check", date: truck.maintenance_check_date },
   ];
