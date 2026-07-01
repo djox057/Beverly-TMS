@@ -47,6 +47,14 @@ export interface ReportsDateWindowOptions {
    */
   individualOverrideDriverIds?: string[] | null;
   /**
+   * Current user's full name (from profile.full_name). When Individual mode is
+   * ON and this is provided, the scope is expanded to also include drivers
+   * appearing on orders booked by the current user (`orders.booked_by = name`).
+   * This surfaces recovery/transfer loads booked by the dispatcher even when
+   * the load is now assigned to another dispatcher's driver.
+   */
+  bookedByName?: string | null;
+  /**
    * Optional spotlight driver id. When set and the driver belongs to the
    * current office scope, the hook publishes [spotlightDriverId] first so
    * the matched row renders immediately, then expands to the full office
@@ -437,7 +445,8 @@ const fetchGapFillOrders = async (
  * Used when Individual Mode is ON.
  */
 const fetchIndividualDriverScope = async (
-  individualDispatcherId: string
+  individualDispatcherId: string,
+  bookedByName?: string | null
 ): Promise<{ driverIds: string[], dispatcherIds: string[] }> => {
   console.time('[scope] fetchIndividualDriverScope');
   console.log(`[useReportsDateWindow] 🔍 INDIVIDUAL MODE: Fetching drivers only for dispatcher: ${individualDispatcherId}`);
@@ -454,8 +463,35 @@ const fetchIndividualDriverScope = async (
     throw directDriversError;
   }
 
-  const driverIds = (directDrivers || []).map(d => d.id);
-  console.log(`[useReportsDateWindow] ✅ INDIVIDUAL MODE: Found ${driverIds.length} drivers for dispatcher`);
+  const driverIdSet = new Set<string>((directDrivers || []).map(d => d.id));
+
+  // Also include drivers that appear on orders booked by this user.
+  // This surfaces recovery/transfer loads booked by the dispatcher even when
+  // the load is now assigned to another dispatcher's driver.
+  if (bookedByName) {
+    // Bound the lookup to the last 180 days to keep the query fast while still
+    // covering any active/recent booking. Historical archives past this window
+    // are rare in an active reports view.
+    const since = new Date();
+    since.setDate(since.getDate() - 180);
+    const sinceStr = since.toISOString().slice(0, 10);
+    const { data: bookedOrders, error: bookedErr } = await supabase
+      .from("orders")
+      .select("driver1_id, driver2_id")
+      .eq("booked_by", bookedByName)
+      .gte("pickup_datetime", sinceStr);
+    if (bookedErr) {
+      console.warn('[useReportsDateWindow] booked_by scope lookup failed:', bookedErr);
+    } else {
+      for (const o of bookedOrders || []) {
+        if ((o as any).driver1_id) driverIdSet.add((o as any).driver1_id);
+        if ((o as any).driver2_id) driverIdSet.add((o as any).driver2_id);
+      }
+    }
+  }
+
+  const driverIds = Array.from(driverIdSet);
+  console.log(`[useReportsDateWindow] ✅ INDIVIDUAL MODE: Found ${driverIds.length} drivers (incl. booked-by expansion)`);
   console.timeEnd('[scope] fetchIndividualDriverScope');
   
   return { driverIds, dispatcherIds: [individualDispatcherId] };
@@ -672,7 +708,7 @@ export const getGlobalOrdersVersion = (): number => {
  */
 export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const queryClient = useQueryClient();
-  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, individualOverrideDriverIds, spotlightDriverId } = options;
+  const { dispatcherId, selectedDate, priorityOffice, individualMode, currentUserDispatcherId, individualOverrideDriverIds, bookedByName, spotlightDriverId } = options;
   
   // Calculate current date window
   const currentWindow = useMemo(() => {
@@ -698,7 +734,8 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     individualMode && individualOverrideDriverIds
       ? `override:${individualOverrideDriverIds.length}:${individualOverrideDriverIds.slice(0, 3).join(',')}`
       : 'no-override',
-  ], [individualMode, currentUserDispatcherId, individualOverrideDriverIds]);
+    individualMode ? (bookedByName || 'no-booked-by') : 'no-booked-by',
+  ], [individualMode, currentUserDispatcherId, individualOverrideDriverIds, bookedByName]);
 
   // Primary query: fetches driver scopes (all offices at once, or single dispatcher)
   // Does NOT refetch when selectedDate or priorityOffice changes
@@ -713,8 +750,8 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
           console.log(`[useReportsDateWindow] Individual mode (override): ${ids.length} drivers`);
           return { driverIds: ids, dispatcherIds: [currentUserDispatcherId], allScopes: null };
         }
-        // Individual mode: single dispatcher scope
-        const scope = await fetchIndividualDriverScope(currentUserDispatcherId);
+        // Individual mode: single dispatcher scope (+ booked-by expansion)
+        const scope = await fetchIndividualDriverScope(currentUserDispatcherId, bookedByName);
         if (scope.driverIds.length === 0) {
           console.log('[useReportsDateWindow] No drivers found for individual dispatcher');
           return { driverIds: scope.driverIds, dispatcherIds: scope.dispatcherIds, allScopes: null };

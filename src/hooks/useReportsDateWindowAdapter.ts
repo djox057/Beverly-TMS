@@ -409,22 +409,25 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   // Track previous mode to detect changes and invalidate cache
   const prevModeRef = useRef<{ individualMode: boolean; userId: string | null } | null>(null);
   
-  // Fetch user's office to determine if viewing their own office
-  const { data: userOffice } = useQuery({
+  // Fetch user's office + full name (office used for other-office check;
+  // full name used to expand Individual-mode scope to loads booked by user)
+  const { data: userProfile } = useQuery({
     queryKey: ['user-office', currentUserDispatcherId],
     queryFn: async () => {
       if (!currentUserDispatcherId) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('office')
+        .select('office, full_name')
         .eq('user_id', currentUserDispatcherId)
         .single();
       if (error) return null;
-      return data?.office || null;
+      return { office: data?.office || null, fullName: data?.full_name || null };
     },
     staleTime: 300000, // 5 minutes
     enabled: !!currentUserDispatcherId,
   });
+  const userOffice = userProfile?.office || null;
+  const userFullName = userProfile?.fullName || null;
   
   // Check if we're viewing a different office than user's own
   // BG 1st floor and BG 4th floor are treated as the same office here, so a
@@ -496,6 +499,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     individualMode: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? false : individualMode,
     currentUserDispatcherId: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : currentUserDispatcherId,
     individualOverrideDriverIds: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : individualOverrideDriverIds,
+    bookedByName: (isViewingOtherOfficeInIndividualMode || shouldBypassIndividualMode) ? null : userFullName,
     spotlightDriverId: spotlightDriverId ?? null,
   });
 
@@ -2359,8 +2363,21 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     }
 
     // Individual mode: filter to show only user's own drivers (safety net)
-    return transformedData.filter(group => group.dispatcherId === currentUserDispatcherId);
-  }, [individualMode, transformedData, currentUserDispatcherId, individualOverrideDriverIds]);
+    // Also include groups where the user booked at least one of the truck's orders
+    // (e.g. recovery loads booked by user but now assigned to another dispatcher's driver).
+    return transformedData.filter((group: any) => {
+      if (group.dispatcherId === currentUserDispatcherId) return true;
+      if (!userFullName) return false;
+      const trucks = group.trucks || [];
+      for (const t of trucks) {
+        const orders = t?.orders || [];
+        for (const o of orders) {
+          if (o?.bookedBy === userFullName || o?.booked_by === userFullName) return true;
+        }
+      }
+      return false;
+    });
+  }, [individualMode, transformedData, currentUserDispatcherId, individualOverrideDriverIds, userFullName]);
 
   if (!USE_DATE_WINDOW_LOADING) {
     return legacyReportsHook;
