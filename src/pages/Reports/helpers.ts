@@ -443,6 +443,16 @@ export const getStatusColors = (status: string) => {
   }
 };
 
+// Source-based oil change mileage thresholds
+// Returns [yellowAbove, redAbove] — miles-since-last-oil-change > redAbove => red, > yellowAbove => yellow
+export const getOilChangeThresholds = (source: string | null | undefined): { yellow: number; red: number } => {
+  const s = (source ?? "").trim().toUpperCase();
+  if (s === "M&K" || s === "MK" || s === "M & K") return { yellow: 32000, red: 35000 };
+  if (s === "RYDER") return { yellow: 42000, red: 45000 };
+  // BF TRUCK and default
+  return { yellow: 26000, red: 28000 };
+};
+
 // Helper to get maintenance icon status for trucks
 export const getMaintenanceIconStatus = (
   truck: any
@@ -479,9 +489,10 @@ export const getMaintenanceIconStatus = (
 
   let oilTriggered = false;
   let milesColor: "red" | "yellow" | null = null;
+  const { yellow: yellowThr, red: redThr } = getOilChangeThresholds(truck.source);
   if (oilMilesSince != null) {
-    if (oilMilesSince > 28000) { milesColor = "red"; oilTriggered = true; }
-    else if (oilMilesSince > 26000) { milesColor = "yellow"; oilTriggered = true; }
+    if (oilMilesSince > redThr) { milesColor = "red"; oilTriggered = true; }
+    else if (oilMilesSince > yellowThr) { milesColor = "yellow"; oilTriggered = true; }
   }
   if (oilTriggered && oilMilesSince != null) {
     dueSoon.unshift(`Oil Change: ${oilMilesSince.toLocaleString()} mi since last change`);
