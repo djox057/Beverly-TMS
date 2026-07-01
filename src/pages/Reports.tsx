@@ -6878,7 +6878,7 @@ const Reports = () => {
                       if (isDispatchOnly) return null;
                       return (
                         <div className="flex flex-col leading-tight">
-                          <span>${zoomedLoad?.driverPay?.toLocaleString() || 0} Stop Amt</span>
+                          <span>${zoomedLoad?.driverPay?.toLocaleString() || 0} driver pay</span>
                           {zoomedLoad?.loadedMiles && zoomedLoad.loadedMiles > 0 ? (
                             <span className="text-xs text-muted-foreground/80">
                               {(zoomedLoad.driverPay / zoomedLoad.loadedMiles).toFixed(2)}/mi RPM
