@@ -509,13 +509,17 @@ const Trips = () => {
     if (!isDispatchOnly) return ordersRaw;
     if (!ordersRaw) return ordersRaw;
     const allowed = new Set(dispatchAssignedDriverIds || []);
-    if (allowed.size === 0) return [];
+    const userFullName = profile?.full_name || null;
+    if (allowed.size === 0 && !userFullName) return [];
     return ordersRaw.filter(
       (o: any) =>
         (o.driver1Id && allowed.has(o.driver1Id)) ||
-        (o.driver2Id && allowed.has(o.driver2Id))
+        (o.driver2Id && allowed.has(o.driver2Id)) ||
+        (o.originalDriver1Id && allowed.has(o.originalDriver1Id)) ||
+        (o.originalDriver2Id && allowed.has(o.originalDriver2Id)) ||
+        (!!userFullName && o.bookedBy === userFullName)
     );
-  }, [ordersRaw, isDispatchOnly, dispatchAssignedDriverIds]);
+  }, [ordersRaw, isDispatchOnly, dispatchAssignedDriverIds, profile?.full_name]);
 
   // Cell selection for Excel-like sum/average functionality
   const { selectedCellsArray, toggleCell, clearSelection, isSelected } = useCellSelection();
