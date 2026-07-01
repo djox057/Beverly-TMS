@@ -68,6 +68,20 @@ const formatDateForQuery = (date: Date): string => {
   return format(date, "yyyy-MM-dd");
 };
 
+// Chunk driver IDs to keep the PostgREST URL under the ~8KB limit.
+// Each UUID is 36 chars + comma, and it's repeated across 4 OR-branches
+// (driver1_id, driver2_id, original_driver1_id, original_driver2_id).
+// 30 IDs per chunk ≈ 4 * 30 * 37 = ~4.4KB for the driver portion, leaving
+// headroom for the rest of the query string.
+const DRIVER_ID_CHUNK_SIZE = 30;
+const chunkDriverIds = (ids: string[]): string[][] => {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += DRIVER_ID_CHUNK_SIZE) {
+    chunks.push(ids.slice(i, i + DRIVER_ID_CHUNK_SIZE));
+  }
+  return chunks;
+};
+
 // Calculate date window based on selected date
 export const calculateDateWindow = (selectedDate: Date, direction: 'initial' | 'past' | 'future'): DateWindow => {
   const baseDate = startOfDay(selectedDate);
@@ -161,56 +175,52 @@ const fetchOrdersForDateWindow = async (
 
   const startDateStr = formatDateForQuery(dateWindow.startDate);
   const endDateStr = formatDateForQuery(dateWindow.endDate);
-  const driverIdsStr = driverIds.join(',');
-  
-  console.log(`[useReportsDateWindow] Fetching orders for ${driverIds.length} drivers, window: ${startDateStr} to ${endDateStr}`);
+  const driverChunks = chunkDriverIds(driverIds);
 
-  // Step 1: Fetch flat orders (no joins - faster, index-friendly)
+  console.log(`[useReportsDateWindow] Fetching orders for ${driverIds.length} drivers (${driverChunks.length} chunk(s)), window: ${startDateStr} to ${endDateStr}`);
+
+  // Step 1: Fetch flat orders (no joins - faster, index-friendly).
+  // Chunk driver IDs to keep URL length under PostgREST limits.
   const BATCH_SIZE = 1000;
-  let allOrders: any[] = [];
-  let offset = 0;
-  let hasMore = true;
+  const ordersById = new Map<string, any>();
 
-  while (hasMore) {
-    // CORRECTED FILTER LOGIC:
-    // 1. eq("locked", false) - only unlocked orders (locked come from archive)
-    // 2. eq("canceled", false) - exclude canceled by default
-    // 3. or(driver1_id.in.(...), driver2_id.in.(...)) - driver scope filter
-    // 4. or(and(pickup between), and(delivery between)) - nested date range filter
-    const { data: batch, error } = await supabase
-      .from("orders")
-      .select(`
-        id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
-        created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
-        canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
-        is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
-        freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-        tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
-        bol_force_complete, pod_force_complete, weight_bol
-      `)
-      .eq("locked", false)
-      .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr}),original_driver1_id.in.(${driverIdsStr}),original_driver2_id.in.(${driverIdsStr})`)
-      .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59),status.eq.in_transit,status.eq.pending`)
-      .order("pickup_datetime", { ascending: false })
-      .range(offset, offset + BATCH_SIZE - 1);
+  await Promise.all(driverChunks.map(async (chunk) => {
+    const chunkStr = chunk.join(',');
+    let offset = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const { data: batch, error } = await supabase
+        .from("orders")
+        .select(`
+          id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
+          created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
+          canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
+          is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
+          freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
+          tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
+          bol_force_complete, pod_force_complete, weight_bol
+        `)
+        .eq("locked", false)
+        .or(`driver1_id.in.(${chunkStr}),driver2_id.in.(${chunkStr}),original_driver1_id.in.(${chunkStr}),original_driver2_id.in.(${chunkStr})`)
+        .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59),status.eq.in_transit,status.eq.pending`)
+        .order("pickup_datetime", { ascending: false })
+        .range(offset, offset + BATCH_SIZE - 1);
 
-    if (error) {
-      console.error('[useReportsDateWindow] Error fetching orders batch:', error);
-      throw error;
+      if (error) {
+        console.error('[useReportsDateWindow] Error fetching orders batch:', error);
+        throw error;
+      }
+
+      if (batch) {
+        for (const o of batch) ordersById.set(o.id, o);
+      }
+
+      hasMore = batch?.length === BATCH_SIZE;
+      offset += BATCH_SIZE;
     }
+  }));
 
-    if (batch) {
-      allOrders = allOrders.concat(batch);
-    }
-
-    hasMore = batch?.length === BATCH_SIZE;
-    offset += BATCH_SIZE;
-    
-    if (hasMore) {
-      console.log(`[useReportsDateWindow] Fetched batch, total so far: ${allOrders.length}, fetching more...`);
-    }
-  }
-
+  const allOrders = Array.from(ordersById.values());
   console.log(`[useReportsDateWindow] Fetched ${allOrders.length} flat orders from database`);
 
   // Step 2: Fetch pickup_drops and order_transfers in parallel (separate queries, batched)
@@ -264,49 +274,53 @@ const fetchLockedOrdersForDateWindow = async (
 
   const startDateStr = formatDateForQuery(dateWindow.startDate);
   const endDateStr = formatDateForQuery(dateWindow.endDate);
-  const driverIdsStr = driverIds.join(',');
+  const driverChunks = chunkDriverIds(driverIds);
 
-  console.log(`[useReportsDateWindow] Fetching locked orders for window: ${startDateStr} to ${endDateStr}`);
+  console.log(`[useReportsDateWindow] Fetching locked orders for ${driverIds.length} drivers (${driverChunks.length} chunk(s)), window: ${startDateStr} to ${endDateStr}`);
 
   try {
-    // Step 1: Fetch flat locked orders with date filter (same as unlocked query pattern)
+    // Step 1: Fetch flat locked orders (chunked driver IDs to keep URL length safe)
     const BATCH_SIZE = 1000;
-    let allOrders: any[] = [];
-    let offset = 0;
-    let hasMore = true;
+    const ordersById = new Map<string, any>();
 
-    while (hasMore) {
-      const { data: batch, error } = await supabase
-        .from("orders")
-        .select(`
-          id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
-          created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
-          canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
-          is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
-          freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-          tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
-          bol_force_complete, pod_force_complete, weight_bol
-        `)
-        .eq("locked", true)
-        .eq("canceled", false)
-        .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr}),original_driver1_id.in.(${driverIdsStr}),original_driver2_id.in.(${driverIdsStr})`)
-        .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59)`)
-        .order("pickup_datetime", { ascending: false })
-        .range(offset, offset + BATCH_SIZE - 1);
+    await Promise.all(driverChunks.map(async (chunk) => {
+      const chunkStr = chunk.join(',');
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: batch, error } = await supabase
+          .from("orders")
+          .select(`
+            id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
+            created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
+            canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
+            is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
+            freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
+            tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
+            bol_force_complete, pod_force_complete, weight_bol
+          `)
+          .eq("locked", true)
+          .eq("canceled", false)
+          .or(`driver1_id.in.(${chunkStr}),driver2_id.in.(${chunkStr}),original_driver1_id.in.(${chunkStr}),original_driver2_id.in.(${chunkStr})`)
+          .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59)`)
+          .order("pickup_datetime", { ascending: false })
+          .range(offset, offset + BATCH_SIZE - 1);
 
-      if (error) {
-        console.error('[useReportsDateWindow] Error fetching locked orders batch:', error);
-        throw error;
+        if (error) {
+          console.error('[useReportsDateWindow] Error fetching locked orders batch:', error);
+          throw error;
+        }
+
+        if (batch) {
+          for (const o of batch) ordersById.set(o.id, o);
+        }
+
+        hasMore = batch?.length === BATCH_SIZE;
+        offset += BATCH_SIZE;
       }
+    }));
 
-      if (batch) {
-        allOrders = allOrders.concat(batch);
-      }
-
-      hasMore = batch?.length === BATCH_SIZE;
-      offset += BATCH_SIZE;
-    }
-
+    const allOrders = Array.from(ordersById.values());
     console.log(`[useReportsDateWindow] Fetched ${allOrders.length} locked orders from database`);
 
     if (allOrders.length === 0) return [];
@@ -364,37 +378,43 @@ const fetchGapFillOrders = async (
 
   const startDateStr = formatDateForQuery(dateWindow.startDate);
   const endDateStr = formatDateForQuery(dateWindow.endDate);
-  const driverIdsStr = driverIds.join(',');
+  const driverChunks = chunkDriverIds(driverIds);
 
-  console.log(`[useReportsDateWindow] Fetching gap-fill orders for window: ${startDateStr} to ${endDateStr}`);
+  console.log(`[useReportsDateWindow] Fetching gap-fill orders for ${driverIds.length} drivers (${driverChunks.length} chunk(s)), window: ${startDateStr} to ${endDateStr}`);
 
   try {
-    // Step 1: Fetch flat locked orders with SAME corrected filter logic
-    const { data: recentlyLocked, error } = await supabase
-      .from("orders")
-      .select(`
-        id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
-        created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
-        canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
-        is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
-        freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-        tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
-        bol_force_complete, pod_force_complete, weight_bol
-      `)
-      .eq("locked", true)
-      .eq("canceled", false)  // ADDED: exclude canceled
-      .or(`driver1_id.in.(${driverIdsStr}),driver2_id.in.(${driverIdsStr}),original_driver1_id.in.(${driverIdsStr}),original_driver2_id.in.(${driverIdsStr})`)
-      // FIXED: Same nested date filter as main query
-      .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59)`)
-      .limit(500);
-
-    if (error) {
-      console.error('[useReportsDateWindow] Error fetching gap-fill orders:', error);
-      return [];
+    // Step 1: Fetch flat locked orders (chunked driver IDs to keep URL length safe)
+    const recentlyLockedById = new Map<string, any>();
+    const chunkResults = await Promise.all(driverChunks.map(async (chunk) => {
+      const chunkStr = chunk.join(',');
+      const { data, error } = await supabase
+        .from("orders")
+        .select(`
+          id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
+          created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
+          canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
+          is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
+          freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
+          tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
+          bol_force_complete, pod_force_complete, weight_bol
+        `)
+        .eq("locked", true)
+        .eq("canceled", false)
+        .or(`driver1_id.in.(${chunkStr}),driver2_id.in.(${chunkStr}),original_driver1_id.in.(${chunkStr}),original_driver2_id.in.(${chunkStr})`)
+        .or(`and(pickup_datetime.gte.${startDateStr},pickup_datetime.lte.${endDateStr}T23:59:59),and(delivery_datetime.gte.${startDateStr},delivery_datetime.lte.${endDateStr}T23:59:59)`)
+        .limit(500);
+      if (error) {
+        console.error('[useReportsDateWindow] Error fetching gap-fill orders:', error);
+        return [] as any[];
+      }
+      return data || [];
+    }));
+    for (const rows of chunkResults) {
+      for (const o of rows) recentlyLockedById.set(o.id, o);
     }
 
     // Filter out orders that already exist
-    const newOrders = (recentlyLocked || []).filter((o: any) => !existingOrderIds.has(o.id));
+    const newOrders = Array.from(recentlyLockedById.values()).filter((o: any) => !existingOrderIds.has(o.id));
     
     if (newOrders.length === 0) {
       console.log('[useReportsDateWindow] No new gap-fill orders found');
