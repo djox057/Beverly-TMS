@@ -68,6 +68,20 @@ const formatDateForQuery = (date: Date): string => {
   return format(date, "yyyy-MM-dd");
 };
 
+// Chunk driver IDs to keep the PostgREST URL under the ~8KB limit.
+// Each UUID is 36 chars + comma, and it's repeated across 4 OR-branches
+// (driver1_id, driver2_id, original_driver1_id, original_driver2_id).
+// 30 IDs per chunk ≈ 4 * 30 * 37 = ~4.4KB for the driver portion, leaving
+// headroom for the rest of the query string.
+const DRIVER_ID_CHUNK_SIZE = 30;
+const chunkDriverIds = (ids: string[]): string[][] => {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += DRIVER_ID_CHUNK_SIZE) {
+    chunks.push(ids.slice(i, i + DRIVER_ID_CHUNK_SIZE));
+  }
+  return chunks;
+};
+
 // Calculate date window based on selected date
 export const calculateDateWindow = (selectedDate: Date, direction: 'initial' | 'past' | 'future'): DateWindow => {
   const baseDate = startOfDay(selectedDate);
