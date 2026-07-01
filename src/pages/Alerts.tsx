@@ -50,7 +50,7 @@ import { DriverFilesManager } from "@/components/DriverFilesManager";
 
 const formatDate = (date: string | null) => {
   if (!date) return "N/A";
-  return format(new Date(date), "MM/dd/yyyy");
+  return format(parseLocalDate(date), "MM/dd/yyyy");
 };
 
 const getExpirationStatus = (date: string | null) => {
