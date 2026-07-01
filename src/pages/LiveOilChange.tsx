@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
@@ -23,6 +26,10 @@ type TruckRow = {
   air_filter: number | null;
   last_oc_invoice: string | null;
   is_active: boolean;
+  driver1_id: string | null;
+  driver_name?: string | null;
+  company_id?: string | null;
+  company_name?: string | null;
 };
 
 const fmtDate = (iso: string | null) => {
@@ -60,11 +67,18 @@ const LiveOilChange = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, is_active")
+        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, company_id, companies:companies(id, name))")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
-      return (data ?? []) as TruckRow[];
+      return (data ?? []).map((t: any) => ({
+        ...t,
+        driver_name: t.driver1
+          ? `${t.driver1.first_name ?? ""} ${t.driver1.last_name ?? ""}`.trim()
+          : null,
+        company_id: t.driver1?.company_id ?? null,
+        company_name: t.driver1?.companies?.name ?? null,
+      })) as TruckRow[];
     },
   });
 
@@ -82,14 +96,44 @@ const LiveOilChange = () => {
     },
   });
 
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [milesFilter, setMilesFilter] = useState<string>("all");
+
+  const companies = useMemo(() => {
+    const map = new Map<string, string>();
+    trucks.forEach(t => { if (t.company_id && t.company_name) map.set(t.company_id, t.company_name); });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [trucks]);
+
+  const sources = useMemo(() => {
+    const set = new Set<string>();
+    trucks.forEach(t => { if (t.source) set.add(t.source); });
+    return Array.from(set).sort();
+  }, [trucks]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return trucks;
-    return trucks.filter(t =>
-      (t.truck_number ?? "").toLowerCase().includes(q) ||
-      (t.source ?? "").toLowerCase().includes(q)
-    );
-  }, [trucks, search]);
+    return trucks.filter(t => {
+      if (q) {
+        const matches =
+          (t.truck_number ?? "").toLowerCase().includes(q) ||
+          (t.driver_name ?? "").toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      if (companyFilter !== "all" && t.company_id !== companyFilter) return false;
+      if (sourceFilter !== "all" && (t.source ?? "") !== sourceFilter) return false;
+      if (milesFilter !== "all") {
+        const m = t.miles != null && t.last_oil_change_miles != null
+          ? t.miles - t.last_oil_change_miles : null;
+        if (m == null) return false;
+        if (milesFilter === "over28" && !(m > 28000)) return false;
+        if (milesFilter === "26to28" && !(m > 26000 && m <= 28000)) return false;
+        if (milesFilter === "under26" && !(m <= 26000)) return false;
+      }
+      return true;
+    });
+  }, [trucks, search, companyFilter, sourceFilter, milesFilter]);
 
   return (
     <div className="p-6 space-y-6">
@@ -104,14 +148,41 @@ const LiveOilChange = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Report</CardTitle>
-          <div className="relative w-72">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search unit or source..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={companyFilter} onValueChange={setCompanyFilter}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="Company" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All companies</SelectItem>
+                {companies.map(([id, name]) => (
+                  <SelectItem key={id} value={id}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-40"><SelectValue placeholder="Source" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sources</SelectItem>
+                {sources.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <Select value={milesFilter} onValueChange={setMilesFilter}>
+              <SelectTrigger className="w-52"><SelectValue placeholder="Miles since OC" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All mileage</SelectItem>
+                <SelectItem value="under26">≤ 26,000</SelectItem>
+                <SelectItem value="26to28">26,001 – 28,000</SelectItem>
+                <SelectItem value="over28">&gt; 28,000</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="relative w-64">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search unit or driver..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -155,8 +226,14 @@ const LiveOilChange = () => {
                       t.miles != null && t.air_filter != null
                         ? t.miles - t.air_filter
                         : null;
+                    const rowTone =
+                      milesSinceOil != null && milesSinceOil > 28000
+                        ? "bg-red-100 hover:bg-red-150 dark:bg-red-950/40 dark:hover:bg-red-950/60"
+                        : milesSinceOil != null && milesSinceOil > 26000
+                        ? "bg-yellow-100 hover:bg-yellow-150 dark:bg-yellow-950/40 dark:hover:bg-yellow-950/60"
+                        : "";
                     return (
-                      <TableRow key={t.id}>
+                      <TableRow key={t.id} className={rowTone}>
                         <TableCell>
                           <Input
                             defaultValue={t.source ?? ""}
@@ -220,7 +297,7 @@ const LiveOilChange = () => {
                             className={cn(bareInput, "no-spinner")}
                           />
                         </TableCell>
-                        <TableCell className={cn(milesSinceOil != null && milesSinceOil > 25000 && "text-destructive font-semibold")}>
+                        <TableCell>
                           {fmtNum(milesSinceOil)}
                         </TableCell>
                         <TableCell>
