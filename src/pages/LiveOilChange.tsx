@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid } from "date-fns";
-import { Droplet, Search } from "lucide-react";
+import { Droplet, Search, Upload, Eye, RefreshCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -83,6 +84,73 @@ const LiveOilChange = () => {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
+
+  // Odometer files: map truckId -> filename (or null when missing)
+  const { data: trucksListForFiles } = useQuery({
+    queryKey: ["live-oil-change-truck-ids"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("trucks").select("id").eq("is_active", true);
+      if (error) throw error;
+      return (data ?? []).map(t => t.id as string);
+    },
+  });
+
+  const { data: odometerFileMap = {}, refetch: refetchOdometer } = useQuery({
+    queryKey: ["odometer-file-map", (trucksListForFiles ?? []).join(",")],
+    queryFn: async () => {
+      const map: Record<string, string | null> = {};
+      const ids = trucksListForFiles ?? [];
+      await Promise.all(
+        ids.map(async (id) => {
+          const { data } = await supabase.storage
+            .from("truck-odometer-files").list(id, { limit: 5 });
+          map[id] = data && data.length > 0 ? data[0].name : null;
+        }),
+      );
+      return map;
+    },
+    enabled: (trucksListForFiles ?? []).length > 0,
+  });
+
+  const uploadOdometer = async (truckId: string, file: File) => {
+    const allowed = file.type.startsWith("image/") || file.type === "application/pdf";
+    if (!allowed) {
+      toast({ title: "Invalid file", description: "Only images or PDF are allowed", variant: "destructive" });
+      return;
+    }
+    // Remove any existing files first (replace behavior)
+    const { data: existing } = await supabase.storage
+      .from("truck-odometer-files").list(truckId, { limit: 100 });
+    if (existing && existing.length > 0) {
+      await supabase.storage
+        .from("truck-odometer-files")
+        .remove(existing.map((f) => `${truckId}/${f.name}`));
+    }
+    const ext = file.name.split(".").pop() || "bin";
+    const safeName = `odometer-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("truck-odometer-files")
+      .upload(`${truckId}/${safeName}`, file, { upsert: true, contentType: file.type });
+    if (error) {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Odometer uploaded" });
+    refetchOdometer();
+  };
+
+  const viewOdometer = async (truckId: string, fileName: string) => {
+    const { data, error } = await supabase.storage
+      .from("truck-odometer-files")
+      .createSignedUrl(`${truckId}/${fileName}`, 300);
+    if (error || !data?.signedUrl) {
+      toast({ title: "Cannot open file", description: error?.message, variant: "destructive" });
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  };
+
   const { getPrimaryRole } = useAuthContext();
   const primaryRole = getPrimaryRole();
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
