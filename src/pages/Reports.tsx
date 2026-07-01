@@ -136,7 +136,11 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useAfterhoursDriverMap } from "@/hooks/useAfterhoursDriverMap";
 import { useAutoSwitchOffice } from "@/hooks/useAutoSwitchOffice";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
-import { generateLeaseAgreementPdf, downloadLeaseAgreement } from "@/utils/leaseAgreementGenerator";
+import {
+  generateLeaseAgreementPdf,
+  downloadLeaseAgreement,
+  getLeaseTemplateForCompany,
+} from "@/utils/leaseAgreementGenerator";
 import {
   WeightBolDialog,
   getWeightDiscrepancyWarning,
