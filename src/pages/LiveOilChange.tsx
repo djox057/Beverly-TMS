@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid } from "date-fns";
 import { Droplet, Search } from "lucide-react";
@@ -60,6 +60,28 @@ const parseDateInput = (raw: string): string | null => {
 
 const LiveOilChange = () => {
   const queryClient = useQueryClient();
+  useEffect(() => {
+    const channel = supabase
+      .channel("live-oil-change-trucks")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trucks" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "drivers" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
   const { getPrimaryRole } = useAuthContext();
   const primaryRole = getPrimaryRole();
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
