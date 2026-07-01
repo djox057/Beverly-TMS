@@ -67,8 +67,8 @@ export const MissingPodTab = () => {
       // Chicago "now" as naive
       const nowChicago = toZonedTime(new Date(), CHICAGO_TZ);
       const cutoff = new Date(nowChicago.getTime() - 24 * 60 * 60 * 1000);
-      // Look back 60 days
-      const lookback = new Date(nowChicago.getTime() - 60 * 24 * 60 * 60 * 1000);
+      // Look back 4 days
+      const lookback = new Date(nowChicago.getTime() - 4 * 24 * 60 * 60 * 1000);
 
       const pad = (n: number) => String(n).padStart(2, "0");
       const toWall = (d: Date) =>
