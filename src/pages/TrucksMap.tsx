@@ -226,9 +226,10 @@ export default function TrucksMap() {
   const { data: fleet, isLoading: fleetLoading } = useQuery({
     queryKey: FLEET_QUERY_KEY,
     queryFn: fetchFleetMapData,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 30 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchOnMount: "always",
   });
   const { data: locations = [], isLoading: locsLoading } = useSamsaraLocations();
 
