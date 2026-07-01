@@ -4643,6 +4643,7 @@ export type Database = {
           insurance_expiration_date: string | null
           ipass: string | null
           is_active: boolean
+          last_oc_invoice: string | null
           last_oil_change_miles: number | null
           left_by_driver_id: string | null
           maintenance_check_date: string | null
@@ -4687,6 +4688,7 @@ export type Database = {
           insurance_expiration_date?: string | null
           ipass?: string | null
           is_active?: boolean
+          last_oc_invoice?: string | null
           last_oil_change_miles?: number | null
           left_by_driver_id?: string | null
           maintenance_check_date?: string | null
@@ -4731,6 +4733,7 @@ export type Database = {
           insurance_expiration_date?: string | null
           ipass?: string | null
           is_active?: boolean
+          last_oc_invoice?: string | null
           last_oil_change_miles?: number | null
           left_by_driver_id?: string | null
           maintenance_check_date?: string | null
