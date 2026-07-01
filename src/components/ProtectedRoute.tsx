@@ -10,9 +10,10 @@ interface ProtectedRouteProps {
   requiredRole?: AppRole;
   excludedRoles?: AppRole[];
   allowedRoles?: AppRole[];
+  strictAllowedRoles?: AppRole[];
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, excludedRoles, allowedRoles }) => {
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, excludedRoles, allowedRoles, strictAllowedRoles }) => {
   const { user, loading, hasRole, getPrimaryRole } = useAuthContext();
 
   if (loading) {
@@ -39,6 +40,23 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
         </div>
       </div>
     );
+  }
+
+  // Strict allowed roles - checked against primaryRole directly to bypass hasRole's
+  // privilege inheritance (e.g. accounting/safety/supervisor auto-passing manager checks)
+  if (strictAllowedRoles && strictAllowedRoles.length > 0) {
+    if (!primaryRole || !strictAllowedRoles.includes(primaryRole)) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-foreground mb-2">Access Denied</h2>
+            <p className="text-muted-foreground">You don't have permission to access this page.</p>
+            <p className="text-sm text-muted-foreground mt-2">Required roles: {strictAllowedRoles.join(', ')}</p>
+            <p className="text-sm text-muted-foreground">Your role: {primaryRole || 'none'}</p>
+          </div>
+        </div>
+      );
+    }
   }
 
   // Check allowed roles - user must have at least one of the allowed roles

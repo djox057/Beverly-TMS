@@ -184,12 +184,12 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/dispatcher-tier" element={
-          <ProtectedRoute allowedRoles={['admin', 'manager', 'chicago_management']}>
+          <ProtectedRoute strictAllowedRoles={['admin', 'manager', 'chicago_management']}>
             <Layout><DispatcherTier /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/dispatcher-tier/:id" element={
-          <ProtectedRoute allowedRoles={['admin', 'manager', 'chicago_management']}>
+          <ProtectedRoute strictAllowedRoles={['admin', 'manager', 'chicago_management']}>
             <Layout><DispatcherTierDetail /></Layout>
           </ProtectedRoute>
         } />
