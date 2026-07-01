@@ -264,6 +264,7 @@ const LiveOilChange = () => {
                       <TableRow key={t.id} className={rowTone}>
                         <TableCell>
                           <Input
+                            key={t.source ?? "empty-src"}
                             defaultValue={t.source ?? ""}
                             onBlur={(e) => {
                               const v = e.target.value.trim() || null;
@@ -298,6 +299,7 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell>
                           <Input
+                            key={t.last_oil_change_miles ?? "empty-locm"}
                             type="number"
                             defaultValue={t.last_oil_change_miles ?? ""}
                             onBlur={(e) => {
@@ -316,6 +318,7 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell>
                           <Input
+                            key={t.miles ?? "empty-miles"}
                             type="number"
                             defaultValue={t.miles ?? ""}
                             onBlur={(e) => {
@@ -356,6 +359,7 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell>
                           <Input
+                            key={t.air_filter ?? "empty-af"}
                             type="number"
                             defaultValue={t.air_filter ?? ""}
                             onBlur={(e) => {
