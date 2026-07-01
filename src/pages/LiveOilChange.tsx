@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid } from "date-fns";
 import { Droplet, Search } from "lucide-react";
@@ -60,6 +60,28 @@ const parseDateInput = (raw: string): string | null => {
 
 const LiveOilChange = () => {
   const queryClient = useQueryClient();
+  useEffect(() => {
+    const channel = supabase
+      .channel("live-oil-change-trucks")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trucks" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "drivers" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
   const { getPrimaryRole } = useAuthContext();
   const primaryRole = getPrimaryRole();
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
@@ -242,6 +264,7 @@ const LiveOilChange = () => {
                       <TableRow key={t.id} className={rowTone}>
                         <TableCell>
                           <Input
+                            key={t.source ?? "empty-src"}
                             defaultValue={t.source ?? ""}
                             onBlur={(e) => {
                               const v = e.target.value.trim() || null;
@@ -276,6 +299,7 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell>
                           <Input
+                            key={t.last_oil_change_miles ?? "empty-locm"}
                             type="number"
                             defaultValue={t.last_oil_change_miles ?? ""}
                             onBlur={(e) => {
@@ -294,6 +318,7 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell>
                           <Input
+                            key={t.miles ?? "empty-miles"}
                             type="number"
                             defaultValue={t.miles ?? ""}
                             onBlur={(e) => {
@@ -334,6 +359,7 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell>
                           <Input
+                            key={t.air_filter ?? "empty-af"}
                             type="number"
                             defaultValue={t.air_filter ?? ""}
                             onBlur={(e) => {
