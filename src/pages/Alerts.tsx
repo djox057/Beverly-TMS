@@ -189,7 +189,7 @@ export default function Alerts() {
   });
 
   // Column filters
-  type TruckColumnFilter = "all" | "dot" | "plate" | "insurance" | "oil_change" | "tires_swap" | "maintenance_check";
+  type TruckColumnFilter = "all" | "dot" | "plate" | "insurance" | "tires_swap" | "maintenance_check";
   type TrailerColumnFilter = "all" | "dot" | "plate" | "insurance";
   type DriverColumnFilter = "all" | "cdl" | "mvr" | "clearing_house" | "medical" | "drug_test";
   const [truckColumnFilter, setTruckColumnFilter] = useState<TruckColumnFilter>("all");
@@ -198,7 +198,7 @@ export default function Alerts() {
 
   // Sort state per table: { key, dir } where dir: 'asc' | 'desc'. null = no sort.
   type SortState<K extends string> = { key: K; dir: "asc" | "desc" } | null;
-  type TruckSortKey = "company" | "dot" | "plate" | "insurance" | "oil_change" | "tires_swap" | "maintenance_check";
+  type TruckSortKey = "company" | "dot" | "plate" | "insurance" | "tires_swap" | "maintenance_check";
   type TrailerSortKey = "dot" | "plate" | "insurance";
   type DriverSortKey = "cdl" | "mvr" | "clearing_house" | "medical" | "drug_test";
   const [truckSort, setTruckSort] = useState<SortState<TruckSortKey>>(null);
@@ -308,7 +308,6 @@ export default function Alerts() {
       case "dot": return isExpiring(truck.dot_inspection_date);
       case "plate": return isExpiring(truck.plate_expiration_date);
       case "insurance": return isExpiring(truck.insurance_expiration_date);
-      case "oil_change": return needsMaintenanceAttention(truck.oil_change_date);
       case "tires_swap": return needsMaintenanceAttention(truck.tires_swap_date);
       case "maintenance_check": return needsMaintenanceAttention(truck.maintenance_check_date);
       default: return true;
@@ -389,7 +388,6 @@ export default function Alerts() {
     dot: "dot_inspection_date" as any,
     plate: "plate_expiration_date" as any,
     insurance: "insurance_expiration_date" as any,
-    oil_change: "oil_change_date" as any,
     tires_swap: "tires_swap_date" as any,
     maintenance_check: "maintenance_check_date" as any,
   };
@@ -875,15 +873,6 @@ export default function Alerts() {
                         </div>
                       </TableHead>
                       <TableHead
-                        onClick={() => setTruckColumnFilter(truckColumnFilter === "oil_change" ? "all" : "oil_change")}
-                        className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "oil_change" ? "bg-primary/10 text-primary" : ""}`}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>Oil Change {truckColumnFilter === "oil_change" && "✓"}</span>
-                          {renderSortButton(truckSort, "oil_change", () => { setTruckSort(prev => cycleSort(prev, "oil_change")); setTrucksPage(1); }, "oil change date")}
-                        </div>
-                      </TableHead>
-                      <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "tires_swap" ? "all" : "tires_swap")}
                         className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "tires_swap" ? "bg-primary/10 text-primary" : ""}`}
                       >
@@ -950,11 +939,6 @@ export default function Alerts() {
                                </Badge>
                              )}
                            </div>
-                         </TableCell>
-                         <TableCell>
-                           <span className={getMaintenanceStatus(truck.oil_change_date).color}>
-                             {getMaintenanceStatus(truck.oil_change_date).label}
-                           </span>
                          </TableCell>
                          <TableCell>
                            <span className={getMaintenanceStatus(truck.tires_swap_date).color}>

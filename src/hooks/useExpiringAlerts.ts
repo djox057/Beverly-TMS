@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 
 const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000; // 60 days in milliseconds
 
@@ -23,10 +24,17 @@ export const useExpiringTrucks = () => {
         const dotDate = truck.dot_inspection_date ? new Date(truck.dot_inspection_date) : null;
         const plateDate = truck.plate_expiration_date ? new Date(truck.plate_expiration_date) : null;
         const insuranceDate = truck.insurance_expiration_date ? new Date(truck.insurance_expiration_date) : null;
-        const hasMaintenanceDate = truck.oil_change_date || truck.tires_swap_date || truck.maintenance_check_date;
-        
+        const hasMaintenanceDate = truck.tires_swap_date || truck.maintenance_check_date;
+        const milesSinceOil =
+          truck.miles != null && truck.last_oil_change_miles != null
+            ? truck.miles - truck.last_oil_change_miles
+            : null;
+        const { yellow: oilYellow } = getOilChangeThresholds(truck.source);
+        const oilMilesTriggered = milesSinceOil != null && milesSinceOil > oilYellow;
+
         return (
           hasMaintenanceDate ||
+          oilMilesTriggered ||
           (dotDate && dotDate <= twoMonthsFromNow) ||
           (plateDate && plateDate <= twoMonthsFromNow) ||
           (insuranceDate && insuranceDate <= twoMonthsFromNow)
