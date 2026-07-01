@@ -21,6 +21,7 @@ type TruckRow = {
   miles: number | null;
   miles_updated_at: string | null;
   air_filter: number | null;
+  last_oc_invoice: string | null;
   is_active: boolean;
 };
 
@@ -53,14 +54,13 @@ const LiveOilChange = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [invoices, setInvoices] = useState<Record<string, string>>({});
 
   const { data: trucks = [], isLoading } = useQuery({
     queryKey: ["live-oil-change-trucks"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, is_active")
+        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, is_active")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
@@ -233,8 +233,14 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell>
                           <Input
-                            value={invoices[t.id] ?? ""}
-                            onChange={(e) => setInvoices((s) => ({ ...s, [t.id]: e.target.value }))}
+                            key={t.last_oc_invoice ?? "empty-inv"}
+                            defaultValue={t.last_oc_invoice ?? ""}
+                            onBlur={(e) => {
+                              const v = e.target.value.trim() || null;
+                              if (v !== (t.last_oc_invoice ?? null)) {
+                                updateTruck.mutate({ id: t.id, patch: { last_oc_invoice: v as any } });
+                              }
+                            }}
                             className={bareInput}
                             placeholder="—"
                           />
@@ -264,7 +270,7 @@ const LiveOilChange = () => {
             </Table>
           </div>
           <p className="text-xs text-muted-foreground mt-3">
-            Note and Last OC invoice are session-local (not persisted). Miles since last oil change and mil since last AF are computed from current mileage.
+            Note is session-local (not persisted). Miles since last oil change and mil since last AF are computed from current mileage.
           </p>
         </CardContent>
       </Card>
