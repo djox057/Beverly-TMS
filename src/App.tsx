@@ -48,6 +48,7 @@ import Billboard from "./pages/Billboard";
 import TransferList from "./pages/TransferList";
 import TurnoverList from "./pages/TurnoverList";
 import RoadsideInspection from "./pages/RoadsideInspection";
+import LiveOilChange from "./pages/LiveOilChange";
 import TruckSales from "./pages/TruckSales";
 import Info from "./pages/Info";
 
@@ -265,6 +266,11 @@ const AppContent = () => {
         <Route path="/roadside-inspection" element={
           <ProtectedRoute>
             <Layout><RoadsideInspection /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/live-oil-change" element={
+          <ProtectedRoute>
+            <Layout><LiveOilChange /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/truck-sales" element={
