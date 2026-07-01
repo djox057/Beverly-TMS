@@ -15,9 +15,9 @@ const PAGE_HEIGHT = 792;
 const PAGE_CENTER_X = 306;
 
 const REGIONS = {
-  equipmentId: { yTop: 489, yBottom: 505, xLeft: 190, xRight: 420, fontSize: 12 },
-  vin: { yTop: 522, yBottom: 547, xLeft: 140, xRight: 470, fontSize: 18 },
-  makeModel: { yTop: 560, yBottom: 585, xLeft: 190, xRight: 420, fontSize: 18 },
+  equipmentId: { yTop: 483, yBottom: 512, xLeft: 100, xRight: 512, fontSize: 12 },
+  vin: { yTop: 515, yBottom: 553, xLeft: 100, xRight: 512, fontSize: 18 },
+  makeModel: { yTop: 555, yBottom: 592, xLeft: 100, xRight: 512, fontSize: 18 },
 };
 
 function toPdfY(topLeftY: number): number {
