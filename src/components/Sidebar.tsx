@@ -29,6 +29,7 @@ import {
   MapPin,
   RefreshCw,
   DollarSign,
+  Droplet,
   Info as InfoIcon
 } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -85,6 +86,7 @@ const navigation = [
   { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch', 'afterhours'] },
   { name: "Turnover List", href: "/turnover-list", icon: RefreshCw, roles: ['admin'] },
   { name: "Roadside Inspection", href: "/roadside-inspection", icon: AlertTriangle },
+  { name: "Live Oil Change", href: "/live-oil-change", icon: Droplet },
   { name: "Beverly Heatmap", href: "/beverly-heatmap", icon: MapPin, roles: ['manager', 'admin', 'chicago_management', 'dispatch'] },
   { name: "Truck Sales", href: "/truck-sales", icon: DollarSign, roles: ['manager', 'admin', 'recruiting', 'chicago_management'] },
 ];
@@ -262,7 +264,7 @@ export const Sidebar = () => {
     
     // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Reports, Yard Arrivals, Trips, Fleets, Alerts)
     if (hasRole('safety')) {
-      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals', '/trips', '/fleets', '/transfer-list', '/roadside-inspection'];
+      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals', '/trips', '/fleets', '/transfer-list', '/roadside-inspection', '/live-oil-change'];
       return [
         ...filteredNav.filter(item => safetyPages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
@@ -271,7 +273,7 @@ export const Sidebar = () => {
     
     // Maintenance role: specific pages (New Load, Loads, Drivers, Trucks, Trailers, Fleets, Reports, Yard Arrivals, Alerts, Maintenance and Repairs, Fuel Reports)
     if (hasRole('maintenance')) {
-      const maintenancePages = ['/new-order', '/orders', '/drivers', '/trucks', '/trailers', '/fleets', '/reports', '/yard-arrivals', '/transfer-list', '/roadside-inspection'];
+      const maintenancePages = ['/new-order', '/orders', '/drivers', '/trucks', '/trailers', '/fleets', '/reports', '/yard-arrivals', '/transfer-list', '/roadside-inspection', '/live-oil-change'];
       return [
         ...filteredNav.filter(item => maintenancePages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
@@ -282,7 +284,7 @@ export const Sidebar = () => {
     
     // Yard role: only Loads at Yard, Trucks, Trailers, Drivers, Yard Arrivals
     if (hasRole('yard')) {
-      const yardPages = ['/yard-loads', '/trucks', '/trailers', '/drivers', '/yard-arrivals', '/roadside-inspection'];
+      const yardPages = ['/yard-loads', '/trucks', '/trailers', '/drivers', '/yard-arrivals', '/roadside-inspection', '/live-oil-change'];
       return filteredNav.filter(item => yardPages.includes(item.href));
     }
     
@@ -296,13 +298,13 @@ export const Sidebar = () => {
 
     // Recruiting: Trucks/Trailers/Drivers + Fleets + Reports + Truck Sales
     if (primaryRole === 'recruiting') {
-      const recruitingPages = ['/trucks', '/trailers', '/drivers', '/fleets', '/reports', '/truck-sales'];
+      const recruitingPages = ['/trucks', '/trailers', '/drivers', '/fleets', '/reports', '/truck-sales', '/live-oil-change'];
       return filteredNav.filter(item => recruitingPages.includes(item.href));
     }
 
     // Claims: Loads, BG Loads, Trucks, Trailers, Drivers only
     if (primaryRole === 'claims') {
-      const claimsPages = ['/orders', '/bg-loads', '/trucks', '/trailers', '/drivers'];
+      const claimsPages = ['/orders', '/bg-loads', '/trucks', '/trailers', '/drivers', '/live-oil-change'];
       return filteredNav.filter(item => claimsPages.includes(item.href));
     }
 
