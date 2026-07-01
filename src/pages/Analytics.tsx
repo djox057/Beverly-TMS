@@ -3019,7 +3019,7 @@ const Analytics = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="performance" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <TabsList>
               <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
@@ -3033,6 +3033,7 @@ const Analytics = () => {
                 <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Dispatcher Salaries"}</TabsTrigger>
               )}
               {roles.includes("admin") && <TabsTrigger value="recruiting">Other Salaries</TabsTrigger>}
+              <TabsTrigger value="missing-pod">Missing POD</TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => setShowCharts((s) => !s)}>
