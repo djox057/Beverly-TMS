@@ -87,24 +87,35 @@ export default function BeverlyHeatmapTruckClusters() {
 
       const truckIds = Array.from(new Set(orders.map((o: any) => o.truck_id as string)));
 
-      // 2) fetch ALL orders for those trucks so we can detect any later load
-      //    (compare each candidate delivery to every other order's pickup/delivery)
+      // 2) fetch orders whose pickup OR delivery lies on/after this day for these trucks.
+      //    Paginate to avoid the 1000-row PostgREST limit.
       const allByTruck = new Map<string, { id: string; pickup: string | null; delivery: string | null }[]>();
+      const PAGE = 1000;
       for (const c of chunk(truckIds, 200)) {
-        const { data: all, error: lErr } = await supabase
-          .from("orders")
-          .select("id, truck_id, pickup_datetime, delivery_datetime")
-          .eq("canceled", false)
-          .in("truck_id", c);
-        if (lErr) throw lErr;
-        for (const row of all || []) {
-          const arr = allByTruck.get(row.truck_id as string) || [];
-          arr.push({
-            id: row.id as string,
-            pickup: (row.pickup_datetime as string | null) ?? null,
-            delivery: (row.delivery_datetime as string | null) ?? null,
-          });
-          allByTruck.set(row.truck_id as string, arr);
+        let from = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { data: all, error: lErr } = await supabase
+            .from("orders")
+            .select("id, truck_id, pickup_datetime, delivery_datetime")
+            .eq("canceled", false)
+            .in("truck_id", c)
+            .or(`pickup_datetime.gte.${start},delivery_datetime.gte.${start}`)
+            .order("id", { ascending: true })
+            .range(from, from + PAGE - 1);
+          if (lErr) throw lErr;
+          const rows = all || [];
+          for (const row of rows) {
+            const arr = allByTruck.get(row.truck_id as string) || [];
+            arr.push({
+              id: row.id as string,
+              pickup: (row.pickup_datetime as string | null) ?? null,
+              delivery: (row.delivery_datetime as string | null) ?? null,
+            });
+            allByTruck.set(row.truck_id as string, arr);
+          }
+          if (rows.length < PAGE) break;
+          from += PAGE;
         }
       }
 
@@ -115,8 +126,10 @@ export default function BeverlyHeatmapTruckClusters() {
         const deliveredAt = o.delivery_datetime as string;
         return !rows.some((r) => {
           if (r.id === o.id) return false;
-          const ref = r.pickup ?? r.delivery;
-          return !!ref && ref > deliveredAt;
+          // A truck has a "next load" if either its pickup or its delivery is after this delivery.
+          if (r.pickup && r.pickup > deliveredAt) return true;
+          if (r.delivery && r.delivery > deliveredAt) return true;
+          return false;
         });
       });
 
