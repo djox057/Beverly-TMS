@@ -134,6 +134,29 @@ async function fetchFleetMapData() {
     (companiesRes.data || []).map((c: any) => [c.id, c.name as string]),
   );
 
+  // 1b) Dispatcher names for the assigned drivers
+  const dispatcherIds = Array.from(
+    new Set(
+      ((driversRes.data || []) as DriverRow[])
+        .map((d) => d.dispatcher_id)
+        .filter((v): v is string => !!v),
+    ),
+  );
+  const { data: dispatchersRes, error: dispatchersErr } = dispatcherIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", dispatcherIds)
+    : { data: [] as any[], error: null as any };
+  if (dispatchersErr) throw dispatchersErr;
+
+  const dispatcherMap = new Map<string, string>(
+    (dispatchersRes || []).map((p: any) => [
+      p.id as string,
+      (p.full_name as string) || "",
+    ]),
+  );
+
   // 2) Recent non-canceled orders for these trucks (last 60 days)
   const truckIds = truckList.map((t) => t.id);
   let orders: OrderRow[] = [];
