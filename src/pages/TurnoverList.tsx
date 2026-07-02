@@ -46,6 +46,7 @@ const TurnoverList = () => {
   const [detailDispatcher, setDetailDispatcher] = useState<DispatcherTurnover | null>(null);
   const [lastTrucksByDriver, setLastTrucksByDriver] = useState<Record<string, string | null>>({});
   const [expanded, setExpanded] = useState(false);
+  const [translatedNotes, setTranslatedNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const driverIds: string[] = detailDispatcher
