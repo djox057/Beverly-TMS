@@ -209,7 +209,7 @@ async function fetchFleetMapData() {
     ordersByTruck.set(o.truck_id, arr);
   }
 
-  return { truckList, driverMap, companyMap, ordersByTruck };
+  return { truckList, driverMap, companyMap, dispatcherMap, ordersByTruck };
 }
 
 function pickCurrentOrder(allOrders: OrderRow[]): OrderRow | null {
