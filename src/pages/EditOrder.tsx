@@ -85,6 +85,7 @@ import {
   appendUserNote,
 } from "@/utils/orderChangeTracker";
 import { ChangeNoteDialog } from "@/components/ChangeNoteDialog";
+import { TranslateNoteButton } from "@/components/TranslateNoteButton";
 import { OrderAdditionalsManager, OrderAdditionalsManagerRef } from "@/components/OrderAdditionalsManager";
 import { DocumentScannerDialog } from "@/components/DocumentScannerDialog";
 import { DocumentEnhanceDialog } from "@/components/DocumentEnhanceDialog";
@@ -3960,7 +3961,10 @@ const EditOrder = () => {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="user-notes">User Notes</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="user-notes">User Notes</Label>
+                  <TranslateNoteButton text={userNotes} />
+                </div>
                 <Textarea
                   id="user-notes"
                   placeholder="Add your notes here..."

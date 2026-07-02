@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { TranslateNoteButton } from "@/components/TranslateNoteButton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -767,6 +768,7 @@ export const DailyReportTable = ({
             className="text-sm"
           />
           <DialogFooter>
+            <TranslateNoteButton text={noteEditor?.value ?? ""} />
             <Button variant="outline" onClick={() => setNoteEditor(null)}>
               {readOnly ? "Close" : "Cancel"}
             </Button>

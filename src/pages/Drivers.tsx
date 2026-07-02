@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { TranslateNoteButton } from "@/components/TranslateNoteButton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -2022,7 +2023,10 @@ const Drivers = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Note</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>Note</Label>
+                        <TranslateNoteButton text={formData.note || ""} />
+                      </div>
                       <Textarea
                         value={formData.note}
                         onChange={(e) => setFormData({ ...formData, note: e.target.value })}
