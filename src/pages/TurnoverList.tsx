@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { TranslateNoteButton } from "@/components/TranslateNoteButton";
 
 interface TerminatedDriver {
   id: string;
