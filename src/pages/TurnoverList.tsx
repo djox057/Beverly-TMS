@@ -425,13 +425,16 @@ const TurnoverList = () => {
                     <div className="flex items-start justify-between gap-2">
                       <span>
                         {driver.notes.length > 0
-                          ? driver.notes.map((n) => n.note).join("; ")
+                          ? translatedNotes[driver.id] ?? driver.notes.map((n) => n.note).join("; ")
                           : "No termination notes"}
                       </span>
                       {driver.notes.length > 0 && (
                         <TranslateNoteButton
-                          text={driver.notes.map((n) => n.note).join("; ")}
+                          text={translatedNotes[driver.id] ?? driver.notes.map((n) => n.note).join("; ")}
                           size="xs"
+                          onReplace={(t) =>
+                            setTranslatedNotes((prev) => ({ ...prev, [driver.id]: t }))
+                          }
                         />
                       )}
                     </div>
