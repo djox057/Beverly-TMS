@@ -161,6 +161,18 @@ export function DispatcherFleetMapView({
       .join('|');
   }, [trucks]);
 
+  // Signature that changes whenever a truck's next-stop coords change
+  const nextStopSignature = useMemo(() => {
+    return trucks
+      .map((t) => {
+        const o = t.currentOrder;
+        const hasBOL = o?.hasBOL ? 1 : 0;
+        return `${t.id}:${hasBOL}:${o?.pickupLatitude ?? ''},${o?.pickupLongitude ?? ''}:${o?.deliveryLatitude ?? ''},${o?.deliveryLongitude ?? ''}`;
+      })
+      .sort()
+      .join('|');
+  }, [trucks]);
+
   // Keep a stable ref of trucks for popup
   const trucksRef = useRef(trucks);
   trucksRef.current = trucks;
@@ -799,6 +811,80 @@ export function DispatcherFleetMapView({
   }, [singleHomeOnly, selectedTruck]);
 
   // Click outside to close popup (but keep search value in parent)
+  // Draw straight dashed direction lines from every truck to its next stop
+  // (pickup if no BOL yet, delivery if BOL). Always visible.
+  useEffect(() => {
+    if (!map.current) return;
+    if (isLoading) return;
+
+    const SOURCE_ID = 'fleet-next-stop-lines';
+    const LAYER_ID = 'fleet-next-stop-lines-layer';
+
+    const applyLines = () => {
+      if (!map.current) return;
+
+      const features: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+      for (const t of trucksRef.current) {
+        const md = markersRef.current.get(t.id);
+        const next = getNextStop(t.currentOrder);
+        if (!md || !next) continue;
+        const nlat = toFiniteCoordinate(next.lat);
+        const nlng = toFiniteCoordinate(next.lng);
+        if (nlat === null || nlng === null) continue;
+        features.push({
+          type: 'Feature',
+          properties: { id: t.id, kind: next.type },
+          geometry: {
+            type: 'LineString',
+            coordinates: [md.lngLat, [nlng, nlat]],
+          },
+        });
+      }
+
+      const data: GeoJSON.FeatureCollection<GeoJSON.LineString> = {
+        type: 'FeatureCollection',
+        features,
+      };
+
+      try {
+        const existing = map.current.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
+        if (existing) {
+          existing.setData(data as any);
+        } else {
+          map.current.addSource(SOURCE_ID, { type: 'geojson', data });
+          map.current.addLayer({
+            id: LAYER_ID,
+            type: 'line',
+            source: SOURCE_ID,
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: {
+              'line-color': 'hsl(217 91% 60%)',
+              'line-width': 2.5,
+              'line-opacity': 0.75,
+              'line-dasharray': [2, 2],
+            },
+          });
+        }
+      } catch (e) {
+        console.warn('[FleetMap] next-stop lines add failed', e);
+      }
+    };
+
+    if (map.current.isStyleLoaded()) {
+      applyLines();
+    } else {
+      map.current.once('load', applyLines);
+    }
+
+    return () => {
+      if (!map.current) return;
+      try {
+        if (map.current.getLayer(LAYER_ID)) map.current.removeLayer(LAYER_ID);
+        if (map.current.getSource(SOURCE_ID)) map.current.removeSource(SOURCE_ID);
+      } catch { /* ignore */ }
+    };
+  }, [trucksSignature, nextStopSignature, isLoading]);
+
   useEffect(() => {
     if (!selectedTruckId) return;
 
