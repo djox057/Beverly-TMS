@@ -429,7 +429,7 @@ export function DispatcherFleetMapView({
       locationMarkersRef.current.forEach((m) => m.remove());
       locationMarkersRef.current = [];
     };
-  }, [selectedTruck?.id, selectedTruck?.currentOrder?.id, selectedTruck?.currentOrder?.hasBOL]);
+  }, [selectedTruck?.id, selectedTruck?.currentOrder?.id, selectedTruck?.currentOrder?.hasBOL, isLoading]);
 
   // Initialize map ONCE
   useEffect(() => {
