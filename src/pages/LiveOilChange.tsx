@@ -151,8 +151,9 @@ const LiveOilChange = () => {
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   };
 
-  const { getPrimaryRole } = useAuthContext();
+  const { getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
+  const isDispatcher = primaryRole === 'dispatch';
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
   const canEditAll = primaryRole !== 'dispatch';
   const canEditMiles = true;
@@ -160,22 +161,27 @@ const LiveOilChange = () => {
   const [notes, setNotes] = useState<Record<string, string>>({});
 
   const { data: trucks = [], isLoading } = useQuery({
-    queryKey: ["live-oil-change-trucks"],
+    queryKey: ["live-oil-change-trucks", isDispatcher ? profile?.user_id : "all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, company_id, companies:companies(id, name))")
+        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
-      return (data ?? []).map((t: any) => ({
+      const rows = (data ?? []).map((t: any) => ({
         ...t,
         driver_name: t.driver1
           ? `${t.driver1.first_name ?? ""} ${t.driver1.last_name ?? ""}`.trim()
           : null,
+        dispatcher_id: t.driver1?.dispatcher_id ?? null,
         company_id: t.driver1?.company_id ?? null,
         company_name: t.driver1?.companies?.name ?? null,
-      })) as TruckRow[];
+      })) as (TruckRow & { dispatcher_id: string | null })[];
+      if (isDispatcher && profile?.user_id) {
+        return rows.filter((t) => t.dispatcher_id === profile.user_id);
+      }
+      return rows;
     },
   });
 
