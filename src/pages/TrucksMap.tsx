@@ -517,6 +517,20 @@ export default function TrucksMap() {
               className="h-9 text-sm"
             />
           </div>
+          <div className="mt-2">
+            <Combobox
+              options={[
+                { value: "", label: "All dispatchers" },
+                ...dispatcherOptions,
+              ]}
+              value={dispatcherFilter}
+              onValueChange={(v) => setDispatcherFilter(v)}
+              placeholder="Filter by dispatcher"
+              searchPlaceholder="Search dispatcher..."
+              emptyText="No dispatchers found."
+              className="h-9 text-sm"
+            />
+          </div>
           <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>
               {filteredTrucks.length} of {trucksWithData.length} truck
