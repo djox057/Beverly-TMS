@@ -98,9 +98,9 @@ const AdminUsers = () => {
     });
   }, [users, searchQuery, roleFilter]);
 
-  // Security check: Only admins and accounting should access this page
+  // Security check: Only admins should access this page
   useEffect(() => {
-    if (!loading && profile && !hasRole('admin') && !hasRole('accounting')) {
+    if (!loading && profile && !hasRole('admin')) {
       toast({
         title: "Access Denied",
         description: "You don't have permission to manage users",
@@ -110,14 +110,14 @@ const AdminUsers = () => {
   }, [profile, loading, hasRole, toast]);
 
   useEffect(() => {
-    if (hasRole('admin') || hasRole('accounting')) {
+    if (hasRole('admin')) {
       fetchUsers();
     }
   }, [hasRole]);
 
   // Realtime: refresh user list when profiles or user_roles change
   useEffect(() => {
-    if (!(hasRole('admin') || hasRole('accounting'))) return;
+    if (!hasRole('admin')) return;
 
     let scheduled = false;
     const scheduleRefresh = () => {
