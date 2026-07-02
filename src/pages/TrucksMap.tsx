@@ -139,25 +139,41 @@ async function fetchFleetMapData() {
   let orders: OrderRow[] = [];
   if (truckIds.length) {
     const cutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
-    // chunk in 200s
+    const pageSize = 1000;
     const chunks: string[][] = [];
-    for (let i = 0; i < truckIds.length; i += 200) chunks.push(truckIds.slice(i, i + 200));
-    const all = await Promise.all(
-      chunks.map((ids) =>
-        supabase
+    for (let i = 0; i < truckIds.length; i += 50) chunks.push(truckIds.slice(i, i + 50));
+
+    const fetchChunkOrders = async (ids: string[]) => {
+      const chunkOrders: OrderRow[] = [];
+      let page = 0;
+
+      while (true) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        const res = await supabase
           .from("orders")
           .select(
             "id, truck_id, internal_load_number, broker_load_number, pickup_datetime, canceled, notes, pickup_drops(id, order_id, type, sequence_number, address, city, state, zip_code, latitude, longitude, datetime, arrived_at), order_files(order_id, file_category)",
           )
           .in("truck_id", ids)
           .eq("canceled", false)
-          .gte("pickup_datetime", cutoff),
-      ),
-    );
-    for (const res of all) {
-      if (res.error) throw res.error;
-      orders = orders.concat(((res.data as any[]) || []) as OrderRow[]);
-    }
+          .gte("pickup_datetime", cutoff)
+          .order("pickup_datetime", { ascending: false })
+          .range(from, to);
+
+        if (res.error) throw res.error;
+
+        const rows = (((res.data as any[]) || []) as OrderRow[]);
+        chunkOrders.push(...rows);
+        if (rows.length < pageSize) break;
+        page += 1;
+      }
+
+      return chunkOrders;
+    };
+
+    const all = await Promise.all(chunks.map(fetchChunkOrders));
+    orders = all.flat();
     orders = orders.filter((o) => o.notes !== "GAME|OVER");
   }
 
