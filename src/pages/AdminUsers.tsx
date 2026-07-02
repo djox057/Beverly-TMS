@@ -571,6 +571,26 @@ const AdminUsers = () => {
             <Microscope className="mr-2 h-4 w-4" />
             Inspect HOS API
           </Button>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              setIsSamsaraInspectOpen(true);
+              setSamsaraInspectLoading(true);
+              setSamsaraInspectData(null);
+              try {
+                const { data, error } = await supabase.functions.invoke('samsara-inspect');
+                if (error) throw error;
+                setSamsaraInspectData(data);
+              } catch (err: any) {
+                toast({ title: "Error", description: err.message || "Failed to inspect Samsara", variant: "destructive" });
+              } finally {
+                setSamsaraInspectLoading(false);
+              }
+            }}
+          >
+            <Microscope className="mr-2 h-4 w-4" />
+            Inspect Samsara
+          </Button>
           <Button variant="outline" onClick={fetchUsers}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
