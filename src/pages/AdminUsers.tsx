@@ -98,9 +98,9 @@ const AdminUsers = () => {
     });
   }, [users, searchQuery, roleFilter]);
 
-  // Security check: Only admins and accounting should access this page
+  // Security check: Only admins should access this page
   useEffect(() => {
-    if (!loading && profile && !hasRole('admin') && !hasRole('accounting')) {
+    if (!loading && profile && !hasRole('admin')) {
       toast({
         title: "Access Denied",
         description: "You don't have permission to manage users",
@@ -110,14 +110,14 @@ const AdminUsers = () => {
   }, [profile, loading, hasRole, toast]);
 
   useEffect(() => {
-    if (hasRole('admin') || hasRole('accounting')) {
+    if (hasRole('admin')) {
       fetchUsers();
     }
   }, [hasRole]);
 
   // Realtime: refresh user list when profiles or user_roles change
   useEffect(() => {
-    if (!(hasRole('admin') || hasRole('accounting'))) return;
+    if (!hasRole('admin')) return;
 
     let scheduled = false;
     const scheduleRefresh = () => {
@@ -525,13 +525,13 @@ const AdminUsers = () => {
     );
   }
 
-  // Additional security check - only render for admins and accounting
-  if (!hasRole('admin') && !hasRole('accounting')) {
+  // Additional security check - only render for admins
+  if (!hasRole('admin')) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-destructive mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">Admin or Accounting role required to manage users</p>
+          <p className="text-muted-foreground">Admin role required to manage users</p>
         </div>
       </div>
     );

@@ -51,7 +51,7 @@ serve(async (req) => {
       });
     }
 
-    // Admin/accounting only
+    // Admin only
     const svc = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -60,8 +60,7 @@ serve(async (req) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', userData.user.id);
-    const allowed = new Set(['admin', 'accounting']);
-    const hasAccess = (roles || []).some((r: any) => allowed.has(r.role));
+    const hasAccess = (roles || []).some((r: any) => r.role === 'admin');
     if (!hasAccess) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
