@@ -340,6 +340,11 @@ const TurnoverList = () => {
                                   <span className="text-muted-foreground">{termDate}</span>
                                   <span className="text-muted-foreground mx-2">·</span>
                                   <span className="text-muted-foreground">{noteText}</span>
+                                  {driver.notes.length > 0 && (
+                                    <span className="ml-2 inline-flex align-middle">
+                                      <TranslateNoteButton text={noteText} size="xs" />
+                                    </span>
+                                  )}
                                 </TableCell>
                               </TableRow>
                             );
@@ -408,9 +413,19 @@ const TurnoverList = () => {
                       : "—"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {driver.notes.length > 0
-                      ? driver.notes.map((n) => n.note).join("; ")
-                      : "No termination notes"}
+                    <div className="flex items-start justify-between gap-2">
+                      <span>
+                        {driver.notes.length > 0
+                          ? driver.notes.map((n) => n.note).join("; ")
+                          : "No termination notes"}
+                      </span>
+                      {driver.notes.length > 0 && (
+                        <TranslateNoteButton
+                          text={driver.notes.map((n) => n.note).join("; ")}
+                          size="xs"
+                        />
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
