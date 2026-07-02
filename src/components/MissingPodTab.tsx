@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const CHICAGO_TZ = "America/Chicago";
 
@@ -60,6 +61,15 @@ export const MissingPodTab = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [tick, setTick] = useState(0);
+  const { hasRole, profile } = useAuthContext();
+  const isDispatchOnly =
+    hasRole("dispatch") &&
+    !hasRole("admin") &&
+    !hasRole("manager") &&
+    !hasRole("accounting") &&
+    !hasRole("supervisor") &&
+    !hasRole("safety") &&
+    !hasRole("afterhours");
 
   // Re-render every minute so live counters update
   useEffect(() => {
@@ -68,7 +78,7 @@ export const MissingPodTab = () => {
   }, []);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["missing-pod-analytics"],
+    queryKey: ["missing-pod-analytics", isDispatchOnly ? profile?.user_id : "all"],
     refetchInterval: 5 * 60 * 1000,
     queryFn: async () => {
       // Chicago "now" as naive
@@ -81,7 +91,7 @@ export const MissingPodTab = () => {
       const toWall = (d: Date) =>
         `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
 
-      const { data: orders, error } = await supabase
+      let query = supabase
         .from("orders")
         .select(
           `id, load_number, internal_load_number, delivery_datetime, booked_by,
@@ -95,6 +105,14 @@ export const MissingPodTab = () => {
         .gte("delivery_datetime", toWall(lookback))
         .lte("delivery_datetime", toWall(cutoff))
         .limit(2000);
+
+      if (isDispatchOnly && profile) {
+        const candidates = [profile.full_name, profile.user_id].filter(Boolean) as string[];
+        if (candidates.length === 0) return [] as Row[];
+        query = query.in("booked_by", candidates);
+      }
+
+      const { data: orders, error } = await query;
 
       if (error) throw error;
 
