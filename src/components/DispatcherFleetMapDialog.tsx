@@ -400,9 +400,9 @@ export function DispatcherFleetMapView({
               source: 'fleet-route',
               layout: { 'line-cap': 'round', 'line-join': 'round' },
               paint: {
-                'line-color': 'hsl(217 91% 60%)',
+                'line-color': '#3b82f6',
                 'line-width': 4,
-                'line-opacity': 0.85,
+                'line-opacity': 0.75,
               },
             });
             routeAddedRef.current = true;
