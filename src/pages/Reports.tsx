@@ -148,6 +148,7 @@ import {
   needsScaleTicket,
 } from "@/components/WeightBolDialog";
 import { ScaleTicketDialog } from "@/components/ScaleTicketDialog";
+import { TranslateNoteButton } from "@/components/TranslateNoteButton";
 import {
   getCompanyBackgroundColor,
   getChicagoToday,
