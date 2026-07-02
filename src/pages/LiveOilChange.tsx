@@ -28,6 +28,7 @@ type TruckRow = {
   miles_updated_at: string | null;
   air_filter: number | null;
   last_oc_invoice: string | null;
+  oil_change_note: string | null;
   is_active: boolean;
   driver1_id: string | null;
   driver_name?: string | null;
@@ -158,14 +159,13 @@ const LiveOilChange = () => {
   const canEditAll = primaryRole !== 'dispatch';
   const canEditMiles = true;
   const [search, setSearch] = useState("");
-  const [notes, setNotes] = useState<Record<string, string>>({});
 
   const { data: trucks = [], isLoading } = useQuery({
     queryKey: ["live-oil-change-trucks", isDispatcher ? profile?.user_id : "all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
+        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, oil_change_note, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
