@@ -134,6 +134,29 @@ async function fetchFleetMapData() {
     (companiesRes.data || []).map((c: any) => [c.id, c.name as string]),
   );
 
+  // 1b) Dispatcher names for the assigned drivers
+  const dispatcherIds = Array.from(
+    new Set(
+      ((driversRes.data || []) as DriverRow[])
+        .map((d) => d.dispatcher_id)
+        .filter((v): v is string => !!v),
+    ),
+  );
+  const { data: dispatchersRes, error: dispatchersErr } = dispatcherIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", dispatcherIds)
+    : { data: [] as any[], error: null as any };
+  if (dispatchersErr) throw dispatchersErr;
+
+  const dispatcherMap = new Map<string, string>(
+    (dispatchersRes || []).map((p: any) => [
+      p.id as string,
+      (p.full_name as string) || "",
+    ]),
+  );
+
   // 2) Recent non-canceled orders for these trucks (last 60 days)
   const truckIds = truckList.map((t) => t.id);
   let orders: OrderRow[] = [];
@@ -186,7 +209,7 @@ async function fetchFleetMapData() {
     ordersByTruck.set(o.truck_id, arr);
   }
 
-  return { truckList, driverMap, companyMap, ordersByTruck };
+  return { truckList, driverMap, companyMap, dispatcherMap, ordersByTruck };
 }
 
 function pickCurrentOrder(allOrders: OrderRow[]): OrderRow | null {
@@ -224,6 +247,7 @@ export default function TrucksMap() {
   const [search, setSearch] = useState("");
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
   const [companyFilter, setCompanyFilter] = useState<string>("");
+  const [dispatcherFilter, setDispatcherFilter] = useState<string>("");
   const { profile, getPrimaryRole } = useAuthContext();
   const { individualOverrideDriverIds } = useIndividualMode();
   const primaryRole = getPrimaryRole();
@@ -351,6 +375,8 @@ export default function TrucksMap() {
           driver1Id: t.driver1_id || null,
           driver2Id: t.driver2_id || null,
           dispatcherId: driver1?.dispatcher_id || null,
+          dispatcherName:
+            fleet.dispatcherMap.get(driver1?.dispatcher_id || "") || null,
           driverName: driver1?.name || "No driver",
           driver2Name: driver2?.name || undefined,
           companyId: companyId || null,
@@ -386,6 +412,17 @@ export default function TrucksMap() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [trucksWithData]);
 
+  // Dispatcher options sorted by name (only dispatchers present in fleet)
+  const dispatcherOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of trucksWithData as any[]) {
+      if (t.dispatcherId && t.dispatcherName) map.set(t.dispatcherId, t.dispatcherName);
+    }
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [trucksWithData]);
+
   const filteredTrucks = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = trucksWithData as any[];
@@ -404,6 +441,9 @@ export default function TrucksMap() {
     if (companyFilter) {
       list = list.filter((t) => t.companyId === companyFilter);
     }
+    if (dispatcherFilter) {
+      list = list.filter((t) => t.dispatcherId === dispatcherFilter);
+    }
     if (q) {
       list = list.filter(
         (t: any) =>
@@ -417,6 +457,7 @@ export default function TrucksMap() {
     trucksWithData,
     search,
     companyFilter,
+    dispatcherFilter,
     individualOnly,
     canUseIndividual,
     isDispatch,
