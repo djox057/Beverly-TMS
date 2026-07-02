@@ -357,6 +357,61 @@ const MemoizedDispatcherGroup = React.memo<{
 );
 MemoizedDispatcherGroup.displayName = "MemoizedDispatcherGroup";
 
+const LeaseAgreementButton = ({
+  truckId,
+  truckNumber,
+  companyName,
+}: {
+  truckId?: string | null;
+  truckNumber?: string | null;
+  companyName?: string | null;
+}) => {
+  const { toast } = useToast();
+  const leaseTemplate = getLeaseTemplateForCompany(companyName);
+  if (!leaseTemplate) return null;
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="w-full justify-start h-7 px-2 text-xs rounded-sm"
+      onClick={async () => {
+        if (!truckId) return;
+        try {
+          const { data: truck, error: truckErr } = await supabase
+            .from("trucks")
+            .select("truck_number, vin, make, model")
+            .eq("id", truckId)
+            .maybeSingle();
+          if (truckErr) throw truckErr;
+          if (!truck) throw new Error("Truck not found");
+          const bytes = await generateLeaseAgreementPdf(
+            {
+              truckNumber: truck.truck_number || truckNumber || "",
+              vin: truck.vin,
+              make: truck.make,
+              model: truck.model,
+            },
+            leaseTemplate,
+          );
+          downloadLeaseAgreement(
+            bytes,
+            `Lease_Agreement_${truck.truck_number || truckNumber || "Truck"}.pdf`,
+          );
+        } catch (err: any) {
+          toast({
+            title: "Failed to generate lease agreement",
+            description: err?.message || String(err),
+            variant: "destructive",
+          });
+        }
+      }}
+    >
+      <FileText className="h-3.5 w-3.5 mr-2" />
+      Lease Agreement
+    </Button>
+  );
+};
+
 // Helper to check if an order matches the load number search filter
 const orderMatchesLoadFilter = (order: any, searchTerm: string): boolean => {
   if (!searchTerm || !order) return false;
@@ -5625,6 +5680,13 @@ const Reports = () => {
                                                                 </span>
                                                               )}
                                                             </div>
+                                                            <div className="border-t pt-1 mt-1">
+                                                              <LeaseAgreementButton
+                                                                truckId={truck.id}
+                                                                truckNumber={truck.truckNumber}
+                                                                companyName={truck.companyName}
+                                                              />
+                                                            </div>
                                                           </>
                                                         ) : (
                                                           <>
@@ -5932,6 +5994,13 @@ const Reports = () => {
                                                                   />
                                                                 </span>
                                                               )}
+                                                            </div>
+                                                            <div className="border-t pt-1 mt-1">
+                                                              <LeaseAgreementButton
+                                                                truckId={truck.id}
+                                                                truckNumber={truck.truckNumber}
+                                                                companyName={truck.companyName}
+                                                              />
                                                             </div>
                                                           </>
                                                         )}
@@ -6987,63 +7056,6 @@ const Reports = () => {
                   <Edit3 className="h-4 w-4 mr-2" />
                   Edit Order
                 </Button>
-                {(() => {
-                  const leaseTemplate = getLeaseTemplateForCompany(zoomedLoad?.companyName);
-                  if (!leaseTemplate) return null;
-                  return (
-                    <Button
-                      variant="outline"
-                      onClick={async () => {
-                        if (!zoomedLoad?.orderId) return;
-                        try {
-                          const { data: order, error: orderErr } = await supabase
-                            .from("orders")
-                            .select("truck_id")
-                            .eq("id", zoomedLoad.orderId)
-                            .maybeSingle();
-                          if (orderErr) throw orderErr;
-                          if (!order?.truck_id) {
-                            toast({
-                              title: "No truck assigned",
-                              description: "This load has no truck assigned.",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                          const { data: truck, error: truckErr } = await supabase
-                            .from("trucks")
-                            .select("truck_number, vin, make, model")
-                            .eq("id", order.truck_id)
-                            .maybeSingle();
-                          if (truckErr) throw truckErr;
-                          if (!truck) throw new Error("Truck not found");
-                          const bytes = await generateLeaseAgreementPdf(
-                            {
-                              truckNumber: truck.truck_number || zoomedLoad.truckNumber,
-                              vin: truck.vin,
-                              make: truck.make,
-                              model: truck.model,
-                            },
-                            leaseTemplate,
-                          );
-                          downloadLeaseAgreement(
-                            bytes,
-                            `Lease_Agreement_${truck.truck_number || zoomedLoad.truckNumber}.pdf`,
-                          );
-                        } catch (err: any) {
-                          toast({
-                            title: "Failed to generate lease agreement",
-                            description: err?.message || String(err),
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Lease Agreement
-                    </Button>
-                  );
-                })()}
               </div>
             </DialogTitle>
             <DialogDescription className="sr-only">View load details, pickup and delivery stops</DialogDescription>
