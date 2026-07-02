@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
 
@@ -95,6 +95,7 @@ export const Sidebar = () => {
   const { profile, signOut, hasRole, getPrimaryRole, user } = useAuthContext();
   const { individualMode, setIndividualMode, canUseIndividualMode } = useIndividualMode();
   const { state, isMobile, setOpenMobile } = useSidebar();
+  const location = useLocation();
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
   const { canView: canViewDailyReport } = useDailyReportPermissions();
@@ -350,6 +351,9 @@ export const Sidebar = () => {
                       to={item.href}
                       onClick={() => {
                         if (isMobile) setOpenMobile(false);
+                        if (item.href === "/trucks-map" && location.pathname === "/trucks-map") {
+                          window.dispatchEvent(new CustomEvent("trucks-map:clear-search"));
+                        }
                       }}
                       className={({ isActive }) =>
                         cn(

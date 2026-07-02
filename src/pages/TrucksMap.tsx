@@ -259,6 +259,13 @@ export default function TrucksMap() {
   const [individualOnly, setIndividualOnly] = useState<boolean>(isDispatch);
 
   useEffect(() => {
+    // Clear search when user re-clicks the Live Map nav item while already on the map
+    const handleClearSearch = () => setSearch("");
+    window.addEventListener("trucks-map:clear-search", handleClearSearch);
+    return () => window.removeEventListener("trucks-map:clear-search", handleClearSearch);
+  }, []);
+
+  useEffect(() => {
     // Default ON for dispatchers; afterhours default OFF (user toggles in)
     if (isDispatch) setIndividualOnly(true);
   }, [isDispatch]);
