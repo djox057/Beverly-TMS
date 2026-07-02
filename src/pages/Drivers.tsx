@@ -2022,7 +2022,10 @@ const Drivers = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Note</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>Note</Label>
+                        <TranslateNoteButton text={formData.note || ""} />
+                      </div>
                       <Textarea
                         value={formData.note}
                         onChange={(e) => setFormData({ ...formData, note: e.target.value })}
