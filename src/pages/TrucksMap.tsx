@@ -247,6 +247,7 @@ export default function TrucksMap() {
   const [search, setSearch] = useState("");
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
   const [companyFilter, setCompanyFilter] = useState<string>("");
+  const [dispatcherFilter, setDispatcherFilter] = useState<string>("");
   const { profile, getPrimaryRole } = useAuthContext();
   const { individualOverrideDriverIds } = useIndividualMode();
   const primaryRole = getPrimaryRole();
