@@ -1,0 +1,1 @@
+UPDATE public.samsara_locations_cache SET fetched_at = 'epoch', is_fetching = false, fetch_started_at = NULL WHERE id = 'latest';
