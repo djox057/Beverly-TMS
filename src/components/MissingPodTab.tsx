@@ -100,11 +100,6 @@ export const MissingPodTab = () => {
         .lte("delivery_datetime", toWall(cutoff))
         .limit(2000);
 
-      if (isDispatchOnly && profile) {
-        const candidates = [profile.full_name, profile.user_id].filter(Boolean) as string[];
-        if (candidates.length === 0) return [] as Row[];
-        query = query.in("booked_by", candidates);
-      }
 
       const { data: orders, error } = await query;
 
