@@ -6471,6 +6471,7 @@ const Reports = () => {
               placeholder="Add note..."
             />
             <div className="flex justify-end gap-2 mt-4">
+              <TranslateNoteButton text={noteDialogContent} />
               <Button variant="outline" onClick={() => setNoteDialogOpen(null)}>
                 Cancel
               </Button>
