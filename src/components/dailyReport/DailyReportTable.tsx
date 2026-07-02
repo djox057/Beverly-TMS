@@ -768,7 +768,12 @@ export const DailyReportTable = ({
             className="text-sm"
           />
           <DialogFooter>
-            <TranslateNoteButton text={noteEditor?.value ?? ""} />
+            <TranslateNoteButton
+              text={noteEditor?.value ?? ""}
+              onReplace={(t) =>
+                setNoteEditor((prev) => (prev ? { ...prev, value: t } : prev))
+              }
+            />
             <Button variant="outline" onClick={() => setNoteEditor(null)}>
               {readOnly ? "Close" : "Cancel"}
             </Button>

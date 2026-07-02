@@ -46,6 +46,7 @@ const TurnoverList = () => {
   const [detailDispatcher, setDetailDispatcher] = useState<DispatcherTurnover | null>(null);
   const [lastTrucksByDriver, setLastTrucksByDriver] = useState<Record<string, string | null>>({});
   const [expanded, setExpanded] = useState(false);
+  const [translatedNotes, setTranslatedNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const driverIds: string[] = detailDispatcher
@@ -321,9 +322,10 @@ const TurnoverList = () => {
                           </TableRow>
                           {item.drivers.map((driver) => {
                             const truckNum = lastTrucksByDriver[driver.id] ?? null;
-                            const noteText = driver.notes.length
+                            const rawNoteText = driver.notes.length
                               ? driver.notes.map((n) => n.note).join("; ")
                               : "No termination notes";
+                            const noteText = translatedNotes[driver.id] ?? rawNoteText;
                             const termDate = driver.termination_date
                               ? format(new Date(driver.termination_date + "T00:00:00"), "MM/dd/yyyy")
                               : "—";
@@ -343,7 +345,13 @@ const TurnoverList = () => {
                                   <span className="text-muted-foreground">{noteText}</span>
                                   {driver.notes.length > 0 && (
                                     <span className="ml-2 inline-flex align-middle">
-                                      <TranslateNoteButton text={noteText} size="xs" />
+                                      <TranslateNoteButton
+                                        text={noteText}
+                                        size="xs"
+                                        onReplace={(t) =>
+                                          setTranslatedNotes((prev) => ({ ...prev, [driver.id]: t }))
+                                        }
+                                      />
                                     </span>
                                   )}
                                 </TableCell>
@@ -417,13 +425,16 @@ const TurnoverList = () => {
                     <div className="flex items-start justify-between gap-2">
                       <span>
                         {driver.notes.length > 0
-                          ? driver.notes.map((n) => n.note).join("; ")
+                          ? translatedNotes[driver.id] ?? driver.notes.map((n) => n.note).join("; ")
                           : "No termination notes"}
                       </span>
                       {driver.notes.length > 0 && (
                         <TranslateNoteButton
-                          text={driver.notes.map((n) => n.note).join("; ")}
+                          text={translatedNotes[driver.id] ?? driver.notes.map((n) => n.note).join("; ")}
                           size="xs"
+                          onReplace={(t) =>
+                            setTranslatedNotes((prev) => ({ ...prev, [driver.id]: t }))
+                          }
                         />
                       )}
                     </div>

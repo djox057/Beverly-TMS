@@ -2025,7 +2025,10 @@ const Drivers = () => {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label>Note</Label>
-                        <TranslateNoteButton text={formData.note || ""} />
+                        <TranslateNoteButton
+                          text={formData.note || ""}
+                          onReplace={(t) => setFormData({ ...formData, note: t })}
+                        />
                       </div>
                       <Textarea
                         value={formData.note}

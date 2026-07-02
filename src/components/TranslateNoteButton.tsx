@@ -10,9 +10,10 @@ interface TranslateNoteButtonProps {
   size?: "sm" | "xs";
   className?: string;
   label?: string;
+  onReplace?: (translated: string) => void;
 }
 
-export function TranslateNoteButton({ text, size = "sm", className, label = "Translate" }: TranslateNoteButtonProps) {
+export function TranslateNoteButton({ text, size = "sm", className, label = "Translate", onReplace }: TranslateNoteButtonProps) {
   const [loading, setLoading] = useState(false);
   const [translation, setTranslation] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -24,14 +25,19 @@ export function TranslateNoteButton({ text, size = "sm", className, label = "Tra
       return;
     }
     setLoading(true);
-    setOpen(true);
+    if (!onReplace) setOpen(true);
     try {
       const { data, error } = await supabase.functions.invoke("translate-yard-note", {
         body: { text: value },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "Failed");
-      setTranslation(data.translation);
+      if (onReplace) {
+        onReplace(data.translation);
+        toast.success("Translated to English");
+      } else {
+        setTranslation(data.translation);
+      }
     } catch (e: any) {
       toast.error(e?.message || "Translation failed");
       setOpen(false);
@@ -41,6 +47,30 @@ export function TranslateNoteButton({ text, size = "sm", className, label = "Tra
   };
 
   const isXs = size === "xs";
+
+  if (onReplace) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className={className}
+        disabled={loading}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          handleTranslate();
+        }}
+      >
+        {loading ? (
+          <Loader2 className={isXs ? "h-3 w-3 animate-spin" : "h-4 w-4 animate-spin"} />
+        ) : (
+          <Languages className={isXs ? "h-3 w-3" : "h-4 w-4"} />
+        )}
+        <span className={isXs ? "ml-1 text-[10px]" : "ml-1 text-xs"}>{label}</span>
+      </Button>
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
