@@ -82,13 +82,22 @@ serve(async (req) => {
       Deno.env.get('SAMSARA_API_KEY_3'),
       Deno.env.get('SAMSARA_API_KEY_4'),
       Deno.env.get('SAMSARA_API_KEY_5'),
+      Deno.env.get('SAMSARA_API_KEY_6'),
+    ];
+    const apiKeyLabels = [
+      'dispatch@bfprime.net',
+      'Accounting@bfprime.net',
+      'beverlyrepair@gmail.com',
+      'zack@beverlyfreight.net',
+      'dispatch@bgprime.net',
+      'Dispatch@unitedenterprisesolutions.net',
     ];
 
     const keys: any[] = [];
 
     for (let i = 0; i < apiKeys.length; i++) {
       const apiKey = apiKeys[i];
-      const label = `SAMSARA_API_KEY_${i + 1}`;
+      const label = apiKeyLabels[i] || `SAMSARA_API_KEY_${i + 1}`;
       if (!apiKey) {
         keys.push({ keyIndex: i, label, configured: false });
         continue;
