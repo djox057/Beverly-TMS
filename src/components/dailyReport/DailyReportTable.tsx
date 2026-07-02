@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { TranslateNoteButton } from "@/components/TranslateNoteButton";
 import {
   AlertDialog,
   AlertDialogAction,
