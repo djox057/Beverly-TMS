@@ -367,7 +367,7 @@ export default function BeverlyHeatmapTruckClusters() {
                             <TableCell>{t.city || "?"}, {t.state || "?"}</TableCell>
                             <TableCell className="text-muted-foreground">{t.delivery_datetime.replace("T", " ").slice(0, 16)}</TableCell>
                             <TableCell className="text-right text-muted-foreground">
-                              {t.miles_from_center.toFixed(1)} mi
+                              {(t.miles_from_center ?? 0).toFixed(1)} mi
                             </TableCell>
                           </TableRow>
                         ))}
