@@ -523,6 +523,22 @@ export default function TrucksMap() {
                     Broker #: {m.currentOrder.brokerLoadNumber}
                   </span>
                 )}
+                {m.currentOrder && (() => {
+                  const heading = m.currentOrder.hasBOL ? "delivery" : "pickup";
+                  const city = heading === "delivery"
+                    ? m.currentOrder.deliveryCity
+                    : m.currentOrder.pickupCity;
+                  const state = heading === "delivery"
+                    ? m.currentOrder.deliveryState
+                    : m.currentOrder.pickupState;
+                  const dest = [city, state].filter(Boolean).join(", ");
+                  if (!dest) return null;
+                  return (
+                    <span className="truncate text-[10px] text-muted-foreground">
+                      → {heading === "delivery" ? "Delivery" : "Pickup"}: {dest}
+                    </span>
+                  );
+                })()}
               </div>
             ))}
           </div>
