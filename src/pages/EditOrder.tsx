@@ -85,6 +85,7 @@ import {
   appendUserNote,
 } from "@/utils/orderChangeTracker";
 import { ChangeNoteDialog } from "@/components/ChangeNoteDialog";
+import { TranslateNoteButton } from "@/components/TranslateNoteButton";
 import { OrderAdditionalsManager, OrderAdditionalsManagerRef } from "@/components/OrderAdditionalsManager";
 import { DocumentScannerDialog } from "@/components/DocumentScannerDialog";
 import { DocumentEnhanceDialog } from "@/components/DocumentEnhanceDialog";
