@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MapPin, Search, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -40,6 +41,10 @@ interface TruckPoint {
   lat: number;
   lng: number;
   delivery_datetime: string;
+  driver_name: string;
+  dispatcher_name: string;
+  dispatcher_ext: string;
+  dispatcher_office: string;
 }
 
 interface Cluster {
@@ -151,10 +156,51 @@ export default function BeverlyHeatmapTruckClusters() {
         for (const t of trs || []) truckNumMap.set(t.id as string, (t.truck_number as string) || "");
       }
 
+      // 5b) drivers (name + dispatcher) via orders.driver1_id
+      const driverIds = Array.from(
+        new Set(finalOrders.map((o: any) => o.driver1_id).filter(Boolean))
+      ) as string[];
+      const driverInfo = new Map<string, { name: string; dispatcher_id: string | null }>();
+      for (const c of chunk(driverIds, 200)) {
+        const { data: drs, error: dErr } = await supabase
+          .from("drivers")
+          .select("id, name, dispatcher_id")
+          .in("id", c);
+        if (dErr) throw dErr;
+        for (const d of drs || [])
+          driverInfo.set(d.id as string, {
+            name: (d.name as string) || "",
+            dispatcher_id: (d.dispatcher_id as string | null) ?? null,
+          });
+      }
+      const dispatcherIds = Array.from(
+        new Set(
+          Array.from(driverInfo.values())
+            .map((d) => d.dispatcher_id)
+            .filter(Boolean) as string[]
+        )
+      );
+      const dispatcherInfo = new Map<string, { name: string; ext: string; office: string }>();
+      for (const c of chunk(dispatcherIds, 200)) {
+        const { data: prs, error: pErr } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, ext, office")
+          .in("user_id", c);
+        if (pErr) throw pErr;
+        for (const p of prs || [])
+          dispatcherInfo.set(p.user_id as string, {
+            name: (p.full_name as string) || "",
+            ext: (p.ext as string) || "",
+            office: (p.office as string) || "",
+          });
+      }
+
       const points: TruckPoint[] = [];
       for (const o of finalOrders) {
         const drop = dropsByOrder.get(o.id);
         if (!drop) continue;
+        const drv = o.driver1_id ? driverInfo.get(o.driver1_id) : undefined;
+        const disp = drv?.dispatcher_id ? dispatcherInfo.get(drv.dispatcher_id) : undefined;
         points.push({
           truck_id: o.truck_id,
           truck_number: truckNumMap.get(o.truck_id) || "",
@@ -164,6 +210,10 @@ export default function BeverlyHeatmapTruckClusters() {
           lat: drop.lat,
           lng: drop.lng,
           delivery_datetime: o.delivery_datetime,
+          driver_name: drv?.name || "",
+          dispatcher_name: disp?.name || "",
+          dispatcher_ext: disp?.ext || "",
+          dispatcher_office: disp?.office || "",
         });
       }
 
