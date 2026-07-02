@@ -441,6 +441,9 @@ export default function TrucksMap() {
     if (companyFilter) {
       list = list.filter((t) => t.companyId === companyFilter);
     }
+    if (dispatcherFilter) {
+      list = list.filter((t) => t.dispatcherId === dispatcherFilter);
+    }
     if (q) {
       list = list.filter(
         (t: any) =>
@@ -454,6 +457,7 @@ export default function TrucksMap() {
     trucksWithData,
     search,
     companyFilter,
+    dispatcherFilter,
     individualOnly,
     canUseIndividual,
     isDispatch,
