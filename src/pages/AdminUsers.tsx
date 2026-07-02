@@ -1164,6 +1164,123 @@ const AdminUsers = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isSamsaraInspectOpen} onOpenChange={setIsSamsaraInspectOpen}>
+        <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>🛰️ Samsara Raw Data Inspector</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center gap-2 pb-2">
+            <Input
+              placeholder="Filter by truck number (e.g. 7461)"
+              value={samsaraTruckFilter}
+              onChange={(e) => setSamsaraTruckFilter(e.target.value)}
+              className="max-w-xs"
+            />
+            <Button
+              size="sm"
+              onClick={async () => {
+                setSamsaraInspectLoading(true);
+                setSamsaraInspectData(null);
+                try {
+                  const path = samsaraTruckFilter.trim()
+                    ? `samsara-inspect?truck=${encodeURIComponent(samsaraTruckFilter.trim())}`
+                    : 'samsara-inspect';
+                  const { data, error } = await supabase.functions.invoke(path);
+                  if (error) throw error;
+                  setSamsaraInspectData(data);
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message || "Failed to inspect Samsara", variant: "destructive" });
+                } finally {
+                  setSamsaraInspectLoading(false);
+                }
+              }}
+              disabled={samsaraInspectLoading}
+            >
+              {samsaraInspectLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
+            </Button>
+          </div>
+          {samsaraInspectLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin mr-2" />
+              <span>Fetching from all Samsara keys...</span>
+            </div>
+          ) : samsaraInspectData?.keys ? (
+            <ScrollArea className="flex-1 overflow-auto">
+              <div className="space-y-6 pr-4">
+                {samsaraInspectData.keys.map((k: any) => (
+                  <div key={k.keyIndex} className="space-y-2 border rounded-md p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <h3 className="font-semibold text-base">
+                        {k.label} {k.configured ? '' : '(not configured)'}
+                      </h3>
+                      <div className="flex gap-2 text-xs text-muted-foreground">
+                        {k.configured && (
+                          <>
+                            <Badge variant="outline">total: {k.recordCount}</Badge>
+                            <Badge variant="outline">shown: {k.matchCount}</Badge>
+                            {k.error && <Badge variant="destructive">error: {k.error}</Badge>}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {k.configured && k.vehicles?.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="text-muted-foreground">
+                            <tr className="text-left">
+                              <th className="py-1 pr-2">Name</th>
+                              <th className="py-1 pr-2">VIN</th>
+                              <th className="py-1 pr-2">Lat, Lng</th>
+                              <th className="py-1 pr-2">In bounds</th>
+                              <th className="py-1 pr-2">Age (min)</th>
+                              <th className="py-1 pr-2">Time</th>
+                              <th className="py-1 pr-2">Reverse geo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {k.vehicles.map((v: any) => (
+                              <tr key={v.id} className="border-t align-top">
+                                <td className="py-1 pr-2 font-medium">{v.name || '—'}</td>
+                                <td className="py-1 pr-2 font-mono">{v.vin || '—'}</td>
+                                <td className="py-1 pr-2 font-mono">
+                                  {v.location
+                                    ? `${v.location.latitude?.toFixed?.(5) ?? v.location.latitude}, ${v.location.longitude?.toFixed?.(5) ?? v.location.longitude}`
+                                    : '—'}
+                                </td>
+                                <td className="py-1 pr-2">
+                                  {v.location ? (
+                                    <Badge variant={v.location.inBounds ? 'default' : 'destructive'}>
+                                      {v.location.inBounds ? 'OK' : 'OUT'}
+                                    </Badge>
+                                  ) : '—'}
+                                </td>
+                                <td className="py-1 pr-2">{v.location?.ageMinutes ?? '—'}</td>
+                                <td className="py-1 pr-2">{v.location?.time || '—'}</td>
+                                <td className="py-1 pr-2 text-muted-foreground">
+                                  {v.location?.reverseGeo?.formattedLocation || '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : k.configured ? (
+                      <p className="text-xs text-muted-foreground">
+                        {samsaraInspectData.truckFilter
+                          ? 'No matches on this key.'
+                          : 'No vehicles returned.'}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <p className="text-muted-foreground">No data returned.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
