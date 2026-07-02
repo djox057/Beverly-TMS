@@ -375,6 +375,8 @@ export default function TrucksMap() {
           driver1Id: t.driver1_id || null,
           driver2Id: t.driver2_id || null,
           dispatcherId: driver1?.dispatcher_id || null,
+          dispatcherName:
+            fleet.dispatcherMap.get(driver1?.dispatcher_id || "") || null,
           driverName: driver1?.name || "No driver",
           driver2Name: driver2?.name || undefined,
           companyId: companyId || null,
