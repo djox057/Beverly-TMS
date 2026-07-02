@@ -525,13 +525,13 @@ const AdminUsers = () => {
     );
   }
 
-  // Additional security check - only render for admins and accounting
-  if (!hasRole('admin') && !hasRole('accounting')) {
+  // Additional security check - only render for admins
+  if (!hasRole('admin')) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-destructive mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">Admin or Accounting role required to manage users</p>
+          <p className="text-muted-foreground">Admin role required to manage users</p>
         </div>
       </div>
     );
