@@ -3033,7 +3033,7 @@ const Analytics = () => {
                 <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Dispatcher Salaries"}</TabsTrigger>
               )}
               {roles.includes("admin") && <TabsTrigger value="recruiting">Other Salaries</TabsTrigger>}
-              {(roles.includes("admin") || roles.includes("manager")) && (
+              {(roles.includes("admin") || roles.includes("manager") || roles.includes("dispatch")) && (
                 <TabsTrigger value="missing-pod">Missing POD</TabsTrigger>
               )}
             </TabsList>
