@@ -51,7 +51,7 @@ interface Cluster {
   centerLat: number;
   centerLng: number;
   label: string;
-  trucks: TruckPoint[];
+  trucks: (TruckPoint & { miles_from_center: number })[];
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -151,8 +151,9 @@ export default function BeverlyHeatmapTruckClusters() {
       for (const c of chunk(truckIds, 200)) {
         const { data: trs, error: tErr } = await supabase
           .from("trucks")
-          .select("id, truck_number")
-          .in("id", c);
+          .select("id, truck_number, is_active")
+          .in("id", c)
+          .eq("is_active", true);
         if (tErr) throw tErr;
         for (const t of trs || []) truckNumMap.set(t.id as string, (t.truck_number as string) || "");
       }
@@ -200,6 +201,8 @@ export default function BeverlyHeatmapTruckClusters() {
       for (const o of finalOrders) {
         const drop = dropsByOrder.get(o.id);
         if (!drop) continue;
+        // Skip trucks that don't exist or are inactive
+        if (!truckNumMap.has(o.truck_id)) continue;
         const drv = o.driver1_id ? driverInfo.get(o.driver1_id) : undefined;
         const disp = drv?.dispatcher_id ? dispatcherInfo.get(drv.dispatcher_id) : undefined;
         points.push({
@@ -252,7 +255,10 @@ export default function BeverlyHeatmapTruckClusters() {
           centerLat: lat,
           centerLng: lng,
           label,
-          trucks: bestMembers.map((m) => points[m]),
+          trucks: bestMembers.map((m) => ({
+            ...points[m],
+            miles_from_center: haversineMiles(lat, lng, points[m].lat, points[m].lng),
+          })),
         });
         for (const m of bestMembers) remaining.delete(m);
       }
@@ -337,6 +343,7 @@ export default function BeverlyHeatmapTruckClusters() {
                         <TableHead>Dispatcher</TableHead>
                         <TableHead>Delivery City</TableHead>
                         <TableHead>Delivery Time</TableHead>
+                        <TableHead className="text-right">Miles from center</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -359,6 +366,9 @@ export default function BeverlyHeatmapTruckClusters() {
                             </TableCell>
                             <TableCell>{t.city || "?"}, {t.state || "?"}</TableCell>
                             <TableCell className="text-muted-foreground">{t.delivery_datetime.replace("T", " ").slice(0, 16)}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              {t.miles_from_center.toFixed(1)} mi
+                            </TableCell>
                           </TableRow>
                         ))}
                     </TableBody>
