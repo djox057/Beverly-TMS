@@ -87,27 +87,37 @@ export default function BeverlyHeatmapTruckClusters() {
 
       const truckIds = Array.from(new Set(orders.map((o: any) => o.truck_id as string)));
 
-      // 2) fetch any later orders for those trucks (pickup_datetime > start of that day)
-      const laterByTruck = new Map<string, string[]>(); // truck_id -> pickup_datetimes
+      // 2) fetch ALL orders for those trucks so we can detect any later load
+      //    (compare each candidate delivery to every other order's pickup/delivery)
+      const allByTruck = new Map<string, { id: string; pickup: string | null; delivery: string | null }[]>();
       for (const c of chunk(truckIds, 200)) {
-        const { data: later, error: lErr } = await supabase
+        const { data: all, error: lErr } = await supabase
           .from("orders")
-          .select("truck_id, pickup_datetime")
+          .select("id, truck_id, pickup_datetime, delivery_datetime")
           .eq("canceled", false)
-          .in("truck_id", c)
-          .gt("pickup_datetime", start);
+          .in("truck_id", c);
         if (lErr) throw lErr;
-        for (const row of later || []) {
-          const arr = laterByTruck.get(row.truck_id as string) || [];
-          arr.push(row.pickup_datetime as string);
-          laterByTruck.set(row.truck_id as string, arr);
+        for (const row of all || []) {
+          const arr = allByTruck.get(row.truck_id as string) || [];
+          arr.push({
+            id: row.id as string,
+            pickup: (row.pickup_datetime as string | null) ?? null,
+            delivery: (row.delivery_datetime as string | null) ?? null,
+          });
+          allByTruck.set(row.truck_id as string, arr);
         }
       }
 
-      // 3) keep only orders where the truck has NO later pickup after this delivery
+      // 3) keep only orders where the truck has NO other order that starts
+      //    (pickup) or ends (delivery) after this delivery
       const kept = orders.filter((o: any) => {
-        const laters = laterByTruck.get(o.truck_id) || [];
-        return !laters.some((p) => p > o.delivery_datetime);
+        const rows = allByTruck.get(o.truck_id) || [];
+        const deliveredAt = o.delivery_datetime as string;
+        return !rows.some((r) => {
+          if (r.id === o.id) return false;
+          const ref = r.pickup ?? r.delivery;
+          return !!ref && ref > deliveredAt;
+        });
       });
 
       // If a truck has multiple kept deliveries same day, use the latest
