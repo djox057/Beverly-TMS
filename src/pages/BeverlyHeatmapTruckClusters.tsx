@@ -343,6 +343,7 @@ export default function BeverlyHeatmapTruckClusters() {
                         <TableHead>Dispatcher</TableHead>
                         <TableHead>Delivery City</TableHead>
                         <TableHead>Delivery Time</TableHead>
+                        <TableHead className="text-right">Miles from center</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -365,6 +366,9 @@ export default function BeverlyHeatmapTruckClusters() {
                             </TableCell>
                             <TableCell>{t.city || "?"}, {t.state || "?"}</TableCell>
                             <TableCell className="text-muted-foreground">{t.delivery_datetime.replace("T", " ").slice(0, 16)}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              {t.miles_from_center.toFixed(1)} mi
+                            </TableCell>
                           </TableRow>
                         ))}
                     </TableBody>
