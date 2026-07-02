@@ -71,6 +71,10 @@ const AdminUsers = () => {
   const [isHosInspectOpen, setIsHosInspectOpen] = useState(false);
   const [hosInspectLoading, setHosInspectLoading] = useState(false);
   const [hosInspectData, setHosInspectData] = useState<any>(null);
+  const [isSamsaraInspectOpen, setIsSamsaraInspectOpen] = useState(false);
+  const [samsaraInspectLoading, setSamsaraInspectLoading] = useState(false);
+  const [samsaraInspectData, setSamsaraInspectData] = useState<any>(null);
+  const [samsaraTruckFilter, setSamsaraTruckFilter] = useState('');
   
   // Form state
   const [email, setEmail] = useState("");
