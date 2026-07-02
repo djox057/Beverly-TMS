@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MapPin, Search, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -40,6 +41,10 @@ interface TruckPoint {
   lat: number;
   lng: number;
   delivery_datetime: string;
+  driver_name: string;
+  dispatcher_name: string;
+  dispatcher_ext: string;
+  dispatcher_office: string;
 }
 
 interface Cluster {
@@ -58,6 +63,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 export default function BeverlyHeatmapTruckClusters() {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [runDate, setRunDate] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
   const { data, isFetching } = useQuery({
     queryKey: ["truck-clusters", runDate],
@@ -71,7 +77,7 @@ export default function BeverlyHeatmapTruckClusters() {
       // 1) orders delivered on that date
       const { data: orders, error: ordErr } = await supabase
         .from("orders")
-        .select("id, truck_id, delivery_datetime")
+        .select("id, truck_id, driver1_id, delivery_datetime")
         .eq("canceled", false)
         .not("truck_id", "is", null)
         .gte("delivery_datetime", start)
@@ -151,10 +157,51 @@ export default function BeverlyHeatmapTruckClusters() {
         for (const t of trs || []) truckNumMap.set(t.id as string, (t.truck_number as string) || "");
       }
 
+      // 5b) drivers (name + dispatcher) via orders.driver1_id
+      const driverIds = Array.from(
+        new Set(finalOrders.map((o: any) => o.driver1_id).filter(Boolean))
+      ) as string[];
+      const driverInfo = new Map<string, { name: string; dispatcher_id: string | null }>();
+      for (const c of chunk(driverIds, 200)) {
+        const { data: drs, error: dErr } = await supabase
+          .from("drivers")
+          .select("id, name, dispatcher_id")
+          .in("id", c);
+        if (dErr) throw dErr;
+        for (const d of drs || [])
+          driverInfo.set(d.id as string, {
+            name: (d.name as string) || "",
+            dispatcher_id: (d.dispatcher_id as string | null) ?? null,
+          });
+      }
+      const dispatcherIds = Array.from(
+        new Set(
+          Array.from(driverInfo.values())
+            .map((d) => d.dispatcher_id)
+            .filter(Boolean) as string[]
+        )
+      );
+      const dispatcherInfo = new Map<string, { name: string; ext: string; office: string }>();
+      for (const c of chunk(dispatcherIds, 200)) {
+        const { data: prs, error: pErr } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, ext, office")
+          .in("user_id", c);
+        if (pErr) throw pErr;
+        for (const p of prs || [])
+          dispatcherInfo.set(p.user_id as string, {
+            name: (p.full_name as string) || "",
+            ext: (p.ext as string) || "",
+            office: (p.office as string) || "",
+          });
+      }
+
       const points: TruckPoint[] = [];
       for (const o of finalOrders) {
         const drop = dropsByOrder.get(o.id);
         if (!drop) continue;
+        const drv = o.driver1_id ? driverInfo.get(o.driver1_id) : undefined;
+        const disp = drv?.dispatcher_id ? dispatcherInfo.get(drv.dispatcher_id) : undefined;
         points.push({
           truck_id: o.truck_id,
           truck_number: truckNumMap.get(o.truck_id) || "",
@@ -164,6 +211,10 @@ export default function BeverlyHeatmapTruckClusters() {
           lat: drop.lat,
           lng: drop.lng,
           delivery_datetime: o.delivery_datetime,
+          driver_name: drv?.name || "",
+          dispatcher_name: disp?.name || "",
+          dispatcher_ext: disp?.ext || "",
+          dispatcher_office: disp?.office || "",
         });
       }
 
@@ -259,15 +310,31 @@ export default function BeverlyHeatmapTruckClusters() {
               <Card key={idx}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{cl.label}</CardTitle>
-                    <Badge variant="secondary">{cl.trucks.length} trucks</Badge>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base">{cl.label}</CardTitle>
+                      <Badge variant="secondary">{cl.trucks.length} trucks</Badge>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setExpanded((s) => ({ ...s, [idx]: !s[idx] }))}
+                    >
+                      {expanded[idx] ? (
+                        <><ChevronDown className="h-4 w-4 mr-1" />Hide trucks</>
+                      ) : (
+                        <><ChevronRight className="h-4 w-4 mr-1" />Show trucks</>
+                      )}
+                    </Button>
                   </div>
                 </CardHeader>
+                {expanded[idx] && (
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Truck</TableHead>
+                        <TableHead>Driver</TableHead>
+                        <TableHead>Dispatcher</TableHead>
                         <TableHead>Delivery City</TableHead>
                         <TableHead>Delivery Time</TableHead>
                       </TableRow>
@@ -279,6 +346,17 @@ export default function BeverlyHeatmapTruckClusters() {
                         .map((t) => (
                           <TableRow key={t.order_id}>
                             <TableCell className="font-medium">{t.truck_number || t.truck_id.slice(0, 8)}</TableCell>
+                            <TableCell>{t.driver_name || "—"}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span>{t.dispatcher_name || "—"}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {[t.dispatcher_ext && `ext ${t.dispatcher_ext}`, t.dispatcher_office]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </span>
+                              </div>
+                            </TableCell>
                             <TableCell>{t.city || "?"}, {t.state || "?"}</TableCell>
                             <TableCell className="text-muted-foreground">{t.delivery_datetime.replace("T", " ").slice(0, 16)}</TableCell>
                           </TableRow>
@@ -286,6 +364,7 @@ export default function BeverlyHeatmapTruckClusters() {
                     </TableBody>
                   </Table>
                 </CardContent>
+                )}
               </Card>
             ))}
           </div>
