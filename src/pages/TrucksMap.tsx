@@ -412,6 +412,17 @@ export default function TrucksMap() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [trucksWithData]);
 
+  // Dispatcher options sorted by name (only dispatchers present in fleet)
+  const dispatcherOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of trucksWithData as any[]) {
+      if (t.dispatcherId && t.dispatcherName) map.set(t.dispatcherId, t.dispatcherName);
+    }
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [trucksWithData]);
+
   const filteredTrucks = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = trucksWithData as any[];
