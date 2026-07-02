@@ -820,32 +820,10 @@ export function DispatcherFleetMapView({
     const SOURCE_ID = 'fleet-next-stop-lines';
     const LAYER_ID = 'fleet-next-stop-lines-layer';
 
-    const applyLines = () => {
+    let cancelled = false;
+
+    const ensureLayer = (data: GeoJSON.FeatureCollection<GeoJSON.LineString>) => {
       if (!map.current) return;
-
-      const features: GeoJSON.Feature<GeoJSON.LineString>[] = [];
-      for (const t of trucksRef.current) {
-        const md = markersRef.current.get(t.id);
-        const next = getNextStop(t.currentOrder);
-        if (!md || !next) continue;
-        const nlat = toFiniteCoordinate(next.lat);
-        const nlng = toFiniteCoordinate(next.lng);
-        if (nlat === null || nlng === null) continue;
-        features.push({
-          type: 'Feature',
-          properties: { id: t.id, kind: next.type },
-          geometry: {
-            type: 'LineString',
-            coordinates: [md.lngLat, [nlng, nlat]],
-          },
-        });
-      }
-
-      const data: GeoJSON.FeatureCollection<GeoJSON.LineString> = {
-        type: 'FeatureCollection',
-        features,
-      };
-
       try {
         const existing = map.current.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
         if (existing) {
@@ -859,9 +837,8 @@ export function DispatcherFleetMapView({
             layout: { 'line-cap': 'round', 'line-join': 'round' },
             paint: {
               'line-color': 'hsl(217 91% 60%)',
-              'line-width': 2.5,
-              'line-opacity': 0.75,
-              'line-dasharray': [2, 2],
+              'line-width': 3,
+              'line-opacity': 0.8,
             },
           });
         }
@@ -870,13 +847,79 @@ export function DispatcherFleetMapView({
       }
     };
 
+    const fetchAllRoutes = async () => {
+      if (!map.current || !tokenRef.current) return;
+
+      // Collect (truck, from, to) tuples that need routing
+      type Job = { id: string; from: [number, number]; to: [number, number] };
+      const jobs: Job[] = [];
+      for (const t of trucksRef.current) {
+        const md = markersRef.current.get(t.id);
+        const next = getNextStop(t.currentOrder);
+        if (!md || !next) continue;
+        const nlat = toFiniteCoordinate(next.lat);
+        const nlng = toFiniteCoordinate(next.lng);
+        if (nlat === null || nlng === null) continue;
+        jobs.push({ id: t.id, from: md.lngLat, to: [nlng, nlat] });
+      }
+
+      // Seed with straight lines so something is visible immediately
+      const seed: GeoJSON.FeatureCollection<GeoJSON.LineString> = {
+        type: 'FeatureCollection',
+        features: jobs.map((j) => ({
+          type: 'Feature',
+          properties: { id: j.id },
+          geometry: { type: 'LineString', coordinates: [j.from, j.to] },
+        })),
+      };
+      ensureLayer(seed);
+
+      // Fetch Mapbox Directions per truck (limited concurrency)
+      const results = new Map<string, GeoJSON.LineString>();
+      const CONCURRENCY = 6;
+      let cursor = 0;
+      const workers = Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, async () => {
+        while (!cancelled) {
+          const idx = cursor++;
+          if (idx >= jobs.length) return;
+          const j = jobs[idx];
+          const coordStr = `${j.from[0]},${j.from[1]};${j.to[0]},${j.to[1]}`;
+          const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordStr}?geometries=geojson&overview=full&access_token=${tokenRef.current}`;
+          try {
+            const res = await fetch(url);
+            const json = await res.json();
+            const geom = json?.routes?.[0]?.geometry;
+            if (geom) results.set(j.id, geom as GeoJSON.LineString);
+          } catch {
+            /* keep straight-line fallback */
+          }
+        }
+      });
+      await Promise.all(workers);
+      if (cancelled || !map.current) return;
+
+      const final: GeoJSON.FeatureCollection<GeoJSON.LineString> = {
+        type: 'FeatureCollection',
+        features: jobs.map((j) => ({
+          type: 'Feature',
+          properties: { id: j.id },
+          geometry:
+            results.get(j.id) ||
+            ({ type: 'LineString', coordinates: [j.from, j.to] } as GeoJSON.LineString),
+        })),
+      };
+      ensureLayer(final);
+    };
+
+    const kick = () => { void fetchAllRoutes(); };
     if (map.current.isStyleLoaded()) {
-      applyLines();
+      kick();
     } else {
-      map.current.once('load', applyLines);
+      map.current.once('load', kick);
     }
 
     return () => {
+      cancelled = true;
       if (!map.current) return;
       try {
         if (map.current.getLayer(LAYER_ID)) map.current.removeLayer(LAYER_ID);
