@@ -161,6 +161,18 @@ export function DispatcherFleetMapView({
       .join('|');
   }, [trucks]);
 
+  // Signature that changes whenever a truck's next-stop coords change
+  const nextStopSignature = useMemo(() => {
+    return trucks
+      .map((t) => {
+        const o = t.currentOrder;
+        const hasBOL = o?.hasBOL ? 1 : 0;
+        return `${t.id}:${hasBOL}:${o?.pickupLatitude ?? ''},${o?.pickupLongitude ?? ''}:${o?.deliveryLatitude ?? ''},${o?.deliveryLongitude ?? ''}`;
+      })
+      .sort()
+      .join('|');
+  }, [trucks]);
+
   // Keep a stable ref of trucks for popup
   const trucksRef = useRef(trucks);
   trucksRef.current = trucks;
@@ -871,7 +883,7 @@ export function DispatcherFleetMapView({
         if (map.current.getSource(SOURCE_ID)) map.current.removeSource(SOURCE_ID);
       } catch { /* ignore */ }
     };
-  }, [trucksSignature, isLoading]);
+  }, [trucksSignature, nextStopSignature, isLoading]);
 
   useEffect(() => {
     if (!selectedTruckId) return;
