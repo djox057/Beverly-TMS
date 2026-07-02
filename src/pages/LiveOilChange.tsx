@@ -65,12 +65,35 @@ const LiveOilChange = () => {
   const queryClient = useQueryClient();
   useEffect(() => {
     const channel = supabase
-      .channel("live-oil-change-trucks")
+      .channel(`live-oil-change-trucks-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "trucks" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
+        (payload) => {
+          const newRec = payload.new as any;
+          const oldRec = payload.old as any;
+          const id = newRec?.id || oldRec?.id;
+          if (!id) return;
+          // Directly patch cached rows so all connected clients see the update
+          // immediately (including note / oil_change_note) without a refetch race.
+          queryClient.setQueriesData<any[]>(
+            { queryKey: ["live-oil-change-trucks"] },
+            (old) => {
+              if (!old) return old;
+              if (payload.eventType === "DELETE") {
+                return old.filter((r) => r.id !== id);
+              }
+              const idx = old.findIndex((r) => r.id === id);
+              if (idx === -1) {
+                // New/unknown truck — fall back to refetch to hydrate joins.
+                queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
+                return old;
+              }
+              const updated = [...old];
+              updated[idx] = { ...updated[idx], ...newRec };
+              return updated;
+            },
+          );
         },
       )
       .on(
