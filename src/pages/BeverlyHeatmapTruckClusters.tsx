@@ -63,6 +63,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 export default function BeverlyHeatmapTruckClusters() {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [runDate, setRunDate] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
   const { data, isFetching } = useQuery({
     queryKey: ["truck-clusters", runDate],
@@ -309,15 +310,31 @@ export default function BeverlyHeatmapTruckClusters() {
               <Card key={idx}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{cl.label}</CardTitle>
-                    <Badge variant="secondary">{cl.trucks.length} trucks</Badge>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base">{cl.label}</CardTitle>
+                      <Badge variant="secondary">{cl.trucks.length} trucks</Badge>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setExpanded((s) => ({ ...s, [idx]: !s[idx] }))}
+                    >
+                      {expanded[idx] ? (
+                        <><ChevronDown className="h-4 w-4 mr-1" />Hide trucks</>
+                      ) : (
+                        <><ChevronRight className="h-4 w-4 mr-1" />Show trucks</>
+                      )}
+                    </Button>
                   </div>
                 </CardHeader>
+                {expanded[idx] && (
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Truck</TableHead>
+                        <TableHead>Driver</TableHead>
+                        <TableHead>Dispatcher</TableHead>
                         <TableHead>Delivery City</TableHead>
                         <TableHead>Delivery Time</TableHead>
                       </TableRow>
@@ -329,6 +346,17 @@ export default function BeverlyHeatmapTruckClusters() {
                         .map((t) => (
                           <TableRow key={t.order_id}>
                             <TableCell className="font-medium">{t.truck_number || t.truck_id.slice(0, 8)}</TableCell>
+                            <TableCell>{t.driver_name || "—"}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span>{t.dispatcher_name || "—"}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {[t.dispatcher_ext && `ext ${t.dispatcher_ext}`, t.dispatcher_office]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </span>
+                              </div>
+                            </TableCell>
                             <TableCell>{t.city || "?"}, {t.state || "?"}</TableCell>
                             <TableCell className="text-muted-foreground">{t.delivery_datetime.replace("T", " ").slice(0, 16)}</TableCell>
                           </TableRow>
@@ -336,6 +364,7 @@ export default function BeverlyHeatmapTruckClusters() {
                     </TableBody>
                   </Table>
                 </CardContent>
+                )}
               </Card>
             ))}
           </div>
