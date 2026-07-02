@@ -69,7 +69,13 @@ serve(async (req) => {
     }
 
     const url = new URL(req.url);
-    const truckFilter = (url.searchParams.get('truck') || '').trim();
+    let truckFilter = (url.searchParams.get('truck') || '').trim();
+    if (!truckFilter && (req.method === 'POST' || req.method === 'PUT')) {
+      try {
+        const body = await req.json();
+        if (body && typeof body.truck === 'string') truckFilter = body.truck.trim();
+      } catch { /* ignore */ }
+    }
 
     const apiKeys = [
       Deno.env.get('SAMSARA_API_KEY_1'),
