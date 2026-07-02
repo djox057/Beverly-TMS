@@ -4718,12 +4718,25 @@ const Reports = () => {
                                         if (previousHasPOD) {
                                           currentOrder = lastOrder;
                                         } else {
-                                          const lastWithBOL = [...allSortedOrders]
-                                            .reverse()
-                                            .find((order) =>
-                                              order.order_files?.some((file: any) => file.file_category === "BOL"),
-                                            );
-                                          currentOrder = lastWithBOL || lastOrder;
+                                          // Find latest order with BOL; if it's already delivered (has POD),
+                                          // skip forward to the next chronological order (map should point to
+                                          // the next active load, not the completed one).
+                                          const reversed = [...allSortedOrders].reverse();
+                                          const lastWithBOLReverseIdx = reversed.findIndex((order) =>
+                                            order.order_files?.some((file: any) => file.file_category === "BOL"),
+                                          );
+                                          const lastWithBOL =
+                                            lastWithBOLReverseIdx >= 0 ? reversed[lastWithBOLReverseIdx] : undefined;
+                                          const lastWithBOLHasPOD = lastWithBOL?.order_files?.some(
+                                            (file: any) => file.file_category === "POD",
+                                          );
+                                          if (lastWithBOL && lastWithBOLHasPOD) {
+                                            const idxInSorted =
+                                              allSortedOrders.length - 1 - lastWithBOLReverseIdx;
+                                            currentOrder = allSortedOrders[idxInSorted + 1] || lastOrder;
+                                          } else {
+                                            currentOrder = lastWithBOL || lastOrder;
+                                          }
                                         }
                                       } else {
                                         currentOrder = lastOrder;
