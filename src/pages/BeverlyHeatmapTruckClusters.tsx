@@ -76,7 +76,7 @@ export default function BeverlyHeatmapTruckClusters() {
       // 1) orders delivered on that date
       const { data: orders, error: ordErr } = await supabase
         .from("orders")
-        .select("id, truck_id, delivery_datetime")
+        .select("id, truck_id, driver1_id, delivery_datetime")
         .eq("canceled", false)
         .not("truck_id", "is", null)
         .gte("delivery_datetime", start)
