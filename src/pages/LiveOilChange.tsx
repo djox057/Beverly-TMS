@@ -469,10 +469,17 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell>
                           <Textarea
-                            value={notes[t.id] ?? ""}
-                            onChange={(e) => setNotes((s) => ({ ...s, [t.id]: e.target.value }))}
+                            key={t.oil_change_note ?? "empty-note"}
+                            defaultValue={t.oil_change_note ?? ""}
+                            onBlur={(e) => {
+                              const v = e.target.value.trim() || null;
+                              if (v !== (t.oil_change_note ?? null)) {
+                                updateTruck.mutate({ id: t.id, patch: { oil_change_note: v as any } });
+                              }
+                            }}
                             className={cn(bareInput, "min-h-7 py-1 resize-none")}
                             placeholder="—"
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell>
@@ -517,7 +524,7 @@ const LiveOilChange = () => {
             </Table>
           </div>
           <p className="text-xs text-muted-foreground mt-3">
-            Note is session-local (not persisted). Miles since last oil change and mil since last AF are computed from current mileage.
+            Miles since last oil change and mil since last AF are computed from current mileage.
           </p>
         </CardContent>
       </Card>
