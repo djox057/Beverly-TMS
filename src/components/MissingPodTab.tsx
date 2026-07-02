@@ -61,8 +61,15 @@ export const MissingPodTab = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [tick, setTick] = useState(0);
-  const { hasRole } = useAuthContext();
-  const canView = hasRole("admin") || hasRole("manager");
+  const { hasRole, profile } = useAuthContext();
+  const isDispatchOnly =
+    hasRole("dispatch") &&
+    !hasRole("admin") &&
+    !hasRole("manager") &&
+    !hasRole("accounting") &&
+    !hasRole("supervisor") &&
+    !hasRole("safety") &&
+    !hasRole("afterhours");
 
   // Re-render every minute so live counters update
   useEffect(() => {
@@ -71,9 +78,8 @@ export const MissingPodTab = () => {
   }, []);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["missing-pod-analytics", "all"],
+    queryKey: ["missing-pod-analytics", isDispatchOnly ? profile?.user_id : "all"],
     refetchInterval: 5 * 60 * 1000,
-    enabled: canView,
     queryFn: async () => {
       // Chicago "now" as naive
       const nowChicago = toZonedTime(new Date(), CHICAGO_TZ);
@@ -100,6 +106,11 @@ export const MissingPodTab = () => {
         .lte("delivery_datetime", toWall(cutoff))
         .limit(2000);
 
+      if (isDispatchOnly && profile) {
+        const candidates = [profile.full_name, profile.user_id].filter(Boolean) as string[];
+        if (candidates.length === 0) return [] as Row[];
+        query = query.in("booked_by", candidates);
+      }
 
       const { data: orders, error } = await query;
 
