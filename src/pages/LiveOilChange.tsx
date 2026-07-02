@@ -28,6 +28,7 @@ type TruckRow = {
   miles_updated_at: string | null;
   air_filter: number | null;
   last_oc_invoice: string | null;
+  oil_change_note: string | null;
   is_active: boolean;
   driver1_id: string | null;
   driver_name?: string | null;
@@ -158,14 +159,13 @@ const LiveOilChange = () => {
   const canEditAll = primaryRole !== 'dispatch';
   const canEditMiles = true;
   const [search, setSearch] = useState("");
-  const [notes, setNotes] = useState<Record<string, string>>({});
 
   const { data: trucks = [], isLoading } = useQuery({
     queryKey: ["live-oil-change-trucks", isDispatcher ? profile?.user_id : "all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
+        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, oil_change_note, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
@@ -469,10 +469,17 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell>
                           <Textarea
-                            value={notes[t.id] ?? ""}
-                            onChange={(e) => setNotes((s) => ({ ...s, [t.id]: e.target.value }))}
+                            key={t.oil_change_note ?? "empty-note"}
+                            defaultValue={t.oil_change_note ?? ""}
+                            onBlur={(e) => {
+                              const v = e.target.value.trim() || null;
+                              if (v !== (t.oil_change_note ?? null)) {
+                                updateTruck.mutate({ id: t.id, patch: { oil_change_note: v as any } });
+                              }
+                            }}
                             className={cn(bareInput, "min-h-7 py-1 resize-none")}
                             placeholder="—"
+                            readOnly={!canEditAll}
                           />
                         </TableCell>
                         <TableCell>
@@ -517,7 +524,7 @@ const LiveOilChange = () => {
             </Table>
           </div>
           <p className="text-xs text-muted-foreground mt-3">
-            Note is session-local (not persisted). Miles since last oil change and mil since last AF are computed from current mileage.
+            Miles since last oil change and mil since last AF are computed from current mileage.
           </p>
         </CardContent>
       </Card>
