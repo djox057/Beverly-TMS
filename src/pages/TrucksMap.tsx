@@ -134,7 +134,7 @@ async function fetchFleetMapData() {
     (companiesRes.data || []).map((c: any) => [c.id, c.name as string]),
   );
 
-  // 1b) Dispatcher names for the assigned drivers
+  // 1b) Dispatcher names for the assigned drivers (dispatcher_id = profiles.user_id)
   const dispatcherIds = Array.from(
     new Set(
       ((driversRes.data || []) as DriverRow[])
@@ -145,14 +145,14 @@ async function fetchFleetMapData() {
   const { data: dispatchersRes, error: dispatchersErr } = dispatcherIds.length
     ? await supabase
         .from("profiles")
-        .select("id, full_name")
-        .in("id", dispatcherIds)
+        .select("user_id, full_name")
+        .in("user_id", dispatcherIds)
     : { data: [] as any[], error: null as any };
   if (dispatchersErr) throw dispatchersErr;
 
   const dispatcherMap = new Map<string, string>(
     (dispatchersRes || []).map((p: any) => [
-      p.id as string,
+      (p.user_id as string) || (p.id as string),
       (p.full_name as string) || "",
     ]),
   );
