@@ -1183,10 +1183,10 @@ const AdminUsers = () => {
                 setSamsaraInspectLoading(true);
                 setSamsaraInspectData(null);
                 try {
-                  const path = samsaraTruckFilter.trim()
-                    ? `samsara-inspect?truck=${encodeURIComponent(samsaraTruckFilter.trim())}`
-                    : 'samsara-inspect';
-                  const { data, error } = await supabase.functions.invoke(path);
+                  const truck = samsaraTruckFilter.trim();
+                  const { data, error } = await supabase.functions.invoke('samsara-inspect', {
+                    body: truck ? { truck } : {},
+                  });
                   if (error) throw error;
                   setSamsaraInspectData(data);
                 } catch (err: any) {
