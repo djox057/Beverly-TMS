@@ -3033,7 +3033,9 @@ const Analytics = () => {
                 <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Dispatcher Salaries"}</TabsTrigger>
               )}
               {roles.includes("admin") && <TabsTrigger value="recruiting">Other Salaries</TabsTrigger>}
-              <TabsTrigger value="missing-pod">Missing POD</TabsTrigger>
+              {(roles.includes("admin") || roles.includes("manager")) && (
+                <TabsTrigger value="missing-pod">Missing POD</TabsTrigger>
+              )}
             </TabsList>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => setShowCharts((s) => !s)}>
