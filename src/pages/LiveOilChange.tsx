@@ -328,6 +328,22 @@ const LiveOilChange = () => {
                 {sources.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
               </SelectContent>
             </Select>
+            <Select value={dispatcherFilter} onValueChange={setDispatcherFilter}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="Dispatcher" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All dispatchers</SelectItem>
+                {dispatcherOptions.map(d => (
+                  <SelectItem key={d.id} value={d.id}>{d.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={officeFilter} onValueChange={setOfficeFilter}>
+              <SelectTrigger className="w-40"><SelectValue placeholder="Office" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All offices</SelectItem>
+                {officeOptions.map(o => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
+              </SelectContent>
+            </Select>
             <Select value={milesFilter} onValueChange={setMilesFilter}>
               <SelectTrigger className="w-52"><SelectValue placeholder="Miles since OC" /></SelectTrigger>
               <SelectContent>
