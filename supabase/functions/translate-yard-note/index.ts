@@ -47,7 +47,38 @@ serve(async (req) => {
       });
     }
 
-    const prompt = `Translate the following Serbian text to English. Return ONLY the translated English text with no quotes, no explanations, no prefixes. If the text is already in English, return it unchanged.\n\nText:\n${text}`;
+    const prompt = `You are translating Serbian text from a trucking/dispatch operations context (US truckload freight). Translate to English using industry-standard American trucking terminology. Return ONLY the translated English text — no quotes, no explanations, no prefixes. If the text is already in English, return it unchanged.
+
+Domain glossary (Serbian -> English), apply consistently:
+- tura / ture -> load / loads
+- utovar -> pickup (loading)
+- istovar -> delivery (unloading)
+- kamion -> truck
+- prikolica / trejler -> trailer
+- vozac / vozač -> driver
+- dispecer / dispečer -> dispatcher
+- ruta -> route
+- gorivo -> fuel
+- servis / popravka -> repair / service
+- kvar -> breakdown
+- guma / gume -> tire / tires
+- prazan -> empty (deadhead)
+- pun / natovaren -> loaded
+- kasni / kasnjenje / kašnjenje -> late / delay
+- brokera / broker -> broker
+- rate / cena -> rate
+- milja / milje -> mile / miles
+- odmor -> rest / home time
+- termin / apointment -> appointment
+- skladiste / skladište -> warehouse
+- prevoz -> transport / haul
+- recovery / recoveri -> recovery load
+- oil change / promena ulja -> oil change
+
+Keep truck numbers, load numbers, city/state codes, times, and proper names unchanged.
+
+Text:
+${text}`;
 
     const aiResponse = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent",
