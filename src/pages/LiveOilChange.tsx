@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { getOilChangeThresholds } from "@/pages/Reports/helpers";
+import { useFleetManagement } from "@/hooks/useFleetManagement";
 
 type TruckRow = {
   id: string;
