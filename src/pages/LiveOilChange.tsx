@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { getOilChangeThresholds } from "@/pages/Reports/helpers";
+import { useFleetManagement } from "@/hooks/useFleetManagement";
 
 type TruckRow = {
   id: string;
@@ -32,6 +33,9 @@ type TruckRow = {
   is_active: boolean;
   driver1_id: string | null;
   driver_name?: string | null;
+  dispatcher_id?: string | null;
+  dispatcher_name?: string | null;
+  dispatcher_office?: string | null;
   company_id?: string | null;
   company_name?: string | null;
 };
@@ -178,6 +182,7 @@ const LiveOilChange = () => {
   const { getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
   const isDispatcher = primaryRole === 'dispatch';
+  const { allDispatchers } = useFleetManagement();
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
   const canEditAll = primaryRole !== 'dispatch';
   const canEditMiles = true;
@@ -200,7 +205,7 @@ const LiveOilChange = () => {
         dispatcher_id: t.driver1?.dispatcher_id ?? null,
         company_id: t.driver1?.company_id ?? null,
         company_name: t.driver1?.companies?.name ?? null,
-      })) as (TruckRow & { dispatcher_id: string | null })[];
+      })) as TruckRow[];
       if (isDispatcher && profile?.user_id) {
         return rows.filter((t) => t.dispatcher_id === profile.user_id);
       }
@@ -225,22 +230,52 @@ const LiveOilChange = () => {
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [milesFilter, setMilesFilter] = useState<string>("all");
+  const [dispatcherFilter, setDispatcherFilter] = useState<string>("all");
+  const [officeFilter, setOfficeFilter] = useState<string>("all");
+
+  const enrichedTrucks = useMemo(() => {
+    const dispatcherMap = new Map(allDispatchers.map((d: any) => [d.id, d]));
+    return trucks.map((t) => {
+      const d = t.dispatcher_id ? dispatcherMap.get(t.dispatcher_id) : undefined;
+      return {
+        ...t,
+        dispatcher_name: d ? d.full_name || d.email || null : null,
+        dispatcher_office: d ? d.office || null : null,
+      };
+    });
+  }, [trucks, allDispatchers]);
 
   const companies = useMemo(() => {
     const map = new Map<string, string>();
-    trucks.forEach(t => { if (t.company_id && t.company_name) map.set(t.company_id, t.company_name); });
+    enrichedTrucks.forEach(t => { if (t.company_id && t.company_name) map.set(t.company_id, t.company_name); });
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-  }, [trucks]);
+  }, [enrichedTrucks]);
 
   const sources = useMemo(() => {
     const set = new Set<string>();
-    trucks.forEach(t => { if (t.source) set.add(t.source); });
+    enrichedTrucks.forEach(t => { if (t.source) set.add(t.source); });
     return Array.from(set).sort();
-  }, [trucks]);
+  }, [enrichedTrucks]);
+
+  const dispatcherOptions = useMemo(() => {
+    const map = new Map<string, { id: string; label: string }>();
+    enrichedTrucks.forEach(t => {
+      if (t.dispatcher_id && t.dispatcher_name) {
+        map.set(t.dispatcher_id, { id: t.dispatcher_id, label: t.dispatcher_name });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [enrichedTrucks]);
+
+  const officeOptions = useMemo(() => {
+    const set = new Set<string>();
+    enrichedTrucks.forEach(t => { if (t.dispatcher_office) set.add(t.dispatcher_office); });
+    return Array.from(set).sort();
+  }, [enrichedTrucks]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return trucks.filter(t => {
+    return enrichedTrucks.filter(t => {
       if (q) {
         const matches =
           (t.truck_number ?? "").toLowerCase().includes(q) ||
@@ -249,6 +284,8 @@ const LiveOilChange = () => {
       }
       if (companyFilter !== "all" && t.company_id !== companyFilter) return false;
       if (sourceFilter !== "all" && (t.source ?? "") !== sourceFilter) return false;
+      if (dispatcherFilter !== "all" && t.dispatcher_id !== dispatcherFilter) return false;
+      if (officeFilter !== "all" && t.dispatcher_office !== officeFilter) return false;
       if (milesFilter !== "all") {
         const m = t.miles != null && t.last_oil_change_miles != null
           ? t.miles - t.last_oil_change_miles : null;
@@ -259,7 +296,7 @@ const LiveOilChange = () => {
       }
       return true;
     });
-  }, [trucks, search, companyFilter, sourceFilter, milesFilter]);
+  }, [enrichedTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
 
   return (
     <div className="py-6 px-2 space-y-6">
@@ -289,6 +326,22 @@ const LiveOilChange = () => {
               <SelectContent>
                 <SelectItem value="all">All sources</SelectItem>
                 {sources.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <Select value={dispatcherFilter} onValueChange={setDispatcherFilter}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="Dispatcher" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All dispatchers</SelectItem>
+                {dispatcherOptions.map(d => (
+                  <SelectItem key={d.id} value={d.id}>{d.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={officeFilter} onValueChange={setOfficeFilter}>
+              <SelectTrigger className="w-40"><SelectValue placeholder="Office" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All offices</SelectItem>
+                {officeOptions.map(o => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
               </SelectContent>
             </Select>
             <Select value={milesFilter} onValueChange={setMilesFilter}>
