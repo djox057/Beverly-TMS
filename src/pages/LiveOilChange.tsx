@@ -205,7 +205,7 @@ const LiveOilChange = () => {
         dispatcher_id: t.driver1?.dispatcher_id ?? null,
         company_id: t.driver1?.company_id ?? null,
         company_name: t.driver1?.companies?.name ?? null,
-      })) as (TruckRow & { dispatcher_id: string | null })[];
+      })) as TruckRow[];
       if (isDispatcher && profile?.user_id) {
         return rows.filter((t) => t.dispatcher_id === profile.user_id);
       }
