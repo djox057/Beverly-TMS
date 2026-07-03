@@ -6978,13 +6978,13 @@ const Reports = () => {
                   <div className="text-sm text-muted-foreground font-normal flex flex-wrap items-start gap-x-6 gap-y-1">
                     <div className="flex flex-col leading-tight">
                       {(() => {
-                        const totalMiles = (zoomedLoad?.loadedMiles || 0) + (zoomedLoad?.dhMiles || 0);
+                        const miles = zoomedLoad?.loadedMiles || 0;
                         return (
                           <>
                             <span>${zoomedLoad?.freightAmount?.toLocaleString() || 0} freight</span>
-                            {totalMiles > 0 ? (
+                            {miles > 0 ? (
                               <span className="text-xs text-muted-foreground/80">
-                                {(zoomedLoad.freightAmount / totalMiles).toFixed(2)}/mi RPM
+                                {(zoomedLoad.freightAmount / miles).toFixed(2)}/mi RPM
                               </span>
                             ) : null}
                           </>
@@ -7002,13 +7002,13 @@ const Reports = () => {
                         !hasRole("safety") &&
                         !hasRole("accounting");
                       if (isDispatchOnly) return null;
-                      const totalMiles = (zoomedLoad?.loadedMiles || 0) + (zoomedLoad?.dhMiles || 0);
+                      const miles = zoomedLoad?.loadedMiles || 0;
                       return (
                         <div className="flex flex-col leading-tight">
                           <span>${zoomedLoad?.driverPay?.toLocaleString() || 0} driver pay</span>
-                          {totalMiles > 0 ? (
+                          {miles > 0 ? (
                             <span className="text-xs text-muted-foreground/80">
-                              {(zoomedLoad.driverPay / totalMiles).toFixed(2)}/mi RPM
+                              {(zoomedLoad.driverPay / miles).toFixed(2)}/mi RPM
                             </span>
                           ) : null}
                         </div>
