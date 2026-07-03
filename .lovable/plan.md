@@ -1,8 +1,28 @@
-I found the reason 7461 still shows broker `0305437`: the database query in `TrucksMap.tsx` is hitting Supabase’s default 1000-row limit per chunk. Since the first truck chunk has 4864 matching orders, the newer 7461 order `21529-AP / 2026833` is not reliably included in the frontend result, so the map falls back to the old `18271-AP / 0305437` load.
+## Goal
+Stop the Google Sheets backup from running every 30 minutes — it's the likely cause of the recurring CPU spikes (correlated with the 91% spike at 07:15 CDT, which lined up exactly with the :15 cron tick).
 
-Plan:
-1. Change the fleet-map orders fetch so it does not rely on the default 1000-row limit.
-2. Fetch orders in smaller truck chunks and explicitly order by pickup time, so each chunk stays under the limit and newest/current loads are included.
-3. Keep the current load-picking priority: open BOL/no POD first, then open started pickup, then upcoming open, then historical fallback.
-4. Keep multi-pick/drop marker behavior unchanged, but ensure the selected load data includes all stops for the correct order.
-5. Verify truck 7461 resolves to load `21529-AP` and broker `2026833` after the change.
+## Change
+Unschedule pg_cron job **`sync-google-sheets-every-30min`** (jobid 24, schedule `15,45 * * * *`).
+
+Run via the Supabase insert tool (matches Lovable's rule that cron changes with project-specific URLs/keys don't go through migrations):
+
+```sql
+select cron.unschedule('sync-google-sheets-every-30min');
+```
+
+## What is NOT changed
+- The `sync-google-sheets` edge function itself is left in place, so it can be triggered manually or re-scheduled later if needed.
+- All other cron jobs (`hos-sync`, `update-truck-distances`, afterhours flips, POD reminders, etc.) are untouched.
+- No code, RLS, or table changes.
+
+## Verification
+After running:
+
+```sql
+select jobid, jobname, schedule from cron.job where jobname = 'sync-google-sheets-every-30min';
+```
+
+Should return zero rows. The 07:15 and 07:45-style CPU spikes should stop within the next hour.
+
+## Follow-up (optional, not part of this plan)
+If the Google Sheets backup is still needed at all, we can later re-schedule it to a low-traffic hour (e.g. `0 4 * * *` = once daily at 04:00 UTC / 23:00 CDT) instead of every 30 min.
