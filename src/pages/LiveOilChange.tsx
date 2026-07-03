@@ -33,6 +33,9 @@ type TruckRow = {
   is_active: boolean;
   driver1_id: string | null;
   driver_name?: string | null;
+  dispatcher_id?: string | null;
+  dispatcher_name?: string | null;
+  dispatcher_office?: string | null;
   company_id?: string | null;
   company_name?: string | null;
 };
