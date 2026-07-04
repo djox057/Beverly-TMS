@@ -51,6 +51,7 @@ import RoadsideInspection from "./pages/RoadsideInspection";
 import LiveOilChange from "./pages/LiveOilChange";
 import TruckSales from "./pages/TruckSales";
 import Info from "./pages/Info";
+import OAuthConsent from "./pages/OAuthConsent";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,6 +109,7 @@ const AppContent = () => {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
         <Route path="/admin/users" element={
           <ProtectedRoute requiredRole="admin">
             <Layout><AdminUsers /></Layout>

@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://wjkbtagwgjniilmgwutb.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "beverly-tms-mcp",
+      "version": "0.1.0",
+      "title": "Beverly TMS"
+    },
+    "tools": [
+      {
+        "name": "list_drivers",
+        "title": "List drivers",
+        "description": "List drivers visible to the signed-in user. Optionally filter by active status or a name substring.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "active_only": {
+              "type": "boolean",
+              "description": "If true, only return drivers with status = 'active'."
+            },
+            "name_contains": {
+              "type": "string",
+              "description": "Case-insensitive substring match on driver full name."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Max rows to return (default 50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_trucks",
+        "title": "List trucks",
+        "description": "List trucks visible to the signed-in user. Optionally filter by truck number substring or company.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "truck_number_contains": {
+              "type": "string",
+              "description": "Substring match on truck_number."
+            },
+            "company_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filter by owning company UUID."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Max rows to return (default 50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_recent_orders",
+        "title": "List recent orders",
+        "description": "List the most recently created orders/loads visible to the signed-in user. Optionally filter by load number substring, status, or canceled flag.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "load_number_contains": {
+              "type": "string",
+              "description": "Substring match on load_number or internal_load_number."
+            },
+            "status": {
+              "type": "string",
+              "description": "Filter by exact status value."
+            },
+            "include_canceled": {
+              "type": "boolean",
+              "description": "If false (default), excludes canceled orders."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Max rows to return (default 25)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
