@@ -3160,7 +3160,6 @@ const Drivers = () => {
                       Recovery Driver
                     </Label>
                   </div>
-                  <div className="flex items-center space-x-2">
                   {formData.is_company_driver && (
                     <div className="flex items-center gap-2">
                       <Input
