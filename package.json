@@ -84,7 +84,7 @@
     "topojson-client": "^3.1.0",
     "vaul": "^0.9.9",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "zod": "^4.4.3"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
