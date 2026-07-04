@@ -5411,25 +5411,6 @@ const Reports = () => {
                                                                   >
                                                                     <DollarSign className="h-3 w-3" />
                                                                   </Button>
-                                                                  {!truck.doNotTouchHos && (
-                                                                    <Button
-                                                                      variant="ghost"
-                                                                      size="sm"
-                                                                      className="h-6 w-6 p-0"
-                                                                      onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setHosRequestDialog({
-                                                                          driverName: truck.driver1Name,
-                                                                          truckNumber: truck.truckNumber,
-                                                                          companyName: truck.companyName || "",
-                                                                          teamDriverName:
-                                                                            truck.driver2Name || undefined,
-                                                                        });
-                                                                      }}
-                                                                    >
-                                                                      <Clock className="h-3 w-3" />
-                                                                    </Button>
-                                                                  )}
                                                                   {(hasRole("manager") ||
                                                                     hasRole("supervisor") ||
                                                                     hasRole("admin")) && (
@@ -5506,25 +5487,6 @@ const Reports = () => {
                                                                   >
                                                                     <DollarSign className="h-3 w-3" />
                                                                   </Button>
-                                                                  {!truck.doNotTouchHos && (
-                                                                    <Button
-                                                                      variant="ghost"
-                                                                      size="sm"
-                                                                      className="h-6 w-6 p-0"
-                                                                      onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setHosRequestDialog({
-                                                                          driverName: truck.driver2Name!,
-                                                                          truckNumber: truck.truckNumber,
-                                                                          companyName: truck.companyName || "",
-                                                                          teamDriverName:
-                                                                            truck.driver1Name || undefined,
-                                                                        });
-                                                                      }}
-                                                                    >
-                                                                      <Clock className="h-3 w-3" />
-                                                                    </Button>
-                                                                  )}
                                                                 </div>
                                                               </div>
                                                               {truck.driver2Phone && (
@@ -5789,23 +5751,6 @@ const Reports = () => {
                                                                     >
                                                                       <DollarSign className="h-3 w-3" />
                                                                     </Button>
-                                                                    {!truck.doNotTouchHos && (
-                                                                      <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-6 w-6 p-0"
-                                                                        onClick={(e) => {
-                                                                          e.stopPropagation();
-                                                                          setHosRequestDialog({
-                                                                            driverName: truck.driver,
-                                                                            truckNumber: truck.truckNumber,
-                                                                            companyName: truck.companyName || "",
-                                                                          });
-                                                                        }}
-                                                                      >
-                                                                        <Clock className="h-3 w-3" />
-                                                                      </Button>
-                                                                    )}
                                                                     {(hasRole("manager") ||
                                                                       hasRole("supervisor") ||
                                                                       hasRole("admin")) && (
@@ -6219,19 +6164,6 @@ const Reports = () => {
                                               </div>
 
                                               {/* HOS Circular Timers */}
-                                              {truck.doNotTouchHos && (
-                                                <Popover>
-                                                  <PopoverTrigger asChild>
-                                                    <span className="text-base cursor-pointer select-none">🚧</span>
-                                                  </PopoverTrigger>
-                                                  <PopoverContent
-                                                    side="top"
-                                                    className="w-auto px-3 py-1.5 text-xs font-semibold"
-                                                  >
-                                                    DRIVES LEGALLY
-                                                  </PopoverContent>
-                                                </Popover>
-                                              )}
                                               <HosCircularTimer
                                                 minutes={truck.driveMinutes}
                                                 maxMinutes={11 * 60}
@@ -6264,19 +6196,6 @@ const Reports = () => {
                                                 size={31}
                                                 strokeWidth={3}
                                               />
-                                              {truck.doNotTouchHos && (
-                                                <Popover>
-                                                  <PopoverTrigger asChild>
-                                                    <span className="text-base cursor-pointer select-none">🚧</span>
-                                                  </PopoverTrigger>
-                                                  <PopoverContent
-                                                    side="top"
-                                                    className="w-auto px-3 py-1.5 text-xs font-semibold"
-                                                  >
-                                                    DRIVES LEGALLY
-                                                  </PopoverContent>
-                                                </Popover>
-                                              )}
                                               {/* Fuel Indicator */}
                                               <div
                                                 className="relative flex items-center justify-center"
