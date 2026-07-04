@@ -2071,20 +2071,6 @@ const Drivers = () => {
                         </Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="do_not_touch_hos"
-                          checked={formData.do_not_touch_hos}
-                          onCheckedChange={(checked) =>
-                            setFormData({
-                              ...formData,
-                              do_not_touch_hos: checked === true,
-                            })
-                          }
-                        />
-                        <Label htmlFor="do_not_touch_hos" className="cursor-pointer">
-                          Drives Legally
-                        </Label>
-                      </div>
                       {formData.is_company_driver && (
                         <div className="flex items-center gap-2">
                           <Input
@@ -3176,20 +3162,6 @@ const Drivers = () => {
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="edit_do_not_touch_hos"
-                      checked={formData.do_not_touch_hos}
-                      onCheckedChange={(checked) =>
-                        setFormData({
-                          ...formData,
-                          do_not_touch_hos: checked === true,
-                        })
-                      }
-                    />
-                    <Label htmlFor="edit_do_not_touch_hos" className="cursor-pointer">
-                      Drives Legally
-                    </Label>
-                  </div>
                   {formData.is_company_driver && (
                     <div className="flex items-center gap-2">
                       <Input
