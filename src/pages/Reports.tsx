@@ -6219,19 +6219,6 @@ const Reports = () => {
                                               </div>
 
                                               {/* HOS Circular Timers */}
-                                              {truck.doNotTouchHos && (
-                                                <Popover>
-                                                  <PopoverTrigger asChild>
-                                                    <span className="text-base cursor-pointer select-none">🚧</span>
-                                                  </PopoverTrigger>
-                                                  <PopoverContent
-                                                    side="top"
-                                                    className="w-auto px-3 py-1.5 text-xs font-semibold"
-                                                  >
-                                                    DRIVES LEGALLY
-                                                  </PopoverContent>
-                                                </Popover>
-                                              )}
                                               <HosCircularTimer
                                                 minutes={truck.driveMinutes}
                                                 maxMinutes={11 * 60}
@@ -6264,19 +6251,6 @@ const Reports = () => {
                                                 size={31}
                                                 strokeWidth={3}
                                               />
-                                              {truck.doNotTouchHos && (
-                                                <Popover>
-                                                  <PopoverTrigger asChild>
-                                                    <span className="text-base cursor-pointer select-none">🚧</span>
-                                                  </PopoverTrigger>
-                                                  <PopoverContent
-                                                    side="top"
-                                                    className="w-auto px-3 py-1.5 text-xs font-semibold"
-                                                  >
-                                                    DRIVES LEGALLY
-                                                  </PopoverContent>
-                                                </Popover>
-                                              )}
                                               {/* Fuel Indicator */}
                                               <div
                                                 className="relative flex items-center justify-center"
