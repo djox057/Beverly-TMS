@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,10 @@ const Login = () => {
   const { user, profile, loading, signIn, resetPassword, hasRole } = useAuthContext();
   const { toast } = useToast();
   useDragPan();
+  const [searchParams] = useSearchParams();
+  const rawNext = searchParams.get("next");
+  const nextPath =
+    rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,6 +44,10 @@ const Login = () => {
   }
 
   if (user && profile) {
+    // Return the user to the OAuth consent flow (or any other same-origin next path).
+    if (nextPath) {
+      return <Navigate to={nextPath} replace />;
+    }
     // Redirect drivers to driver portal
     if (hasRole('driver')) {
       return <Navigate to="/driver" replace />;
