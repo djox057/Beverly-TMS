@@ -58,6 +58,8 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChan
   const [existingCharges, setExistingCharges] = useState<any[]>([]);
   const [allAdditionals, setAllAdditionals] = useState<any[]>([]);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [grossPct, setGrossPct] = useState<number>(1); // dispatcher gross percent (e.g. 1 for 1%)
+  const [cutPct, setCutPct] = useState<number>(5);     // dispatcher cut percent (e.g. 5 for 5%)
 
   const resetForm = () => {
     setPercent("50");
@@ -99,13 +101,21 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChan
         let uid: string | null = null;
         if (uuidRe.test(ord.booked_by)) {
           const { data: p } = await supabase
-            .from("profiles").select("user_id").eq("user_id", ord.booked_by).maybeSingle();
+            .from("profiles").select("user_id, gross_percent, cut_percent").eq("user_id", ord.booked_by).maybeSingle();
           uid = (p as any)?.user_id || null;
+          if (!cancelled && p) {
+            if ((p as any).gross_percent != null) setGrossPct(Number((p as any).gross_percent));
+            if ((p as any).cut_percent != null) setCutPct(Number((p as any).cut_percent));
+          }
         }
         if (!uid) {
           const { data: p2 } = await supabase
-            .from("profiles").select("user_id").eq("full_name", ord.booked_by).maybeSingle();
+            .from("profiles").select("user_id, gross_percent, cut_percent").eq("full_name", ord.booked_by).maybeSingle();
           uid = (p2 as any)?.user_id || null;
+          if (!cancelled && p2) {
+            if ((p2 as any).gross_percent != null) setGrossPct(Number((p2 as any).gross_percent));
+            if ((p2 as any).cut_percent != null) setCutPct(Number((p2 as any).cut_percent));
+          }
         }
         if (uid) {
           const monthStr = formatChicagoMonth(ord.delivery_datetime);
@@ -143,14 +153,17 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChan
   const freight = Number(order?.freight_amount || 0);
   const driverPay = Number(order?.driver_price || 0);
   const pct = Math.max(0, Math.min(100, parseFloat(percent) || 0));
+  const grossRate = grossPct / 100;
+  const cutRate = cutPct / 100;
+  const formatPct = (v: number) => (Number.isInteger(v) ? v.toString() : (+v.toFixed(2)).toString());
   const computedAmount = useMemo(() => {
     if (commAnnulment) {
-      return Math.max(0, (freight - driverPay) * 0.05);
+      return Math.max(0, (freight - driverPay) * cutRate);
     }
-    const base = freight * 0.01 + (freight - driverPay) * 0.05;
+    const base = freight * grossRate + (freight - driverPay) * cutRate;
     const raw = base * (pct / 100);
     return Math.max(0, raw);
-  }, [freight, driverPay, pct, commAnnulment]);
+  }, [freight, driverPay, pct, commAnnulment, grossRate, cutRate]);
 
   const month = order?.delivery_datetime ? formatChicagoMonth(order.delivery_datetime) : "";
   const deliveryDisplay = order?.delivery_datetime ? formatChicagoDate(order.delivery_datetime) : "—";
@@ -381,8 +394,8 @@ export function AddOrderSalaryChargeDialog({ open, onOpenChange, orderId, onChan
             <div className="rounded-md border p-3 text-sm bg-primary/5">
               <div className="text-muted-foreground text-xs">
                 {commAnnulment
-                  ? "Formula: (Freight − Driver Pay) × 5%"
-                  : "Formula: (Freight × 1% + (Freight − Driver Pay) × 5%) × Percentage"}
+                  ? `Formula: (Freight − Driver Pay) × ${formatPct(cutPct)}%`
+                  : `Formula: (Freight × ${formatPct(grossPct)}% + (Freight − Driver Pay) × ${formatPct(cutPct)}%) × Percentage`}
               </div>
               <div className="text-lg font-semibold mt-1">
                 Charge: ${computedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
