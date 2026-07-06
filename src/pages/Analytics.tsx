@@ -3290,27 +3290,9 @@ const Analytics = () => {
                             ? nonRecoveryMiles / displayTruckCount
                             : (nonRecoveryMiles / displayTruckCount / localDaysInPeriod) * 7
                           : 0;
-                      // Admin-only: Avg dispatcher monthly salary for the selected month.
-                      // Includes only users whose roles contain "dispatch".
-                      const dispatcherUserIdsForSalary = Object.values(dispatcherProfiles)
-                        .filter((p) => Array.isArray(p.roles) && p.roles.includes("dispatch"))
-                        .map((p) => p.user_id)
-                        .filter((uid): uid is string => !!uid);
-                      const salaryMonthActive = !!selectedMonth && selectedMonth !== "all";
-                      // Only include dispatchers with a meaningful paid salary (>= $500)
-                      const paidAmounts = salaryMonthActive
-                        ? dispatcherUserIdsForSalary
-                            .map((uid) => salaryPayments[uid]?.paid_amount || 0)
-                            .filter((amt) => amt >= 500)
-                        : [];
-                      const totalDispatcherSalary = paidAmounts.reduce((s, a) => s + a, 0);
-                      const avgDispatcherSalary =
-                        paidAmounts.length > 0 ? totalDispatcherSalary / paidAmounts.length : 0;
                       return (
                         <div
-                          className={`mt-4 pt-4 border-t border-border/50 grid grid-cols-2 gap-4 sm:gap-8 ${
-                            isAdmin ? "sm:grid-cols-6" : "sm:grid-cols-5"
-                          }`}
+                          className="mt-4 pt-4 border-t border-border/50 grid grid-cols-2 gap-4 sm:gap-8 sm:grid-cols-5"
                         >
                           <div className="text-center">
                             <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Avg Wk Gross/Tr</p>
@@ -3345,26 +3327,6 @@ const Analytics = () => {
                             <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Total Loads</p>
                             <p className="text-lg sm:text-2xl font-bold">{nonRecoveryOrderCount.toLocaleString()}</p>
                           </div>
-                          {isAdmin && (
-                            <div className="text-center">
-                              <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Avg Disp. Salary
-                              </p>
-                              <p className="text-lg sm:text-2xl font-bold">
-                                {salaryMonthActive ? (
-                                  <>
-                                    $
-                                    {avgDispatcherSalary.toLocaleString(undefined, {
-                                      minimumFractionDigits: 0,
-                                      maximumFractionDigits: 0,
-                                    })}
-                                  </>
-                                ) : (
-                                  "—"
-                                )}
-                              </p>
-                            </div>
-                          )}
                         </div>
                       );
                     })()}
