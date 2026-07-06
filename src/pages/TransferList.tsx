@@ -1230,7 +1230,7 @@ function TransferRowDialog({
   }, [driverTruckMap]);
 
   const reset = () => {
-    setTruckId(null); setDriverId(null); setGoingToCompany(""); setDrugTestDate(undefined);
+    setTruckId(null); setDriverId(null); setGoingToCompany("BF Prime LLC"); setDrugTestDate(undefined);
     setDrugTestResult(""); setComingToOffice(undefined); setEtaTime("");
     setSafetyUserId(null); setDriverInformed(false); setSign(false); setFinished(false);
     setTruckSearch(""); setDriverSearch("");
