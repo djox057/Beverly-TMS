@@ -1785,37 +1785,6 @@ const Drivers = () => {
                         <div className="space-y-4">
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <Label htmlFor="personal_id">Personal ID</Label>
-                              <Input
-                                id="personal_id"
-                                value={formData.personal_id}
-                                onChange={(e) =>
-                                  setFormData({
-                                    ...formData,
-                                    personal_id: e.target.value,
-                                  })
-                                }
-                                placeholder="Personal ID"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="fuel_card_number">Fuel Card# (Last 4)</Label>
-                              <Input
-                                id="fuel_card_number"
-                                value={formData.fuel_card_number}
-                                onChange={(e) =>
-                                  setFormData({
-                                    ...formData,
-                                    fuel_card_number: e.target.value,
-                                  })
-                                }
-                                placeholder="Fuel Card Number"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
                               <Label htmlFor="company_name">Driver's Company Name</Label>
                               <Input
                                 id="company_name"
@@ -1841,37 +1810,6 @@ const Drivers = () => {
                                   })
                                 }
                                 placeholder="Company Address"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                            <div className="space-y-2">
-                              <Label htmlFor="ssn">SSN #</Label>
-                              <Input
-                                id="ssn"
-                                value={formData.ssn}
-                                onChange={(e) =>
-                                  setFormData({
-                                    ...formData,
-                                    ssn: e.target.value,
-                                  })
-                                }
-                                placeholder="SSN"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="fein">FEIN #</Label>
-                              <Input
-                                id="fein"
-                                value={formData.fein}
-                                onChange={(e) =>
-                                  setFormData({
-                                    ...formData,
-                                    fein: e.target.value,
-                                  })
-                                }
-                                placeholder="FEIN"
                               />
                             </div>
                           </div>

@@ -1052,24 +1052,6 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Personal ID</Label>
-                          <Input
-                            value={formData.personal_id}
-                            onChange={(e) => setFormData({ ...formData, personal_id: e.target.value })}
-                            placeholder="Personal ID"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Fuel Card# (Last 4)</Label>
-                          <Input
-                            value={formData.fuel_card_number}
-                            onChange={(e) => setFormData({ ...formData, fuel_card_number: e.target.value })}
-                            placeholder="Fuel Card Number"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
                           <Label>Driver's Company Name</Label>
                           <Input
                             value={formData.company_name}
@@ -1086,24 +1068,8 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                      <div className="grid grid-cols-1 gap-4 pt-4 border-t">
                         <div className="space-y-2">
-                          <Label>SSN #</Label>
-                          <Input
-                            value={formData.ssn}
-                            onChange={(e) => setFormData({ ...formData, ssn: e.target.value })}
-                            placeholder="SSN"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>FEIN #</Label>
-                          <Input
-                            value={formData.fein}
-                            onChange={(e) => setFormData({ ...formData, fein: e.target.value })}
-                            placeholder="FEIN"
-                          />
-                        </div>
-                        <div className="space-y-2 col-span-2">
                           <Label>Note</Label>
                           <Textarea
                             value={formData.note}
