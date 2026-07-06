@@ -2809,37 +2809,6 @@ const Drivers = () => {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="edit_personal_id">Personal ID</Label>
-                          <Input
-                            id="edit_personal_id"
-                            value={formData.personal_id}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                personal_id: e.target.value,
-                              })
-                            }
-                            placeholder="Personal ID"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit_fuel_card_number">Fuel Card# (Last 4)</Label>
-                          <Input
-                            id="edit_fuel_card_number"
-                            value={formData.fuel_card_number}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                fuel_card_number: e.target.value,
-                              })
-                            }
-                            placeholder="Fuel Card Number"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
                           <Label htmlFor="edit_company_name">Driver's Company Name</Label>
                           <Input
                             id="edit_company_name"
