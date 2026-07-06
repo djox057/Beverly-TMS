@@ -41,25 +41,38 @@ export function DispatcherSalaryChart() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("dispatcher_salary_payments" as any)
-        .select("month, paid_amount")
-        .gte("paid_amount", 500);
+        .select("month, user_id, calculated_salary");
       if (error) throw error;
       return (data as any[]) || [];
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  // All months that appear in the data, sorted ascending
-  const allMonths = useMemo(() => {
-    const set = new Set<string>();
+  // Aggregate to one salary per dispatcher per month (calculated_salary is
+  // duplicated across payment rows; take MAX). Filter dispatchers with < $500
+  // for the month to exclude noise/placeholder rows.
+  const perDispatcherByMonth = useMemo(() => {
+    const map = new Map<string, Map<string, number>>(); // month -> user_id -> salary
     for (const r of rows) {
       const m = (r as any).month as string | null;
-      const amt = Number((r as any).paid_amount) || 0;
-      if (!m || amt < 500) continue;
-      set.add(m);
+      const uid = (r as any).user_id as string | null;
+      const cs = Number((r as any).calculated_salary) || 0;
+      if (!m || !uid) continue;
+      let inner = map.get(m);
+      if (!inner) {
+        inner = new Map();
+        map.set(m, inner);
+      }
+      const prev = inner.get(uid) ?? 0;
+      if (cs > prev) inner.set(uid, cs);
     }
-    return Array.from(set).sort();
+    return map;
   }, [rows]);
+
+  const allMonths = useMemo(
+    () => Array.from(perDispatcherByMonth.keys()).sort(),
+    [perDispatcherByMonth],
+  );
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -105,18 +118,19 @@ export function DispatcherSalaryChart() {
   }, [preset, selectedMonths, allMonths, currentYear, currentMonthIdx]);
 
   const chartData = useMemo(() => {
-    const buckets = new Map<string, { total: number; count: number }>();
-    for (const r of rows) {
-      const m = (r as any).month as string | null;
-      const amt = Number((r as any).paid_amount) || 0;
-      if (!m || amt < 500) continue;
+    const buckets: Array<[string, { total: number; count: number }]> = [];
+    for (const [m, inner] of perDispatcherByMonth) {
       if (!activeMonths.has(m)) continue;
-      const b = buckets.get(m) || { total: 0, count: 0 };
-      b.total += amt;
-      b.count += 1;
-      buckets.set(m, b);
+      let total = 0;
+      let count = 0;
+      for (const salary of inner.values()) {
+        if (salary < 500) continue;
+        total += salary;
+        count += 1;
+      }
+      if (count > 0) buckets.push([m, { total, count }]);
     }
-    return Array.from(buckets.entries())
+    return buckets
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
       .map(([key, v]) => ({
         key,
@@ -124,7 +138,7 @@ export function DispatcherSalaryChart() {
         avg: Math.round(v.total / v.count),
         count: v.count,
       }));
-  }, [rows, activeMonths]);
+  }, [perDispatcherByMonth, activeMonths]);
 
   const aggregate = useMemo(() => {
     const totals = chartData.reduce(
