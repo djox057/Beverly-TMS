@@ -6912,15 +6912,6 @@ const Reports = () => {
                     </div>
 
                     {(() => {
-                      const isDispatchOnly =
-                        hasRole("dispatch") &&
-                        !hasRole("admin") &&
-                        !hasRole("manager") &&
-                        !hasRole("supervisor") &&
-                        !hasRole("afterhours") &&
-                        !hasRole("safety") &&
-                        !hasRole("accounting");
-                      if (isDispatchOnly) return null;
                       const miles = zoomedLoad?.loadedMiles || 0;
                       return (
                         <div className="flex flex-col leading-tight">
