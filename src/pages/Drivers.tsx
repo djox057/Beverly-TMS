@@ -2994,36 +2994,8 @@ const Drivers = () => {
                 </div>
 
                 {canViewSensitiveData && (
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="grid grid-cols-1 gap-4 pt-4 border-t">
                     <div className="space-y-2">
-                      <Label htmlFor="edit_ssn">SSN #</Label>
-                      <Input
-                        id="edit_ssn"
-                        value={formData.ssn}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            ssn: e.target.value,
-                          })
-                        }
-                        placeholder="SSN"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit_fein">FEIN #</Label>
-                      <Input
-                        id="edit_fein"
-                        value={formData.fein}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            fein: e.target.value,
-                          })
-                        }
-                        placeholder="FEIN"
-                      />
-                    </div>
-                    <div className="space-y-2 col-span-2">
                       <Label>Note</Label>
                       <Textarea
                         value={formData.note}
