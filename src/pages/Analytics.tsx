@@ -4246,51 +4246,7 @@ const Analytics = () => {
           {(canViewSalaries || isDispatchOnly) && (
             <TabsContent value="salaries" className="space-y-6">
               {isAdmin && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Avg Dispatcher Salary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center p-4 bg-muted/50 rounded-lg border max-w-sm mx-auto">
-                      <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                        Avg Disp. Salary
-                        {selectedMonth && selectedMonth !== "all" && (
-                          <> — {monthOptions.find((m) => m.value === selectedMonth)?.label || selectedMonth}</>
-                        )}
-                      </p>
-                      <p className="text-lg sm:text-2xl font-bold">
-                        {(() => {
-                          const dispatcherUserIdsForSalary = Object.values(dispatcherProfiles)
-                            .filter((p) => Array.isArray(p.roles) && p.roles.includes("dispatch"))
-                            .map((p) => p.user_id)
-                            .filter((uid): uid is string => !!uid);
-                          const salaryMonthActive = !!selectedMonth && selectedMonth !== "all";
-                          const paidAmounts = salaryMonthActive
-                            ? dispatcherUserIdsForSalary
-                                .map((uid) => salaryPayments[uid]?.paid_amount || 0)
-                                .filter((amt) => amt >= 500)
-                            : [];
-                          const totalDispatcherSalary = paidAmounts.reduce((s, a) => s + a, 0);
-                          const avgDispatcherSalary =
-                            paidAmounts.length > 0 ? totalDispatcherSalary / paidAmounts.length : 0;
-                          return salaryMonthActive ? (
-                            <>
-                              ${avgDispatcherSalary.toLocaleString(undefined, {
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0,
-                              })}
-                            </>
-                          ) : (
-                            "—"
-                          );
-                        })()}
-                      </p>
-                    </div>
-                    <div className="mt-6">
-                      <DispatcherSalaryChart />
-                    </div>
-                  </CardContent>
-                </Card>
+                <DispatcherSalaryChart />
               )}
               <Card>
                 <CardHeader>
