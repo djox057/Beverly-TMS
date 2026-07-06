@@ -3296,16 +3296,15 @@ const Analytics = () => {
                         .map((p) => p.user_id)
                         .filter((uid): uid is string => !!uid);
                       const salaryMonthActive = !!selectedMonth && selectedMonth !== "all";
-                      const totalDispatcherSalary = salaryMonthActive
-                        ? dispatcherUserIdsForSalary.reduce(
-                            (s, uid) => s + (salaryPayments[uid]?.paid_amount || 0),
-                            0,
-                          )
-                        : 0;
+                      // Only include dispatchers who have been paid this month (paid_amount > 0)
+                      const paidAmounts = salaryMonthActive
+                        ? dispatcherUserIdsForSalary
+                            .map((uid) => salaryPayments[uid]?.paid_amount || 0)
+                            .filter((amt) => amt > 0)
+                        : [];
+                      const totalDispatcherSalary = paidAmounts.reduce((s, a) => s + a, 0);
                       const avgDispatcherSalary =
-                        salaryMonthActive && dispatcherUserIdsForSalary.length > 0
-                          ? totalDispatcherSalary / dispatcherUserIdsForSalary.length
-                          : 0;
+                        paidAmounts.length > 0 ? totalDispatcherSalary / paidAmounts.length : 0;
                       return (
                         <div
                           className={`mt-4 pt-4 border-t border-border/50 grid grid-cols-2 gap-4 sm:gap-8 ${
