@@ -461,20 +461,21 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   const toggleChecked = async (userId: string, currentChecked: boolean) => {
     if (!selectedMonth || selectedMonth === "all") return;
     const nextChecked = !currentChecked;
+    let updatedRow: PaymentRow | undefined;
     setRows((prev) => {
       const cur = prev[userId];
       if (!cur) return prev;
       const updated = { ...cur, is_checked: nextChecked };
+      updatedRow = updated;
       const next = { ...prev, [userId]: updated };
       rowsRef.current = next;
       return next;
     });
-    const { error } = await supabase
-      .from("recruiter_salary_payments" as any)
-      .update({ is_checked: nextChecked })
-      .eq("user_id", userId)
-      .eq("month", selectedMonth);
-    if (error) {
+    if (!updatedRow) return;
+    const ok = await saveRow(updatedRow);
+    if (ok) {
+      lastSavedAt.current[userId] = Date.now();
+    } else {
       toast.error("Failed to update checked status");
       // revert on error
       setRows((prev) => {
