@@ -1162,7 +1162,7 @@ function TransferRowDialog({
   const isEdit = !!editData;
   const [truckId, setTruckId] = useState<string | null>(editData?.truck_id || null);
   const [driverId, setDriverId] = useState<string | null>(editData?.driver_id || null);
-  const [goingToCompany, setGoingToCompany] = useState(editData?.going_to_company || "");
+  const [goingToCompany, setGoingToCompany] = useState(editData?.going_to_company || "BF Prime LLC");
   const [drugTestDate, setDrugTestDate] = useState<Date | undefined>(
     editData?.drug_test_date ? new Date(editData.drug_test_date + "T00:00:00") : undefined
   );
