@@ -3391,6 +3391,11 @@ const Analytics = () => {
                       filterType={filterType}
                       getEffectiveDriverPay={getEffectiveDriverPay}
                     />
+                    {isAdmin && (
+                      <div className="mt-6">
+                        <DispatcherSalaryChart />
+                      </div>
+                    )}
                   </div>
                 )}
 
