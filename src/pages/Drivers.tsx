@@ -3185,8 +3185,13 @@ const Drivers = () => {
                 disabled={isSubmitting}
                 onClick={(e) => {
                   e.preventDefault();
-                  const form = document.getElementById("edit-driver-form") as HTMLFormElement;
-                  if (form) form.requestSubmit();
+                  const form = document.getElementById("edit-driver-form") as HTMLFormElement | null;
+                  if (form) {
+                    form.requestSubmit();
+                  } else {
+                    // Files tab is active and the form isn't mounted — call the submit handler directly
+                    handleEditFormSubmit(e as unknown as React.FormEvent);
+                  }
                 }}
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
