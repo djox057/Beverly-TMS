@@ -3296,11 +3296,11 @@ const Analytics = () => {
                         .map((p) => p.user_id)
                         .filter((uid): uid is string => !!uid);
                       const salaryMonthActive = !!selectedMonth && selectedMonth !== "all";
-                      // Only include dispatchers who have been paid this month (paid_amount > 0)
+                      // Only include dispatchers with a meaningful paid salary (>= $500)
                       const paidAmounts = salaryMonthActive
                         ? dispatcherUserIdsForSalary
                             .map((uid) => salaryPayments[uid]?.paid_amount || 0)
-                            .filter((amt) => amt > 0)
+                            .filter((amt) => amt >= 500)
                         : [];
                       const totalDispatcherSalary = paidAmounts.reduce((s, a) => s + a, 0);
                       const avgDispatcherSalary =
