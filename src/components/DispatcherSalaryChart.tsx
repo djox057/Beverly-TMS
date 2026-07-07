@@ -958,7 +958,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           perDispChartData.length === 0 ? (
             <p className="text-sm text-muted-foreground">No salary data for the selected dispatchers.</p>
           ) : (
-            <div className="h-72">
+            <div className="h-72 pointer-events-none">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={perDispChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -1004,7 +1004,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         ) : chartData.length === 0 ? (
           <p className="text-sm text-muted-foreground">No salary data for this period.</p>
         ) : (
-          <div className="h-72">
+          <div className="h-72 pointer-events-none">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
