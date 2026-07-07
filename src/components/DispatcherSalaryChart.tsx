@@ -8,7 +8,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -969,27 +968,6 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                     tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
                     width={70}
                   />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--background))",
-                      border: "1px solid hsl(var(--border))",
-                      fontSize: 12,
-                    }}
-                    formatter={(v: any, name: string, item: any) => {
-                      if (v == null) return [null as any, null as any];
-                      const isProj = typeof name === "string" && name.startsWith("p_");
-                      const key = typeof name === "string" ? name.slice(2) : "";
-                      const info = selectedDispatcherList.find((d) => d.key === key);
-                      const label = info
-                        ? `${info.name}${isProj ? " (proj)" : ""}`
-                        : String(name);
-                      if (isProj) {
-                        const p: any = item?.payload;
-                        if (p && p[`d_${key}`] != null) return [null as any, null as any];
-                      }
-                      return [`$${Number(v).toLocaleString()}`, label];
-                    }}
-                  />
                   {selectedDispatcherList.map((d) => (
                     <Line
                       key={`solid-${d.key}`}
@@ -998,7 +976,8 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                       name={d.name}
                       stroke={d.color}
                       strokeWidth={2}
-                      dot={{ r: 3 }}
+                      dot={false}
+                      activeDot={false}
                       isAnimationActive={false}
                       connectNulls={false}
                     />
@@ -1011,7 +990,8 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                       stroke={d.color}
                       strokeWidth={2}
                       strokeDasharray="5 5"
-                      dot={{ r: 3 }}
+                      dot={false}
+                      activeDot={false}
                       isAnimationActive={false}
                       connectNulls={false}
                       legendType="none"
@@ -1034,36 +1014,13 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                   tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
                   width={70}
                 />
-                <Tooltip
-                  contentStyle={{
-                    background: "hsl(var(--background))",
-                    border: "1px solid hsl(var(--border))",
-                    fontSize: 12,
-                  }}
-                  formatter={(v: any, name: string, item: any) => {
-                    if (v == null) return [null as any, null as any];
-                    if (name === "avg") return [`$${Number(v).toLocaleString()}`, "Avg salary"];
-                    if (name === "avgProj") {
-                      // Hide the projected entry on historical points (where the
-                      // dashed line only exists to visually connect to the
-                      // current-month projection).
-                      const p: any = item?.payload;
-                      if (p && p.avg != null) return [null as any, null as any];
-                      return [`$${Number(v).toLocaleString()}`, "Avg salary (projected)"];
-                    }
-                    return [v, name];
-                  }}
-                  labelFormatter={(l, payload) => {
-                    const p: any = payload?.[0]?.payload;
-                    return p ? `${l} — ${p.count} dispatcher${p.count === 1 ? "" : "s"}` : l;
-                  }}
-                />
                 <Line
                   type="monotone"
                   dataKey="avg"
                   stroke="hsl(142 76% 36%)"
                   strokeWidth={2}
-                  dot={{ r: 3 }}
+                  dot={false}
+                  activeDot={false}
                   isAnimationActive={false}
                   connectNulls={false}
                 />
@@ -1073,7 +1030,8 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                   stroke="hsl(142 76% 36%)"
                   strokeWidth={2}
                   strokeDasharray="5 5"
-                  dot={{ r: 3 }}
+                  dot={false}
+                  activeDot={false}
                   isAnimationActive={false}
                   connectNulls={false}
                 />
