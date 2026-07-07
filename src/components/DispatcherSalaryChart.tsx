@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 function monthLabel(m: string) {
@@ -281,7 +281,6 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
 
   const [preset, setPreset] = useState<PresetKey>("all");
   const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set());
-  const [expanded, setExpanded] = useState(false);
   const [selectedDispatchers, setSelectedDispatchers] = useState<Set<string>>(new Set());
   const [dispatcherQuery, setDispatcherQuery] = useState("");
 
@@ -560,22 +559,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-2 text-left group"
-          >
-            {expanded ? (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            )}
-            <CardTitle className="group-hover:underline">Avg Dispatcher Salary</CardTitle>
-            {!expanded && (
-              <span className="text-xs text-muted-foreground ml-1">(click to open)</span>
-            )}
-          </button>
-          {expanded && (
+          <CardTitle>Avg Dispatcher Salary</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <Select
               value={isPeriodPreset ? preset : ""}
@@ -735,8 +719,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
               </PopoverContent>
             </Popover>
           </div>
-          )}
-          {expanded && !perDispMode && (
+          {!perDispMode && (
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1">
             <div>
               <p className="text-xs text-muted-foreground">Avg Disp. Salary — {periodLabel}</p>
@@ -752,7 +735,6 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           )}
         </div>
       </CardHeader>
-      {expanded && (
       <CardContent>
         {perDispMode ? (
           perDispChartData.length === 0 ? (
@@ -881,7 +863,6 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           </div>
         )}
       </CardContent>
-      )}
     </Card>
   );
 }
