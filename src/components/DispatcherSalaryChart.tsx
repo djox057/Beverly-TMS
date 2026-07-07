@@ -495,40 +495,19 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
 
   const perDispatcherSalary = useMemo(() => {
     if (!perDispMode) return new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const out = new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
-    for (const [bookedBy, months] of perDispatcherByMonth) {
-      // Only compute for currently-selected dispatchers.
-      if (!selectedDispatchers.has(bookedBy)) continue;
-      const isUuid = uuidRe.test(bookedBy);
-      const rate =
-        (isUuid ? profileRates.byUserId[bookedBy] : profileRates.byName[bookedBy]) ||
-        (!isUuid && profileRates.nameToUserId[bookedBy]
-          ? profileRates.byUserId[profileRates.nameToUserId[bookedBy]]
-          : undefined) ||
-        { g: 0.01, c: 0.05 };
-      const userId = isUuid ? bookedBy : profileRates.nameToUserId[bookedBy] || null;
-      const name = isUuid
-        ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
-        : bookedBy;
-      const office =
-        (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
-        (profileRates as any).officeByName?.[name] ||
-        null;
-      const sMap = new Map<string, number>();
-      const pMap = new Map<string, number>();
-      for (const [month, agg] of months) {
-        sMap.set(month, computeSalary(agg.freight, agg.driverPay, month, rate, userId, name, office));
-        if (month === currentMonthKey && projectionRatio) {
-          const pf = agg.freight * projectionRatio;
-          const pd = agg.driverPay * projectionRatio;
-          pMap.set(month, computeSalary(pf, pd, month, rate, userId, name, office));
-        }
+    for (const key of selectedDispatchers) {
+      const info = dispatcherSalaryCache.get(key);
+      if (info) {
+        out.set(key, {
+          name: info.name,
+          salaryByMonth: info.salaryByMonth,
+          projByMonth: info.projByMonth,
+        });
       }
-      out.set(bookedBy, { name, salaryByMonth: sMap, projByMonth: pMap });
     }
     return out;
-  }, [perDispMode, selectedDispatchers, perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, currentMonthKey, projectionRatio]);
+  }, [perDispMode, selectedDispatchers, dispatcherSalaryCache]);
 
   const dispatcherOptions = useMemo(() => {
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
