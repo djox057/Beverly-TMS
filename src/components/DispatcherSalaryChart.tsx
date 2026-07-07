@@ -281,6 +281,110 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
 
   const [preset, setPreset] = useState<PresetKey>("all");
   const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState(false);
+  const [selectedDispatchers, setSelectedDispatchers] = useState<Set<string>>(new Set());
+  const [dispatcherQuery, setDispatcherQuery] = useState("");
+
+  // Per-dispatcher salary series (used when 1+ dispatchers are selected).
+  const perDispatcherSalary = useMemo(() => {
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const out = new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
+    for (const [bookedBy, months] of perDispatcherByMonth) {
+      const isUuid = uuidRe.test(bookedBy);
+      const rate =
+        (isUuid ? profileRates.byUserId[bookedBy] : profileRates.byName[bookedBy]) ||
+        (!isUuid && profileRates.nameToUserId[bookedBy]
+          ? profileRates.byUserId[profileRates.nameToUserId[bookedBy]]
+          : undefined) ||
+        { g: 0.01, c: 0.05 };
+      const userId = isUuid ? bookedBy : profileRates.nameToUserId[bookedBy] || null;
+      const name = isUuid
+        ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
+        : bookedBy;
+      const sMap = new Map<string, number>();
+      const pMap = new Map<string, number>();
+      for (const [month, agg] of months) {
+        const base = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
+        const bonus = userId ? bonuses[`${userId}|${month}`] || 0 : 0;
+        const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
+        let adj = 0;
+        for (const a of adds) {
+          if (!a) continue;
+          const amt = a.percent != null ? (base * Number(a.percent)) / 100 : Number(a.amount) || 0;
+          if (a.type === "addition") adj += amt;
+          else if (a.type === "charge") adj -= amt;
+          else if (a.type === "penalty" && a.applied) adj -= amt;
+        }
+        sMap.set(month, base + bonus + adj);
+        if (month === currentMonthKey && projectionRatio) {
+          const pf = agg.freight * projectionRatio;
+          const pd = agg.driverPay * projectionRatio;
+          const pb = pf * rate.g + Math.max(0, pf - pd) * rate.c;
+          pMap.set(month, pb + bonus + adj);
+        }
+      }
+      out.set(bookedBy, { name, salaryByMonth: sMap, projByMonth: pMap });
+    }
+    return out;
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals, currentMonthKey, projectionRatio]);
+
+  const dispatcherOptions = useMemo(() => {
+    const arr: { key: string; name: string }[] = [];
+    for (const [key, info] of perDispatcherSalary) {
+      arr.push({ key, name: info.name });
+    }
+    arr.sort((a, b) => a.name.localeCompare(b.name));
+    return arr;
+  }, [perDispatcherSalary]);
+
+  const filteredDispatcherOptions = useMemo(() => {
+    const q = dispatcherQuery.trim().toLowerCase();
+    if (!q) return dispatcherOptions;
+    return dispatcherOptions.filter((d) => d.name.toLowerCase().includes(q));
+  }, [dispatcherOptions, dispatcherQuery]);
+
+  const selectedDispatcherList = useMemo(() => {
+    const arr: { key: string; name: string; color: string }[] = [];
+    let i = 0;
+    for (const key of selectedDispatchers) {
+      const info = perDispatcherSalary.get(key);
+      arr.push({ key, name: info?.name || key, color: LINE_PALETTE[i % LINE_PALETTE.length] });
+      i++;
+    }
+    return arr;
+  }, [selectedDispatchers, perDispatcherSalary]);
+
+  const perDispChartData = useMemo(() => {
+    if (selectedDispatchers.size === 0) return [] as any[];
+    const rows: any[] = [];
+    for (const m of allMonths) {
+      if (!activeMonths.has(m)) continue;
+      const row: any = { key: m, label: monthLabel(m) };
+      let hasAny = false;
+      for (const key of selectedDispatchers) {
+        const info = perDispatcherSalary.get(key);
+        if (!info) continue;
+        const s = info.salaryByMonth.get(m);
+        if (s != null) hasAny = true;
+        row[`d_${key}`] = s != null ? Math.round(s) : null;
+        const p = info.projByMonth.get(m);
+        row[`p_${key}`] = p != null ? Math.round(p) : null;
+        if (m === currentMonthKey && p != null) {
+          row[`d_${key}`] = null;
+        }
+      }
+      if (hasAny || row.key === currentMonthKey) rows.push(row);
+    }
+    const idx = rows.findIndex((r) => r.key === currentMonthKey);
+    if (idx > 0) {
+      for (const key of selectedDispatchers) {
+        if (rows[idx][`p_${key}`] != null) {
+          rows[idx - 1][`p_${key}`] = rows[idx - 1][`d_${key}`];
+        }
+      }
+    }
+    return rows;
+  }, [selectedDispatchers, perDispatcherSalary, allMonths, activeMonths, currentMonthKey]);
 
   const activeMonths = useMemo(() => {
     const inRange = (m: string, y: number, months: number[]) => {
