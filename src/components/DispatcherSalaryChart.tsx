@@ -86,6 +86,32 @@ function hasFoodOffice(office?: string | null) {
   return u === "CACAK" || u === "KRAGUJEVAC";
 }
 
+function getFoodAllowanceForMonth(office: string | null | undefined, createdAt: string | null | undefined, month: string) {
+  if (!hasFoodOffice(office)) return 0;
+  const base = 70;
+  if (!createdAt) return base;
+  const [yStr, mStr] = month.split("-");
+  const year = Number(yStr);
+  const monthNum = Number(mStr);
+  if (!Number.isFinite(year) || !Number.isFinite(monthNum)) return base;
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return base;
+  const monthStart = new Date(year, monthNum - 1, 1);
+  const monthEnd = new Date(year, monthNum, 0);
+  if (created <= monthStart) return base;
+  if (created > monthEnd) return 0;
+
+  const totalWorkDays = getWorkDaysInMonth(year, monthNum - 1);
+  if (totalWorkDays <= 0) return base;
+  let userWorkDays = 0;
+  for (let day = created.getDate(); day <= monthEnd.getDate(); day++) {
+    const date = new Date(year, monthNum - 1, day);
+    const dateStr = `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    if (isWeekday(date) && !isHolidayDate(dateStr, year)) userWorkDays++;
+  }
+  return Math.round((base * userWorkDays) / totalWorkDays);
+}
+
 type PresetKey =
   | "all"
   | "ytd"
