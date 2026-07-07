@@ -116,6 +116,8 @@ const LINE_PALETTE = [
   "hsl(250 70% 60%)",
 ];
 
+let dispatcherSalaryChartLoadedOnce = false;
+
 function DispatcherSalaryChartSkeleton() {
   return (
     <Card>
@@ -1380,15 +1382,16 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
 }
 
 function DispatcherSalaryChartInner(props: DispatcherSalaryChartProps) {
-  const [showChart, setShowChart] = useState(false);
+  const [showChart, setShowChart] = useState(dispatcherSalaryChartLoadedOnce);
 
   useEffect(() => {
-    setShowChart(false);
+    if (dispatcherSalaryChartLoadedOnce) return;
     const timer = window.setTimeout(() => {
+      dispatcherSalaryChartLoadedOnce = true;
       startTransition(() => setShowChart(true));
     }, 2200);
     return () => window.clearTimeout(timer);
-  }, [props.orders]);
+  }, []);
 
   if (!showChart) return <DispatcherSalaryChartSkeleton />;
 

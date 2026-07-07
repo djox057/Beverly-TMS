@@ -210,6 +210,7 @@ const Analytics = () => {
   >({});
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
   const [showCharts, setShowCharts] = useState<boolean>(false);
+  const [hasOpenedCharts, setHasOpenedCharts] = useState<boolean>(false);
 
   // Fetch dispatcher notes for the current date range
   const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
@@ -3039,7 +3040,16 @@ const Analytics = () => {
               )}
             </TabsList>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setShowCharts((s) => !s)}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCharts((s) => {
+                    const next = !s;
+                    if (next) setHasOpenedCharts(true);
+                    return next;
+                  });
+                }}
+              >
                 {showCharts ? "Hide Charts" : "Charts"}
               </Button>
               <Button variant="outline" onClick={() => navigate("/billboard")}>
@@ -4245,8 +4255,10 @@ const Analytics = () => {
 
           {(canViewSalaries || isDispatchOnly) && (
             <TabsContent value="salaries" className="space-y-6">
-              {isAdmin && showCharts && (
-                <DispatcherSalaryChart orders={orders || []} />
+              {isAdmin && hasOpenedCharts && (
+                <div className={showCharts ? undefined : "hidden"}>
+                  <DispatcherSalaryChart orders={orders || []} />
+                </div>
               )}
               <Card>
                 <CardHeader>
