@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -82,8 +82,8 @@ function getWorkDaysInMonth(year: number, monthIndex: number): number {
 
 function hasFoodOffice(office?: string | null) {
   if (!office) return false;
-  const u = office.toUpperCase();
-  return u === "ČAČAK" || u === "KRAGUJEVAC";
+  const u = office.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return u === "CACAK" || u === "KRAGUJEVAC";
 }
 
 type PresetKey =
@@ -100,6 +100,17 @@ type PresetKey =
 
 interface DispatcherSalaryChartProps {
   orders?: any[];
+}
+
+interface DispatcherMonthSalaryRow {
+  key: string;
+  name: string;
+  month: string;
+  freight: number;
+  driverPay: number;
+  miles: number;
+  salary: number;
+  projectedSalary: number | null;
 }
 
 const LINE_PALETTE = [
