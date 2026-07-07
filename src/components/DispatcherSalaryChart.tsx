@@ -163,8 +163,15 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       const tonu = Number(o.tonu) || 0;
       const tonuDriver = Number(o.tonuDriver ?? o.tonu_driver) || 0;
       if (canceled && tonu <= 0 && tonuDriver <= 0) continue;
-      const freight = canceled ? tonu : Number(o.freightAmount ?? o.freight_amount) || 0;
-      const driverPay = canceled ? tonuDriver : Number(o.driverPrice ?? o.driver_price) || 0;
+      // Use the same freight/driver-pay basis as the Dispatcher Salaries table:
+      // freight excludes lumpers, driver pay uses the effective total (company
+      // drivers get freight-equal pay via totalDriverPay in ordersTransform).
+      const freight = canceled
+        ? tonu
+        : Number(o.totalFreightAmountNoLumper ?? o.freightAmount ?? o.freight_amount) || 0;
+      const driverPay = canceled
+        ? tonuDriver
+        : Number(o.totalDriverPay ?? o.driverPrice ?? o.driver_price) || 0;
       const miles = canceled ? 0 : Number(o.mileage) || 0;
       const parts = chicagoParts(deliveryIso);
       if (!parts) continue;
