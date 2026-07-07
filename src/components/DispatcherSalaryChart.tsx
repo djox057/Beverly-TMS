@@ -1,4 +1,4 @@
-import { memo, startTransition, useDeferredValue, useMemo, useState } from "react";
+import { memo, startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -116,7 +116,45 @@ const LINE_PALETTE = [
   "hsl(250 70% 60%)",
 ];
 
-function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps) {
+function DispatcherSalaryChartSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-3">
+          <CardTitle>Avg Dispatcher Salary</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <Skeleton className="h-9 w-[160px]" />
+            <Skeleton className="h-9 w-[220px]" />
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-32" />
+          </div>
+          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1">
+            <div className="space-y-1">
+              <Skeleton className="h-3 w-40" />
+              <Skeleton className="h-7 w-24" />
+            </div>
+            <Skeleton className="h-3 w-56" />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="h-72 space-y-3">
+          <div className="flex items-end gap-2 h-full">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <Skeleton
+                key={i}
+                className="flex-1"
+                style={{ height: `${30 + ((i * 17) % 60)}%` }}
+              />
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) {
   // Per-dispatcher monthly freight & driver pay, computed from already-loaded
   // orders on the Analytics page (no refetch).
   const orderRows = orders;
@@ -1168,6 +1206,22 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
       </CardContent>
     </Card>
   );
+}
+
+function DispatcherSalaryChartInner(props: DispatcherSalaryChartProps) {
+  const [showChart, setShowChart] = useState(false);
+
+  useEffect(() => {
+    setShowChart(false);
+    const timer = window.setTimeout(() => {
+      startTransition(() => setShowChart(true));
+    }, 2200);
+    return () => window.clearTimeout(timer);
+  }, [props.orders]);
+
+  if (!showChart) return <DispatcherSalaryChartSkeleton />;
+
+  return <DispatcherSalaryChartBody {...props} />;
 }
 
 export const DispatcherSalaryChart = memo(DispatcherSalaryChartInner);
