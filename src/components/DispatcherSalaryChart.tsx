@@ -101,6 +101,7 @@ type PresetKey =
 
 interface DispatcherSalaryChartProps {
   orders?: any[];
+  companyDriverIds?: Set<string>;
 }
 
 const LINE_PALETTE = [
@@ -156,7 +157,7 @@ function DispatcherSalaryChartSkeleton() {
   );
 }
 
-function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) {
+function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: DispatcherSalaryChartProps) {
   // Per-dispatcher monthly freight & driver pay, computed from already-loaded
   // orders on the Analytics page (no refetch).
   const orderRows = orders;
@@ -357,7 +358,13 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
       // no-lumper freight and effective total driver pay for every order
       // (canceled orders already carry TONU inside totalFreightAmountNoLumper).
       const freight = Number(o.totalFreightAmountNoLumper ?? o.freightAmount ?? o.freight_amount) || 0;
-      const driverPay = Number(o.totalDriverPay ?? o.driverPrice ?? o.driver_price) || 0;
+      // Mirror the Dispatcher Salaries table: for company drivers, effective
+      // driver pay equals freight (0% cut) so they don't inflate the salary.
+      const driverId = (o.driver1Id ?? o.driver1_id) as string | null;
+      const isCompanyDriver = !!(driverId && companyDriverIds && companyDriverIds.has(driverId));
+      const driverPay = isCompanyDriver
+        ? freight
+        : Number(o.totalDriverPay ?? o.driverPrice ?? o.driver_price) || 0;
       const miles = o.canceled ? 0 : Number(o.mileage) || 0;
       if (freight === 0 && driverPay === 0 && !miles) continue;
       const parts = chicagoParts(deliveryIso);
@@ -380,7 +387,7 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
       inner.set(month, prev);
     }
     return map;
-  }, [orderRows, todayDay]);
+  }, [orderRows, todayDay, companyDriverIds]);
 
   const currentMonthKey = todayChicago ? `${todayChicago.y}-${todayChicago.m}` : null;
 
