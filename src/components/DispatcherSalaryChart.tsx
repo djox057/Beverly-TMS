@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -152,7 +153,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const perDispatcherByMonth = useMemo(() => {
     const map = new Map<
       string,
-      Map<string, { freight: number; driverPay: number; freightToDay: number; driverPayToDay: number }>
+      Map<string, { freight: number; driverPay: number; miles: number; freightToDay: number; driverPayToDay: number }>
     >();
     for (const o of orderRows) {
       const key = (o.bookedBy ?? o.booked_by) as string | null;
@@ -164,6 +165,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       if (canceled && tonu <= 0 && tonuDriver <= 0) continue;
       const freight = canceled ? tonu : Number(o.freightAmount ?? o.freight_amount) || 0;
       const driverPay = canceled ? tonuDriver : Number(o.driverPrice ?? o.driver_price) || 0;
+      const miles = canceled ? 0 : Number(o.mileage) || 0;
       const parts = chicagoParts(deliveryIso);
       if (!parts) continue;
       const month = `${parts.y}-${parts.m}`;
@@ -173,9 +175,10 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         inner = new Map();
         map.set(key, inner);
       }
-      const prev = inner.get(month) || { freight: 0, driverPay: 0, freightToDay: 0, driverPayToDay: 0 };
+      const prev = inner.get(month) || { freight: 0, driverPay: 0, miles: 0, freightToDay: 0, driverPayToDay: 0 };
       prev.freight += freight;
       prev.driverPay += driverPay;
+      prev.miles += miles;
       if (dayOfMonth <= todayDay) {
         prev.freightToDay += freight;
         prev.driverPayToDay += driverPay;
@@ -563,6 +566,61 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const isPeriodPreset = periodOptions.some((p) => p.key === preset);
   const isQuarterPreset = quarterOptions.some((p) => p.key === preset);
 
+  // Per-dispatcher averages across the currently-active months.
+  // Columns: Dispatcher, RPM (freight / miles), Avg Salary.
+  const dispatcherAverages = useMemo(() => {
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const rows: { key: string; name: string; rpm: number; avgSalary: number; months: number }[] = [];
+    for (const [bookedBy, months] of perDispatcherByMonth) {
+      const isUuid = uuidRe.test(bookedBy);
+      const rate =
+        (isUuid ? profileRates.byUserId[bookedBy] : profileRates.byName[bookedBy]) ||
+        (!isUuid && profileRates.nameToUserId[bookedBy]
+          ? profileRates.byUserId[profileRates.nameToUserId[bookedBy]]
+          : undefined) ||
+        { g: 0.01, c: 0.05 };
+      const userId = isUuid ? bookedBy : profileRates.nameToUserId[bookedBy] || null;
+      const name = isUuid
+        ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
+        : bookedBy;
+      let freightSum = 0;
+      let milesSum = 0;
+      let salarySum = 0;
+      let monthCount = 0;
+      for (const [month, agg] of months) {
+        if (!activeMonths.has(month)) continue;
+        freightSum += agg.freight;
+        milesSum += agg.miles;
+        const base = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
+        const bonus = userId ? bonuses[`${userId}|${month}`] || 0 : 0;
+        const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
+        let adj = 0;
+        for (const a of adds) {
+          if (!a) continue;
+          const amt = a.percent != null ? (base * Number(a.percent)) / 100 : Number(a.amount) || 0;
+          if (a.type === "addition") adj += amt;
+          else if (a.type === "charge") adj -= amt;
+          else if (a.type === "penalty" && a.applied) adj -= amt;
+        }
+        const salary = base + bonus + adj;
+        if (salary >= COUNT_MIN) {
+          salarySum += salary;
+          monthCount += 1;
+        }
+      }
+      if (monthCount === 0) continue;
+      rows.push({
+        key: bookedBy,
+        name,
+        rpm: milesSum > 0 ? freightSum / milesSum : 0,
+        avgSalary: salarySum / monthCount,
+        months: monthCount,
+      });
+    }
+    rows.sort((a, b) => b.avgSalary - a.avgSalary);
+    return rows;
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals, activeMonths]);
+
   return (
     <Card>
       <CardHeader>
@@ -868,6 +926,37 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                 />
               </LineChart>
             </ResponsiveContainer>
+          </div>
+        )}
+        {dispatcherAverages.length > 0 && (
+          <div className="mt-6">
+            <p className="text-sm font-medium mb-2">
+              Dispatcher averages — {periodLabel}
+            </p>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Dispatcher</TableHead>
+                    <TableHead className="text-right">RPM</TableHead>
+                    <TableHead className="text-right">Avg Salary</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dispatcherAverages.map((d) => (
+                    <TableRow key={d.key}>
+                      <TableCell className="font-medium">{d.name}</TableCell>
+                      <TableCell className="text-right">
+                        ${d.rpm.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${Math.round(d.avgSalary).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </CardContent>
