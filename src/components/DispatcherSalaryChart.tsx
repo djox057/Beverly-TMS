@@ -778,25 +778,49 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
   }, [allMonths, salaryByMonth, countByMonth, activeMonths, currentMonthKey, projectionRatio, projectedSalariesCurrentMonth, projectedCountCurrentMonth, perDispatcherByMonth]);
 
   const aggregate = useMemo(() => {
-    const totals = chartData.reduce(
-      (acc, d) => {
-        // Prefer actual (to-date) for current month; fall back to projected
-        // only if no actual is available yet.
-        const a = d.avg == null ? (d.avgActual ?? d.avgProj) : d.avg;
-        const c = d.avgCount ?? d.count;
-        if (a != null && c > 0) {
-          acc.total += a * c;
-          acc.count += c;
+    // Exclude current month from the primary average; expose "with current
+    // month" variants (actual to-date + projected) as extras for the comment.
+    const excl = { total: 0, count: 0, displayCount: 0, months: 0 };
+    const inclActual = { total: 0, count: 0 };
+    const inclProj = { total: 0, count: 0 };
+    let hasCurrent = false;
+    for (const d of chartData) {
+      const isCurrent = d.key === currentMonthKey;
+      const c = d.avgCount ?? d.count;
+      if (isCurrent) {
+        hasCurrent = true;
+        if (d.avgActual != null && c > 0) {
+          inclActual.total += d.avgActual * c;
+          inclActual.count += c;
         }
-        acc.displayCount += d.count;
-        return acc;
-      },
-      { total: 0, count: 0, displayCount: 0 },
-    );
+        if (d.avgProj != null && c > 0) {
+          inclProj.total += d.avgProj * c;
+          inclProj.count += c;
+        }
+        excl.displayCount += d.count;
+        continue;
+      }
+      const a = d.avg == null ? (d.avgActual ?? d.avgProj) : d.avg;
+      if (a != null && c > 0) {
+        excl.total += a * c;
+        excl.count += c;
+        inclActual.total += a * c;
+        inclActual.count += c;
+        inclProj.total += a * c;
+        inclProj.count += c;
+      }
+      excl.displayCount += d.count;
+      excl.months += 1;
+    }
     return {
-      avg: totals.count > 0 ? Math.round(totals.total / totals.count) : 0,
-      count: totals.displayCount,
-      months: chartData.length,
+      avg: excl.count > 0 ? Math.round(excl.total / excl.count) : 0,
+      count: excl.displayCount,
+      months: excl.months,
+      hasCurrent,
+      avgWithCurrentActual:
+        inclActual.count > 0 ? Math.round(inclActual.total / inclActual.count) : null,
+      avgWithCurrentProjected:
+        inclProj.count > 0 ? Math.round(inclProj.total / inclProj.count) : null,
       currentActual: chartData.find((d) => d.key === currentMonthKey)?.avgActual ?? null,
       currentProjected: chartData.find((d) => d.key === currentMonthKey)?.avgProj ?? null,
     };
