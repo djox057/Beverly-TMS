@@ -381,6 +381,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     userId: string | null,
     displayName: string | null,
     office: string | null,
+    createdAt: string | null,
   ): number => {
     const base = freight * rate.g + Math.max(0, freight - driverPay) * rate.c;
     const [yStr, mStr] = month.split("-");
@@ -398,7 +399,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       else if (a.type === "charge") adj -= amt;
       else if (a.type === "penalty" && a.applied) adj -= amt;
     }
-    const food = hasFoodOffice(office) ? 70 : 0;
+    const food = getFoodAllowanceForMonth(office, createdAt, month);
     const extraKey = userId ? `${userId}|${month}` : null;
     const nameKey = displayName ? `${displayName}|${month}` : null;
     const extraCount =
@@ -462,8 +463,12 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
         (displayName ? (profileRates as any).officeByName?.[displayName] : null) ||
         null;
+      const createdAt =
+        (userId ? (profileRates as any).createdAtByUserId?.[userId] : null) ||
+        (displayName ? (profileRates as any).createdAtByName?.[displayName] : null) ||
+        null;
       for (const [month, agg] of months) {
-        const salary = computeSalary(agg.freight, agg.driverPay, month, rate, userId, displayName, office);
+        const salary = computeSalary(agg.freight, agg.driverPay, month, rate, userId, displayName, office, createdAt);
         let projectedSalary: number | null = null;
         if (salary > AVG_MIN) {
           if (!out.has(month)) out.set(month, []);
@@ -477,7 +482,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         if (month === currentMonthKey && projectionRatio) {
           const projFreight = agg.freight * projectionRatio;
           const projDriverPay = agg.driverPay * projectionRatio;
-          const projSalary = computeSalary(projFreight, projDriverPay, month, rate, userId, displayName, office);
+          const projSalary = computeSalary(projFreight, projDriverPay, month, rate, userId, displayName, office, createdAt);
           projectedSalary = projSalary;
           if (projSalary > AVG_MIN) projected.push(projSalary);
           if (projSalary >= COUNT_MIN) projectedCount += 1;
