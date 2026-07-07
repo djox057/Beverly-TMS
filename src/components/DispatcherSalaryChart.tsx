@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, startTransition, useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  Tooltip,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -114,7 +115,7 @@ const LINE_PALETTE = [
   "hsl(250 70% 60%)",
 ];
 
-export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProps) {
+function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps) {
   // Per-dispatcher monthly freight & driver pay, computed from already-loaded
   // orders on the Analytics page (no refetch).
   const orderRows = orders;
@@ -489,13 +490,17 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const [selectedDispatchers, setSelectedDispatchers] = useState<Set<string>>(new Set());
   const [dispatcherQuery, setDispatcherQuery] = useState("");
 
+  // Defer heavy recomputes triggered by dispatcher selection so quick
+  // clicks/hover don't block the main thread.
+  const deferredSelectedDispatchers = useDeferredValue(selectedDispatchers);
+
   // Per-dispatcher salary series (used when 1+ dispatchers are selected).
-  const perDispMode = selectedDispatchers.size > 0;
+  const perDispMode = deferredSelectedDispatchers.size > 0;
 
   const perDispatcherSalary = useMemo(() => {
     if (!perDispMode) return new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
     const out = new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
-    for (const key of selectedDispatchers) {
+    for (const key of deferredSelectedDispatchers) {
       const info = dispatcherSalaryCache.get(key);
       if (info) {
         out.set(key, {
@@ -506,7 +511,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       }
     }
     return out;
-  }, [perDispMode, selectedDispatchers, dispatcherSalaryCache]);
+  }, [perDispMode, deferredSelectedDispatchers, dispatcherSalaryCache]);
 
   const dispatcherOptions = useMemo(() => {
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -531,13 +536,13 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const selectedDispatcherList = useMemo(() => {
     const arr: { key: string; name: string; color: string }[] = [];
     let i = 0;
-    for (const key of selectedDispatchers) {
+    for (const key of deferredSelectedDispatchers) {
       const info = perDispatcherSalary.get(key);
       arr.push({ key, name: info?.name || key, color: LINE_PALETTE[i % LINE_PALETTE.length] });
       i++;
     }
     return arr;
-  }, [selectedDispatchers, perDispatcherSalary]);
+  }, [deferredSelectedDispatchers, perDispatcherSalary]);
 
   const activeMonths = useMemo(() => {
     const inRange = (m: string, y: number, months: number[]) => {
@@ -576,13 +581,13 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   }, [preset, selectedMonths, allMonths, currentYear, currentMonthIdx]);
 
   const perDispChartData = useMemo(() => {
-    if (selectedDispatchers.size === 0) return [] as any[];
+    if (deferredSelectedDispatchers.size === 0) return [] as any[];
     const rows: any[] = [];
     for (const m of allMonths) {
       if (!activeMonths.has(m)) continue;
       const row: any = { key: m, label: monthLabel(m) };
       let hasAny = false;
-      for (const key of selectedDispatchers) {
+      for (const key of deferredSelectedDispatchers) {
         const info = perDispatcherSalary.get(key);
         if (!info) continue;
         const s = info.salaryByMonth.get(m);
@@ -598,14 +603,14 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     }
     const idx = rows.findIndex((r) => r.key === currentMonthKey);
     if (idx > 0) {
-      for (const key of selectedDispatchers) {
+      for (const key of deferredSelectedDispatchers) {
         if (rows[idx][`p_${key}`] != null) {
           rows[idx - 1][`p_${key}`] = rows[idx - 1][`d_${key}`];
         }
       }
     }
     return rows;
-  }, [selectedDispatchers, perDispatcherSalary, allMonths, activeMonths, currentMonthKey]);
+  }, [deferredSelectedDispatchers, perDispatcherSalary, allMonths, activeMonths, currentMonthKey]);
 
   const chartData = useMemo(() => {
     const buckets: Array<[string, { total: number; avgCount: number; displayCount: number }]> = [];
@@ -744,7 +749,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const dispatcherAverages = useMemo(() => {
     const rows: { key: string; name: string; rpm: number; avgSalary: number; months: number }[] = [];
     for (const [bookedBy, info] of dispatcherSalaryCache) {
-      if (selectedDispatchers.size > 0 && !selectedDispatchers.has(bookedBy)) continue;
+      if (deferredSelectedDispatchers.size > 0 && !deferredSelectedDispatchers.has(bookedBy)) continue;
       let freightSum = 0;
       let milesSum = 0;
       let salarySum = 0;
@@ -771,7 +776,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     }
     rows.sort((a, b) => b.avgSalary - a.avgSalary);
     return rows;
-  }, [dispatcherSalaryCache, activeMonths, selectedDispatchers]);
+  }, [dispatcherSalaryCache, activeMonths, deferredSelectedDispatchers]);
 
   return (
     <Card>
@@ -893,7 +898,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                     variant="ghost"
                     size="sm"
                     className="h-6 px-2 text-xs"
-                    onClick={() => setSelectedDispatchers(new Set())}
+                    onClick={() => startTransition(() => setSelectedDispatchers(new Set()))}
                   >
                     Clear
                   </Button>
@@ -921,11 +926,13 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(v) => {
-                            setSelectedDispatchers((prev) => {
-                              const next = new Set(prev);
-                              if (v) next.add(d.key);
-                              else next.delete(d.key);
-                              return next;
+                            startTransition(() => {
+                              setSelectedDispatchers((prev) => {
+                                const next = new Set(prev);
+                                if (v) next.add(d.key);
+                                else next.delete(d.key);
+                                return next;
+                              });
                             });
                           }}
                         />
@@ -958,7 +965,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           perDispChartData.length === 0 ? (
             <p className="text-sm text-muted-foreground">No salary data for the selected dispatchers.</p>
           ) : (
-            <div className="h-72 pointer-events-none">
+            <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={perDispChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -968,6 +975,28 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                     tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
                     width={70}
                   />
+                  <Tooltip
+                    isAnimationActive={false}
+                    contentStyle={{
+                      background: "hsl(var(--background))",
+                      border: "1px solid hsl(var(--border))",
+                      fontSize: 12,
+                    }}
+                    formatter={(v: any, name: string, item: any) => {
+                      if (v == null) return [null as any, null as any];
+                      const isProj = typeof name === "string" && name.startsWith("p_");
+                      const key = typeof name === "string" ? name.slice(2) : "";
+                      const info = selectedDispatcherList.find((d) => d.key === key);
+                      const label = info
+                        ? `${info.name}${isProj ? " (proj)" : ""}`
+                        : String(name);
+                      if (isProj) {
+                        const p: any = item?.payload;
+                        if (p && p[`d_${key}`] != null) return [null as any, null as any];
+                      }
+                      return [`$${Number(v).toLocaleString()}`, label];
+                    }}
+                  />
                   {selectedDispatcherList.map((d) => (
                     <Line
                       key={`solid-${d.key}`}
@@ -976,8 +1005,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                       name={d.name}
                       stroke={d.color}
                       strokeWidth={2}
-                      dot={false}
-                      activeDot={false}
+                      dot={{ r: 3 }}
                       isAnimationActive={false}
                       connectNulls={false}
                     />
@@ -990,8 +1018,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                       stroke={d.color}
                       strokeWidth={2}
                       strokeDasharray="5 5"
-                      dot={false}
-                      activeDot={false}
+                      dot={{ r: 3 }}
                       isAnimationActive={false}
                       connectNulls={false}
                       legendType="none"
@@ -1004,7 +1031,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         ) : chartData.length === 0 ? (
           <p className="text-sm text-muted-foreground">No salary data for this period.</p>
         ) : (
-          <div className="h-72 pointer-events-none">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -1014,13 +1041,34 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                   tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
                   width={70}
                 />
+                <Tooltip
+                  isAnimationActive={false}
+                  contentStyle={{
+                    background: "hsl(var(--background))",
+                    border: "1px solid hsl(var(--border))",
+                    fontSize: 12,
+                  }}
+                  formatter={(v: any, name: string, item: any) => {
+                    if (v == null) return [null as any, null as any];
+                    if (name === "avg") return [`$${Number(v).toLocaleString()}`, "Avg salary"];
+                    if (name === "avgProj") {
+                      const p: any = item?.payload;
+                      if (p && p.avg != null) return [null as any, null as any];
+                      return [`$${Number(v).toLocaleString()}`, "Avg salary (projected)"];
+                    }
+                    return [v, name];
+                  }}
+                  labelFormatter={(l, payload) => {
+                    const p: any = payload?.[0]?.payload;
+                    return p ? `${l} — ${p.count} dispatcher${p.count === 1 ? "" : "s"}` : l;
+                  }}
+                />
                 <Line
                   type="monotone"
                   dataKey="avg"
                   stroke="hsl(142 76% 36%)"
                   strokeWidth={2}
-                  dot={false}
-                  activeDot={false}
+                  dot={{ r: 3 }}
                   isAnimationActive={false}
                   connectNulls={false}
                 />
@@ -1030,8 +1078,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                   stroke="hsl(142 76% 36%)"
                   strokeWidth={2}
                   strokeDasharray="5 5"
-                  dot={false}
-                  activeDot={false}
+                  dot={{ r: 3 }}
                   isAnimationActive={false}
                   connectNulls={false}
                 />
@@ -1074,3 +1121,5 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     </Card>
   );
 }
+
+export const DispatcherSalaryChart = memo(DispatcherSalaryChartInner);
