@@ -25,6 +25,67 @@ function monthLabel(m: string) {
   return format(new Date(Number(y), Number(mm) - 1, 1), "MMM yyyy");
 }
 
+// --- Salary helpers, mirroring the Dispatcher Salaries table in Analytics.tsx ---
+const isWeekday = (d: Date) => {
+  const day = d.getDay();
+  return day !== 0 && day !== 6;
+};
+
+function getHolidaysForYear(year: number): Date[] {
+  const holidays: Date[] = [];
+  holidays.push(new Date(year, 0, 1));
+  holidays.push(new Date(year, 6, 4));
+  holidays.push(new Date(year, 11, 25));
+  const lastDayMay = new Date(year, 5, 0);
+  holidays.push(new Date(year, 4, lastDayMay.getDate() - ((lastDayMay.getDay() + 6) % 7)));
+  const firstSept = new Date(year, 8, 1);
+  holidays.push(new Date(year, 8, 1 + ((8 - firstSept.getDay()) % 7)));
+  const firstNov = new Date(year, 10, 1);
+  const firstThursday = new Date(year, 10, 1 + ((11 - firstNov.getDay()) % 7));
+  holidays.push(new Date(year, 10, firstThursday.getDate() + 21));
+  return holidays;
+}
+
+function isHolidayDate(dateStr: string, year: number): boolean {
+  const hs = getHolidaysForYear(year);
+  const d = new Date(dateStr + "T12:00:00");
+  return hs.some(
+    (h) => h.getFullYear() === d.getFullYear() && h.getMonth() === d.getMonth() && h.getDate() === d.getDate(),
+  );
+}
+
+function getWorkDaysInMonth(year: number, monthIndex: number): number {
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  let weekdayCount = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (isWeekday(new Date(year, monthIndex, day))) weekdayCount++;
+  }
+  const fixed = [
+    { m: 0, d: 1 },
+    { m: 5, d: 19 },
+    { m: 6, d: 4 },
+    { m: 10, d: 11 },
+    { m: 11, d: 25 },
+  ];
+  const observed = fixed.reduce((acc, h) => {
+    if (h.m !== monthIndex) return acc;
+    const actual = new Date(year, monthIndex, h.d);
+    let obs = actual;
+    if (actual.getDay() === 6) obs = new Date(year, monthIndex, h.d - 1);
+    if (actual.getDay() === 0) obs = new Date(year, monthIndex, h.d + 1);
+    if (obs.getMonth() !== monthIndex) return acc;
+    return isWeekday(obs) ? acc + 1 : acc;
+  }, 0);
+  const wd = weekdayCount - observed;
+  return wd > 0 ? wd : weekdayCount;
+}
+
+function hasFoodOffice(office?: string | null) {
+  if (!office) return false;
+  const u = office.toUpperCase();
+  return u === "ČAČAK" || u === "KRAGUJEVAC";
+}
+
 type PresetKey =
   | "all"
   | "ytd"
@@ -65,27 +126,104 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name, user_id, gross_percent, cut_percent");
+        .select("full_name, user_id, gross_percent, cut_percent, office");
       if (error) throw error;
       const byName: Record<string, { g: number; c: number }> = {};
       const byUserId: Record<string, { g: number; c: number }> = {};
       const nameToUserId: Record<string, string> = {};
       const userIdToName: Record<string, string> = {};
+      const officeByUserId: Record<string, string | null> = {};
+      const officeByName: Record<string, string | null> = {};
       for (const p of (data as any[]) || []) {
         const g = p.gross_percent != null ? Number(p.gross_percent) / 100 : 0.01;
         const c = p.cut_percent != null ? Number(p.cut_percent) / 100 : 0.05;
         if (p.full_name) {
           byName[p.full_name] = { g, c };
           if (p.user_id) nameToUserId[p.full_name] = p.user_id;
+          officeByName[p.full_name] = p.office ?? null;
         }
         if (p.user_id) {
           byUserId[p.user_id] = { g, c };
           if (p.full_name) userIdToName[p.user_id] = p.full_name;
+          officeByUserId[p.user_id] = p.office ?? null;
         }
       }
-      return { byName, byUserId, nameToUserId, userIdToName };
+      return { byName, byUserId, nameToUserId, userIdToName, officeByUserId, officeByName };
     },
     staleTime: 15 * 60 * 1000,
+  });
+
+  // Extra days from afterhours_schedule (all-time) grouped per user+month.
+  // Mirrors Analytics.tsx: weekend entries minus 1 (first weekend day is regular),
+  // plus explicit weekday entries (only the 2026-01-10 Kragujevac moving day today),
+  // excluding US holidays.
+  const { data: extraDaysByUserMonth = {} } = useQuery({
+    queryKey: ["dispatcher-salary-chart", "afterhours-schedule"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("afterhours_schedule")
+        .select("user_id, scheduled_date, dispatcher_name");
+      if (error) throw error;
+      const weekend: Record<string, number> = {}; // key: keyOrName|YYYY-MM
+      const weekday: Record<string, number> = {};
+      for (const r of (data as any[]) || []) {
+        const dateStr = r.scheduled_date as string | null;
+        if (!dateStr) continue;
+        const [yStr, mStr] = dateStr.split("-");
+        const year = Number(yStr);
+        if (!year || isHolidayDate(dateStr, year)) continue;
+        const sd = new Date(dateStr + "T12:00:00");
+        const isWeekend = sd.getDay() === 0 || sd.getDay() === 6;
+        const month = `${yStr}-${mStr}`;
+        const keys: string[] = [];
+        if (r.user_id) keys.push(r.user_id);
+        if (r.dispatcher_name) keys.push(r.dispatcher_name);
+        // Moving day: 2026-01-10, Kragujevac only. We don't have office here per row,
+        // but the analytics logic treats it as a weekday extra regardless. Keep the
+        // moving-day rule generic (weekday extra) so it aligns for those users.
+        const isMovingDay = dateStr === "2026-01-10";
+        for (const k of keys) {
+          const mk = `${k}|${month}`;
+          if (isWeekend && !isMovingDay) weekend[mk] = (weekend[mk] || 0) + 1;
+          else if (isMovingDay) weekday[mk] = (weekday[mk] || 0) + 1;
+        }
+      }
+      const out: Record<string, number> = {};
+      const keys = new Set([...Object.keys(weekend), ...Object.keys(weekday)]);
+      for (const k of keys) {
+        const we = Math.max(0, (weekend[k] || 0) - 1);
+        out[k] = we + (weekday[k] || 0);
+      }
+      return out;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Lost days from dispatcher_off_duty_days (all-time) grouped per user+month.
+  const { data: lostDaysByUserMonth = {} } = useQuery({
+    queryKey: ["dispatcher-salary-chart", "off-duty-days"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dispatcher_off_duty_days")
+        .select("dispatcher_id, dispatcher_name, off_duty_date");
+      if (error) throw error;
+      const out: Record<string, number> = {};
+      for (const r of (data as any[]) || []) {
+        const dateStr = r.off_duty_date as string | null;
+        if (!dateStr) continue;
+        const [y, m] = dateStr.split("-");
+        const month = `${y}-${m}`;
+        const keys: string[] = [];
+        if (r.dispatcher_id) keys.push(r.dispatcher_id);
+        if (r.dispatcher_name) keys.push(r.dispatcher_name);
+        for (const k of keys) {
+          const mk = `${k}|${month}`;
+          out[mk] = (out[mk] || 0) + 1;
+        }
+      }
+      return out;
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   // Monthly bonuses per dispatcher user_id
