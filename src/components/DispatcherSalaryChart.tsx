@@ -557,11 +557,17 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                     border: "1px solid hsl(var(--border))",
                     fontSize: 12,
                   }}
-                  formatter={(v: any, name: string) => {
+                  formatter={(v: any, name: string, item: any) => {
                     if (v == null) return [null as any, null as any];
                     if (name === "avg") return [`$${Number(v).toLocaleString()}`, "Avg salary"];
-                    if (name === "avgProj")
+                    if (name === "avgProj") {
+                      // Hide the projected entry on historical points (where the
+                      // dashed line only exists to visually connect to the
+                      // current-month projection).
+                      const p: any = item?.payload;
+                      if (p && p.avg != null) return [null as any, null as any];
                       return [`$${Number(v).toLocaleString()}`, "Avg salary (projected)"];
+                    }
                     return [v, name];
                   }}
                   labelFormatter={(l, payload) => {
