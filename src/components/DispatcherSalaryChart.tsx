@@ -531,11 +531,7 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
       projectedCountCurrentMonth: projectedCount,
       dispatcherSalaryCache: cache,
     };
-  }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, currentMonthKey, projectionRatio]);
-  // Note: `include` and `selectedOffices` are used inside computeSalary via closure;
-  // list them in deps to force recompute when they change.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  void [include, selectedOffices];
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, currentMonthKey, projectionRatio, include, selectedOffices]);
 
   const officeOptions = useMemo(() => {
     const set = new Set<string>();
