@@ -287,12 +287,13 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("dispatcher_monthly_bonuses")
-        .select("user_id, month, amount");
+        .select("dispatcher_id, month, bonus_amount");
       if (error) throw error;
       const map: Record<string, number> = {}; // key: user_id|month
       for (const b of (data as any[]) || []) {
-        if (!b.user_id || !b.month) continue;
-        map[`${b.user_id}|${b.month}`] = (map[`${b.user_id}|${b.month}`] || 0) + (Number(b.amount) || 0);
+        if (!b.dispatcher_id || !b.month) continue;
+        const key = `${b.dispatcher_id}|${b.month}`;
+        map[key] = (map[key] || 0) + (Number(b.bonus_amount) || 0);
       }
       return map;
     },
