@@ -35,34 +35,14 @@ type PresetKey =
   | "prev_q"
   | "custom";
 
-export function DispatcherSalaryChart() {
-  // Per-dispatcher monthly freight & driver pay, computed live from orders
-  // (same source Dispatcher Performance uses)
-  const { data: orderRows = [] } = useQuery({
-    queryKey: ["dispatcher-salary-chart", "orders"],
-    queryFn: async () => {
-      const rows: any[] = [];
-      const PAGE = 1000;
-      let lastId = "00000000-0000-0000-0000-000000000000";
-      for (let i = 0; i < 200; i++) {
-        const { data, error } = await supabase
-          .from("orders")
-          .select("id, booked_by, delivery_datetime, freight_amount, driver_price, canceled, tonu, tonu_driver")
-          .not("booked_by", "is", null)
-          .not("delivery_datetime", "is", null)
-          .gt("id", lastId)
-          .order("id", { ascending: true })
-          .limit(PAGE);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        rows.push(...data);
-        lastId = data[data.length - 1].id as string;
-        if (data.length < PAGE) break;
-      }
-      return rows;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+interface DispatcherSalaryChartProps {
+  orders?: any[];
+}
+
+export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProps) {
+  // Per-dispatcher monthly freight & driver pay, computed from already-loaded
+  // orders on the Analytics page (no refetch).
+  const orderRows = orders;
 
   // Dispatcher pay rates (gross_percent, cut_percent) — keyed by both full_name and user_id
   const { data: profileRates = { byName: {}, byUserId: {}, nameToUserId: {} } } = useQuery({
@@ -127,53 +107,92 @@ export function DispatcherSalaryChart() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Build: bookedByKey (uuid or name) -> month -> { freight, driverPay }
+  // Build: bookedByKey (uuid or name) -> month -> { freight, driverPay, freightToDay, driverPayToDay }
   // Month uses America/Chicago on delivery_datetime to match salary period.
-  const chicagoMonth = (iso: string): string | null => {
+  // `*ToDay` sums only orders whose day-of-month <= today's Chicago day-of-month,
+  // used to compute the current-month projection.
+  const chicagoParts = (iso: string): { y: string; m: string; d: string } | null => {
     try {
       const parts = new Intl.DateTimeFormat("en-US", {
         timeZone: "America/Chicago",
         year: "numeric",
         month: "2-digit",
+        day: "2-digit",
       }).formatToParts(new Date(iso));
       const y = parts.find((p) => p.type === "year")?.value;
       const m = parts.find((p) => p.type === "month")?.value;
-      return y && m ? `${y}-${m}` : null;
+      const d = parts.find((p) => p.type === "day")?.value;
+      return y && m && d ? { y, m, d } : null;
     } catch {
       return null;
     }
   };
+
+  const todayChicago = useMemo(() => chicagoParts(new Date().toISOString()), []);
+  const todayDay = todayChicago ? Number(todayChicago.d) : new Date().getDate();
+
   const perDispatcherByMonth = useMemo(() => {
-    const map = new Map<string, Map<string, { freight: number; driverPay: number }>>();
+    const map = new Map<
+      string,
+      Map<string, { freight: number; driverPay: number; freightToDay: number; driverPayToDay: number }>
+    >();
     for (const o of orderRows) {
-      const key = o.booked_by as string | null;
-      if (!key || !o.delivery_datetime) continue;
+      const key = (o.bookedBy ?? o.booked_by) as string | null;
+      const deliveryIso = (o.deliveryDatetime ?? o.delivery_datetime) as string | null;
+      if (!key || !deliveryIso) continue;
       const canceled = !!o.canceled;
       const tonu = Number(o.tonu) || 0;
-      const tonuDriver = Number(o.tonu_driver) || 0;
-      // Match Dispatcher Performance: skip canceled unless TONU exists.
+      const tonuDriver = Number(o.tonuDriver ?? o.tonu_driver) || 0;
       if (canceled && tonu <= 0 && tonuDriver <= 0) continue;
-      const freight = canceled ? tonu : Number(o.freight_amount) || 0;
-      const driverPay = canceled ? tonuDriver : Number(o.driver_price) || 0;
-      const month = chicagoMonth(o.delivery_datetime);
-      if (!month) continue;
+      const freight = canceled ? tonu : Number(o.freightAmount ?? o.freight_amount) || 0;
+      const driverPay = canceled ? tonuDriver : Number(o.driverPrice ?? o.driver_price) || 0;
+      const parts = chicagoParts(deliveryIso);
+      if (!parts) continue;
+      const month = `${parts.y}-${parts.m}`;
+      const dayOfMonth = Number(parts.d);
       let inner = map.get(key);
       if (!inner) {
         inner = new Map();
         map.set(key, inner);
       }
-      const prev = inner.get(month) || { freight: 0, driverPay: 0 };
+      const prev = inner.get(month) || { freight: 0, driverPay: 0, freightToDay: 0, driverPayToDay: 0 };
       prev.freight += freight;
       prev.driverPay += driverPay;
+      if (dayOfMonth <= todayDay) {
+        prev.freightToDay += freight;
+        prev.driverPayToDay += driverPay;
+      }
       inner.set(month, prev);
     }
     return map;
-  }, [orderRows]);
+  }, [orderRows, todayDay]);
 
-  // Compute salary per dispatcher per month using rates + bonuses + additionals
-  const salaryByMonth = useMemo(() => {
-    // month -> array of salaries (one per dispatcher, filtered >= $500)
+  const currentMonthKey = todayChicago ? `${todayChicago.y}-${todayChicago.m}` : null;
+
+  // Global projection ratio: how much a full month scales up from the
+  // portion accumulated through today's day-of-month, based on historical
+  // (completed) months in the dataset.
+  const projectionRatio = useMemo(() => {
+    let fullSum = 0;
+    let toDaySum = 0;
+    for (const [, months] of perDispatcherByMonth) {
+      for (const [month, agg] of months) {
+        if (month === currentMonthKey) continue;
+        fullSum += agg.freight;
+        toDaySum += agg.freightToDay;
+      }
+    }
+    if (toDaySum <= 0 || fullSum <= 0) return null;
+    const r = fullSum / toDaySum;
+    return r > 1 ? r : null;
+  }, [perDispatcherByMonth, currentMonthKey]);
+
+  // Compute salary per dispatcher per month using rates + bonuses + additionals.
+  // Also compute a projected salary for the current month by scaling the
+  // to-date freight/driverPay using `projectionRatio`.
+  const { salaryByMonth, projectedSalariesCurrentMonth } = useMemo(() => {
     const out = new Map<string, number[]>();
+    const projected: number[] = [];
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     for (const [bookedBy, months] of perDispatcherByMonth) {
       const isUuid = uuidRe.test(bookedBy);
@@ -197,13 +216,24 @@ export function DispatcherSalaryChart() {
           else if (a.type === "penalty" && a.applied) adjTotal -= amt;
         }
         const salary = baseRate + bonus + adjTotal;
-        if (salary < 500) continue;
-        if (!out.has(month)) out.set(month, []);
-        out.get(month)!.push(salary);
+        if (salary >= 500) {
+          if (!out.has(month)) out.set(month, []);
+          out.get(month)!.push(salary);
+        }
+
+        // Build a projected salary for the current month using historical pace.
+        if (month === currentMonthKey && projectionRatio) {
+          const projFreight = agg.freight * projectionRatio;
+          const projDriverPay = agg.driverPay * projectionRatio;
+          const projBase =
+            projFreight * rate.g + Math.max(0, projFreight - projDriverPay) * rate.c;
+          const projSalary = projBase + bonus + adjTotal;
+          if (projSalary >= 500) projected.push(projSalary);
+        }
       }
     }
-    return out;
-  }, [perDispatcherByMonth, profileRates, bonuses, additionals]);
+    return { salaryByMonth: out, projectedSalariesCurrentMonth: projected };
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals, currentMonthKey, projectionRatio]);
 
   const allMonths = useMemo(
     () => Array.from(salaryByMonth.keys()).sort(),
@@ -261,15 +291,46 @@ export function DispatcherSalaryChart() {
       const count = salaries.length;
       if (count > 0) buckets.push([m, { total, count }]);
     }
-    return buckets
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([key, v]) => ({
-        key,
-        label: monthLabel(key),
-        avg: Math.round(v.total / v.count),
-        count: v.count,
-      }));
-  }, [salaryByMonth, activeMonths]);
+    const sorted = buckets.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    const rows = sorted.map(([key, v]) => ({
+      key,
+      label: monthLabel(key),
+      avg: v.count > 0 ? Math.round(v.total / v.count) : 0,
+      count: v.count,
+      avgProj: null as number | null,
+    }));
+
+    // Current-month projection: overlay a dotted projected point.
+    if (
+      currentMonthKey &&
+      projectionRatio &&
+      projectedSalariesCurrentMonth.length > 0 &&
+      activeMonths.has(currentMonthKey)
+    ) {
+      const projAvg = Math.round(
+        projectedSalariesCurrentMonth.reduce((s, v) => s + v, 0) /
+          projectedSalariesCurrentMonth.length,
+      );
+      const idx = rows.findIndex((r) => r.key === currentMonthKey);
+      if (idx >= 0) {
+        rows[idx] = { ...rows[idx], avg: null as any, avgProj: projAvg };
+        if (idx > 0) rows[idx - 1] = { ...rows[idx - 1], avgProj: rows[idx - 1].avg };
+      } else {
+        rows.push({
+          key: currentMonthKey,
+          label: monthLabel(currentMonthKey),
+          avg: null as any,
+          count: projectedSalariesCurrentMonth.length,
+          avgProj: projAvg,
+        });
+        if (rows.length > 1) {
+          const prev = rows[rows.length - 2];
+          rows[rows.length - 2] = { ...prev, avgProj: prev.avg };
+        }
+      }
+    }
+    return rows;
+  }, [salaryByMonth, activeMonths, currentMonthKey, projectionRatio, projectedSalariesCurrentMonth]);
 
   const aggregate = useMemo(() => {
     const totals = chartData.reduce(
@@ -438,11 +499,13 @@ export function DispatcherSalaryChart() {
                     border: "1px solid hsl(var(--border))",
                     fontSize: 12,
                   }}
-                  formatter={(v: any, name: string) =>
-                    name === "avg"
-                      ? [`$${Number(v).toLocaleString()}`, "Avg salary"]
-                      : [v, name]
-                  }
+                  formatter={(v: any, name: string) => {
+                    if (v == null) return [null as any, null as any];
+                    if (name === "avg") return [`$${Number(v).toLocaleString()}`, "Avg salary"];
+                    if (name === "avgProj")
+                      return [`$${Number(v).toLocaleString()}`, "Avg salary (projected)"];
+                    return [v, name];
+                  }}
                   labelFormatter={(l, payload) => {
                     const p: any = payload?.[0]?.payload;
                     return p ? `${l} — ${p.count} dispatcher${p.count === 1 ? "" : "s"}` : l;
@@ -455,6 +518,17 @@ export function DispatcherSalaryChart() {
                   strokeWidth={2}
                   dot={{ r: 3 }}
                   isAnimationActive={false}
+                  connectNulls={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="avgProj"
+                  stroke="hsl(142 76% 36%)"
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  dot={{ r: 3 }}
+                  isAnimationActive={false}
+                  connectNulls={false}
                 />
               </LineChart>
             </ResponsiveContainer>
