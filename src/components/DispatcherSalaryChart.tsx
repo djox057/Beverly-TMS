@@ -749,7 +749,7 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
   const dispatcherAverages = useMemo(() => {
     const rows: { key: string; name: string; rpm: number; avgSalary: number; months: number }[] = [];
     for (const [bookedBy, info] of dispatcherSalaryCache) {
-      if (selectedDispatchers.size > 0 && !selectedDispatchers.has(bookedBy)) continue;
+      if (deferredSelectedDispatchers.size > 0 && !deferredSelectedDispatchers.has(bookedBy)) continue;
       let freightSum = 0;
       let milesSum = 0;
       let salarySum = 0;
@@ -776,7 +776,7 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
     }
     rows.sort((a, b) => b.avgSalary - a.avgSalary);
     return rows;
-  }, [dispatcherSalaryCache, activeMonths, selectedDispatchers]);
+  }, [dispatcherSalaryCache, activeMonths, deferredSelectedDispatchers]);
 
   return (
     <Card>
