@@ -153,7 +153,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const perDispatcherByMonth = useMemo(() => {
     const map = new Map<
       string,
-      Map<string, { freight: number; driverPay: number; freightToDay: number; driverPayToDay: number }>
+      Map<string, { freight: number; driverPay: number; miles: number; freightToDay: number; driverPayToDay: number }>
     >();
     for (const o of orderRows) {
       const key = (o.bookedBy ?? o.booked_by) as string | null;
@@ -165,6 +165,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       if (canceled && tonu <= 0 && tonuDriver <= 0) continue;
       const freight = canceled ? tonu : Number(o.freightAmount ?? o.freight_amount) || 0;
       const driverPay = canceled ? tonuDriver : Number(o.driverPrice ?? o.driver_price) || 0;
+      const miles = canceled ? 0 : Number(o.mileage) || 0;
       const parts = chicagoParts(deliveryIso);
       if (!parts) continue;
       const month = `${parts.y}-${parts.m}`;
@@ -174,9 +175,10 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         inner = new Map();
         map.set(key, inner);
       }
-      const prev = inner.get(month) || { freight: 0, driverPay: 0, freightToDay: 0, driverPayToDay: 0 };
+      const prev = inner.get(month) || { freight: 0, driverPay: 0, miles: 0, freightToDay: 0, driverPayToDay: 0 };
       prev.freight += freight;
       prev.driverPay += driverPay;
+      prev.miles += miles;
       if (dayOfMonth <= todayDay) {
         prev.freightToDay += freight;
         prev.driverPayToDay += driverPay;
