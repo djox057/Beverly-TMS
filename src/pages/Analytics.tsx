@@ -4246,7 +4246,7 @@ const Analytics = () => {
           {(canViewSalaries || isDispatchOnly) && (
             <TabsContent value="salaries" className="space-y-6">
               {isAdmin && (
-                <DispatcherSalaryChart />
+                <DispatcherSalaryChart orders={orders || []} />
               )}
               <Card>
                 <CardHeader>
