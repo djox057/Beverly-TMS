@@ -1013,6 +1013,198 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
                 </div>
               </PopoverContent>
             </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={selectedOffices.size > 0 ? "default" : "outline"}
+                >
+                  Office
+                  {selectedOffices.size > 0 && (
+                    <span className="ml-1">({selectedOffices.size})</span>
+                  )}
+                  <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2" align="start">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-xs font-medium text-muted-foreground">Filter by office</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => startTransition(() => setSelectedOffices(new Set()))}
+                  >
+                    Clear
+                  </Button>
+                </div>
+                <div className="max-h-64 overflow-y-auto space-y-1">
+                  {officeOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground px-2 py-1">No offices.</p>
+                  )}
+                  {officeOptions.map((o) => {
+                    const checked = selectedOffices.has(o);
+                    return (
+                      <label
+                        key={o}
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer text-sm"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => {
+                            startTransition(() => {
+                              setSelectedOffices((prev) => {
+                                const next = new Set(prev);
+                                if (v) next.add(o);
+                                else next.delete(o);
+                                return next;
+                              });
+                            });
+                          }}
+                        />
+                        <span className="truncate">{o}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    Object.values(include).some((v) => !v) ? "default" : "outline"
+                  }
+                >
+                  Include
+                  {Object.values(include).some((v) => !v) && (
+                    <span className="ml-1">
+                      ({Object.values(include).filter(Boolean).length}/{Object.values(include).length})
+                    </span>
+                  )}
+                  <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-60 p-2" align="start">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Salary components
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() =>
+                      startTransition(() =>
+                        setInclude({
+                          bonuses: true,
+                          charges: true,
+                          penalties: true,
+                          additions: true,
+                          extraDays: true,
+                          lostDays: true,
+                          food: true,
+                        }),
+                      )
+                    }
+                  >
+                    All
+                  </Button>
+                </div>
+                {(
+                  [
+                    ["bonuses", "Monthly bonuses"],
+                    ["additions", "Additions"],
+                    ["charges", "Charges"],
+                    ["penalties", "Penalties"],
+                    ["extraDays", "Extra days"],
+                    ["lostDays", "Lost days"],
+                    ["food", "Food allowance"],
+                  ] as const
+                ).map(([k, label]) => (
+                  <label
+                    key={k}
+                    className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer text-sm"
+                  >
+                    <Checkbox
+                      checked={include[k]}
+                      onCheckedChange={(v) =>
+                        startTransition(() =>
+                          setInclude((prev) => ({ ...prev, [k]: !!v })),
+                        )
+                      }
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </PopoverContent>
+            </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button type="button" size="sm" variant="outline" className="hidden">
+                  legacy
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-2" align="start">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Select dispatchers
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => startTransition(() => setSelectedDispatchers(new Set()))}
+                  >
+                    Clear
+                  </Button>
+                </div>
+                <input
+                  type="text"
+                  value={dispatcherQuery}
+                  onChange={(e) => setDispatcherQuery(e.target.value)}
+                  placeholder="Search…"
+                  className="w-full h-8 px-2 mb-2 text-sm border rounded bg-background"
+                />
+                <div className="max-h-64 overflow-y-auto space-y-1">
+                  {filteredDispatcherOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground px-2 py-1">
+                      No dispatchers.
+                    </p>
+                  )}
+                  {filteredDispatcherOptions.map((d) => {
+                    const checked = selectedDispatchers.has(d.key);
+                    return (
+                      <label
+                        key={d.key}
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer text-sm"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => {
+                            startTransition(() => {
+                              setSelectedDispatchers((prev) => {
+                                const next = new Set(prev);
+                                if (v) next.add(d.key);
+                                else next.delete(d.key);
+                                return next;
+                              });
+                            });
+                          }}
+                        />
+                        <span className="truncate">{d.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           {isPending ? (
             <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1">
