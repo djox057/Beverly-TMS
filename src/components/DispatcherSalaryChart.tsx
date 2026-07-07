@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 function monthLabel(m: string) {
@@ -40,13 +40,26 @@ interface DispatcherSalaryChartProps {
   orders?: any[];
 }
 
+const LINE_PALETTE = [
+  "hsl(142 76% 36%)",
+  "hsl(217 91% 60%)",
+  "hsl(38 92% 50%)",
+  "hsl(280 70% 55%)",
+  "hsl(0 72% 51%)",
+  "hsl(190 80% 45%)",
+  "hsl(20 85% 55%)",
+  "hsl(340 80% 55%)",
+  "hsl(90 60% 40%)",
+  "hsl(250 70% 60%)",
+];
+
 export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProps) {
   // Per-dispatcher monthly freight & driver pay, computed from already-loaded
   // orders on the Analytics page (no refetch).
   const orderRows = orders;
 
   // Dispatcher pay rates (gross_percent, cut_percent) — keyed by both full_name and user_id
-  const { data: profileRates = { byName: {}, byUserId: {}, nameToUserId: {} } } = useQuery({
+  const { data: profileRates = { byName: {}, byUserId: {}, nameToUserId: {}, userIdToName: {} } } = useQuery({
     queryKey: ["dispatcher-salary-chart", "profiles"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -56,6 +69,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       const byName: Record<string, { g: number; c: number }> = {};
       const byUserId: Record<string, { g: number; c: number }> = {};
       const nameToUserId: Record<string, string> = {};
+      const userIdToName: Record<string, string> = {};
       for (const p of (data as any[]) || []) {
         const g = p.gross_percent != null ? Number(p.gross_percent) / 100 : 0.01;
         const c = p.cut_percent != null ? Number(p.cut_percent) / 100 : 0.05;
@@ -63,9 +77,12 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           byName[p.full_name] = { g, c };
           if (p.user_id) nameToUserId[p.full_name] = p.user_id;
         }
-        if (p.user_id) byUserId[p.user_id] = { g, c };
+        if (p.user_id) {
+          byUserId[p.user_id] = { g, c };
+          if (p.full_name) userIdToName[p.user_id] = p.full_name;
+        }
       }
-      return { byName, byUserId, nameToUserId };
+      return { byName, byUserId, nameToUserId, userIdToName };
     },
     staleTime: 15 * 60 * 1000,
   });
