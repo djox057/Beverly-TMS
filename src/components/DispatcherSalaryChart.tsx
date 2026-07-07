@@ -949,7 +949,15 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
               </PopoverContent>
             </Popover>
           </div>
-          {(() => {
+          {isPending ? (
+            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1">
+              <div className="space-y-1">
+                <Skeleton className="h-3 w-40" />
+                <Skeleton className="h-7 w-24" />
+              </div>
+              <Skeleton className="h-3 w-56" />
+            </div>
+          ) : (() => {
             let avg = aggregate.avg;
             let dispatcherMonths = aggregate.count;
             let months = aggregate.months;
