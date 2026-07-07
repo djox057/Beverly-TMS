@@ -1221,6 +1221,20 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
                   <p className="text-2xl font-bold">
                     ${avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </p>
+                  {!perDispMode &&
+                    aggregate.currentProjected != null &&
+                    activeMonths.has(currentMonthKey || "") && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Current month projected: $
+                        {Math.round(aggregate.currentProjected).toLocaleString()}
+                        {aggregate.currentActual != null && (
+                          <>
+                            {" "}· actual to-date $
+                            {Math.round(aggregate.currentActual).toLocaleString()}
+                          </>
+                        )}
+                      </p>
+                    )}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {dispatcherMonths} dispatcher-month{dispatcherMonths === 1 ? "" : "s"} across {months} month
