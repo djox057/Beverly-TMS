@@ -862,9 +862,10 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
                               const next = new Set(prev);
                               if (v) next.add(m);
                               else next.delete(m);
+                              if (next.size === 0) setPreset("all");
+                              else setPreset("custom");
                               return next;
                             });
-                            setPreset("custom");
                           }}
                         />
                         {monthLabel(m)}
@@ -944,20 +945,43 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
               </PopoverContent>
             </Popover>
           </div>
-          {!perDispMode && (
-          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1">
-            <div>
-              <p className="text-xs text-muted-foreground">Avg Disp. Salary — {periodLabel}</p>
-              <p className="text-2xl font-bold">
-                ${aggregate.avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-      {aggregate.count} dispatcher-month{aggregate.count === 1 ? "" : "s"} across {aggregate.months} month
-              {aggregate.months === 1 ? "" : "s"}
-            </p>
-          </div>
-          )}
+          {(() => {
+            let avg = aggregate.avg;
+            let dispatcherMonths = aggregate.count;
+            let months = aggregate.months;
+            if (perDispMode) {
+              let totalSalary = 0;
+              let totalMonths = 0;
+              const monthSet = new Set<string>();
+              for (const d of dispatcherAverages) {
+                totalSalary += d.avgSalary * d.months;
+                totalMonths += d.months;
+                const info = perDispatcherSalary.get(d.key);
+                if (info) {
+                  for (const [m] of info.salaryByMonth) {
+                    if (activeMonths.has(m)) monthSet.add(m);
+                  }
+                }
+              }
+              avg = totalMonths > 0 ? Math.round(totalSalary / totalMonths) : 0;
+              dispatcherMonths = totalMonths;
+              months = monthSet.size;
+            }
+            return (
+              <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1">
+                <div>
+                  <p className="text-xs text-muted-foreground">Avg Disp. Salary — {periodLabel}</p>
+                  <p className="text-2xl font-bold">
+                    ${avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {dispatcherMonths} dispatcher-month{dispatcherMonths === 1 ? "" : "s"} across {months} month
+                  {months === 1 ? "" : "s"}
+                </p>
+              </div>
+            );
+          })()}
         </div>
       </CardHeader>
       <CardContent>
