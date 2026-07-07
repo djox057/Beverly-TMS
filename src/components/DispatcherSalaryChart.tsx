@@ -750,6 +750,10 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       const name = isUuid
         ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
         : bookedBy;
+      const office =
+        (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
+        (profileRates as any).officeByName?.[name] ||
+        null;
       let freightSum = 0;
       let milesSum = 0;
       let salarySum = 0;
@@ -758,18 +762,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         if (!activeMonths.has(month)) continue;
         freightSum += agg.freight;
         milesSum += agg.miles;
-        const base = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
-        const bonus = userId ? bonuses[`${userId}|${month}`] || 0 : 0;
-        const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
-        let adj = 0;
-        for (const a of adds) {
-          if (!a) continue;
-          const amt = a.percent != null ? (base * Number(a.percent)) / 100 : Number(a.amount) || 0;
-          if (a.type === "addition") adj += amt;
-          else if (a.type === "charge") adj -= amt;
-          else if (a.type === "penalty" && a.applied) adj -= amt;
-        }
-        const salary = base + bonus + adj;
+        const salary = computeSalary(agg.freight, agg.driverPay, month, rate, userId, name, office);
         if (salary >= COUNT_MIN) {
           salarySum += salary;
           monthCount += 1;
