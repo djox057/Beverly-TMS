@@ -2301,6 +2301,9 @@ export type Database = {
           id: string
           purpose: string
           quantity: number | null
+          receipt_bypassed: boolean
+          receipt_bypassed_at: string | null
+          receipt_bypassed_by: string | null
           receipt_path: string | null
           requested_at: string
           requested_by: string | null
@@ -2319,6 +2322,9 @@ export type Database = {
           id?: string
           purpose: string
           quantity?: number | null
+          receipt_bypassed?: boolean
+          receipt_bypassed_at?: string | null
+          receipt_bypassed_by?: string | null
           receipt_path?: string | null
           requested_at?: string
           requested_by?: string | null
@@ -2337,6 +2343,9 @@ export type Database = {
           id?: string
           purpose?: string
           quantity?: number | null
+          receipt_bypassed?: boolean
+          receipt_bypassed_at?: string | null
+          receipt_bypassed_by?: string | null
           receipt_path?: string | null
           requested_at?: string
           requested_by?: string | null
@@ -3053,6 +3062,9 @@ export type Database = {
           lumper: number | null
           lumper_driver: number | null
           lumper_items: Json | null
+          lumper_revised_rc_bypassed: boolean
+          lumper_revised_rc_bypassed_at: string | null
+          lumper_revised_rc_bypassed_by: string | null
           lumper_revised_rc_path: string | null
           mileage: number | null
           no_tracking_fee: number | null
@@ -3174,6 +3186,9 @@ export type Database = {
           lumper?: number | null
           lumper_driver?: number | null
           lumper_items?: Json | null
+          lumper_revised_rc_bypassed?: boolean
+          lumper_revised_rc_bypassed_at?: string | null
+          lumper_revised_rc_bypassed_by?: string | null
           lumper_revised_rc_path?: string | null
           mileage?: number | null
           no_tracking_fee?: number | null
@@ -3295,6 +3310,9 @@ export type Database = {
           lumper?: number | null
           lumper_driver?: number | null
           lumper_items?: Json | null
+          lumper_revised_rc_bypassed?: boolean
+          lumper_revised_rc_bypassed_at?: string | null
+          lumper_revised_rc_bypassed_by?: string | null
           lumper_revised_rc_path?: string | null
           mileage?: number | null
           no_tracking_fee?: number | null
