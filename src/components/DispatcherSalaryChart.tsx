@@ -25,6 +25,67 @@ function monthLabel(m: string) {
   return format(new Date(Number(y), Number(mm) - 1, 1), "MMM yyyy");
 }
 
+// --- Salary helpers, mirroring the Dispatcher Salaries table in Analytics.tsx ---
+const isWeekday = (d: Date) => {
+  const day = d.getDay();
+  return day !== 0 && day !== 6;
+};
+
+function getHolidaysForYear(year: number): Date[] {
+  const holidays: Date[] = [];
+  holidays.push(new Date(year, 0, 1));
+  holidays.push(new Date(year, 6, 4));
+  holidays.push(new Date(year, 11, 25));
+  const lastDayMay = new Date(year, 5, 0);
+  holidays.push(new Date(year, 4, lastDayMay.getDate() - ((lastDayMay.getDay() + 6) % 7)));
+  const firstSept = new Date(year, 8, 1);
+  holidays.push(new Date(year, 8, 1 + ((8 - firstSept.getDay()) % 7)));
+  const firstNov = new Date(year, 10, 1);
+  const firstThursday = new Date(year, 10, 1 + ((11 - firstNov.getDay()) % 7));
+  holidays.push(new Date(year, 10, firstThursday.getDate() + 21));
+  return holidays;
+}
+
+function isHolidayDate(dateStr: string, year: number): boolean {
+  const hs = getHolidaysForYear(year);
+  const d = new Date(dateStr + "T12:00:00");
+  return hs.some(
+    (h) => h.getFullYear() === d.getFullYear() && h.getMonth() === d.getMonth() && h.getDate() === d.getDate(),
+  );
+}
+
+function getWorkDaysInMonth(year: number, monthIndex: number): number {
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  let weekdayCount = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (isWeekday(new Date(year, monthIndex, day))) weekdayCount++;
+  }
+  const fixed = [
+    { m: 0, d: 1 },
+    { m: 5, d: 19 },
+    { m: 6, d: 4 },
+    { m: 10, d: 11 },
+    { m: 11, d: 25 },
+  ];
+  const observed = fixed.reduce((acc, h) => {
+    if (h.m !== monthIndex) return acc;
+    const actual = new Date(year, monthIndex, h.d);
+    let obs = actual;
+    if (actual.getDay() === 6) obs = new Date(year, monthIndex, h.d - 1);
+    if (actual.getDay() === 0) obs = new Date(year, monthIndex, h.d + 1);
+    if (obs.getMonth() !== monthIndex) return acc;
+    return isWeekday(obs) ? acc + 1 : acc;
+  }, 0);
+  const wd = weekdayCount - observed;
+  return wd > 0 ? wd : weekdayCount;
+}
+
+function hasFoodOffice(office?: string | null) {
+  if (!office) return false;
+  const u = office.toUpperCase();
+  return u === "ČAČAK" || u === "KRAGUJEVAC";
+}
+
 type PresetKey =
   | "all"
   | "ytd"
@@ -65,27 +126,104 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name, user_id, gross_percent, cut_percent");
+        .select("full_name, user_id, gross_percent, cut_percent, office");
       if (error) throw error;
       const byName: Record<string, { g: number; c: number }> = {};
       const byUserId: Record<string, { g: number; c: number }> = {};
       const nameToUserId: Record<string, string> = {};
       const userIdToName: Record<string, string> = {};
+      const officeByUserId: Record<string, string | null> = {};
+      const officeByName: Record<string, string | null> = {};
       for (const p of (data as any[]) || []) {
         const g = p.gross_percent != null ? Number(p.gross_percent) / 100 : 0.01;
         const c = p.cut_percent != null ? Number(p.cut_percent) / 100 : 0.05;
         if (p.full_name) {
           byName[p.full_name] = { g, c };
           if (p.user_id) nameToUserId[p.full_name] = p.user_id;
+          officeByName[p.full_name] = p.office ?? null;
         }
         if (p.user_id) {
           byUserId[p.user_id] = { g, c };
           if (p.full_name) userIdToName[p.user_id] = p.full_name;
+          officeByUserId[p.user_id] = p.office ?? null;
         }
       }
-      return { byName, byUserId, nameToUserId, userIdToName };
+      return { byName, byUserId, nameToUserId, userIdToName, officeByUserId, officeByName };
     },
     staleTime: 15 * 60 * 1000,
+  });
+
+  // Extra days from afterhours_schedule (all-time) grouped per user+month.
+  // Mirrors Analytics.tsx: weekend entries minus 1 (first weekend day is regular),
+  // plus explicit weekday entries (only the 2026-01-10 Kragujevac moving day today),
+  // excluding US holidays.
+  const { data: extraDaysByUserMonth = {} } = useQuery({
+    queryKey: ["dispatcher-salary-chart", "afterhours-schedule"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("afterhours_schedule")
+        .select("user_id, scheduled_date, dispatcher_name");
+      if (error) throw error;
+      const weekend: Record<string, number> = {}; // key: keyOrName|YYYY-MM
+      const weekday: Record<string, number> = {};
+      for (const r of (data as any[]) || []) {
+        const dateStr = r.scheduled_date as string | null;
+        if (!dateStr) continue;
+        const [yStr, mStr] = dateStr.split("-");
+        const year = Number(yStr);
+        if (!year || isHolidayDate(dateStr, year)) continue;
+        const sd = new Date(dateStr + "T12:00:00");
+        const isWeekend = sd.getDay() === 0 || sd.getDay() === 6;
+        const month = `${yStr}-${mStr}`;
+        const keys: string[] = [];
+        if (r.user_id) keys.push(r.user_id);
+        if (r.dispatcher_name) keys.push(r.dispatcher_name);
+        // Moving day: 2026-01-10, Kragujevac only. We don't have office here per row,
+        // but the analytics logic treats it as a weekday extra regardless. Keep the
+        // moving-day rule generic (weekday extra) so it aligns for those users.
+        const isMovingDay = dateStr === "2026-01-10";
+        for (const k of keys) {
+          const mk = `${k}|${month}`;
+          if (isWeekend && !isMovingDay) weekend[mk] = (weekend[mk] || 0) + 1;
+          else if (isMovingDay) weekday[mk] = (weekday[mk] || 0) + 1;
+        }
+      }
+      const out: Record<string, number> = {};
+      const keys = new Set([...Object.keys(weekend), ...Object.keys(weekday)]);
+      for (const k of keys) {
+        const we = Math.max(0, (weekend[k] || 0) - 1);
+        out[k] = we + (weekday[k] || 0);
+      }
+      return out;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Lost days from dispatcher_off_duty_days (all-time) grouped per user+month.
+  const { data: lostDaysByUserMonth = {} } = useQuery({
+    queryKey: ["dispatcher-salary-chart", "off-duty-days"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dispatcher_off_duty_days")
+        .select("dispatcher_id, dispatcher_name, off_duty_date");
+      if (error) throw error;
+      const out: Record<string, number> = {};
+      for (const r of (data as any[]) || []) {
+        const dateStr = r.off_duty_date as string | null;
+        if (!dateStr) continue;
+        const [y, m] = dateStr.split("-");
+        const month = `${y}-${m}`;
+        const keys: string[] = [];
+        if (r.dispatcher_id) keys.push(r.dispatcher_id);
+        if (r.dispatcher_name) keys.push(r.dispatcher_name);
+        for (const k of keys) {
+          const mk = `${k}|${month}`;
+          out[mk] = (out[mk] || 0) + 1;
+        }
+      }
+      return out;
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   // Monthly bonuses per dispatcher user_id
@@ -159,20 +297,13 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       const key = (o.bookedBy ?? o.booked_by) as string | null;
       const deliveryIso = (o.deliveryDatetime ?? o.delivery_datetime) as string | null;
       if (!key || !deliveryIso) continue;
-      const canceled = !!o.canceled;
-      const tonu = Number(o.tonu) || 0;
-      const tonuDriver = Number(o.tonuDriver ?? o.tonu_driver) || 0;
-      if (canceled && tonu <= 0 && tonuDriver <= 0) continue;
-      // Use the same freight/driver-pay basis as the Dispatcher Salaries table:
-      // freight excludes lumpers, driver pay uses the effective total (company
-      // drivers get freight-equal pay via totalDriverPay in ordersTransform).
-      const freight = canceled
-        ? tonu
-        : Number(o.totalFreightAmountNoLumper ?? o.freightAmount ?? o.freight_amount) || 0;
-      const driverPay = canceled
-        ? tonuDriver
-        : Number(o.totalDriverPay ?? o.driverPrice ?? o.driver_price) || 0;
-      const miles = canceled ? 0 : Number(o.mileage) || 0;
+      // Match the Dispatcher Salaries table exactly: use the pre-computed
+      // no-lumper freight and effective total driver pay for every order
+      // (canceled orders already carry TONU inside totalFreightAmountNoLumper).
+      const freight = Number(o.totalFreightAmountNoLumper ?? o.freightAmount ?? o.freight_amount) || 0;
+      const driverPay = Number(o.totalDriverPay ?? o.driverPrice ?? o.driver_price) || 0;
+      const miles = o.canceled ? 0 : Number(o.mileage) || 0;
+      if (freight === 0 && driverPay === 0 && !miles) continue;
       const parts = chicagoParts(deliveryIso);
       if (!parts) continue;
       const month = `${parts.y}-${parts.m}`;
@@ -196,6 +327,49 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   }, [orderRows, todayDay]);
 
   const currentMonthKey = todayChicago ? `${todayChicago.y}-${todayChicago.m}` : null;
+
+  // Shared salary formula that mirrors the Dispatcher Salaries table:
+  //   base = freight*g + max(0, freight - driverPay)*c
+  //   perDay = base / workDaysInMonth
+  //   salary = base + food + extraDays*perDay - lostDays*perDay + monthlyBonus + adjustments
+  const computeSalary = (
+    freight: number,
+    driverPay: number,
+    month: string,
+    rate: { g: number; c: number },
+    userId: string | null,
+    displayName: string | null,
+    office: string | null,
+  ): number => {
+    const base = freight * rate.g + Math.max(0, freight - driverPay) * rate.c;
+    const [yStr, mStr] = month.split("-");
+    const y = Number(yStr);
+    const mIdx = Number(mStr) - 1;
+    const workDays = Number.isFinite(y) && Number.isFinite(mIdx) ? getWorkDaysInMonth(y, mIdx) : 22;
+    const perDay = workDays > 0 ? base / workDays : 0;
+    const bonus = userId ? bonuses[`${userId}|${month}`] || 0 : 0;
+    const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
+    let adj = 0;
+    for (const a of adds) {
+      if (!a) continue;
+      const amt = a.percent != null ? (base * Number(a.percent)) / 100 : Number(a.amount) || 0;
+      if (a.type === "addition") adj += amt;
+      else if (a.type === "charge") adj -= amt;
+      else if (a.type === "penalty" && a.applied) adj -= amt;
+    }
+    const food = hasFoodOffice(office) ? 70 : 0;
+    const extraKey = userId ? `${userId}|${month}` : null;
+    const nameKey = displayName ? `${displayName}|${month}` : null;
+    const extraCount =
+      (extraKey ? extraDaysByUserMonth[extraKey] || 0 : 0) ||
+      (nameKey ? extraDaysByUserMonth[nameKey] || 0 : 0);
+    const lostCount =
+      (extraKey ? lostDaysByUserMonth[extraKey] || 0 : 0) ||
+      (nameKey ? lostDaysByUserMonth[nameKey] || 0 : 0);
+    const extraPay = extraCount * perDay;
+    const lostDed = lostCount * perDay;
+    return base + food + extraPay - lostDed + bonus + adj;
+  };
 
   // Global projection ratio: how much a full month scales up from the
   // portion accumulated through today's day-of-month, based on historical
@@ -239,19 +413,15 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           : undefined) ||
         { g: 0.01, c: 0.05 };
       const userId = isUuid ? bookedBy : profileRates.nameToUserId[bookedBy] || null;
+      const displayName = isUuid
+        ? (profileRates as any).userIdToName?.[bookedBy] || null
+        : bookedBy;
+      const office =
+        (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
+        (displayName ? (profileRates as any).officeByName?.[displayName] : null) ||
+        null;
       for (const [month, agg] of months) {
-        const baseRate = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
-        const bonus = userId ? (bonuses[`${userId}|${month}`] || 0) : 0;
-        const adds = userId ? (additionals[`${userId}|${month}`] || []) : [];
-        let adjTotal = 0;
-        for (const a of adds) {
-          if (!a) continue;
-          const amt = a.percent != null ? (baseRate * Number(a.percent)) / 100 : Number(a.amount) || 0;
-          if (a.type === "addition") adjTotal += amt;
-          else if (a.type === "charge") adjTotal -= amt;
-          else if (a.type === "penalty" && a.applied) adjTotal -= amt;
-        }
-        const salary = baseRate + bonus + adjTotal;
+        const salary = computeSalary(agg.freight, agg.driverPay, month, rate, userId, displayName, office);
         if (salary > AVG_MIN) {
           if (!out.has(month)) out.set(month, []);
           out.get(month)!.push(salary);
@@ -264,9 +434,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         if (month === currentMonthKey && projectionRatio) {
           const projFreight = agg.freight * projectionRatio;
           const projDriverPay = agg.driverPay * projectionRatio;
-          const projBase =
-            projFreight * rate.g + Math.max(0, projFreight - projDriverPay) * rate.c;
-          const projSalary = projBase + bonus + adjTotal;
+          const projSalary = computeSalary(projFreight, projDriverPay, month, rate, userId, displayName, office);
           if (projSalary > AVG_MIN) projected.push(projSalary);
           if (projSalary >= COUNT_MIN) projectedCount += 1;
         }
@@ -278,7 +446,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       projectedSalariesCurrentMonth: projected,
       projectedCountCurrentMonth: projectedCount,
     };
-  }, [perDispatcherByMonth, profileRates, bonuses, additionals, currentMonthKey, projectionRatio]);
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, currentMonthKey, projectionRatio]);
 
   const allMonths = useMemo(
     () => Array.from(new Set([...salaryByMonth.keys(), ...countByMonth.keys()])).sort(),
@@ -315,32 +483,24 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       const name = isUuid
         ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
         : bookedBy;
+      const office =
+        (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
+        (profileRates as any).officeByName?.[name] ||
+        null;
       const sMap = new Map<string, number>();
       const pMap = new Map<string, number>();
       for (const [month, agg] of months) {
-        const base = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
-        const bonus = userId ? bonuses[`${userId}|${month}`] || 0 : 0;
-        const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
-        let adj = 0;
-        for (const a of adds) {
-          if (!a) continue;
-          const amt = a.percent != null ? (base * Number(a.percent)) / 100 : Number(a.amount) || 0;
-          if (a.type === "addition") adj += amt;
-          else if (a.type === "charge") adj -= amt;
-          else if (a.type === "penalty" && a.applied) adj -= amt;
-        }
-        sMap.set(month, base + bonus + adj);
+        sMap.set(month, computeSalary(agg.freight, agg.driverPay, month, rate, userId, name, office));
         if (month === currentMonthKey && projectionRatio) {
           const pf = agg.freight * projectionRatio;
           const pd = agg.driverPay * projectionRatio;
-          const pb = pf * rate.g + Math.max(0, pf - pd) * rate.c;
-          pMap.set(month, pb + bonus + adj);
+          pMap.set(month, computeSalary(pf, pd, month, rate, userId, name, office));
         }
       }
       out.set(bookedBy, { name, salaryByMonth: sMap, projByMonth: pMap });
     }
     return out;
-  }, [perDispMode, selectedDispatchers, perDispatcherByMonth, profileRates, bonuses, additionals, currentMonthKey, projectionRatio]);
+  }, [perDispMode, selectedDispatchers, perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, currentMonthKey, projectionRatio]);
 
   const dispatcherOptions = useMemo(() => {
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -590,6 +750,10 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       const name = isUuid
         ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
         : bookedBy;
+      const office =
+        (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
+        (profileRates as any).officeByName?.[name] ||
+        null;
       let freightSum = 0;
       let milesSum = 0;
       let salarySum = 0;
@@ -598,18 +762,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         if (!activeMonths.has(month)) continue;
         freightSum += agg.freight;
         milesSum += agg.miles;
-        const base = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
-        const bonus = userId ? bonuses[`${userId}|${month}`] || 0 : 0;
-        const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
-        let adj = 0;
-        for (const a of adds) {
-          if (!a) continue;
-          const amt = a.percent != null ? (base * Number(a.percent)) / 100 : Number(a.amount) || 0;
-          if (a.type === "addition") adj += amt;
-          else if (a.type === "charge") adj -= amt;
-          else if (a.type === "penalty" && a.applied) adj -= amt;
-        }
-        const salary = base + bonus + adj;
+        const salary = computeSalary(agg.freight, agg.driverPay, month, rate, userId, name, office);
         if (salary >= COUNT_MIN) {
           salarySum += salary;
           monthCount += 1;
@@ -626,7 +779,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     }
     rows.sort((a, b) => b.avgSalary - a.avgSalary);
     return rows;
-  }, [perDispatcherByMonth, profileRates, bonuses, additionals, activeMonths]);
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, activeMonths]);
 
   return (
     <Card>
