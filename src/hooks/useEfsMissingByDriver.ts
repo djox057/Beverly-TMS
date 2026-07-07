@@ -12,6 +12,7 @@ export function useEfsMissingByDriver() {
         .from("efs_other_requests")
         .select("driver_id")
         .eq("purpose", "Fuel")
+        .eq("receipt_bypassed", false)
         .or("receipt_path.is.null,quantity.is.null")
         .not("driver_id", "is", null);
 
