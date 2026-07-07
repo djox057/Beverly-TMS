@@ -779,7 +779,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     }
     rows.sort((a, b) => b.avgSalary - a.avgSalary);
     return rows;
-  }, [perDispatcherByMonth, profileRates, bonuses, additionals, activeMonths]);
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, activeMonths]);
 
   return (
     <Card>
