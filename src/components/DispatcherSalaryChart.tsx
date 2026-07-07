@@ -158,12 +158,12 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const orderRows = orders;
 
   // Dispatcher pay rates (gross_percent, cut_percent) — keyed by both full_name and user_id
-  const { data: profileRates = { byName: {}, byUserId: {}, nameToUserId: {}, userIdToName: {} } } = useQuery({
+  const { data: profileRates = { byName: {}, byUserId: {}, nameToUserId: {}, userIdToName: {}, officeByUserId: {}, officeByName: {}, createdAtByUserId: {}, createdAtByName: {} } } = useQuery({
     queryKey: ["dispatcher-salary-chart", "profiles"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name, user_id, gross_percent, cut_percent, office");
+        .select("full_name, user_id, gross_percent, cut_percent, office, created_at");
       if (error) throw error;
       const byName: Record<string, { g: number; c: number }> = {};
       const byUserId: Record<string, { g: number; c: number }> = {};
@@ -171,6 +171,8 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       const userIdToName: Record<string, string> = {};
       const officeByUserId: Record<string, string | null> = {};
       const officeByName: Record<string, string | null> = {};
+      const createdAtByUserId: Record<string, string | null> = {};
+      const createdAtByName: Record<string, string | null> = {};
       for (const p of (data as any[]) || []) {
         const g = p.gross_percent != null ? Number(p.gross_percent) / 100 : 0.01;
         const c = p.cut_percent != null ? Number(p.cut_percent) / 100 : 0.05;
@@ -178,14 +180,16 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           byName[p.full_name] = { g, c };
           if (p.user_id) nameToUserId[p.full_name] = p.user_id;
           officeByName[p.full_name] = p.office ?? null;
+          createdAtByName[p.full_name] = p.created_at ?? null;
         }
         if (p.user_id) {
           byUserId[p.user_id] = { g, c };
           if (p.full_name) userIdToName[p.user_id] = p.full_name;
           officeByUserId[p.user_id] = p.office ?? null;
+          createdAtByUserId[p.user_id] = p.created_at ?? null;
         }
       }
-      return { byName, byUserId, nameToUserId, userIdToName, officeByUserId, officeByName };
+      return { byName, byUserId, nameToUserId, userIdToName, officeByUserId, officeByName, createdAtByUserId, createdAtByName };
     },
     staleTime: 15 * 60 * 1000,
   });
