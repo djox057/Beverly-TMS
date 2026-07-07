@@ -898,7 +898,7 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
                     variant="ghost"
                     size="sm"
                     className="h-6 px-2 text-xs"
-                    onClick={() => setSelectedDispatchers(new Set())}
+                    onClick={() => startTransition(() => setSelectedDispatchers(new Set()))}
                   >
                     Clear
                   </Button>
