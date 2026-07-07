@@ -989,7 +989,19 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
         </div>
       </CardHeader>
       <CardContent>
-        {perDispMode ? (
+        {isPending ? (
+          <div className="h-72 space-y-3">
+            <div className="flex items-end gap-2 h-full">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  className="flex-1"
+                  style={{ height: `${30 + ((i * 17) % 60)}%` }}
+                />
+              ))}
+            </div>
+          </div>
+        ) : perDispMode ? (
           perDispChartData.length === 0 ? (
             <p className="text-sm text-muted-foreground">No salary data for the selected dispatchers.</p>
           ) : (
