@@ -926,11 +926,13 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(v) => {
-                            setSelectedDispatchers((prev) => {
-                              const next = new Set(prev);
-                              if (v) next.add(d.key);
-                              else next.delete(d.key);
-                              return next;
+                            startTransition(() => {
+                              setSelectedDispatchers((prev) => {
+                                const next = new Set(prev);
+                                if (v) next.add(d.key);
+                                else next.delete(d.key);
+                                return next;
+                              });
                             });
                           }}
                         />
