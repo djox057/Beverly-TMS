@@ -25,6 +25,7 @@ export function useEfsMissingReceipts() {
         .from("efs_other_requests")
         .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path, requested_by")
         .eq("purpose", "Fuel")
+        .eq("receipt_bypassed", false)
         .or("receipt_path.is.null,quantity.is.null")
         .order("requested_at", { ascending: false });
 
@@ -132,5 +133,7 @@ export function useEfsMissingReceipts() {
     isUploading: uploadReceiptMutation.isPending,
     updateGallons: updateGallonsMutation.mutateAsync,
     isUpdatingGallons: updateGallonsMutation.isPending,
+    bypassReceipt: bypassMutation.mutateAsync,
+    isBypassing: bypassMutation.isPending,
   };
 }
