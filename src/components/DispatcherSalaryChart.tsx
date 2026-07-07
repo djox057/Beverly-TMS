@@ -566,6 +566,61 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const isPeriodPreset = periodOptions.some((p) => p.key === preset);
   const isQuarterPreset = quarterOptions.some((p) => p.key === preset);
 
+  // Per-dispatcher averages across the currently-active months.
+  // Columns: Dispatcher, RPM (freight / miles), Avg Salary.
+  const dispatcherAverages = useMemo(() => {
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const rows: { key: string; name: string; rpm: number; avgSalary: number; months: number }[] = [];
+    for (const [bookedBy, months] of perDispatcherByMonth) {
+      const isUuid = uuidRe.test(bookedBy);
+      const rate =
+        (isUuid ? profileRates.byUserId[bookedBy] : profileRates.byName[bookedBy]) ||
+        (!isUuid && profileRates.nameToUserId[bookedBy]
+          ? profileRates.byUserId[profileRates.nameToUserId[bookedBy]]
+          : undefined) ||
+        { g: 0.01, c: 0.05 };
+      const userId = isUuid ? bookedBy : profileRates.nameToUserId[bookedBy] || null;
+      const name = isUuid
+        ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
+        : bookedBy;
+      let freightSum = 0;
+      let milesSum = 0;
+      let salarySum = 0;
+      let monthCount = 0;
+      for (const [month, agg] of months) {
+        if (!activeMonths.has(month)) continue;
+        freightSum += agg.freight;
+        milesSum += agg.miles;
+        const base = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
+        const bonus = userId ? bonuses[`${userId}|${month}`] || 0 : 0;
+        const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
+        let adj = 0;
+        for (const a of adds) {
+          if (!a) continue;
+          const amt = a.percent != null ? (base * Number(a.percent)) / 100 : Number(a.amount) || 0;
+          if (a.type === "addition") adj += amt;
+          else if (a.type === "charge") adj -= amt;
+          else if (a.type === "penalty" && a.applied) adj -= amt;
+        }
+        const salary = base + bonus + adj;
+        if (salary >= COUNT_MIN) {
+          salarySum += salary;
+          monthCount += 1;
+        }
+      }
+      if (monthCount === 0) continue;
+      rows.push({
+        key: bookedBy,
+        name,
+        rpm: milesSum > 0 ? freightSum / milesSum : 0,
+        avgSalary: salarySum / monthCount,
+        months: monthCount,
+      });
+    }
+    rows.sort((a, b) => b.avgSalary - a.avgSalary);
+    return rows;
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals, activeMonths]);
+
   return (
     <Card>
       <CardHeader>
