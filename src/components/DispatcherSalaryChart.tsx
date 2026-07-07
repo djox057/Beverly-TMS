@@ -928,6 +928,37 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
             </ResponsiveContainer>
           </div>
         )}
+        {dispatcherAverages.length > 0 && (
+          <div className="mt-6">
+            <p className="text-sm font-medium mb-2">
+              Dispatcher averages — {periodLabel}
+            </p>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Dispatcher</TableHead>
+                    <TableHead className="text-right">RPM</TableHead>
+                    <TableHead className="text-right">Avg Salary</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dispatcherAverages.map((d) => (
+                    <TableRow key={d.key}>
+                      <TableCell className="font-medium">{d.name}</TableCell>
+                      <TableCell className="text-right">
+                        ${d.rpm.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${Math.round(d.avgSalary).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
