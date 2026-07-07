@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 function monthLabel(m: string) {
@@ -40,13 +40,26 @@ interface DispatcherSalaryChartProps {
   orders?: any[];
 }
 
+const LINE_PALETTE = [
+  "hsl(142 76% 36%)",
+  "hsl(217 91% 60%)",
+  "hsl(38 92% 50%)",
+  "hsl(280 70% 55%)",
+  "hsl(0 72% 51%)",
+  "hsl(190 80% 45%)",
+  "hsl(20 85% 55%)",
+  "hsl(340 80% 55%)",
+  "hsl(90 60% 40%)",
+  "hsl(250 70% 60%)",
+];
+
 export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProps) {
   // Per-dispatcher monthly freight & driver pay, computed from already-loaded
   // orders on the Analytics page (no refetch).
   const orderRows = orders;
 
   // Dispatcher pay rates (gross_percent, cut_percent) — keyed by both full_name and user_id
-  const { data: profileRates = { byName: {}, byUserId: {}, nameToUserId: {} } } = useQuery({
+  const { data: profileRates = { byName: {}, byUserId: {}, nameToUserId: {}, userIdToName: {} } } = useQuery({
     queryKey: ["dispatcher-salary-chart", "profiles"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -56,6 +69,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       const byName: Record<string, { g: number; c: number }> = {};
       const byUserId: Record<string, { g: number; c: number }> = {};
       const nameToUserId: Record<string, string> = {};
+      const userIdToName: Record<string, string> = {};
       for (const p of (data as any[]) || []) {
         const g = p.gross_percent != null ? Number(p.gross_percent) / 100 : 0.01;
         const c = p.cut_percent != null ? Number(p.cut_percent) / 100 : 0.05;
@@ -63,9 +77,12 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           byName[p.full_name] = { g, c };
           if (p.user_id) nameToUserId[p.full_name] = p.user_id;
         }
-        if (p.user_id) byUserId[p.user_id] = { g, c };
+        if (p.user_id) {
+          byUserId[p.user_id] = { g, c };
+          if (p.full_name) userIdToName[p.user_id] = p.full_name;
+        }
       }
-      return { byName, byUserId, nameToUserId };
+      return { byName, byUserId, nameToUserId, userIdToName };
     },
     staleTime: 15 * 60 * 1000,
   });
@@ -264,6 +281,78 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
 
   const [preset, setPreset] = useState<PresetKey>("all");
   const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState(false);
+  const [selectedDispatchers, setSelectedDispatchers] = useState<Set<string>>(new Set());
+  const [dispatcherQuery, setDispatcherQuery] = useState("");
+
+  // Per-dispatcher salary series (used when 1+ dispatchers are selected).
+  const perDispatcherSalary = useMemo(() => {
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const out = new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
+    for (const [bookedBy, months] of perDispatcherByMonth) {
+      const isUuid = uuidRe.test(bookedBy);
+      const rate =
+        (isUuid ? profileRates.byUserId[bookedBy] : profileRates.byName[bookedBy]) ||
+        (!isUuid && profileRates.nameToUserId[bookedBy]
+          ? profileRates.byUserId[profileRates.nameToUserId[bookedBy]]
+          : undefined) ||
+        { g: 0.01, c: 0.05 };
+      const userId = isUuid ? bookedBy : profileRates.nameToUserId[bookedBy] || null;
+      const name = isUuid
+        ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
+        : bookedBy;
+      const sMap = new Map<string, number>();
+      const pMap = new Map<string, number>();
+      for (const [month, agg] of months) {
+        const base = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
+        const bonus = userId ? bonuses[`${userId}|${month}`] || 0 : 0;
+        const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
+        let adj = 0;
+        for (const a of adds) {
+          if (!a) continue;
+          const amt = a.percent != null ? (base * Number(a.percent)) / 100 : Number(a.amount) || 0;
+          if (a.type === "addition") adj += amt;
+          else if (a.type === "charge") adj -= amt;
+          else if (a.type === "penalty" && a.applied) adj -= amt;
+        }
+        sMap.set(month, base + bonus + adj);
+        if (month === currentMonthKey && projectionRatio) {
+          const pf = agg.freight * projectionRatio;
+          const pd = agg.driverPay * projectionRatio;
+          const pb = pf * rate.g + Math.max(0, pf - pd) * rate.c;
+          pMap.set(month, pb + bonus + adj);
+        }
+      }
+      out.set(bookedBy, { name, salaryByMonth: sMap, projByMonth: pMap });
+    }
+    return out;
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals, currentMonthKey, projectionRatio]);
+
+  const dispatcherOptions = useMemo(() => {
+    const arr: { key: string; name: string }[] = [];
+    for (const [key, info] of perDispatcherSalary) {
+      arr.push({ key, name: info.name });
+    }
+    arr.sort((a, b) => a.name.localeCompare(b.name));
+    return arr;
+  }, [perDispatcherSalary]);
+
+  const filteredDispatcherOptions = useMemo(() => {
+    const q = dispatcherQuery.trim().toLowerCase();
+    if (!q) return dispatcherOptions;
+    return dispatcherOptions.filter((d) => d.name.toLowerCase().includes(q));
+  }, [dispatcherOptions, dispatcherQuery]);
+
+  const selectedDispatcherList = useMemo(() => {
+    const arr: { key: string; name: string; color: string }[] = [];
+    let i = 0;
+    for (const key of selectedDispatchers) {
+      const info = perDispatcherSalary.get(key);
+      arr.push({ key, name: info?.name || key, color: LINE_PALETTE[i % LINE_PALETTE.length] });
+      i++;
+    }
+    return arr;
+  }, [selectedDispatchers, perDispatcherSalary]);
 
   const activeMonths = useMemo(() => {
     const inRange = (m: string, y: number, months: number[]) => {
@@ -300,6 +389,38 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         return new Set(Array.from(selectedMonths).filter((m) => allMonths.includes(m)));
     }
   }, [preset, selectedMonths, allMonths, currentYear, currentMonthIdx]);
+
+  const perDispChartData = useMemo(() => {
+    if (selectedDispatchers.size === 0) return [] as any[];
+    const rows: any[] = [];
+    for (const m of allMonths) {
+      if (!activeMonths.has(m)) continue;
+      const row: any = { key: m, label: monthLabel(m) };
+      let hasAny = false;
+      for (const key of selectedDispatchers) {
+        const info = perDispatcherSalary.get(key);
+        if (!info) continue;
+        const s = info.salaryByMonth.get(m);
+        if (s != null) hasAny = true;
+        row[`d_${key}`] = s != null ? Math.round(s) : null;
+        const p = info.projByMonth.get(m);
+        row[`p_${key}`] = p != null ? Math.round(p) : null;
+        if (m === currentMonthKey && p != null) {
+          row[`d_${key}`] = null;
+        }
+      }
+      if (hasAny || row.key === currentMonthKey) rows.push(row);
+    }
+    const idx = rows.findIndex((r) => r.key === currentMonthKey);
+    if (idx > 0) {
+      for (const key of selectedDispatchers) {
+        if (rows[idx][`p_${key}`] != null) {
+          rows[idx - 1][`p_${key}`] = rows[idx - 1][`d_${key}`];
+        }
+      }
+    }
+    return rows;
+  }, [selectedDispatchers, perDispatcherSalary, allMonths, activeMonths, currentMonthKey]);
 
   const chartData = useMemo(() => {
     const buckets: Array<[string, { total: number; avgCount: number; displayCount: number }]> = [];
@@ -433,11 +554,28 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const isPeriodPreset = periodOptions.some((p) => p.key === preset);
   const isQuarterPreset = quarterOptions.some((p) => p.key === preset);
 
+  const perDispMode = selectedDispatchers.size > 0;
+
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-3">
-          <CardTitle>Avg Dispatcher Salary</CardTitle>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="flex items-center gap-2 text-left group"
+          >
+            {expanded ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            )}
+            <CardTitle className="group-hover:underline">Avg Dispatcher Salary</CardTitle>
+            {!expanded && (
+              <span className="text-xs text-muted-foreground ml-1">(click to open)</span>
+            )}
+          </button>
+          {expanded && (
           <div className="flex flex-wrap items-center gap-2">
             <Select
               value={isPeriodPreset ? preset : ""}
@@ -529,7 +667,76 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                 </div>
               </PopoverContent>
             </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={perDispMode ? "default" : "outline"}
+                >
+                  Dispatchers
+                  {perDispMode && (
+                    <span className="ml-1">({selectedDispatchers.size})</span>
+                  )}
+                  <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-2" align="start">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Select dispatchers
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => setSelectedDispatchers(new Set())}
+                  >
+                    Clear
+                  </Button>
+                </div>
+                <input
+                  type="text"
+                  value={dispatcherQuery}
+                  onChange={(e) => setDispatcherQuery(e.target.value)}
+                  placeholder="Search…"
+                  className="w-full h-8 px-2 mb-2 text-sm border rounded bg-background"
+                />
+                <div className="max-h-64 overflow-y-auto space-y-1">
+                  {filteredDispatcherOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground px-2 py-1">
+                      No dispatchers.
+                    </p>
+                  )}
+                  {filteredDispatcherOptions.map((d) => {
+                    const checked = selectedDispatchers.has(d.key);
+                    return (
+                      <label
+                        key={d.key}
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer text-sm"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => {
+                            setSelectedDispatchers((prev) => {
+                              const next = new Set(prev);
+                              if (v) next.add(d.key);
+                              else next.delete(d.key);
+                              return next;
+                            });
+                          }}
+                        />
+                        <span className="truncate">{d.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
+          )}
+          {expanded && !perDispMode && (
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1">
             <div>
               <p className="text-xs text-muted-foreground">Avg Disp. Salary — {periodLabel}</p>
@@ -542,10 +749,78 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
               {aggregate.months === 1 ? "" : "s"}
             </p>
           </div>
+          )}
         </div>
       </CardHeader>
+      {expanded && (
       <CardContent>
-        {chartData.length === 0 ? (
+        {perDispMode ? (
+          perDispChartData.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No salary data for the selected dispatchers.</p>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={perDispChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
+                    width={70}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--background))",
+                      border: "1px solid hsl(var(--border))",
+                      fontSize: 12,
+                    }}
+                    formatter={(v: any, name: string, item: any) => {
+                      if (v == null) return [null as any, null as any];
+                      const isProj = typeof name === "string" && name.startsWith("p_");
+                      const key = typeof name === "string" ? name.slice(2) : "";
+                      const info = selectedDispatcherList.find((d) => d.key === key);
+                      const label = info
+                        ? `${info.name}${isProj ? " (proj)" : ""}`
+                        : String(name);
+                      if (isProj) {
+                        const p: any = item?.payload;
+                        if (p && p[`d_${key}`] != null) return [null as any, null as any];
+                      }
+                      return [`$${Number(v).toLocaleString()}`, label];
+                    }}
+                  />
+                  {selectedDispatcherList.map((d) => (
+                    <Line
+                      key={`solid-${d.key}`}
+                      type="monotone"
+                      dataKey={`d_${d.key}`}
+                      name={d.name}
+                      stroke={d.color}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      isAnimationActive={false}
+                      connectNulls={false}
+                    />
+                  ))}
+                  {selectedDispatcherList.map((d) => (
+                    <Line
+                      key={`proj-${d.key}`}
+                      type="monotone"
+                      dataKey={`p_${d.key}`}
+                      stroke={d.color}
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={{ r: 3 }}
+                      isAnimationActive={false}
+                      connectNulls={false}
+                      legendType="none"
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )
+        ) : chartData.length === 0 ? (
           <p className="text-sm text-muted-foreground">No salary data for this period.</p>
         ) : (
           <div className="h-72">
@@ -606,6 +881,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           </div>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }
