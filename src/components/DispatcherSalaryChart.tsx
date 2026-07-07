@@ -1144,67 +1144,6 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
                 ))}
               </PopoverContent>
             </Popover>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button type="button" size="sm" variant="outline" className="hidden">
-                  legacy
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72 p-2" align="start">
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Select dispatchers
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs"
-                    onClick={() => startTransition(() => setSelectedDispatchers(new Set()))}
-                  >
-                    Clear
-                  </Button>
-                </div>
-                <input
-                  type="text"
-                  value={dispatcherQuery}
-                  onChange={(e) => setDispatcherQuery(e.target.value)}
-                  placeholder="Search…"
-                  className="w-full h-8 px-2 mb-2 text-sm border rounded bg-background"
-                />
-                <div className="max-h-64 overflow-y-auto space-y-1">
-                  {filteredDispatcherOptions.length === 0 && (
-                    <p className="text-xs text-muted-foreground px-2 py-1">
-                      No dispatchers.
-                    </p>
-                  )}
-                  {filteredDispatcherOptions.map((d) => {
-                    const checked = selectedDispatchers.has(d.key);
-                    return (
-                      <label
-                        key={d.key}
-                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer text-sm"
-                      >
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(v) => {
-                            startTransition(() => {
-                              setSelectedDispatchers((prev) => {
-                                const next = new Set(prev);
-                                if (v) next.add(d.key);
-                                else next.delete(d.key);
-                                return next;
-                              });
-                            });
-                          }}
-                        />
-                        <span className="truncate">{d.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
           </div>
           {isPending ? (
             <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1">
