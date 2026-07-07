@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -190,9 +191,17 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   // Compute salary per dispatcher per month using rates + bonuses + additionals.
   // Also compute a projected salary for the current month by scaling the
   // to-date freight/driverPay using `projectionRatio`.
-  const { salaryByMonth, projectedSalariesCurrentMonth } = useMemo(() => {
+  //
+  // Averages only include dispatchers whose salary is > $700 (hidden filter),
+  // but the displayed dispatcher count includes anyone with a meaningful
+  // salary (>= $500), so the excluded band isn't visible in the UI.
+  const AVG_MIN = 700;
+  const COUNT_MIN = 500;
+  const { salaryByMonth, countByMonth, projectedSalariesCurrentMonth, projectedCountCurrentMonth } = useMemo(() => {
     const out = new Map<string, number[]>();
+    const counts = new Map<string, number>();
     const projected: number[] = [];
+    let projectedCount = 0;
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     for (const [bookedBy, months] of perDispatcherByMonth) {
       const isUuid = uuidRe.test(bookedBy);
@@ -216,9 +225,12 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           else if (a.type === "penalty" && a.applied) adjTotal -= amt;
         }
         const salary = baseRate + bonus + adjTotal;
-        if (salary >= 500) {
+        if (salary > AVG_MIN) {
           if (!out.has(month)) out.set(month, []);
           out.get(month)!.push(salary);
+        }
+        if (salary >= COUNT_MIN) {
+          counts.set(month, (counts.get(month) || 0) + 1);
         }
 
         // Build a projected salary for the current month using historical pace.
@@ -228,16 +240,22 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           const projBase =
             projFreight * rate.g + Math.max(0, projFreight - projDriverPay) * rate.c;
           const projSalary = projBase + bonus + adjTotal;
-          if (projSalary >= 500) projected.push(projSalary);
+          if (projSalary > AVG_MIN) projected.push(projSalary);
+          if (projSalary >= COUNT_MIN) projectedCount += 1;
         }
       }
     }
-    return { salaryByMonth: out, projectedSalariesCurrentMonth: projected };
+    return {
+      salaryByMonth: out,
+      countByMonth: counts,
+      projectedSalariesCurrentMonth: projected,
+      projectedCountCurrentMonth: projectedCount,
+    };
   }, [perDispatcherByMonth, profileRates, bonuses, additionals, currentMonthKey, projectionRatio]);
 
   const allMonths = useMemo(
-    () => Array.from(salaryByMonth.keys()).sort(),
-    [salaryByMonth],
+    () => Array.from(new Set([...salaryByMonth.keys(), ...countByMonth.keys()])).sort(),
+    [salaryByMonth, countByMonth],
   );
 
   const now = new Date();
@@ -284,19 +302,22 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   }, [preset, selectedMonths, allMonths, currentYear, currentMonthIdx]);
 
   const chartData = useMemo(() => {
-    const buckets: Array<[string, { total: number; count: number }]> = [];
-    for (const [m, salaries] of salaryByMonth) {
+    const buckets: Array<[string, { total: number; avgCount: number; displayCount: number }]> = [];
+    for (const m of allMonths) {
       if (!activeMonths.has(m)) continue;
+      const salaries = salaryByMonth.get(m) || [];
       const total = salaries.reduce((s, v) => s + v, 0);
-      const count = salaries.length;
-      if (count > 0) buckets.push([m, { total, count }]);
+      const avgCount = salaries.length;
+      const displayCount = countByMonth.get(m) || avgCount;
+      if (avgCount > 0) buckets.push([m, { total, avgCount, displayCount }]);
     }
     const sorted = buckets.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
     const rows = sorted.map(([key, v]) => ({
       key,
       label: monthLabel(key),
-      avg: v.count > 0 ? Math.round(v.total / v.count) : 0,
-      count: v.count,
+      avg: v.avgCount > 0 ? Math.round(v.total / v.avgCount) : 0,
+      count: v.displayCount,
+      avgCount: v.avgCount,
       avgProj: null as number | null,
     }));
 
@@ -311,16 +332,18 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         projectedSalariesCurrentMonth.reduce((s, v) => s + v, 0) /
           projectedSalariesCurrentMonth.length,
       );
+      const projCount = projectedCountCurrentMonth || projectedSalariesCurrentMonth.length;
       const idx = rows.findIndex((r) => r.key === currentMonthKey);
       if (idx >= 0) {
-        rows[idx] = { ...rows[idx], avg: null as any, avgProj: projAvg };
+        rows[idx] = { ...rows[idx], avg: null as any, avgProj: projAvg, count: projCount };
         if (idx > 0) rows[idx - 1] = { ...rows[idx - 1], avgProj: rows[idx - 1].avg };
       } else {
         rows.push({
           key: currentMonthKey,
           label: monthLabel(currentMonthKey),
           avg: null as any,
-          count: projectedSalariesCurrentMonth.length,
+          count: projCount,
+          avgCount: projectedSalariesCurrentMonth.length,
           avgProj: projAvg,
         });
         if (rows.length > 1) {
@@ -330,23 +353,35 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       }
     }
     return rows;
-  }, [salaryByMonth, activeMonths, currentMonthKey, projectionRatio, projectedSalariesCurrentMonth]);
+  }, [allMonths, salaryByMonth, countByMonth, activeMonths, currentMonthKey, projectionRatio, projectedSalariesCurrentMonth, projectedCountCurrentMonth]);
 
   const aggregate = useMemo(() => {
     const totals = chartData.reduce(
       (acc, d) => {
-        acc.total += d.avg * d.count;
-        acc.count += d.count;
+        const a = d.avg == null ? d.avgProj : d.avg;
+        const c = d.avgCount ?? d.count;
+        if (a != null && c > 0) {
+          acc.total += a * c;
+          acc.count += c;
+        }
+        acc.displayCount += d.count;
         return acc;
       },
-      { total: 0, count: 0 },
+      { total: 0, count: 0, displayCount: 0 },
     );
     return {
       avg: totals.count > 0 ? Math.round(totals.total / totals.count) : 0,
-      count: totals.count,
+      count: totals.displayCount,
       months: chartData.length,
     };
   }, [chartData]);
+
+  const prevQuarter = (() => {
+    const q = Math.floor(currentMonthIdx / 3); // 0..3 current
+    const prev = q === 0 ? 3 : q - 1;
+    const year = q === 0 ? currentYear - 1 : currentYear;
+    return { q: prev + 1, year };
+  })();
 
   const periodLabel = (() => {
     switch (preset) {
@@ -367,7 +402,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       case "q4":
         return `Q4 ${currentYear}`;
       case "prev_q":
-        return "Previous quarter";
+        return `Q${prevQuarter.q} ${prevQuarter.year}`;
       case "custom":
         return selectedMonths.size === 0
           ? "No months selected"
@@ -375,17 +410,21 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     }
   })();
 
-  const presets: { key: PresetKey; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "ytd", label: "YTD" },
+  const periodOptions: { key: PresetKey; label: string }[] = [
+    { key: "all", label: "All time" },
+    { key: "ytd", label: `YTD ${currentYear}` },
     { key: "year", label: `${currentYear}` },
     { key: "prev_year", label: `${currentYear - 1}` },
-    { key: "q1", label: "Q1" },
-    { key: "q2", label: "Q2" },
-    { key: "q3", label: "Q3" },
-    { key: "q4", label: "Q4" },
-    { key: "prev_q", label: "Prev Q" },
   ];
+  const quarterOptions: { key: PresetKey; label: string }[] = [
+    { key: "q1", label: `Q1 ${currentYear}` },
+    { key: "q2", label: `Q2 ${currentYear}` },
+    { key: "q3", label: `Q3 ${currentYear}` },
+    { key: "q4", label: `Q4 ${currentYear}` },
+    { key: "prev_q", label: `Previous quarter (Q${prevQuarter.q} ${prevQuarter.year})` },
+  ];
+  const isPeriodPreset = periodOptions.some((p) => p.key === preset);
+  const isQuarterPreset = quarterOptions.some((p) => p.key === preset);
 
   return (
     <Card>
