@@ -743,34 +743,19 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   // Per-dispatcher averages across the currently-active months.
   // Columns: Dispatcher, RPM (freight / miles), Avg Salary.
   const dispatcherAverages = useMemo(() => {
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const rows: { key: string; name: string; rpm: number; avgSalary: number; months: number }[] = [];
-    for (const [bookedBy, months] of perDispatcherByMonth) {
+    for (const [bookedBy, info] of dispatcherSalaryCache) {
       if (selectedDispatchers.size > 0 && !selectedDispatchers.has(bookedBy)) continue;
-      const isUuid = uuidRe.test(bookedBy);
-      const rate =
-        (isUuid ? profileRates.byUserId[bookedBy] : profileRates.byName[bookedBy]) ||
-        (!isUuid && profileRates.nameToUserId[bookedBy]
-          ? profileRates.byUserId[profileRates.nameToUserId[bookedBy]]
-          : undefined) ||
-        { g: 0.01, c: 0.05 };
-      const userId = isUuid ? bookedBy : profileRates.nameToUserId[bookedBy] || null;
-      const name = isUuid
-        ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
-        : bookedBy;
-      const office =
-        (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
-        (profileRates as any).officeByName?.[name] ||
-        null;
       let freightSum = 0;
       let milesSum = 0;
       let salarySum = 0;
       let monthCount = 0;
-      for (const [month, agg] of months) {
+      for (const [month, salary] of info.salaryByMonth) {
         if (!activeMonths.has(month)) continue;
+        const agg = info.monthlyAggByMonth.get(month);
+        if (!agg) continue;
         freightSum += agg.freight;
         milesSum += agg.miles;
-        const salary = computeSalary(agg.freight, agg.driverPay, month, rate, userId, name, office);
         if (salary >= COUNT_MIN) {
           salarySum += salary;
           monthCount += 1;
@@ -779,7 +764,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       if (monthCount === 0) continue;
       rows.push({
         key: bookedBy,
-        name,
+        name: info.name,
         rpm: milesSum > 0 ? freightSum / milesSum : 0,
         avgSalary: salarySum / monthCount,
         months: monthCount,
@@ -787,7 +772,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     }
     rows.sort((a, b) => b.avgSalary - a.avgSalary);
     return rows;
-  }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, activeMonths, selectedDispatchers]);
+  }, [dispatcherSalaryCache, activeMonths, selectedDispatchers]);
 
   return (
     <Card>
