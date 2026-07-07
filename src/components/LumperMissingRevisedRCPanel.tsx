@@ -3,22 +3,39 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Loader2, CheckCircle2, FileText } from "lucide-react";
+import { Upload, Loader2, CheckCircle2, FileText, CheckCheck } from "lucide-react";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthContext } from "@/contexts/AuthContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 
 
 export function LumperMissingRevisedRCPanel() {
   const { toast } = useToast();
+  const { hasRole } = useAuthContext();
+  const canBypass = hasRole("admin") || hasRole("manager") || hasRole("accounting");
   const { 
     lumperRequests, 
     isLoading, 
     uploadRevisedRC, 
     isUploading,
+    bypassRevisedRC,
+    isBypassing,
   } = useLumperMissingRevisedRC();
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [bypassingId, setBypassingId] = useState<string | null>(null);
 
   const handleFileChange = async (orderId: string, file: File | undefined) => {
     if (!file) return;
@@ -39,6 +56,22 @@ export function LumperMissingRevisedRCPanel() {
       });
     } finally {
       setUploadingId(null);
+    }
+  };
+
+  const handleBypass = async (orderId: string) => {
+    setBypassingId(orderId);
+    try {
+      await bypassRevisedRC({ orderId });
+      toast({ title: "Marked as complete" });
+    } catch (error) {
+      toast({
+        title: "Failed",
+        description: error instanceof Error ? error.message : "Failed to mark as complete",
+        variant: "destructive",
+      });
+    } finally {
+      setBypassingId(null);
     }
   };
 
@@ -125,21 +158,55 @@ export function LumperMissingRevisedRCPanel() {
                     ref={(el) => (fileInputRefs.current[order.id] = el)}
                     onChange={(e) => handleFileChange(order.id, e.target.files?.[0])}
                   />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isUploading && uploadingId === order.id}
-                    onClick={() => fileInputRefs.current[order.id]?.click()}
-                  >
-                    {isUploading && uploadingId === order.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-1" />
-                        Upload
-                      </>
+                  <div className="flex items-center justify-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isUploading && uploadingId === order.id}
+                      onClick={() => fileInputRefs.current[order.id]?.click()}
+                    >
+                      {isUploading && uploadingId === order.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-1" />
+                          Upload
+                        </>
+                      )}
+                    </Button>
+                    {canBypass && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={isBypassing && bypassingId === order.id}
+                            title="Mark as uploaded"
+                          >
+                            {isBypassing && bypassingId === order.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCheck className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Mark as uploaded?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will hide the row without an actual file. Continue?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleBypass(order.id)}>
+                              Confirm
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
-                  </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
