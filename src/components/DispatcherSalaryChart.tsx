@@ -739,6 +739,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const rows: { key: string; name: string; rpm: number; avgSalary: number; months: number }[] = [];
     for (const [bookedBy, months] of perDispatcherByMonth) {
+      if (selectedDispatchers.size > 0 && !selectedDispatchers.has(bookedBy)) continue;
       const isUuid = uuidRe.test(bookedBy);
       const rate =
         (isUuid ? profileRates.byUserId[bookedBy] : profileRates.byName[bookedBy]) ||
@@ -779,7 +780,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     }
     rows.sort((a, b) => b.avgSalary - a.avgSalary);
     return rows;
-  }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, activeMonths]);
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, activeMonths, selectedDispatchers]);
 
   return (
     <Card>
