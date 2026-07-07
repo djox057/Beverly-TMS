@@ -963,7 +963,7 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
           perDispChartData.length === 0 ? (
             <p className="text-sm text-muted-foreground">No salary data for the selected dispatchers.</p>
           ) : (
-            <div className="h-72 pointer-events-none">
+            <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={perDispChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -973,6 +973,28 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
                     tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
                     width={70}
                   />
+                  <Tooltip
+                    isAnimationActive={false}
+                    contentStyle={{
+                      background: "hsl(var(--background))",
+                      border: "1px solid hsl(var(--border))",
+                      fontSize: 12,
+                    }}
+                    formatter={(v: any, name: string, item: any) => {
+                      if (v == null) return [null as any, null as any];
+                      const isProj = typeof name === "string" && name.startsWith("p_");
+                      const key = typeof name === "string" ? name.slice(2) : "";
+                      const info = selectedDispatcherList.find((d) => d.key === key);
+                      const label = info
+                        ? `${info.name}${isProj ? " (proj)" : ""}`
+                        : String(name);
+                      if (isProj) {
+                        const p: any = item?.payload;
+                        if (p && p[`d_${key}`] != null) return [null as any, null as any];
+                      }
+                      return [`$${Number(v).toLocaleString()}`, label];
+                    }}
+                  />
                   {selectedDispatcherList.map((d) => (
                     <Line
                       key={`solid-${d.key}`}
@@ -981,8 +1003,7 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
                       name={d.name}
                       stroke={d.color}
                       strokeWidth={2}
-                      dot={false}
-                      activeDot={false}
+                      dot={{ r: 3 }}
                       isAnimationActive={false}
                       connectNulls={false}
                     />
@@ -995,8 +1016,7 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
                       stroke={d.color}
                       strokeWidth={2}
                       strokeDasharray="5 5"
-                      dot={false}
-                      activeDot={false}
+                      dot={{ r: 3 }}
                       isAnimationActive={false}
                       connectNulls={false}
                       legendType="none"
@@ -1009,7 +1029,7 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
         ) : chartData.length === 0 ? (
           <p className="text-sm text-muted-foreground">No salary data for this period.</p>
         ) : (
-          <div className="h-72 pointer-events-none">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -1019,13 +1039,34 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
                   tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
                   width={70}
                 />
+                <Tooltip
+                  isAnimationActive={false}
+                  contentStyle={{
+                    background: "hsl(var(--background))",
+                    border: "1px solid hsl(var(--border))",
+                    fontSize: 12,
+                  }}
+                  formatter={(v: any, name: string, item: any) => {
+                    if (v == null) return [null as any, null as any];
+                    if (name === "avg") return [`$${Number(v).toLocaleString()}`, "Avg salary"];
+                    if (name === "avgProj") {
+                      const p: any = item?.payload;
+                      if (p && p.avg != null) return [null as any, null as any];
+                      return [`$${Number(v).toLocaleString()}`, "Avg salary (projected)"];
+                    }
+                    return [v, name];
+                  }}
+                  labelFormatter={(l, payload) => {
+                    const p: any = payload?.[0]?.payload;
+                    return p ? `${l} — ${p.count} dispatcher${p.count === 1 ? "" : "s"}` : l;
+                  }}
+                />
                 <Line
                   type="monotone"
                   dataKey="avg"
                   stroke="hsl(142 76% 36%)"
                   strokeWidth={2}
-                  dot={false}
-                  activeDot={false}
+                  dot={{ r: 3 }}
                   isAnimationActive={false}
                   connectNulls={false}
                 />
@@ -1035,8 +1076,7 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
                   stroke="hsl(142 76% 36%)"
                   strokeWidth={2}
                   strokeDasharray="5 5"
-                  dot={false}
-                  activeDot={false}
+                  dot={{ r: 3 }}
                   isAnimationActive={false}
                   connectNulls={false}
                 />
