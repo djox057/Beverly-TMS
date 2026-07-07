@@ -1,28 +1,14 @@
-## Goal
-Stop the Google Sheets backup from running every 30 minutes — it's the likely cause of the recurring CPU spikes (correlated with the 91% spike at 07:15 CDT, which lined up exactly with the :15 cron tick).
-
 ## Change
-Unschedule pg_cron job **`sync-google-sheets-every-30min`** (jobid 24, schedule `15,45 * * * *`).
 
-Run via the Supabase insert tool (matches Lovable's rule that cron changes with project-specific URLs/keys don't go through migrations):
+In `src/components/DispatcherSalaryChart.tsx`, change the dispatcher count shown on the **projected current-month** tooltip point so it counts every dispatcher who has at least one order booked in the current month, regardless of projected salary size.
 
-```sql
-select cron.unschedule('sync-google-sheets-every-30min');
-```
+## Details
 
-## What is NOT changed
-- The `sync-google-sheets` edge function itself is left in place, so it can be triggered manually or re-scheduled later if needed.
-- All other cron jobs (`hos-sync`, `update-truck-distances`, afterhours flips, POD reminders, etc.) are untouched.
-- No code, RLS, or table changes.
+- Today the projected point uses `projectedCountCurrentMonth` = number of dispatchers whose *projected* salary ≥ $500 (display threshold).
+- New behavior: count = number of distinct `booked_by` dispatchers who appear in `perDispatcherByMonth[currentMonthKey]` with any freight activity this month (i.e. any non-canceled July order, matching the existing aggregation rules).
+- Only the **count** on the projected point changes. The projected average salary still uses the existing >$700 hidden threshold, and historical months are untouched.
+- Tooltip label stays "Jul 2026 — N dispatchers".
 
-## Verification
-After running:
+## Files
 
-```sql
-select jobid, jobname, schedule from cron.job where jobname = 'sync-google-sheets-every-30min';
-```
-
-Should return zero rows. The 07:15 and 07:45-style CPU spikes should stop within the next hour.
-
-## Follow-up (optional, not part of this plan)
-If the Google Sheets backup is still needed at all, we can later re-schedule it to a low-traffic hour (e.g. `0 4 * * *` = once daily at 04:00 UTC / 23:00 CDT) instead of every 30 min.
+- `src/components/DispatcherSalaryChart.tsx` — replace the projected count derivation with `Object.keys(perDispatcherByMonth[currentMonthKey] ?? {}).length`.
