@@ -285,10 +285,15 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const [dispatcherQuery, setDispatcherQuery] = useState("");
 
   // Per-dispatcher salary series (used when 1+ dispatchers are selected).
+  const perDispMode = selectedDispatchers.size > 0;
+
   const perDispatcherSalary = useMemo(() => {
+    if (!perDispMode) return new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const out = new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
     for (const [bookedBy, months] of perDispatcherByMonth) {
+      // Only compute for currently-selected dispatchers.
+      if (!selectedDispatchers.has(bookedBy)) continue;
       const isUuid = uuidRe.test(bookedBy);
       const rate =
         (isUuid ? profileRates.byUserId[bookedBy] : profileRates.byName[bookedBy]) ||
@@ -325,16 +330,21 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       out.set(bookedBy, { name, salaryByMonth: sMap, projByMonth: pMap });
     }
     return out;
-  }, [perDispatcherByMonth, profileRates, bonuses, additionals, currentMonthKey, projectionRatio]);
+  }, [perDispMode, selectedDispatchers, perDispatcherByMonth, profileRates, bonuses, additionals, currentMonthKey, projectionRatio]);
 
   const dispatcherOptions = useMemo(() => {
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const arr: { key: string; name: string }[] = [];
-    for (const [key, info] of perDispatcherSalary) {
-      arr.push({ key, name: info.name });
+    for (const key of perDispatcherByMonth.keys()) {
+      const isUuid = uuidRe.test(key);
+      const name = isUuid
+        ? (profileRates as any).userIdToName?.[key] || key
+        : key;
+      arr.push({ key, name });
     }
     arr.sort((a, b) => a.name.localeCompare(b.name));
     return arr;
-  }, [perDispatcherSalary]);
+  }, [perDispatcherByMonth, profileRates]);
 
   const filteredDispatcherOptions = useMemo(() => {
     const q = dispatcherQuery.trim().toLowerCase();
@@ -552,8 +562,6 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   ];
   const isPeriodPreset = periodOptions.some((p) => p.key === preset);
   const isQuarterPreset = quarterOptions.some((p) => p.key === preset);
-
-  const perDispMode = selectedDispatchers.size > 0;
 
   return (
     <Card>
