@@ -115,7 +115,7 @@ const LINE_PALETTE = [
   "hsl(250 70% 60%)",
 ];
 
-export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProps) {
+function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps) {
   // Per-dispatcher monthly freight & driver pay, computed from already-loaded
   // orders on the Analytics page (no refetch).
   const orderRows = orders;
