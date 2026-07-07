@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function monthLabel(m: string) {
   const [y, mm] = m.split("-");
@@ -493,6 +494,9 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
   // Defer heavy recomputes triggered by dispatcher selection so quick
   // clicks/hover don't block the main thread.
   const deferredSelectedDispatchers = useDeferredValue(selectedDispatchers);
+
+  // True while React is still recomputing after a dispatcher toggle.
+  const isPending = deferredSelectedDispatchers !== selectedDispatchers;
 
   // Per-dispatcher salary series (used when 1+ dispatchers are selected).
   const perDispMode = deferredSelectedDispatchers.size > 0;
