@@ -879,7 +879,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                     variant="ghost"
                     size="sm"
                     className="h-6 px-2 text-xs"
-                    onClick={() => setSelectedDispatchers(new Set())}
+                    onClick={() => startDispatcherTransition(() => setSelectedDispatchers(new Set()))}
                   >
                     Clear
                   </Button>
@@ -907,11 +907,13 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(v) => {
-                            setSelectedDispatchers((prev) => {
-                              const next = new Set(prev);
-                              if (v) next.add(d.key);
-                              else next.delete(d.key);
-                              return next;
+                            startDispatcherTransition(() => {
+                              setSelectedDispatchers((prev) => {
+                                const next = new Set(prev);
+                                if (v) next.add(d.key);
+                                else next.delete(d.key);
+                                return next;
+                              });
                             });
                           }}
                         />
@@ -963,14 +965,14 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                     formatter={(v: any, name: string, item: any) => {
                       if (v == null) return [null as any, null as any];
                       const isProj = typeof name === "string" && name.startsWith("p_");
-                      const key = typeof name === "string" ? name.slice(2) : "";
-                      const info = selectedDispatcherList.find((d) => d.key === key);
+                      const series = typeof name === "string" ? name.slice(2) : "";
+                      const info = selectedDispatcherList.find((d) => d.series === series);
                       const label = info
                         ? `${info.name}${isProj ? " (proj)" : ""}`
                         : String(name);
                       if (isProj) {
                         const p: any = item?.payload;
-                        if (p && p[`d_${key}`] != null) return [null as any, null as any];
+                        if (p && p[`d_${series}`] != null) return [null as any, null as any];
                       }
                       return [`$${Number(v).toLocaleString()}`, label];
                     }}
@@ -979,7 +981,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                     <Line
                       key={`solid-${d.key}`}
                       type="monotone"
-                      dataKey={`d_${d.key}`}
+                      dataKey={`d_${d.series}`}
                       name={d.name}
                       stroke={d.color}
                       strokeWidth={2}
@@ -992,7 +994,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                     <Line
                       key={`proj-${d.key}`}
                       type="monotone"
-                      dataKey={`p_${d.key}`}
+                      dataKey={`p_${d.series}`}
                       stroke={d.color}
                       strokeWidth={2}
                       strokeDasharray="5 5"
