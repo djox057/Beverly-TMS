@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAnalyticsAggregatesDailyRows } from "@/hooks/useAnalyticsAggregates";
 
 function monthLabel(m: string) {
   const [y, mm] = m.split("-");
@@ -36,42 +37,126 @@ type PresetKey =
   | "custom";
 
 export function DispatcherSalaryChart() {
-  const { data: rows = [] } = useQuery({
-    queryKey: ["dispatcher-salary-chart"],
+  // Per-dispatcher monthly freight & commission base, from analytics_locked_daily
+  const { data: dailyRows = [] } = useAnalyticsAggregatesDailyRows("dispatcher", "delivery");
+
+  // Dispatcher pay rates (gross_percent, cut_percent) — keyed by both full_name and user_id
+  const { data: profileRates = { byName: {}, byUserId: {}, nameToUserId: {} } } = useQuery({
+    queryKey: ["dispatcher-salary-chart", "profiles"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("dispatcher_salary_payments" as any)
-        .select("month, user_id, calculated_salary");
+        .from("profiles")
+        .select("full_name, user_id, gross_percent, cut_percent");
       if (error) throw error;
-      return (data as any[]) || [];
+      const byName: Record<string, { g: number; c: number }> = {};
+      const byUserId: Record<string, { g: number; c: number }> = {};
+      const nameToUserId: Record<string, string> = {};
+      for (const p of (data as any[]) || []) {
+        const g = p.gross_percent != null ? Number(p.gross_percent) / 100 : 0.01;
+        const c = p.cut_percent != null ? Number(p.cut_percent) / 100 : 0.05;
+        if (p.full_name) {
+          byName[p.full_name] = { g, c };
+          if (p.user_id) nameToUserId[p.full_name] = p.user_id;
+        }
+        if (p.user_id) byUserId[p.user_id] = { g, c };
+      }
+      return { byName, byUserId, nameToUserId };
+    },
+    staleTime: 15 * 60 * 1000,
+  });
+
+  // Monthly bonuses per dispatcher user_id
+  const { data: bonuses = {} } = useQuery({
+    queryKey: ["dispatcher-salary-chart", "bonuses"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dispatcher_monthly_bonuses")
+        .select("user_id, month, amount");
+      if (error) throw error;
+      const map: Record<string, number> = {}; // key: user_id|month
+      for (const b of (data as any[]) || []) {
+        if (!b.user_id || !b.month) continue;
+        map[`${b.user_id}|${b.month}`] = (map[`${b.user_id}|${b.month}`] || 0) + (Number(b.amount) || 0);
+      }
+      return map;
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  // Aggregate to one salary per dispatcher per month (calculated_salary is
-  // duplicated across payment rows; take MAX). Filter dispatchers with < $500
-  // for the month to exclude noise/placeholder rows.
+  // Additionals (charges, additions, applied penalties) per dispatcher month
+  const { data: additionals = {} } = useQuery({
+    queryKey: ["dispatcher-salary-chart", "additionals"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dispatcher_salary_payments" as any)
+        .select("user_id, month, additionals");
+      if (error) throw error;
+      const map: Record<string, any[]> = {}; // key: user_id|month -> additionals[]
+      for (const r of (data as any[]) || []) {
+        if (!r.user_id || !r.month) continue;
+        const key = `${r.user_id}|${r.month}`;
+        const arr = Array.isArray(r.additionals) ? r.additionals : [];
+        map[key] = (map[key] || []).concat(arr);
+      }
+      return map;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Build: name -> month -> { freight, driverPay }
   const perDispatcherByMonth = useMemo(() => {
-    const map = new Map<string, Map<string, number>>(); // month -> user_id -> salary
-    for (const r of rows) {
-      const m = (r as any).month as string | null;
-      const uid = (r as any).user_id as string | null;
-      const cs = Number((r as any).calculated_salary) || 0;
-      if (!m || !uid) continue;
-      let inner = map.get(m);
+    const map = new Map<string, Map<string, { freight: number; driverPay: number }>>();
+    for (const r of dailyRows) {
+      const name = r.entity_name || r.entity_id;
+      if (!name || !r.date) continue;
+      const month = r.date.slice(0, 7); // YYYY-MM
+      let inner = map.get(name);
       if (!inner) {
         inner = new Map();
-        map.set(m, inner);
+        map.set(name, inner);
       }
-      const prev = inner.get(uid) ?? 0;
-      if (cs > prev) inner.set(uid, cs);
+      const prev = inner.get(month) || { freight: 0, driverPay: 0 };
+      prev.freight += Number(r.total_freight) || 0;
+      prev.driverPay += Number(r.total_driver_pay_effective) || 0;
+      inner.set(month, prev);
     }
     return map;
-  }, [rows]);
+  }, [dailyRows]);
+
+  // Compute salary per dispatcher per month using rates + bonuses + additionals
+  const salaryByMonth = useMemo(() => {
+    // month -> array of salaries (one per dispatcher, filtered >= $500)
+    const out = new Map<string, number[]>();
+    for (const [name, months] of perDispatcherByMonth) {
+      const rate =
+        profileRates.byName[name] ||
+        (profileRates.nameToUserId[name] && profileRates.byUserId[profileRates.nameToUserId[name]]) ||
+        { g: 0.01, c: 0.05 };
+      const userId = profileRates.nameToUserId[name] || null;
+      for (const [month, agg] of months) {
+        const baseRate = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
+        const bonus = userId ? (bonuses[`${userId}|${month}`] || 0) : 0;
+        const adds = userId ? (additionals[`${userId}|${month}`] || []) : [];
+        let adjTotal = 0;
+        for (const a of adds) {
+          if (!a) continue;
+          const amt = a.percent != null ? (baseRate * Number(a.percent)) / 100 : Number(a.amount) || 0;
+          if (a.type === "addition") adjTotal += amt;
+          else if (a.type === "charge") adjTotal -= amt;
+          else if (a.type === "penalty" && a.applied) adjTotal -= amt;
+        }
+        const salary = baseRate + bonus + adjTotal;
+        if (salary < 500) continue;
+        if (!out.has(month)) out.set(month, []);
+        out.get(month)!.push(salary);
+      }
+    }
+    return out;
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals]);
 
   const allMonths = useMemo(
-    () => Array.from(perDispatcherByMonth.keys()).sort(),
-    [perDispatcherByMonth],
+    () => Array.from(salaryByMonth.keys()).sort(),
+    [salaryByMonth],
   );
 
   const now = new Date();
@@ -119,15 +204,10 @@ export function DispatcherSalaryChart() {
 
   const chartData = useMemo(() => {
     const buckets: Array<[string, { total: number; count: number }]> = [];
-    for (const [m, inner] of perDispatcherByMonth) {
+    for (const [m, salaries] of salaryByMonth) {
       if (!activeMonths.has(m)) continue;
-      let total = 0;
-      let count = 0;
-      for (const salary of inner.values()) {
-        if (salary < 500) continue;
-        total += salary;
-        count += 1;
-      }
+      const total = salaries.reduce((s, v) => s + v, 0);
+      const count = salaries.length;
       if (count > 0) buckets.push([m, { total, count }]);
     }
     return buckets
@@ -138,7 +218,7 @@ export function DispatcherSalaryChart() {
         avg: Math.round(v.total / v.count),
         count: v.count,
       }));
-  }, [perDispatcherByMonth, activeMonths]);
+  }, [salaryByMonth, activeMonths]);
 
   const aggregate = useMemo(() => {
     const totals = chartData.reduce(
@@ -281,7 +361,7 @@ export function DispatcherSalaryChart() {
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
-              {aggregate.count} payment{aggregate.count === 1 ? "" : "s"} across {aggregate.months} month
+      {aggregate.count} dispatcher-month{aggregate.count === 1 ? "" : "s"} across {aggregate.months} month
               {aggregate.months === 1 ? "" : "s"}
             </p>
           </div>
