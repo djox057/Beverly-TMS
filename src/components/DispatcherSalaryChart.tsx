@@ -328,6 +328,49 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
 
   const currentMonthKey = todayChicago ? `${todayChicago.y}-${todayChicago.m}` : null;
 
+  // Shared salary formula that mirrors the Dispatcher Salaries table:
+  //   base = freight*g + max(0, freight - driverPay)*c
+  //   perDay = base / workDaysInMonth
+  //   salary = base + food + extraDays*perDay - lostDays*perDay + monthlyBonus + adjustments
+  const computeSalary = (
+    freight: number,
+    driverPay: number,
+    month: string,
+    rate: { g: number; c: number },
+    userId: string | null,
+    displayName: string | null,
+    office: string | null,
+  ): number => {
+    const base = freight * rate.g + Math.max(0, freight - driverPay) * rate.c;
+    const [yStr, mStr] = month.split("-");
+    const y = Number(yStr);
+    const mIdx = Number(mStr) - 1;
+    const workDays = Number.isFinite(y) && Number.isFinite(mIdx) ? getWorkDaysInMonth(y, mIdx) : 22;
+    const perDay = workDays > 0 ? base / workDays : 0;
+    const bonus = userId ? bonuses[`${userId}|${month}`] || 0 : 0;
+    const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
+    let adj = 0;
+    for (const a of adds) {
+      if (!a) continue;
+      const amt = a.percent != null ? (base * Number(a.percent)) / 100 : Number(a.amount) || 0;
+      if (a.type === "addition") adj += amt;
+      else if (a.type === "charge") adj -= amt;
+      else if (a.type === "penalty" && a.applied) adj -= amt;
+    }
+    const food = hasFoodOffice(office) ? 70 : 0;
+    const extraKey = userId ? `${userId}|${month}` : null;
+    const nameKey = displayName ? `${displayName}|${month}` : null;
+    const extraCount =
+      (extraKey ? extraDaysByUserMonth[extraKey] || 0 : 0) ||
+      (nameKey ? extraDaysByUserMonth[nameKey] || 0 : 0);
+    const lostCount =
+      (extraKey ? lostDaysByUserMonth[extraKey] || 0 : 0) ||
+      (nameKey ? lostDaysByUserMonth[nameKey] || 0 : 0);
+    const extraPay = extraCount * perDay;
+    const lostDed = lostCount * perDay;
+    return base + food + extraPay - lostDed + bonus + adj;
+  };
+
   // Global projection ratio: how much a full month scales up from the
   // portion accumulated through today's day-of-month, based on historical
   // (completed) months in the dataset.
@@ -370,19 +413,15 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           : undefined) ||
         { g: 0.01, c: 0.05 };
       const userId = isUuid ? bookedBy : profileRates.nameToUserId[bookedBy] || null;
+      const displayName = isUuid
+        ? (profileRates as any).userIdToName?.[bookedBy] || null
+        : bookedBy;
+      const office =
+        (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
+        (displayName ? (profileRates as any).officeByName?.[displayName] : null) ||
+        null;
       for (const [month, agg] of months) {
-        const baseRate = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
-        const bonus = userId ? (bonuses[`${userId}|${month}`] || 0) : 0;
-        const adds = userId ? (additionals[`${userId}|${month}`] || []) : [];
-        let adjTotal = 0;
-        for (const a of adds) {
-          if (!a) continue;
-          const amt = a.percent != null ? (baseRate * Number(a.percent)) / 100 : Number(a.amount) || 0;
-          if (a.type === "addition") adjTotal += amt;
-          else if (a.type === "charge") adjTotal -= amt;
-          else if (a.type === "penalty" && a.applied) adjTotal -= amt;
-        }
-        const salary = baseRate + bonus + adjTotal;
+        const salary = computeSalary(agg.freight, agg.driverPay, month, rate, userId, displayName, office);
         if (salary > AVG_MIN) {
           if (!out.has(month)) out.set(month, []);
           out.get(month)!.push(salary);
@@ -395,9 +434,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         if (month === currentMonthKey && projectionRatio) {
           const projFreight = agg.freight * projectionRatio;
           const projDriverPay = agg.driverPay * projectionRatio;
-          const projBase =
-            projFreight * rate.g + Math.max(0, projFreight - projDriverPay) * rate.c;
-          const projSalary = projBase + bonus + adjTotal;
+          const projSalary = computeSalary(projFreight, projDriverPay, month, rate, userId, displayName, office);
           if (projSalary > AVG_MIN) projected.push(projSalary);
           if (projSalary >= COUNT_MIN) projectedCount += 1;
         }
@@ -409,7 +446,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       projectedSalariesCurrentMonth: projected,
       projectedCountCurrentMonth: projectedCount,
     };
-  }, [perDispatcherByMonth, profileRates, bonuses, additionals, currentMonthKey, projectionRatio]);
+  }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, currentMonthKey, projectionRatio]);
 
   const allMonths = useMemo(
     () => Array.from(new Set([...salaryByMonth.keys(), ...countByMonth.keys()])).sort(),
@@ -446,32 +483,24 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       const name = isUuid
         ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
         : bookedBy;
+      const office =
+        (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
+        (profileRates as any).officeByName?.[name] ||
+        null;
       const sMap = new Map<string, number>();
       const pMap = new Map<string, number>();
       for (const [month, agg] of months) {
-        const base = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
-        const bonus = userId ? bonuses[`${userId}|${month}`] || 0 : 0;
-        const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
-        let adj = 0;
-        for (const a of adds) {
-          if (!a) continue;
-          const amt = a.percent != null ? (base * Number(a.percent)) / 100 : Number(a.amount) || 0;
-          if (a.type === "addition") adj += amt;
-          else if (a.type === "charge") adj -= amt;
-          else if (a.type === "penalty" && a.applied) adj -= amt;
-        }
-        sMap.set(month, base + bonus + adj);
+        sMap.set(month, computeSalary(agg.freight, agg.driverPay, month, rate, userId, name, office));
         if (month === currentMonthKey && projectionRatio) {
           const pf = agg.freight * projectionRatio;
           const pd = agg.driverPay * projectionRatio;
-          const pb = pf * rate.g + Math.max(0, pf - pd) * rate.c;
-          pMap.set(month, pb + bonus + adj);
+          pMap.set(month, computeSalary(pf, pd, month, rate, userId, name, office));
         }
       }
       out.set(bookedBy, { name, salaryByMonth: sMap, projByMonth: pMap });
     }
     return out;
-  }, [perDispMode, selectedDispatchers, perDispatcherByMonth, profileRates, bonuses, additionals, currentMonthKey, projectionRatio]);
+  }, [perDispMode, selectedDispatchers, perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, currentMonthKey, projectionRatio]);
 
   const dispatcherOptions = useMemo(() => {
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
