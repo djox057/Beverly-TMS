@@ -125,6 +125,25 @@ export function useEfsMissingReceipts() {
     },
   });
 
+  const bypassMutation = useMutation({
+    mutationFn: async ({ requestId }: { requestId: string }) => {
+      const { data: authData } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("efs_other_requests")
+        .update({
+          receipt_bypassed: true,
+          receipt_bypassed_by: authData.user?.id ?? null,
+          receipt_bypassed_at: new Date().toISOString(),
+        })
+        .eq("id", requestId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["efs-fuel-missing-data"] });
+      queryClient.invalidateQueries({ queryKey: ["efs-missing-by-driver"] });
+    },
+  });
+
   return {
     fuelRequests,
     isLoading,
