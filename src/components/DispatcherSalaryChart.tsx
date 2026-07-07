@@ -398,11 +398,26 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   // salary (>= $500), so the excluded band isn't visible in the UI.
   const AVG_MIN = 700;
   const COUNT_MIN = 500;
-  const { salaryByMonth, countByMonth, projectedSalariesCurrentMonth, projectedCountCurrentMonth } = useMemo(() => {
+  const {
+    salaryByMonth,
+    countByMonth,
+    projectedSalariesCurrentMonth,
+    projectedCountCurrentMonth,
+    dispatcherSalaryCache,
+  } = useMemo(() => {
     const out = new Map<string, number[]>();
     const counts = new Map<string, number>();
     const projected: number[] = [];
     let projectedCount = 0;
+    const cache = new Map<
+      string,
+      {
+        name: string;
+        salaryByMonth: Map<string, number>;
+        projByMonth: Map<string, number>;
+        monthlyAggByMonth: Map<string, { freight: number; miles: number }>;
+      }
+    >();
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     for (const [bookedBy, months] of perDispatcherByMonth) {
       const isUuid = uuidRe.test(bookedBy);
@@ -420,8 +435,13 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
         (displayName ? (profileRates as any).officeByName?.[displayName] : null) ||
         null;
+      const sMap = new Map<string, number>();
+      const pMap = new Map<string, number>();
+      const monthlyAggByMonth = new Map<string, { freight: number; miles: number }>();
       for (const [month, agg] of months) {
         const salary = computeSalary(agg.freight, agg.driverPay, month, rate, userId, displayName, office);
+        sMap.set(month, salary);
+        monthlyAggByMonth.set(month, { freight: agg.freight, miles: agg.miles });
         if (salary > AVG_MIN) {
           if (!out.has(month)) out.set(month, []);
           out.get(month)!.push(salary);
@@ -435,16 +455,24 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           const projFreight = agg.freight * projectionRatio;
           const projDriverPay = agg.driverPay * projectionRatio;
           const projSalary = computeSalary(projFreight, projDriverPay, month, rate, userId, displayName, office);
+          pMap.set(month, projSalary);
           if (projSalary > AVG_MIN) projected.push(projSalary);
           if (projSalary >= COUNT_MIN) projectedCount += 1;
         }
       }
+      cache.set(bookedBy, {
+        name: displayName || bookedBy,
+        salaryByMonth: sMap,
+        projByMonth: pMap,
+        monthlyAggByMonth,
+      });
     }
     return {
       salaryByMonth: out,
       countByMonth: counts,
       projectedSalariesCurrentMonth: projected,
       projectedCountCurrentMonth: projectedCount,
+      dispatcherSalaryCache: cache,
     };
   }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, currentMonthKey, projectionRatio]);
 
