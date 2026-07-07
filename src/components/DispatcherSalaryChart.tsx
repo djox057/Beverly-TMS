@@ -1075,3 +1075,5 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
     </Card>
   );
 }
+
+export const DispatcherSalaryChart = memo(DispatcherSalaryChartInner);
