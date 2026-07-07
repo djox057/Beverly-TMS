@@ -554,11 +554,28 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const isPeriodPreset = periodOptions.some((p) => p.key === preset);
   const isQuarterPreset = quarterOptions.some((p) => p.key === preset);
 
+  const perDispMode = selectedDispatchers.size > 0;
+
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-3">
-          <CardTitle>Avg Dispatcher Salary</CardTitle>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="flex items-center gap-2 text-left group"
+          >
+            {expanded ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            )}
+            <CardTitle className="group-hover:underline">Avg Dispatcher Salary</CardTitle>
+            {!expanded && (
+              <span className="text-xs text-muted-foreground ml-1">(click to open)</span>
+            )}
+          </button>
+          {expanded && (
           <div className="flex flex-wrap items-center gap-2">
             <Select
               value={isPeriodPreset ? preset : ""}
@@ -650,7 +667,76 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
                 </div>
               </PopoverContent>
             </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={perDispMode ? "default" : "outline"}
+                >
+                  Dispatchers
+                  {perDispMode && (
+                    <span className="ml-1">({selectedDispatchers.size})</span>
+                  )}
+                  <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-2" align="start">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Select dispatchers
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => setSelectedDispatchers(new Set())}
+                  >
+                    Clear
+                  </Button>
+                </div>
+                <input
+                  type="text"
+                  value={dispatcherQuery}
+                  onChange={(e) => setDispatcherQuery(e.target.value)}
+                  placeholder="Search…"
+                  className="w-full h-8 px-2 mb-2 text-sm border rounded bg-background"
+                />
+                <div className="max-h-64 overflow-y-auto space-y-1">
+                  {filteredDispatcherOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground px-2 py-1">
+                      No dispatchers.
+                    </p>
+                  )}
+                  {filteredDispatcherOptions.map((d) => {
+                    const checked = selectedDispatchers.has(d.key);
+                    return (
+                      <label
+                        key={d.key}
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer text-sm"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => {
+                            setSelectedDispatchers((prev) => {
+                              const next = new Set(prev);
+                              if (v) next.add(d.key);
+                              else next.delete(d.key);
+                              return next;
+                            });
+                          }}
+                        />
+                        <span className="truncate">{d.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
+          )}
+          {expanded && !perDispMode && (
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1">
             <div>
               <p className="text-xs text-muted-foreground">Avg Disp. Salary — {periodLabel}</p>
@@ -663,10 +749,78 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
               {aggregate.months === 1 ? "" : "s"}
             </p>
           </div>
+          )}
         </div>
       </CardHeader>
+      {expanded && (
       <CardContent>
-        {chartData.length === 0 ? (
+        {perDispMode ? (
+          perDispChartData.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No salary data for the selected dispatchers.</p>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={perDispChartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
+                    width={70}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--background))",
+                      border: "1px solid hsl(var(--border))",
+                      fontSize: 12,
+                    }}
+                    formatter={(v: any, name: string, item: any) => {
+                      if (v == null) return [null as any, null as any];
+                      const isProj = typeof name === "string" && name.startsWith("p_");
+                      const key = typeof name === "string" ? name.slice(2) : "";
+                      const info = selectedDispatcherList.find((d) => d.key === key);
+                      const label = info
+                        ? `${info.name}${isProj ? " (proj)" : ""}`
+                        : String(name);
+                      if (isProj) {
+                        const p: any = item?.payload;
+                        if (p && p[`d_${key}`] != null) return [null as any, null as any];
+                      }
+                      return [`$${Number(v).toLocaleString()}`, label];
+                    }}
+                  />
+                  {selectedDispatcherList.map((d) => (
+                    <Line
+                      key={`solid-${d.key}`}
+                      type="monotone"
+                      dataKey={`d_${d.key}`}
+                      name={d.name}
+                      stroke={d.color}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      isAnimationActive={false}
+                      connectNulls={false}
+                    />
+                  ))}
+                  {selectedDispatcherList.map((d) => (
+                    <Line
+                      key={`proj-${d.key}`}
+                      type="monotone"
+                      dataKey={`p_${d.key}`}
+                      stroke={d.color}
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={{ r: 3 }}
+                      isAnimationActive={false}
+                      connectNulls={false}
+                      legendType="none"
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )
+        ) : chartData.length === 0 ? (
           <p className="text-sm text-muted-foreground">No salary data for this period.</p>
         ) : (
           <div className="h-72">
@@ -727,6 +881,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           </div>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }
