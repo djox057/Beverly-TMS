@@ -4257,7 +4257,7 @@ const Analytics = () => {
             <TabsContent value="salaries" className="space-y-6">
               {isAdmin && hasOpenedCharts && (
                 <div className={showCharts ? undefined : "hidden"}>
-                  <DispatcherSalaryChart orders={orders || []} />
+                  <DispatcherSalaryChart orders={orders || []} companyDriverIds={companyDriverIds} />
                 </div>
               )}
               <Card>
