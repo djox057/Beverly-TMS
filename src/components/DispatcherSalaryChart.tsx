@@ -432,17 +432,36 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         <div className="flex flex-col gap-3">
           <CardTitle>Avg Dispatcher Salary</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            {presets.map((p) => (
-              <Button
-                key={p.key}
-                type="button"
-                size="sm"
-                variant={preset === p.key ? "default" : "outline"}
-                onClick={() => setPreset(p.key)}
-              >
-                {p.label}
-              </Button>
-            ))}
+            <Select
+              value={isPeriodPreset ? preset : ""}
+              onValueChange={(v) => setPreset(v as PresetKey)}
+            >
+              <SelectTrigger className="h-9 w-[160px]">
+                <SelectValue placeholder="Period" />
+              </SelectTrigger>
+              <SelectContent>
+                {periodOptions.map((p) => (
+                  <SelectItem key={p.key} value={p.key}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={isQuarterPreset ? preset : ""}
+              onValueChange={(v) => setPreset(v as PresetKey)}
+            >
+              <SelectTrigger className="h-9 w-[220px]">
+                <SelectValue placeholder="Quarter" />
+              </SelectTrigger>
+              <SelectContent>
+                {quarterOptions.map((p) => (
+                  <SelectItem key={p.key} value={p.key}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
