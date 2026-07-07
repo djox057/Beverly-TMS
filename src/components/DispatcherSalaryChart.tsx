@@ -159,6 +159,20 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
   // orders on the Analytics page (no refetch).
   const orderRows = orders;
 
+  // Which salary components are included. Default = all on. Toggling off
+  // strips that component from the salary formula so users can see the
+  // "base" earnings without bonuses, charges, etc.
+  const [include, setInclude] = useState({
+    bonuses: true,
+    charges: true,
+    penalties: true,
+    additions: true,
+    extraDays: true,
+    lostDays: true,
+    food: true,
+  });
+  const [selectedOffices, setSelectedOffices] = useState<Set<string>>(new Set());
+
   // Dispatcher pay rates (gross_percent, cut_percent) — keyed by both full_name and user_id
   const { data: profileRates = { byName: {}, byUserId: {}, nameToUserId: {}, userIdToName: {} } } = useQuery({
     queryKey: ["dispatcher-salary-chart", "profiles"],
@@ -386,17 +400,17 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
     const mIdx = Number(mStr) - 1;
     const workDays = Number.isFinite(y) && Number.isFinite(mIdx) ? getWorkDaysInMonth(y, mIdx) : 22;
     const perDay = workDays > 0 ? base / workDays : 0;
-    const bonus = userId ? bonuses[`${userId}|${month}`] || 0 : 0;
+    const bonus = include.bonuses && userId ? bonuses[`${userId}|${month}`] || 0 : 0;
     const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
     let adj = 0;
     for (const a of adds) {
       if (!a) continue;
       const amt = a.percent != null ? (base * Number(a.percent)) / 100 : Number(a.amount) || 0;
-      if (a.type === "addition") adj += amt;
-      else if (a.type === "charge") adj -= amt;
-      else if (a.type === "penalty" && a.applied) adj -= amt;
+      if (a.type === "addition" && include.additions) adj += amt;
+      else if (a.type === "charge" && include.charges) adj -= amt;
+      else if (a.type === "penalty" && a.applied && include.penalties) adj -= amt;
     }
-    const food = hasFoodOffice(office) ? 70 : 0;
+    const food = include.food && hasFoodOffice(office) ? 70 : 0;
     const extraKey = userId ? `${userId}|${month}` : null;
     const nameKey = displayName ? `${displayName}|${month}` : null;
     const extraCount =
@@ -405,8 +419,8 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
     const lostCount =
       (extraKey ? lostDaysByUserMonth[extraKey] || 0 : 0) ||
       (nameKey ? lostDaysByUserMonth[nameKey] || 0 : 0);
-    const extraPay = extraCount * perDay;
-    const lostDed = lostCount * perDay;
+    const extraPay = include.extraDays ? extraCount * perDay : 0;
+    const lostDed = include.lostDays ? lostCount * perDay : 0;
     return base + food + extraPay - lostDed + bonus + adj;
   };
 
@@ -474,6 +488,10 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
         (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
         (displayName ? (profileRates as any).officeByName?.[displayName] : null) ||
         null;
+      if (selectedOffices.size > 0) {
+        const key = (office || "__none__").toUpperCase();
+        if (!selectedOffices.has(key)) continue;
+      }
       const sMap = new Map<string, number>();
       const pMap = new Map<string, number>();
       const monthlyAggByMonth = new Map<string, { freight: number; miles: number }>();
@@ -514,6 +532,19 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
       dispatcherSalaryCache: cache,
     };
   }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, currentMonthKey, projectionRatio]);
+  // Note: `include` and `selectedOffices` are used inside computeSalary via closure;
+  // list them in deps to force recompute when they change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  void [include, selectedOffices];
+
+  const officeOptions = useMemo(() => {
+    const set = new Set<string>();
+    const oByUid = (profileRates as any).officeByUserId || {};
+    const oByName = (profileRates as any).officeByName || {};
+    for (const v of Object.values(oByUid)) if (v) set.add(String(v).toUpperCase());
+    for (const v of Object.values(oByName)) if (v) set.add(String(v).toUpperCase());
+    return Array.from(set).sort();
+  }, [profileRates]);
 
   const allMonths = useMemo(
     () => Array.from(new Set([...salaryByMonth.keys(), ...countByMonth.keys()])).sort(),
