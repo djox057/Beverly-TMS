@@ -490,8 +490,12 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
   const [selectedDispatchers, setSelectedDispatchers] = useState<Set<string>>(new Set());
   const [dispatcherQuery, setDispatcherQuery] = useState("");
 
+  // Defer heavy recomputes triggered by dispatcher selection so quick
+  // clicks/hover don't block the main thread.
+  const deferredSelectedDispatchers = useDeferredValue(selectedDispatchers);
+
   // Per-dispatcher salary series (used when 1+ dispatchers are selected).
-  const perDispMode = selectedDispatchers.size > 0;
+  const perDispMode = deferredSelectedDispatchers.size > 0;
 
   const perDispatcherSalary = useMemo(() => {
     if (!perDispMode) return new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
