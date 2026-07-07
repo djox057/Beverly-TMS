@@ -545,7 +545,7 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
     const oByName = (profileRates as any).officeByName || {};
     for (const v of Object.values(oByUid)) if (v) set.add(String(v).toUpperCase());
     for (const v of Object.values(oByName)) if (v) set.add(String(v).toUpperCase());
-    return Array.from(set).sort();
+    return Array.from(set).filter((o) => !o.includes("RECOVER")).sort();
   }, [profileRates]);
 
   const allMonths = useMemo(
