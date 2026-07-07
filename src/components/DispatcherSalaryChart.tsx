@@ -596,6 +596,13 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
       const name = isUuid
         ? (profileRates as any).userIdToName?.[key] || key
         : key;
+      const nameUp = (name || "").toUpperCase();
+      if (nameUp.includes("NEMANJA") && nameUp.includes("JELISAVCIC")) continue;
+      const office =
+        (isUuid ? (profileRates as any).officeByUserId?.[key] : null) ||
+        (profileRates as any).officeByName?.[name] ||
+        "";
+      if (String(office).toUpperCase().includes("RECOVER")) continue;
       arr.push({ key, name });
     }
     arr.sort((a, b) => a.name.localeCompare(b.name));
