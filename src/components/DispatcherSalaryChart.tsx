@@ -390,6 +390,38 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
     }
   }, [preset, selectedMonths, allMonths, currentYear, currentMonthIdx]);
 
+  const perDispChartData = useMemo(() => {
+    if (selectedDispatchers.size === 0) return [] as any[];
+    const rows: any[] = [];
+    for (const m of allMonths) {
+      if (!activeMonths.has(m)) continue;
+      const row: any = { key: m, label: monthLabel(m) };
+      let hasAny = false;
+      for (const key of selectedDispatchers) {
+        const info = perDispatcherSalary.get(key);
+        if (!info) continue;
+        const s = info.salaryByMonth.get(m);
+        if (s != null) hasAny = true;
+        row[`d_${key}`] = s != null ? Math.round(s) : null;
+        const p = info.projByMonth.get(m);
+        row[`p_${key}`] = p != null ? Math.round(p) : null;
+        if (m === currentMonthKey && p != null) {
+          row[`d_${key}`] = null;
+        }
+      }
+      if (hasAny || row.key === currentMonthKey) rows.push(row);
+    }
+    const idx = rows.findIndex((r) => r.key === currentMonthKey);
+    if (idx > 0) {
+      for (const key of selectedDispatchers) {
+        if (rows[idx][`p_${key}`] != null) {
+          rows[idx - 1][`p_${key}`] = rows[idx - 1][`d_${key}`];
+        }
+      }
+    }
+    return rows;
+  }, [selectedDispatchers, perDispatcherSalary, allMonths, activeMonths, currentMonthKey]);
+
   const chartData = useMemo(() => {
     const buckets: Array<[string, { total: number; avgCount: number; displayCount: number }]> = [];
     for (const m of allMonths) {
