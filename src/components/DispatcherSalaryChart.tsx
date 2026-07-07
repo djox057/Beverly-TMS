@@ -409,7 +409,8 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   // salary (>= $500), so the excluded band isn't visible in the UI.
   const AVG_MIN = 700;
   const COUNT_MIN = 500;
-  const { salaryByMonth, countByMonth, projectedSalariesCurrentMonth, projectedCountCurrentMonth } = useMemo(() => {
+  const { dispatcherMonthRows, salaryByMonth, countByMonth, projectedSalariesCurrentMonth, projectedCountCurrentMonth } = useMemo(() => {
+    const rows: DispatcherMonthSalaryRow[] = [];
     const out = new Map<string, number[]>();
     const counts = new Map<string, number>();
     const projected: number[] = [];
@@ -433,6 +434,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         null;
       for (const [month, agg] of months) {
         const salary = computeSalary(agg.freight, agg.driverPay, month, rate, userId, displayName, office);
+        let projectedSalary: number | null = null;
         if (salary > AVG_MIN) {
           if (!out.has(month)) out.set(month, []);
           out.get(month)!.push(salary);
@@ -446,12 +448,24 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
           const projFreight = agg.freight * projectionRatio;
           const projDriverPay = agg.driverPay * projectionRatio;
           const projSalary = computeSalary(projFreight, projDriverPay, month, rate, userId, displayName, office);
+          projectedSalary = projSalary;
           if (projSalary > AVG_MIN) projected.push(projSalary);
           if (projSalary >= COUNT_MIN) projectedCount += 1;
         }
+        rows.push({
+          key: bookedBy,
+          name: displayName || bookedBy,
+          month,
+          freight: agg.freight,
+          driverPay: agg.driverPay,
+          miles: agg.miles,
+          salary,
+          projectedSalary,
+        });
       }
     }
     return {
+      dispatcherMonthRows: rows,
       salaryByMonth: out,
       countByMonth: counts,
       projectedSalariesCurrentMonth: projected,
@@ -472,46 +486,10 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set());
   const [selectedDispatchers, setSelectedDispatchers] = useState<Set<string>>(new Set());
   const [dispatcherQuery, setDispatcherQuery] = useState("");
+  const [, startDispatcherTransition] = useTransition();
 
   // Per-dispatcher salary series (used when 1+ dispatchers are selected).
   const perDispMode = selectedDispatchers.size > 0;
-
-  const perDispatcherSalary = useMemo(() => {
-    if (!perDispMode) return new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const out = new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
-    for (const [bookedBy, months] of perDispatcherByMonth) {
-      // Only compute for currently-selected dispatchers.
-      if (!selectedDispatchers.has(bookedBy)) continue;
-      const isUuid = uuidRe.test(bookedBy);
-      const rate =
-        (isUuid ? profileRates.byUserId[bookedBy] : profileRates.byName[bookedBy]) ||
-        (!isUuid && profileRates.nameToUserId[bookedBy]
-          ? profileRates.byUserId[profileRates.nameToUserId[bookedBy]]
-          : undefined) ||
-        { g: 0.01, c: 0.05 };
-      const userId = isUuid ? bookedBy : profileRates.nameToUserId[bookedBy] || null;
-      const name = isUuid
-        ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
-        : bookedBy;
-      const office =
-        (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
-        (profileRates as any).officeByName?.[name] ||
-        null;
-      const sMap = new Map<string, number>();
-      const pMap = new Map<string, number>();
-      for (const [month, agg] of months) {
-        sMap.set(month, computeSalary(agg.freight, agg.driverPay, month, rate, userId, name, office));
-        if (month === currentMonthKey && projectionRatio) {
-          const pf = agg.freight * projectionRatio;
-          const pd = agg.driverPay * projectionRatio;
-          pMap.set(month, computeSalary(pf, pd, month, rate, userId, name, office));
-        }
-      }
-      out.set(bookedBy, { name, salaryByMonth: sMap, projByMonth: pMap });
-    }
-    return out;
-  }, [perDispMode, selectedDispatchers, perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, currentMonthKey, projectionRatio]);
 
   const dispatcherOptions = useMemo(() => {
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -534,15 +512,14 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   }, [dispatcherOptions, dispatcherQuery]);
 
   const selectedDispatcherList = useMemo(() => {
-    const arr: { key: string; name: string; color: string }[] = [];
-    let i = 0;
-    for (const key of selectedDispatchers) {
-      const info = perDispatcherSalary.get(key);
-      arr.push({ key, name: info?.name || key, color: LINE_PALETTE[i % LINE_PALETTE.length] });
-      i++;
-    }
-    return arr;
-  }, [selectedDispatchers, perDispatcherSalary]);
+    const nameByKey = new Map(dispatcherOptions.map((d) => [d.key, d.name]));
+    return Array.from(selectedDispatchers).map((key, i) => ({
+      key,
+      name: nameByKey.get(key) || key,
+      color: LINE_PALETTE[i % LINE_PALETTE.length],
+      series: `s${i}`,
+    }));
+  }, [selectedDispatchers, dispatcherOptions]);
 
   const activeMonths = useMemo(() => {
     const inRange = (m: string, y: number, months: number[]) => {
@@ -582,35 +559,37 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
 
   const perDispChartData = useMemo(() => {
     if (selectedDispatchers.size === 0) return [] as any[];
+    const seriesByKey = new Map(selectedDispatcherList.map((d) => [d.key, d.series]));
+    const rowByMonth = new Map<string, any>();
+    for (const row of dispatcherMonthRows) {
+      if (!selectedDispatchers.has(row.key) || !activeMonths.has(row.month)) continue;
+      const series = seriesByKey.get(row.key);
+      if (!series) continue;
+      const chartRow = rowByMonth.get(row.month) || { key: row.month, label: monthLabel(row.month), __hasAny: false };
+      chartRow[`d_${series}`] = Math.round(row.salary);
+      if (row.projectedSalary != null) {
+        chartRow[`p_${series}`] = Math.round(row.projectedSalary);
+        if (row.month === currentMonthKey) chartRow[`d_${series}`] = null;
+      }
+      chartRow.__hasAny = true;
+      rowByMonth.set(row.month, chartRow);
+    }
     const rows: any[] = [];
     for (const m of allMonths) {
       if (!activeMonths.has(m)) continue;
-      const row: any = { key: m, label: monthLabel(m) };
-      let hasAny = false;
-      for (const key of selectedDispatchers) {
-        const info = perDispatcherSalary.get(key);
-        if (!info) continue;
-        const s = info.salaryByMonth.get(m);
-        if (s != null) hasAny = true;
-        row[`d_${key}`] = s != null ? Math.round(s) : null;
-        const p = info.projByMonth.get(m);
-        row[`p_${key}`] = p != null ? Math.round(p) : null;
-        if (m === currentMonthKey && p != null) {
-          row[`d_${key}`] = null;
-        }
-      }
-      if (hasAny || row.key === currentMonthKey) rows.push(row);
+      const row = rowByMonth.get(m) || { key: m, label: monthLabel(m), __hasAny: false };
+      if (row.__hasAny || row.key === currentMonthKey) rows.push(row);
     }
     const idx = rows.findIndex((r) => r.key === currentMonthKey);
     if (idx > 0) {
-      for (const key of selectedDispatchers) {
-        if (rows[idx][`p_${key}`] != null) {
-          rows[idx - 1][`p_${key}`] = rows[idx - 1][`d_${key}`];
+      for (const d of selectedDispatcherList) {
+        if (rows[idx][`p_${d.series}`] != null) {
+          rows[idx - 1][`p_${d.series}`] = rows[idx - 1][`d_${d.series}`];
         }
       }
     }
-    return rows;
-  }, [selectedDispatchers, perDispatcherSalary, allMonths, activeMonths, currentMonthKey]);
+    return rows.map(({ __hasAny, ...row }) => row);
+  }, [selectedDispatchers, selectedDispatcherList, dispatcherMonthRows, allMonths, activeMonths, currentMonthKey]);
 
   const chartData = useMemo(() => {
     const buckets: Array<[string, { total: number; avgCount: number; displayCount: number }]> = [];
@@ -747,51 +726,38 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
   // Per-dispatcher averages across the currently-active months.
   // Columns: Dispatcher, RPM (freight / miles), Avg Salary.
   const dispatcherAverages = useMemo(() => {
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const rows: { key: string; name: string; rpm: number; avgSalary: number; months: number }[] = [];
-    for (const [bookedBy, months] of perDispatcherByMonth) {
-      if (selectedDispatchers.size > 0 && !selectedDispatchers.has(bookedBy)) continue;
-      const isUuid = uuidRe.test(bookedBy);
-      const rate =
-        (isUuid ? profileRates.byUserId[bookedBy] : profileRates.byName[bookedBy]) ||
-        (!isUuid && profileRates.nameToUserId[bookedBy]
-          ? profileRates.byUserId[profileRates.nameToUserId[bookedBy]]
-          : undefined) ||
-        { g: 0.01, c: 0.05 };
-      const userId = isUuid ? bookedBy : profileRates.nameToUserId[bookedBy] || null;
-      const name = isUuid
-        ? (profileRates as any).userIdToName?.[bookedBy] || bookedBy
-        : bookedBy;
-      const office =
-        (userId ? (profileRates as any).officeByUserId?.[userId] : null) ||
-        (profileRates as any).officeByName?.[name] ||
-        null;
-      let freightSum = 0;
-      let milesSum = 0;
-      let salarySum = 0;
-      let monthCount = 0;
-      for (const [month, agg] of months) {
-        if (!activeMonths.has(month)) continue;
-        freightSum += agg.freight;
-        milesSum += agg.miles;
-        const salary = computeSalary(agg.freight, agg.driverPay, month, rate, userId, name, office);
-        if (salary >= COUNT_MIN) {
-          salarySum += salary;
-          monthCount += 1;
-        }
+    const grouped = new Map<string, { key: string; name: string; freightSum: number; milesSum: number; salarySum: number; months: number }>();
+    for (const row of dispatcherMonthRows) {
+      if (!activeMonths.has(row.month)) continue;
+      if (selectedDispatchers.size > 0 && !selectedDispatchers.has(row.key)) continue;
+      const existing = grouped.get(row.key) || {
+        key: row.key,
+        name: row.name,
+        freightSum: 0,
+        milesSum: 0,
+        salarySum: 0,
+        months: 0,
+      };
+      existing.freightSum += row.freight;
+      existing.milesSum += row.miles;
+      if (row.salary >= COUNT_MIN) {
+        existing.salarySum += row.salary;
+        existing.months += 1;
       }
-      if (monthCount === 0) continue;
-      rows.push({
-        key: bookedBy,
-        name,
-        rpm: milesSum > 0 ? freightSum / milesSum : 0,
-        avgSalary: salarySum / monthCount,
-        months: monthCount,
-      });
+      grouped.set(row.key, existing);
     }
+    const rows = Array.from(grouped.values())
+      .filter((d) => d.months > 0)
+      .map((d) => ({
+        key: d.key,
+        name: d.name,
+        rpm: d.milesSum > 0 ? d.freightSum / d.milesSum : 0,
+        avgSalary: d.salarySum / d.months,
+        months: d.months,
+      }));
     rows.sort((a, b) => b.avgSalary - a.avgSalary);
     return rows;
-  }, [perDispatcherByMonth, profileRates, bonuses, additionals, extraDaysByUserMonth, lostDaysByUserMonth, activeMonths, selectedDispatchers]);
+  }, [dispatcherMonthRows, activeMonths, selectedDispatchers]);
 
   return (
     <Card>
