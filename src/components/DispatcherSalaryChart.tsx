@@ -387,7 +387,7 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
       inner.set(month, prev);
     }
     return map;
-  }, [orderRows, todayDay]);
+  }, [orderRows, todayDay, companyDriverIds]);
 
   const currentMonthKey = todayChicago ? `${todayChicago.y}-${todayChicago.m}` : null;
 
