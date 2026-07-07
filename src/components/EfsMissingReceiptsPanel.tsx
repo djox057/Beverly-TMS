@@ -4,14 +4,28 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Loader2, CheckCircle2, Fuel, Check } from "lucide-react";
+import { Upload, Loader2, CheckCircle2, Fuel, Check, CheckCheck } from "lucide-react";
 import { useEfsMissingReceipts } from "@/hooks/useEfsMissingReceipts";
 import { LumperMissingRevisedRCPanel } from "@/components/LumperMissingRevisedRCPanel";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthContext } from "@/contexts/AuthContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 
 export function EfsMissingReceiptsPanel() {
   const { toast } = useToast();
+  const { hasRole } = useAuthContext();
+  const canBypass = hasRole("admin") || hasRole("manager") || hasRole("accounting");
   const { 
     fuelRequests, 
     isLoading, 
@@ -19,11 +33,30 @@ export function EfsMissingReceiptsPanel() {
     isUploading,
     updateGallons,
     isUpdatingGallons,
+    bypassReceipt,
+    isBypassing,
   } = useEfsMissingReceipts();
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [gallonsInputs, setGallonsInputs] = useState<Record<string, string>>({});
   const [updatingGallonsId, setUpdatingGallonsId] = useState<string | null>(null);
+  const [bypassingId, setBypassingId] = useState<string | null>(null);
+
+  const handleBypass = async (requestId: string) => {
+    setBypassingId(requestId);
+    try {
+      await bypassReceipt({ requestId });
+      toast({ title: "Marked as complete" });
+    } catch (error) {
+      toast({
+        title: "Failed",
+        description: error instanceof Error ? error.message : "Failed to mark as complete",
+        variant: "destructive",
+      });
+    } finally {
+      setBypassingId(null);
+    }
+  };
 
   const handleFileChange = async (requestId: string, file: File | undefined) => {
     if (!file) return;
@@ -135,6 +168,7 @@ export function EfsMissingReceiptsPanel() {
                   <TableHead>Requested By</TableHead>
                   <TableHead className="text-center">Gallons</TableHead>
                   <TableHead className="text-center">Receipt</TableHead>
+                  {canBypass && <TableHead className="text-center">Bypass</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -222,6 +256,40 @@ export function EfsMissingReceiptsPanel() {
                           </>
                         )}
                       </TableCell>
+                      {canBypass && (
+                        <TableCell className="text-center">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={isBypassing && bypassingId === req.id}
+                                title="Mark as complete"
+                              >
+                                {isBypassing && bypassingId === req.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <CheckCheck className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Mark as complete?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will hide the row without a receipt or gallons. Continue?
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleBypass(req.id)}>
+                                  Confirm
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}

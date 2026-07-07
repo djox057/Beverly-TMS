@@ -29,8 +29,9 @@ export function useLumperMissingRevisedRC() {
       // Flat fetch - no joins to eliminate RLS amplification
       const { data, error } = await supabase
         .from("orders")
-        .select("id, internal_load_number, lumper, pickup_datetime, driver1_id, driver2_id, truck_id")
+        .select("id, internal_load_number, lumper, pickup_datetime, driver1_id, driver2_id, truck_id, lumper_revised_rc_bypassed")
         .gt("lumper", 0)
+        .eq("lumper_revised_rc_bypassed", false)
         .gte("created_at", "2026-01-09T00:00:00Z")
         .order("pickup_datetime", { ascending: false });
 
@@ -157,6 +158,25 @@ export function useLumperMissingRevisedRC() {
     },
   });
 
+  const bypassMutation = useMutation({
+    mutationFn: async ({ orderId }: { orderId: string }) => {
+      const { data: authData } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          lumper_revised_rc_bypassed: true,
+          lumper_revised_rc_bypassed_by: authData.user?.id ?? null,
+          lumper_revised_rc_bypassed_at: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lumper-missing-revised-rc"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    },
+  });
+
   return {
     lumperRequests,
     isLoading,
@@ -168,5 +188,7 @@ export function useLumperMissingRevisedRC() {
     },
     uploadRevisedRC: uploadRevisedRCMutation.mutateAsync,
     isUploading: uploadRevisedRCMutation.isPending,
+    bypassRevisedRC: bypassMutation.mutateAsync,
+    isBypassing: bypassMutation.isPending,
   };
 }
