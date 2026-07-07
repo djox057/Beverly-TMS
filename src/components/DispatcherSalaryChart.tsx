@@ -297,20 +297,13 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       const key = (o.bookedBy ?? o.booked_by) as string | null;
       const deliveryIso = (o.deliveryDatetime ?? o.delivery_datetime) as string | null;
       if (!key || !deliveryIso) continue;
-      const canceled = !!o.canceled;
-      const tonu = Number(o.tonu) || 0;
-      const tonuDriver = Number(o.tonuDriver ?? o.tonu_driver) || 0;
-      if (canceled && tonu <= 0 && tonuDriver <= 0) continue;
-      // Use the same freight/driver-pay basis as the Dispatcher Salaries table:
-      // freight excludes lumpers, driver pay uses the effective total (company
-      // drivers get freight-equal pay via totalDriverPay in ordersTransform).
-      const freight = canceled
-        ? tonu
-        : Number(o.totalFreightAmountNoLumper ?? o.freightAmount ?? o.freight_amount) || 0;
-      const driverPay = canceled
-        ? tonuDriver
-        : Number(o.totalDriverPay ?? o.driverPrice ?? o.driver_price) || 0;
-      const miles = canceled ? 0 : Number(o.mileage) || 0;
+      // Match the Dispatcher Salaries table exactly: use the pre-computed
+      // no-lumper freight and effective total driver pay for every order
+      // (canceled orders already carry TONU inside totalFreightAmountNoLumper).
+      const freight = Number(o.totalFreightAmountNoLumper ?? o.freightAmount ?? o.freight_amount) || 0;
+      const driverPay = Number(o.totalDriverPay ?? o.driverPrice ?? o.driver_price) || 0;
+      const miles = o.canceled ? 0 : Number(o.mileage) || 0;
+      if (freight === 0 && driverPay === 0 && !miles) continue;
       const parts = chicagoParts(deliveryIso);
       if (!parts) continue;
       const month = `${parts.y}-${parts.m}`;
