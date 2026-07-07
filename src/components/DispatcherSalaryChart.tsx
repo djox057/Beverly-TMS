@@ -492,6 +492,12 @@ function DispatcherSalaryChartBody({ orders = [] }: DispatcherSalaryChartProps) 
         const key = (office || "__none__").toUpperCase();
         if (!selectedOffices.has(key)) continue;
       }
+      // Hard exclusions from avg dispatcher salary calculations:
+      // "Recoveries" office and dispatcher Nemanja Jelisavcic-Thomas.
+      const officeUp = (office || "").toUpperCase();
+      if (officeUp.includes("RECOVER")) continue;
+      const nameUp = (displayName || "").toUpperCase();
+      if (nameUp.includes("NEMANJA") && nameUp.includes("JELISAVCIC")) continue;
       const sMap = new Map<string, number>();
       const pMap = new Map<string, number>();
       const monthlyAggByMonth = new Map<string, { freight: number; miles: number }>();
