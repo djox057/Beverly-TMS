@@ -500,7 +500,7 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
   const perDispatcherSalary = useMemo(() => {
     if (!perDispMode) return new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
     const out = new Map<string, { name: string; salaryByMonth: Map<string, number>; projByMonth: Map<string, number> }>();
-    for (const key of selectedDispatchers) {
+    for (const key of deferredSelectedDispatchers) {
       const info = dispatcherSalaryCache.get(key);
       if (info) {
         out.set(key, {
@@ -511,7 +511,7 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
       }
     }
     return out;
-  }, [perDispMode, selectedDispatchers, dispatcherSalaryCache]);
+  }, [perDispMode, deferredSelectedDispatchers, dispatcherSalaryCache]);
 
   const dispatcherOptions = useMemo(() => {
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -536,13 +536,13 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
   const selectedDispatcherList = useMemo(() => {
     const arr: { key: string; name: string; color: string }[] = [];
     let i = 0;
-    for (const key of selectedDispatchers) {
+    for (const key of deferredSelectedDispatchers) {
       const info = perDispatcherSalary.get(key);
       arr.push({ key, name: info?.name || key, color: LINE_PALETTE[i % LINE_PALETTE.length] });
       i++;
     }
     return arr;
-  }, [selectedDispatchers, perDispatcherSalary]);
+  }, [deferredSelectedDispatchers, perDispatcherSalary]);
 
   const activeMonths = useMemo(() => {
     const inRange = (m: string, y: number, months: number[]) => {
@@ -581,13 +581,13 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
   }, [preset, selectedMonths, allMonths, currentYear, currentMonthIdx]);
 
   const perDispChartData = useMemo(() => {
-    if (selectedDispatchers.size === 0) return [] as any[];
+    if (deferredSelectedDispatchers.size === 0) return [] as any[];
     const rows: any[] = [];
     for (const m of allMonths) {
       if (!activeMonths.has(m)) continue;
       const row: any = { key: m, label: monthLabel(m) };
       let hasAny = false;
-      for (const key of selectedDispatchers) {
+      for (const key of deferredSelectedDispatchers) {
         const info = perDispatcherSalary.get(key);
         if (!info) continue;
         const s = info.salaryByMonth.get(m);
@@ -603,14 +603,14 @@ function DispatcherSalaryChartInner({ orders = [] }: DispatcherSalaryChartProps)
     }
     const idx = rows.findIndex((r) => r.key === currentMonthKey);
     if (idx > 0) {
-      for (const key of selectedDispatchers) {
+      for (const key of deferredSelectedDispatchers) {
         if (rows[idx][`p_${key}`] != null) {
           rows[idx - 1][`p_${key}`] = rows[idx - 1][`d_${key}`];
         }
       }
     }
     return rows;
-  }, [selectedDispatchers, perDispatcherSalary, allMonths, activeMonths, currentMonthKey]);
+  }, [deferredSelectedDispatchers, perDispatcherSalary, allMonths, activeMonths, currentMonthKey]);
 
   const chartData = useMemo(() => {
     const buckets: Array<[string, { total: number; avgCount: number; displayCount: number }]> = [];
