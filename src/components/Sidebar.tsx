@@ -1,14 +1,13 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
-
-  Truck, 
-  FileText, 
-  Users, 
-  Package, 
-  UserCheck, 
-  Building2, 
-  BarChart3, 
+  Truck,
+  FileText,
+  Users,
+  Package,
+  UserCheck,
+  Building2,
+  BarChart3,
   Calendar,
   Plus,
   LogOut,
@@ -30,7 +29,7 @@ import {
   RefreshCw,
   DollarSign,
   Droplet,
-  Info as InfoIcon
+  Info as InfoIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -70,25 +69,56 @@ const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
   { name: "Loads", href: "/orders", icon: FileText },
   { name: "BG Loads", href: "/bg-loads", icon: FileText },
-  { name: "Loads at the Yard", href: "/yard-loads", icon: Warehouse, roles: ['manager', 'admin', 'chicago_management', 'yard', 'afterhours'] },
-  { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin', 'chicago_management', 'safety', 'dispatch'] },
+  {
+    name: "Loads at the Yard",
+    href: "/yard-loads",
+    icon: Warehouse,
+    roles: ["manager", "admin", "chicago_management", "yard", "afterhours"],
+  },
+  {
+    name: "Trips",
+    href: "/trips",
+    icon: Route,
+    roles: ["accounting", "manager", "admin", "chicago_management", "safety", "dispatch"],
+  },
   { name: "Live Map", href: "/trucks-map", icon: MapPin },
   { name: "Trucks", href: "/trucks", icon: Truck },
   { name: "Trailers", href: "/trailers", icon: Package },
   { name: "Drivers", href: "/drivers", icon: UserCheck },
-  { name: "Stuff", href: "/stuff", icon: User, roles: ['manager', 'admin', 'accounting', 'chicago_management'] },
+  { name: "Stuff", href: "/stuff", icon: User, roles: ["manager", "admin", "accounting", "chicago_management"] },
   { name: "Brokers", href: "/brokers", icon: Building2 },
   { name: "Fleets", href: "/fleets", icon: Users },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
-  { name: "Dispatcher Tier", href: "/dispatcher-tier", icon: Trophy, roles: ['admin', 'manager', 'chicago_management'], strict: true },
-  { name: "Transfer List", href: "/transfer-list", icon: Users, roles: ['admin', 'manager', 'safety', 'maintenance', 'dispatch', 'afterhours'] },
-  { name: "Turnover List", href: "/turnover-list", icon: RefreshCw, roles: ['admin'] },
+  {
+    name: "Dispatcher Performance",
+    href: "/dispatcher-tier",
+    icon: Trophy,
+    roles: ["admin", "manager", "chicago_management"],
+    strict: true,
+  },
+  {
+    name: "Transfer List",
+    href: "/transfer-list",
+    icon: Users,
+    roles: ["admin", "manager", "safety", "maintenance", "dispatch", "afterhours"],
+  },
+  { name: "Turnover List", href: "/turnover-list", icon: RefreshCw, roles: ["admin"] },
   { name: "Roadside Inspection", href: "/roadside-inspection", icon: AlertTriangle },
   { name: "Live Oil Change", href: "/live-oil-change", icon: Droplet },
-  { name: "Beverly Heatmap", href: "/beverly-heatmap", icon: MapPin, roles: ['manager', 'admin', 'chicago_management', 'dispatch'] },
-  { name: "Truck Sales", href: "/truck-sales", icon: DollarSign, roles: ['manager', 'admin', 'recruiting', 'chicago_management'] },
+  {
+    name: "Beverly Heatmap",
+    href: "/beverly-heatmap",
+    icon: MapPin,
+    roles: ["manager", "admin", "chicago_management", "dispatch"],
+  },
+  {
+    name: "Truck Sales",
+    href: "/truck-sales",
+    icon: DollarSign,
+    roles: ["manager", "admin", "recruiting", "chicago_management"],
+  },
 ];
 
 export const Sidebar = () => {
@@ -103,16 +133,16 @@ export const Sidebar = () => {
   const [scheduledDates, setScheduledDates] = useState<string[]>([]);
   const [showAcknowledgeDialog, setShowAcknowledgeDialog] = useState(false);
   const [hasAcknowledgedToday, setHasAcknowledgedToday] = useState(false);
-  
+
   // Get today's date in GMT+1 for acknowledgment storage
   const getTodayGMT1 = () => {
     const now = new Date();
     const gmt1Offset = 1 * 60;
     const localOffset = now.getTimezoneOffset();
     const gmt1Time = new Date(now.getTime() + (localOffset + gmt1Offset) * 60 * 1000);
-    return gmt1Time.toISOString().split('T')[0];
+    return gmt1Time.toISOString().split("T")[0];
   };
-  
+
   // Check if already acknowledged today
   useEffect(() => {
     if (!user?.id) return;
@@ -120,58 +150,58 @@ export const Sidebar = () => {
     const today = getTodayGMT1();
     setHasAcknowledgedToday(acknowledgedDate === today);
   }, [user?.id]);
-  
+
   // Check if user is scheduled this weekend (show bell from Monday to end of Sunday, GMT+1)
   useEffect(() => {
     const checkWeekendSchedule = async () => {
       if (!user?.id) return;
-      
+
       // Get current time in GMT+1
       const now = new Date();
       const gmt1Offset = 1 * 60; // GMT+1 in minutes
       const localOffset = now.getTimezoneOffset();
       const gmt1Time = new Date(now.getTime() + (localOffset + gmt1Offset) * 60 * 1000);
-      
+
       const dayOfWeek = gmt1Time.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-      
+
       // Calculate the upcoming Saturday and Sunday dates
       const daysUntilSaturday = dayOfWeek === 0 ? -1 : 6 - dayOfWeek; // If Sunday, Saturday was yesterday
       const saturday = new Date(gmt1Time);
       saturday.setDate(gmt1Time.getDate() + daysUntilSaturday);
       saturday.setHours(0, 0, 0, 0);
-      
+
       const sunday = new Date(saturday);
       sunday.setDate(saturday.getDate() + 1);
-      
+
       // Format dates for query
-      const saturdayStr = saturday.toISOString().split('T')[0];
-      const sundayStr = sunday.toISOString().split('T')[0];
-      
+      const saturdayStr = saturday.toISOString().split("T")[0];
+      const sundayStr = sunday.toISOString().split("T")[0];
+
       // Check if user is scheduled for this weekend
       const { data } = await supabase
-        .from('afterhours_schedule')
-        .select('scheduled_date')
-        .eq('user_id', user.id)
-        .in('scheduled_date', [saturdayStr, sundayStr]);
-      
+        .from("afterhours_schedule")
+        .select("scheduled_date")
+        .eq("user_id", user.id)
+        .in("scheduled_date", [saturdayStr, sundayStr]);
+
       if (data && data.length > 0) {
         setIsScheduledThisWeekend(true);
-        setScheduledDates(data.map(d => d.scheduled_date));
+        setScheduledDates(data.map((d) => d.scheduled_date));
       } else {
         setIsScheduledThisWeekend(false);
         setScheduledDates([]);
       }
     };
-    
+
     checkWeekendSchedule();
   }, [user?.id]);
-  
+
   const handleBellClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setShowAcknowledgeDialog(true);
   };
-  
+
   const handleAcknowledge = () => {
     if (!user?.id) return;
     const today = getTodayGMT1();
@@ -179,17 +209,19 @@ export const Sidebar = () => {
     setHasAcknowledgedToday(true);
     setShowAcknowledgeDialog(false);
   };
-  
+
   // Format scheduled dates for display
   const formatScheduledDates = () => {
-    return scheduledDates.map(dateStr => {
-      const date = new Date(dateStr + 'T00:00:00');
-      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-      const formattedDate = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-      return `${dayName}, ${formattedDate}`;
-    }).join(' and ');
+    return scheduledDates
+      .map((dateStr) => {
+        const date = new Date(dateStr + "T00:00:00");
+        const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
+        const formattedDate = date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+        return `${dayName}, ${formattedDate}`;
+      })
+      .join(" and ");
   };
-  
+
   // On mobile, always show text when sidebar is open
   const showText = isMobile ? true : state !== "collapsed";
 
@@ -200,117 +232,163 @@ export const Sidebar = () => {
   // Filter navigation based on role
   const getFilteredNavigation = () => {
     const primaryRole = getPrimaryRole();
-    
+
     // Filter out items based on role restrictions
-    const filteredNav = navigation.filter(item => {
+    const filteredNav = navigation.filter((item) => {
       // Strict items must match the user's primary role directly (bypasses hasRole inheritance)
       if ((item as any).strict) {
         return !!primaryRole && (item.roles || []).includes(primaryRole);
       }
       // If item has role restrictions, check if user has one of those roles
       if (item.roles && item.roles.length > 0) {
-        return item.roles.some(role => hasRole(role as any));
+        return item.roles.some((role) => hasRole(role as any));
       }
-      
+
       return true;
     });
-    
+
     // Admin role: all navigation + Alerts + Maintenance and Repairs + Fuel Reports + EFS Requests + User Management
-    if (primaryRole === 'admin') {
+    if (primaryRole === "admin") {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
-        { name: "User Management", href: "/admin/users", icon: Settings }
+        { name: "User Management", href: "/admin/users", icon: Settings },
       ];
     }
-    
+
     // Manager role: all pages + Alerts + Maintenance and Repairs (full operational access)
-    if (primaryRole === 'manager') {
+    if (primaryRole === "manager") {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
-        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
+        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
       ];
     }
-    
+
     // Supervisor role: all pages + Alerts (full access)
-    if (primaryRole === 'supervisor') {
+    if (primaryRole === "supervisor") {
       return [
-        ...filteredNav.filter(item => item.href !== '/truck-sales'),
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle }
+        ...filteredNav.filter((item) => item.href !== "/truck-sales"),
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
       ];
     }
-    
+
     // Chicago Management role: all pages + Alerts + Maintenance and Repairs + Fuel Reports + EFS Requests (view-only access to everything)
-    if (primaryRole === 'chicago_management') {
+    if (primaryRole === "chicago_management") {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
-        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
+        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
       ];
     }
-    
+
     // Accounting role: all pages except Analytics + Maintenance and Repairs + Fuel Reports + EFS Requests (financial + operational oversight)
-    if (primaryRole === 'accounting') {
+    if (primaryRole === "accounting") {
       return [
-        ...filteredNav.filter(item => item.href !== '/analytics' && item.href !== '/beverly-heatmap' && item.href !== '/truck-sales' && item.href !== '/live-oil-change'),
+        ...filteredNav.filter(
+          (item) =>
+            item.href !== "/analytics" &&
+            item.href !== "/beverly-heatmap" &&
+            item.href !== "/truck-sales" &&
+            item.href !== "/live-oil-change",
+        ),
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
-        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
+        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
       ];
     }
-    
+
     // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Reports, Yard Arrivals, Trips, Fleets, Alerts)
-    if (hasRole('safety')) {
-      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals', '/trips', '/fleets', '/transfer-list', '/roadside-inspection'];
+    if (hasRole("safety")) {
+      const safetyPages = [
+        "/new-order",
+        "/orders",
+        "/trucks",
+        "/trailers",
+        "/drivers",
+        "/reports",
+        "/yard-arrivals",
+        "/trips",
+        "/fleets",
+        "/transfer-list",
+        "/roadside-inspection",
+      ];
       return [
-        ...filteredNav.filter(item => safetyPages.includes(item.href)),
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle }
+        ...filteredNav.filter((item) => safetyPages.includes(item.href)),
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
       ];
     }
-    
+
     // Maintenance role: specific pages (New Load, Loads, Drivers, Trucks, Trailers, Fleets, Reports, Yard Arrivals, Alerts, Maintenance and Repairs, Fuel Reports)
-    if (hasRole('maintenance')) {
-      const maintenancePages = ['/new-order', '/orders', '/drivers', '/trucks', '/trailers', '/fleets', '/reports', '/yard-arrivals', '/transfer-list', '/roadside-inspection', '/live-oil-change'];
+    if (hasRole("maintenance")) {
+      const maintenancePages = [
+        "/new-order",
+        "/orders",
+        "/drivers",
+        "/trucks",
+        "/trailers",
+        "/fleets",
+        "/reports",
+        "/yard-arrivals",
+        "/transfer-list",
+        "/roadside-inspection",
+        "/live-oil-change",
+      ];
       return [
-        ...filteredNav.filter(item => maintenancePages.includes(item.href)),
+        ...filteredNav.filter((item) => maintenancePages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
-        { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel }
+        { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
       ];
     }
-    
+
     // Yard role: only Loads at Yard, Trucks, Trailers, Drivers, Yard Arrivals
-    if (hasRole('yard')) {
-      const yardPages = ['/yard-loads', '/trucks', '/trailers', '/drivers', '/yard-arrivals', '/roadside-inspection', '/live-oil-change'];
-      return filteredNav.filter(item => yardPages.includes(item.href));
+    if (hasRole("yard")) {
+      const yardPages = [
+        "/yard-loads",
+        "/trucks",
+        "/trailers",
+        "/drivers",
+        "/yard-arrivals",
+        "/roadside-inspection",
+        "/live-oil-change",
+      ];
+      return filteredNav.filter((item) => yardPages.includes(item.href));
     }
-    
+
     // Dispatch and Afterhours roles: all navigation + EFS Requests (afterhours cannot see Live Oil Change)
-    if (primaryRole === 'dispatch' || primaryRole === 'afterhours') {
+    if (primaryRole === "dispatch" || primaryRole === "afterhours") {
       return [
-        ...filteredNav.filter(item => !(primaryRole === 'afterhours' && item.href === '/live-oil-change')),
-        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard }
+        ...filteredNav.filter((item) => !(primaryRole === "afterhours" && item.href === "/live-oil-change")),
+        { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
       ];
     }
 
     // Recruiting: Trucks/Trailers/Drivers + Fleets + Reports + Truck Sales
-    if (primaryRole === 'recruiting') {
-      const recruitingPages = ['/trucks', '/trailers', '/drivers', '/fleets', '/reports', '/truck-sales', '/live-oil-change'];
-      return filteredNav.filter(item => recruitingPages.includes(item.href));
+    if (primaryRole === "recruiting") {
+      const recruitingPages = [
+        "/trucks",
+        "/trailers",
+        "/drivers",
+        "/fleets",
+        "/reports",
+        "/truck-sales",
+        "/live-oil-change",
+      ];
+      return filteredNav.filter((item) => recruitingPages.includes(item.href));
     }
 
     // Claims: Loads, BG Loads, Trucks, Trailers, Drivers only
-    if (primaryRole === 'claims') {
-      const claimsPages = ['/orders', '/bg-loads', '/trucks', '/trailers', '/drivers', '/live-oil-change'];
-      return filteredNav.filter(item => claimsPages.includes(item.href));
+    if (primaryRole === "claims") {
+      const claimsPages = ["/orders", "/bg-loads", "/trucks", "/trailers", "/drivers", "/live-oil-change"];
+      return filteredNav.filter((item) => claimsPages.includes(item.href));
     }
 
     return filteredNav;
@@ -360,7 +438,7 @@ export const Sidebar = () => {
                           "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-all relative",
                           isActive
                             ? "text-foreground bg-muted"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted",
                         )
                       }
                     >
@@ -379,8 +457,8 @@ export const Sidebar = () => {
                                 </Badge>
                               )}
                               {item.href === "/fleets" && isScheduledThisWeekend && !hasAcknowledgedToday && (
-                                <Bell 
-                                  className="h-4 w-4 ml-auto text-amber-500 animate-pulse cursor-pointer hover:text-amber-400" 
+                                <Bell
+                                  className="h-4 w-4 ml-auto text-amber-500 animate-pulse cursor-pointer hover:text-amber-400"
                                   onClick={handleBellClick}
                                 />
                               )}
@@ -411,11 +489,7 @@ export const Sidebar = () => {
                           Individual
                         </Label>
                       </div>
-                      <Switch
-                        id="individual-toggle"
-                        checked={individualMode}
-                        onCheckedChange={setIndividualMode}
-                      />
+                      <Switch id="individual-toggle" checked={individualMode} onCheckedChange={setIndividualMode} />
                     </>
                   ) : (
                     <Button
@@ -430,7 +504,7 @@ export const Sidebar = () => {
                 </div>
               </div>
             )}
-            
+
             {/* Theme Toggle */}
             <div className="px-4 py-3 border-t border-border">
               <div className="flex items-center justify-between gap-3">
@@ -455,16 +529,12 @@ export const Sidebar = () => {
                     className="w-8 h-8 mx-auto"
                     onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                   >
-                    {theme === "dark" ? (
-                      <Moon className="h-4 w-4" />
-                    ) : (
-                      <Sun className="h-4 w-4" />
-                    )}
+                    {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
                   </Button>
                 )}
               </div>
             </div>
-            
+
             {/* User Profile & Logout */}
             <div className="p-4 border-t border-border">
               <div className="flex items-center gap-3 mb-3">
@@ -476,18 +546,18 @@ export const Sidebar = () => {
                 {showText && (
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-foreground truncate">
-                      {profile?.full_name || profile?.email || 'User'}
+                      {profile?.full_name || profile?.email || "User"}
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">
-                        {getPrimaryRole() || 'dispatch'}
+                        {getPrimaryRole() || "dispatch"}
                       </Badge>
                     </div>
                   </div>
                 )}
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size={!showText ? "icon" : "sm"}
                 className={!showText ? "w-8 h-8" : "w-full"}
                 onClick={handleSignOut}
@@ -499,21 +569,20 @@ export const Sidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      
+
       {/* Weekend Schedule Acknowledgment Dialog */}
       <AlertDialog open={showAcknowledgeDialog} onOpenChange={setShowAcknowledgeDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Weekend Schedule Reminder</AlertDialogTitle>
             <AlertDialogDescription>
-              You are scheduled to work on <span className="font-medium text-foreground">{formatScheduledDates()}</span>. Please confirm that you are aware of your schedule.
+              You are scheduled to work on <span className="font-medium text-foreground">{formatScheduledDates()}</span>
+              . Please confirm that you are aware of your schedule.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleAcknowledge}>
-              I'm aware
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleAcknowledge}>I'm aware</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

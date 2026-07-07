@@ -3,13 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, User, Truck, Building2, MessageSquare } from "lucide-react";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,9 +28,7 @@ const DispatcherTier = () => {
   const [commentsOpen, setCommentsOpen] = useState<{ id: string; name: string } | null>(null);
 
   const reloadCommentCounts = async () => {
-    const { data } = await supabase
-      .from("dispatcher_tier_comments")
-      .select("dispatcher_id");
+    const { data } = await supabase.from("dispatcher_tier_comments").select("dispatcher_id");
     const acc: Record<string, number> = {};
     (data || []).forEach((r: any) => {
       acc[r.dispatcher_id] = (acc[r.dispatcher_id] || 0) + 1;
@@ -54,9 +46,7 @@ const DispatcherTier = () => {
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
       const end = now;
       const fmt = (d: Date) =>
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-          d.getDate()
-        ).padStart(2, "0")}`;
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const { data } = await supabase
         .from("dispatcher_daily_driver_counts")
         .select("dispatcher_id, truck_count, driver_count")
@@ -86,20 +76,38 @@ const DispatcherTier = () => {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       // Fetch company drivers so we can match Analytics' getEffectiveDriverPay
-      const { data: companyDrv } = await supabase
-        .from("drivers")
-        .select("id")
-        .eq("is_company_driver", true);
+      const { data: companyDrv } = await supabase.from("drivers").select("id").eq("is_company_driver", true);
       const companySet = new Set<string>((companyDrv || []).map((d: any) => d.id));
       const cols = [
-        "id", "booked_by", "driver1_id", "canceled",
-        "freight_amount", "detention", "layover", "tonu", "extra_stop",
-        "escort_fee", "other_additionals", "late_fee", "no_tracking_fee",
-        "wrong_address_fee", "other_charges",
-        "driver_price", "loaded_miles", "dh_miles", "additional_miles",
-        "detention_driver", "extra_stop_driver", "layover_driver", "lumper_driver",
-        "tonu_driver", "no_tracking_fee_driver", "wrong_address_fee_driver",
-        "other_additionals_driver", "late_fee_driver", "other_charges_driver",
+        "id",
+        "booked_by",
+        "driver1_id",
+        "canceled",
+        "freight_amount",
+        "detention",
+        "layover",
+        "tonu",
+        "extra_stop",
+        "escort_fee",
+        "other_additionals",
+        "late_fee",
+        "no_tracking_fee",
+        "wrong_address_fee",
+        "other_charges",
+        "driver_price",
+        "loaded_miles",
+        "dh_miles",
+        "additional_miles",
+        "detention_driver",
+        "extra_stop_driver",
+        "layover_driver",
+        "lumper_driver",
+        "tonu_driver",
+        "no_tracking_fee_driver",
+        "wrong_address_fee_driver",
+        "other_additionals_driver",
+        "late_fee_driver",
+        "other_charges_driver",
       ].join(",");
       const PAGE = 1000;
       let lastId = "00000000-0000-0000-0000-000000000000";
@@ -114,7 +122,10 @@ const DispatcherTier = () => {
           .gt("id", lastId)
           .order("id", { ascending: true })
           .limit(PAGE);
-        if (error) { console.error("[DispatcherTier] orders fetch", error); break; }
+        if (error) {
+          console.error("[DispatcherTier] orders fetch", error);
+          break;
+        }
         if (!data || data.length === 0) break;
         for (const o of data as any[]) {
           const key = o.booked_by;
@@ -145,10 +156,7 @@ const DispatcherTier = () => {
             (Number(o.other_charges_driver) || 0);
           // Company driver: pay equals freight (0% cut), mirroring Analytics
           const pay = o.driver1_id && companySet.has(o.driver1_id) ? freight : rawPay;
-          const miles =
-            (Number(o.loaded_miles) || 0) +
-            (Number(o.dh_miles) || 0) +
-            (Number(o.additional_miles) || 0);
+          const miles = (Number(o.loaded_miles) || 0) + (Number(o.dh_miles) || 0) + (Number(o.additional_miles) || 0);
           if (!acc[key]) acc[key] = { freight: 0, pay: 0, miles: 0 };
           acc[key].freight += freight;
           acc[key].pay += pay;
@@ -177,35 +185,37 @@ const DispatcherTier = () => {
     const data = dispatchers
       .filter((d) => (d.dispatcher.roles || []).includes("dispatch"))
       .map((d) => {
-      const truckIds = new Set<string>();
-      d.drivers.forEach((dr: any) => { if (dr.truck?.id) truckIds.add(dr.truck.id); });
-      const currentTrucks = truckIds.size;
-      // Match Analytics: orders aggregated by booked_by, which is full_name or user_id
-      const m =
-        dispMetrics[d.dispatcher.id] ||
-        dispMetrics[d.dispatcher.full_name || ""] ||
-        dispMetrics[d.dispatcher.email || ""];
-      const freight = m?.freight || 0;
-      const pay = m?.pay || 0;
-      const miles = m?.miles || 0;
-      const rpm = miles > 0 ? freight / miles : 0;
-      const cut = freight - pay;
-      const avgTrucks = avgMap[d.dispatcher.id] ?? 0;
-      return {
-        id: d.dispatcher.id,
-        name: d.dispatcher.full_name || d.dispatcher.email,
-        email: d.dispatcher.email,
-        ext: d.dispatcher.ext,
-        office: d.dispatcher.office || "—",
-        roles: d.dispatcher.roles || [],
-        isActive: d.isActive,
-        currentTrucks,
-        avgTrucks,
-        rpm,
-        gross: freight,
-        cut,
-      };
-    });
+        const truckIds = new Set<string>();
+        d.drivers.forEach((dr: any) => {
+          if (dr.truck?.id) truckIds.add(dr.truck.id);
+        });
+        const currentTrucks = truckIds.size;
+        // Match Analytics: orders aggregated by booked_by, which is full_name or user_id
+        const m =
+          dispMetrics[d.dispatcher.id] ||
+          dispMetrics[d.dispatcher.full_name || ""] ||
+          dispMetrics[d.dispatcher.email || ""];
+        const freight = m?.freight || 0;
+        const pay = m?.pay || 0;
+        const miles = m?.miles || 0;
+        const rpm = miles > 0 ? freight / miles : 0;
+        const cut = freight - pay;
+        const avgTrucks = avgMap[d.dispatcher.id] ?? 0;
+        return {
+          id: d.dispatcher.id,
+          name: d.dispatcher.full_name || d.dispatcher.email,
+          email: d.dispatcher.email,
+          ext: d.dispatcher.ext,
+          office: d.dispatcher.office || "—",
+          roles: d.dispatcher.roles || [],
+          isActive: d.isActive,
+          currentTrucks,
+          avgTrucks,
+          rpm,
+          gross: freight,
+          cut,
+        };
+      });
     // Compute averages from the FULL dataset so search/filters don't change Overall score.
     const withData = data.filter((r) => r.gross > 0 && r.avgTrucks > 1);
     const n = withData.length || 1;
@@ -215,7 +225,10 @@ const DispatcherTier = () => {
     const avgTrucksMean = withData.reduce((s, r) => s + r.avgTrucks, 0) / n || 1;
     // Weighted-average score: rpm dominates. Example: rpm 16.67% above avg => +18% overall.
     // Trucks add a tiny bonus so larger fleets get a slight edge when all else is equal.
-    const W_RPM = 1.08, W_GROSS = 0.2, W_CUT = 0.2, W_TRUCKS = 0.05;
+    const W_RPM = 1.08,
+      W_GROSS = 0.2,
+      W_CUT = 0.2,
+      W_TRUCKS = 0.05;
     const enrichedAll = data.map((r) => {
       if (!(r.avgTrucks > 1)) {
         return { ...r, overall: NaN };
@@ -224,12 +237,7 @@ const DispatcherTier = () => {
       const rGross = avgGross > 0 ? r.gross / avgGross : 0;
       const rCut = avgCut !== 0 ? r.cut / avgCut : 0;
       const rTrucks = avgTrucksMean > 0 ? r.avgTrucks / avgTrucksMean : 0;
-      const overall =
-        1 +
-        W_RPM * (rRpm - 1) +
-        W_GROSS * (rGross - 1) +
-        W_CUT * (rCut - 1) +
-        W_TRUCKS * (rTrucks - 1);
+      const overall = 1 + W_RPM * (rRpm - 1) + W_GROSS * (rGross - 1) + W_CUT * (rCut - 1) + W_TRUCKS * (rTrucks - 1);
       return { ...r, overall };
     });
     const enriched = enrichedAll.filter((r) => {
@@ -259,10 +267,8 @@ const DispatcherTier = () => {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Dispatcher Tier</h1>
-          <p className="text-muted-foreground">
-            Overview of all dispatchers with current month performance
-          </p>
+          <h1 className="text-2xl font-bold">Dispatcher Performance</h1>
+          <p className="text-muted-foreground">Overview of all dispatchers with current month performance</p>
         </div>
       </div>
 
@@ -338,13 +344,11 @@ const DispatcherTier = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold truncate hover:underline">{r.name}</h3>
-                        {r.ext && (
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            Ext {r.ext}
-                          </span>
-                        )}
+                        {r.ext && <span className="text-xs text-muted-foreground whitespace-nowrap">Ext {r.ext}</span>}
                         {!r.isActive && (
-                          <Badge variant="outline" className="text-xs">Off Duty</Badge>
+                          <Badge variant="outline" className="text-xs">
+                            Off Duty
+                          </Badge>
                         )}
                         <Button
                           variant="ghost"
@@ -388,11 +392,7 @@ const DispatcherTier = () => {
               </Card>
             ))}
           </div>
-          {rows.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              No dispatchers found
-            </div>
-          )}
+          {rows.length === 0 && <div className="text-center py-12 text-muted-foreground">No dispatchers found</div>}
         </ScrollArea>
       )}
 
