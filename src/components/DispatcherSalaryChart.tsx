@@ -722,6 +722,7 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
       count: v.displayCount,
       avgCount: v.avgCount,
       avgProj: null as number | null,
+      avgActual: null as number | null,
     }));
 
     // Current-month projection: overlay a dotted projected point.
@@ -745,7 +746,17 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
       const projCount = activeThisMonth || projectedCountCurrentMonth || projectedSalariesCurrentMonth.length;
       const idx = rows.findIndex((r) => r.key === currentMonthKey);
       if (idx >= 0) {
-        rows[idx] = { ...rows[idx], avg: null as any, avgProj: projAvg, count: projCount };
+        // Keep actual to-date average as the "real" number; dot on the chart
+        // is placed at the projected value (dashed) with actual shown as a
+        // secondary comment in the tooltip / header.
+        const actualAvg = rows[idx].avg;
+        rows[idx] = {
+          ...rows[idx],
+          avg: null as any,
+          avgProj: projAvg,
+          avgActual: actualAvg,
+          count: projCount,
+        };
         if (idx > 0) rows[idx - 1] = { ...rows[idx - 1], avgProj: rows[idx - 1].avg };
       } else {
         rows.push({
@@ -755,6 +766,7 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
           count: projCount,
           avgCount: projectedSalariesCurrentMonth.length,
           avgProj: projAvg,
+          avgActual: null,
         });
         if (rows.length > 1) {
           const prev = rows[rows.length - 2];
@@ -768,7 +780,9 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
   const aggregate = useMemo(() => {
     const totals = chartData.reduce(
       (acc, d) => {
-        const a = d.avg == null ? d.avgProj : d.avg;
+        // Prefer actual (to-date) for current month; fall back to projected
+        // only if no actual is available yet.
+        const a = d.avg == null ? (d.avgActual ?? d.avgProj) : d.avg;
         const c = d.avgCount ?? d.count;
         if (a != null && c > 0) {
           acc.total += a * c;
@@ -783,8 +797,10 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
       avg: totals.count > 0 ? Math.round(totals.total / totals.count) : 0,
       count: totals.displayCount,
       months: chartData.length,
+      currentActual: chartData.find((d) => d.key === currentMonthKey)?.avgActual ?? null,
+      currentProjected: chartData.find((d) => d.key === currentMonthKey)?.avgProj ?? null,
     };
-  }, [chartData]);
+  }, [chartData, currentMonthKey]);
 
   const prevQuarter = (() => {
     const q = Math.floor(currentMonthIdx / 3); // 0..3 current
