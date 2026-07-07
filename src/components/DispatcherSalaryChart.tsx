@@ -16,7 +16,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAnalyticsAggregatesDailyRows } from "@/hooks/useAnalyticsAggregates";
 
 function monthLabel(m: string) {
   const [y, mm] = m.split("-");
@@ -37,8 +36,33 @@ type PresetKey =
   | "custom";
 
 export function DispatcherSalaryChart() {
-  // Per-dispatcher monthly freight & commission base, from analytics_locked_daily
-  const { data: dailyRows = [] } = useAnalyticsAggregatesDailyRows("dispatcher", "delivery");
+  // Per-dispatcher monthly freight & driver pay, computed live from orders
+  // (same source Dispatcher Performance uses)
+  const { data: orderRows = [] } = useQuery({
+    queryKey: ["dispatcher-salary-chart", "orders"],
+    queryFn: async () => {
+      const rows: any[] = [];
+      const PAGE = 1000;
+      let lastId = "00000000-0000-0000-0000-000000000000";
+      for (let i = 0; i < 200; i++) {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("id, booked_by, delivery_datetime, freight_amount, driver_price, canceled, tonu, tonu_driver")
+          .not("booked_by", "is", null)
+          .not("delivery_datetime", "is", null)
+          .gt("id", lastId)
+          .order("id", { ascending: true })
+          .limit(PAGE);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        rows.push(...data);
+        lastId = data[data.length - 1].id as string;
+        if (data.length < PAGE) break;
+      }
+      return rows;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Dispatcher pay rates (gross_percent, cut_percent) — keyed by both full_name and user_id
   const { data: profileRates = { byName: {}, byUserId: {}, nameToUserId: {} } } = useQuery({
@@ -103,36 +127,63 @@ export function DispatcherSalaryChart() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Build: name -> month -> { freight, driverPay }
+  // Build: bookedByKey (uuid or name) -> month -> { freight, driverPay }
+  // Month uses America/Chicago on delivery_datetime to match salary period.
+  const chicagoMonth = (iso: string): string | null => {
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Chicago",
+        year: "numeric",
+        month: "2-digit",
+      }).formatToParts(new Date(iso));
+      const y = parts.find((p) => p.type === "year")?.value;
+      const m = parts.find((p) => p.type === "month")?.value;
+      return y && m ? `${y}-${m}` : null;
+    } catch {
+      return null;
+    }
+  };
   const perDispatcherByMonth = useMemo(() => {
     const map = new Map<string, Map<string, { freight: number; driverPay: number }>>();
-    for (const r of dailyRows) {
-      const name = r.entity_name || r.entity_id;
-      if (!name || !r.date) continue;
-      const month = r.date.slice(0, 7); // YYYY-MM
-      let inner = map.get(name);
+    for (const o of orderRows) {
+      const key = o.booked_by as string | null;
+      if (!key || !o.delivery_datetime) continue;
+      const canceled = !!o.canceled;
+      const tonu = Number(o.tonu) || 0;
+      const tonuDriver = Number(o.tonu_driver) || 0;
+      // Match Dispatcher Performance: skip canceled unless TONU exists.
+      if (canceled && tonu <= 0 && tonuDriver <= 0) continue;
+      const freight = canceled ? tonu : Number(o.freight_amount) || 0;
+      const driverPay = canceled ? tonuDriver : Number(o.driver_price) || 0;
+      const month = chicagoMonth(o.delivery_datetime);
+      if (!month) continue;
+      let inner = map.get(key);
       if (!inner) {
         inner = new Map();
-        map.set(name, inner);
+        map.set(key, inner);
       }
       const prev = inner.get(month) || { freight: 0, driverPay: 0 };
-      prev.freight += Number(r.total_freight) || 0;
-      prev.driverPay += Number(r.total_driver_pay_effective) || 0;
+      prev.freight += freight;
+      prev.driverPay += driverPay;
       inner.set(month, prev);
     }
     return map;
-  }, [dailyRows]);
+  }, [orderRows]);
 
   // Compute salary per dispatcher per month using rates + bonuses + additionals
   const salaryByMonth = useMemo(() => {
     // month -> array of salaries (one per dispatcher, filtered >= $500)
     const out = new Map<string, number[]>();
-    for (const [name, months] of perDispatcherByMonth) {
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    for (const [bookedBy, months] of perDispatcherByMonth) {
+      const isUuid = uuidRe.test(bookedBy);
       const rate =
-        profileRates.byName[name] ||
-        (profileRates.nameToUserId[name] && profileRates.byUserId[profileRates.nameToUserId[name]]) ||
+        (isUuid ? profileRates.byUserId[bookedBy] : profileRates.byName[bookedBy]) ||
+        (!isUuid && profileRates.nameToUserId[bookedBy]
+          ? profileRates.byUserId[profileRates.nameToUserId[bookedBy]]
+          : undefined) ||
         { g: 0.01, c: 0.05 };
-      const userId = profileRates.nameToUserId[name] || null;
+      const userId = isUuid ? bookedBy : profileRates.nameToUserId[bookedBy] || null;
       for (const [month, agg] of months) {
         const baseRate = agg.freight * rate.g + Math.max(0, agg.freight - agg.driverPay) * rate.c;
         const bonus = userId ? (bonuses[`${userId}|${month}`] || 0) : 0;
