@@ -1337,6 +1337,13 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
                     if (name === "avgProj") {
                       const p: any = item?.payload;
                       if (p && p.avg != null) return [null as any, null as any];
+                      const actual = p?.avgActual;
+                      if (actual != null) {
+                        return [
+                          `$${Number(actual).toLocaleString()} (projected $${Number(v).toLocaleString()})`,
+                          "Avg salary",
+                        ];
+                      }
                       return [`$${Number(v).toLocaleString()}`, "Avg salary (projected)"];
                     }
                     return [v, name];
