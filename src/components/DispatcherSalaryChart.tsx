@@ -332,7 +332,14 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
         projectedSalariesCurrentMonth.reduce((s, v) => s + v, 0) /
           projectedSalariesCurrentMonth.length,
       );
-      const projCount = projectedCountCurrentMonth || projectedSalariesCurrentMonth.length;
+      // Count every dispatcher with any activity in the current month
+      // (not just those projected above the salary threshold).
+      let activeThisMonth = 0;
+      for (const [, months] of perDispatcherByMonth) {
+        const cur = months.get(currentMonthKey);
+        if (cur && (cur.freight > 0 || cur.driverPay > 0)) activeThisMonth += 1;
+      }
+      const projCount = activeThisMonth || projectedCountCurrentMonth || projectedSalariesCurrentMonth.length;
       const idx = rows.findIndex((r) => r.key === currentMonthKey);
       if (idx >= 0) {
         rows[idx] = { ...rows[idx], avg: null as any, avgProj: projAvg, count: projCount };
@@ -353,7 +360,7 @@ export function DispatcherSalaryChart({ orders = [] }: DispatcherSalaryChartProp
       }
     }
     return rows;
-  }, [allMonths, salaryByMonth, countByMonth, activeMonths, currentMonthKey, projectionRatio, projectedSalariesCurrentMonth, projectedCountCurrentMonth]);
+  }, [allMonths, salaryByMonth, countByMonth, activeMonths, currentMonthKey, projectionRatio, projectedSalariesCurrentMonth, projectedCountCurrentMonth, perDispatcherByMonth]);
 
   const aggregate = useMemo(() => {
     const totals = chartData.reduce(
