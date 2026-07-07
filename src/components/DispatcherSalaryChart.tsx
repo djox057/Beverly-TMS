@@ -1241,20 +1241,29 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
             return (
               <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 pt-1">
                 <div>
-                  <p className="text-xs text-muted-foreground">Avg Disp. Salary — {periodLabel}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Avg Disp. Salary — {periodLabel}
+                    {!perDispMode && aggregate.hasCurrent && months > 0 && (
+                      <span> (excl. current month)</span>
+                    )}
+                  </p>
                   <p className="text-2xl font-bold">
                     ${avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </p>
                   {!perDispMode &&
-                    aggregate.currentProjected != null &&
-                    activeMonths.has(currentMonthKey || "") && (
+                    aggregate.hasCurrent && (
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Current month projected: $
-                        {Math.round(aggregate.currentProjected).toLocaleString()}
-                        {aggregate.currentActual != null && (
+                        {aggregate.avgWithCurrentActual != null && (
                           <>
-                            {" "}· actual to-date $
-                            {Math.round(aggregate.currentActual).toLocaleString()}
+                            Incl. current (actual to-date): $
+                            {aggregate.avgWithCurrentActual.toLocaleString()}
+                          </>
+                        )}
+                        {aggregate.avgWithCurrentProjected != null && (
+                          <>
+                            {aggregate.avgWithCurrentActual != null ? " · " : ""}
+                            incl. current (projected): $
+                            {aggregate.avgWithCurrentProjected.toLocaleString()}
                           </>
                         )}
                       </p>
