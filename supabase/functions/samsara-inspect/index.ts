@@ -83,6 +83,7 @@ serve(async (req) => {
       Deno.env.get('SAMSARA_API_KEY_4'),
       Deno.env.get('SAMSARA_API_KEY_5'),
       Deno.env.get('SAMSARA_API_KEY_6'),
+      Deno.env.get('SAMSARA_API_KEY_7'),
     ];
     const apiKeyLabels = [
       'dispatch@bfprime.net',
@@ -91,6 +92,7 @@ serve(async (req) => {
       'zack@beverlyfreight.net',
       'dispatch@bgprime.net',
       'Dispatch@unitedenterprisesolutions.net',
+      'tommy@beverlyfreight.net',
     ];
 
     const keys: any[] = [];
