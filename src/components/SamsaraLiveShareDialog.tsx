@@ -76,7 +76,7 @@ interface Props {
 
 export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Props) {
   const paddedTruck = String(truckNumber || "").replace(/^#/, "").padStart(5, "0");
-  const [pageTitle, setPageTitle] = useState<string>(`TRUCK ${paddedTruck}`);
+  const [pageTitle, setPageTitle] = useState<string>(`TRUCK #${paddedTruck}`);
   const [includeExpiration, setIncludeExpiration] = useState<boolean>(true);
   const [expiryLocal, setExpiryLocal] = useState<string>(defaultExpiry());
   const [loading, setLoading] = useState(false);
