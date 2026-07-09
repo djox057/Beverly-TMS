@@ -97,7 +97,7 @@ export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Prop
         body: {
           truck_number: truckNumber,
           expires_at: expiresAtIso,
-          name: pageTitle.trim() || `TRUCK ${paddedTruck}`,
+          name: pageTitle.trim() || `TRUCK #${paddedTruck}`,
         },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
