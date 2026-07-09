@@ -76,7 +76,7 @@ interface Props {
 
 export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Props) {
   const paddedTruck = String(truckNumber || "").replace(/^#/, "").padStart(5, "0");
-  const [pageTitle, setPageTitle] = useState<string>(`TRUCK ${paddedTruck}`);
+  const [pageTitle, setPageTitle] = useState<string>(`TRUCK #${paddedTruck}`);
   const [includeExpiration, setIncludeExpiration] = useState<boolean>(true);
   const [expiryLocal, setExpiryLocal] = useState<string>(defaultExpiry());
   const [loading, setLoading] = useState(false);
@@ -97,7 +97,7 @@ export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Prop
         body: {
           truck_number: truckNumber,
           expires_at: expiresAtIso,
-          name: pageTitle.trim() || `TRUCK ${paddedTruck}`,
+          name: pageTitle.trim() || `TRUCK #${paddedTruck}`,
         },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
@@ -131,7 +131,7 @@ export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Prop
   const handleClose = (o: boolean) => {
     if (!o) {
       setResult(null);
-      setPageTitle(`TRUCK ${paddedTruck}`);
+      setPageTitle(`TRUCK #${paddedTruck}`);
       setIncludeExpiration(true);
       setExpiryLocal(defaultExpiry());
     }
