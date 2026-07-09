@@ -131,7 +131,7 @@ export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Prop
   const handleClose = (o: boolean) => {
     if (!o) {
       setResult(null);
-      setPageTitle(`TRUCK ${paddedTruck}`);
+      setPageTitle(`TRUCK #${paddedTruck}`);
       setIncludeExpiration(true);
       setExpiryLocal(defaultExpiry());
     }
