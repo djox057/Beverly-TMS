@@ -5416,6 +5416,18 @@ const Reports = () => {
                                                                   >
                                                                     <DollarSign className="h-3 w-3" />
                                                                   </Button>
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    title="Share live location"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setLiveShareDialog({ truckNumber: truck.truckNumber });
+                                                                    }}
+                                                                  >
+                                                                    <Share2 className="h-3 w-3" />
+                                                                  </Button>
                                                                   {(hasRole("manager") ||
                                                                     hasRole("supervisor") ||
                                                                     hasRole("admin")) && (
