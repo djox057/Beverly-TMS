@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useSamsaraLocations } from '@/hooks/useSamsaraLocations';
-import { Loader2, MapPin, X } from 'lucide-react';
+import { Loader2, MapPin, X, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { HosCircularTimer } from '@/components/HosCircularTimer';
+import { SamsaraLiveShareDialog } from '@/components/SamsaraLiveShareDialog';
 
 // Cache the token to avoid repeated API calls
 let cachedMapboxToken: string | null = null;
@@ -149,6 +150,7 @@ export function DispatcherFleetMapView({
   const [noLocationsFound, setNoLocationsFound] = useState(false);
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
   const [popupTick, setPopupTick] = useState(0);
+  const [shareOpen, setShareOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
 
   const { data: locations } = useSamsaraLocations();
