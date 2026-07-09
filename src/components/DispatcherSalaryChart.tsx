@@ -424,7 +424,16 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
       else if (a.type === "charge" && include.charges) adj -= amt;
       else if (a.type === "penalty" && a.applied && include.penalties) adj -= amt;
     }
-    const food = include.food && hasFoodOffice(office) ? 70 : 0;
+    const createdStr =
+      (userId ? (profileRates as any).createdByUserId?.[userId] : null) ??
+      (displayName ? (profileRates as any).createdByName?.[displayName] : null);
+    const createdAfterCutoff = createdStr
+      ? (() => {
+          const d = new Date(createdStr);
+          return !isNaN(d.getTime()) && d >= new Date(2026, 5, 1);
+        })()
+      : false;
+    const food = include.food && hasFoodOffice(office) && !createdAfterCutoff ? 70 : 0;
     const extraKey = userId ? `${userId}|${month}` : null;
     const nameKey = displayName ? `${displayName}|${month}` : null;
     const extraCount =
