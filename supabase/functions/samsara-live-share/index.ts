@@ -109,9 +109,22 @@ serve(async (req) => {
     try { body = await req.json(); } catch { /* ignore */ }
     const truckNumber = String(body.truck_number || '').trim();
     const nameOverride = body.name ? String(body.name).trim() : '';
-    let hours = Number(body.expires_in_hours ?? DEFAULT_HOURS);
-    if (!Number.isFinite(hours) || hours <= 0) hours = DEFAULT_HOURS;
-    if (hours > MAX_HOURS) hours = MAX_HOURS;
+    let endsAt: string;
+    if (body.expires_at) {
+      const t = new Date(String(body.expires_at));
+      if (Number.isNaN(t.getTime()) || t.getTime() <= Date.now()) {
+        return new Response(JSON.stringify({ error: 'expires_at must be a future ISO date' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const maxT = Date.now() + MAX_HOURS * 3600 * 1000;
+      endsAt = new Date(Math.min(t.getTime(), maxT)).toISOString();
+    } else {
+      let hours = Number(body.expires_in_hours ?? DEFAULT_HOURS);
+      if (!Number.isFinite(hours) || hours <= 0) hours = DEFAULT_HOURS;
+      if (hours > MAX_HOURS) hours = MAX_HOURS;
+      endsAt = new Date(Date.now() + hours * 3600 * 1000).toISOString();
+    }
 
     if (!truckNumber) {
       return new Response(JSON.stringify({ error: 'truck_number is required' }), {
@@ -174,7 +187,6 @@ serve(async (req) => {
       });
     }
 
-    const endsAt = new Date(Date.now() + hours * 3600 * 1000).toISOString();
     const shareName = nameOverride || `TRUCK ${String(truckNumber).replace(/^#/, '')}`;
 
     const primaryPayload = {
