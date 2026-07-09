@@ -38,12 +38,20 @@ async function fetchVehicles(apiKey: string): Promise<any[] | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch('https://api.samsara.com/fleet/vehicles', {
+    const res = await fetch('https://api.samsara.com/fleet/vehicles/locations', {
       headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
       signal: controller.signal,
     });
     clearTimeout(timeout);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // fallback to vehicles list (no location)
+      const res2 = await fetch('https://api.samsara.com/fleet/vehicles', {
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+      });
+      if (!res2.ok) return null;
+      const j2 = await res2.json();
+      return j2.data || [];
+    }
     const json = await res.json();
     return json.data || [];
   } catch {
@@ -130,24 +138,35 @@ serve(async (req) => {
       'tommy@beverlyfreight.net',
     ];
 
-    // Find which key/org owns this truck
-    let matchedKey: string | null = null;
-    let matchedLabel: string | null = null;
-    let matchedVehicle: any = null;
-
+    // Find ALL keys/orgs that contain this truck, then pick the one with freshest location
+    const candidates: Array<{ key: string; label: string; vehicle: any; ageMs: number }> = [];
     for (let i = 0; i < apiKeys.length; i++) {
       const key = apiKeys[i];
       if (!key) continue;
       const vehicles = await fetchVehicles(key);
       if (!vehicles) continue;
       const v = matchVehicle(vehicles, truckNumber);
-      if (v?.id) {
-        matchedKey = key;
-        matchedLabel = apiKeyLabels[i] || `SAMSARA_API_KEY_${i + 1}`;
-        matchedVehicle = v;
-        break;
-      }
+      if (!v?.id) continue;
+      const loc = v.location || v.gps || null;
+      const t = loc?.time ? new Date(loc.time).getTime() : NaN;
+      const ageMs = Number.isFinite(t) ? Date.now() - t : Number.POSITIVE_INFINITY;
+      candidates.push({
+        key,
+        label: apiKeyLabels[i] || `SAMSARA_API_KEY_${i + 1}`,
+        vehicle: v,
+        ageMs,
+      });
     }
+    candidates.sort((a, b) => a.ageMs - b.ageMs);
+    const best = candidates[0];
+    const matchedKey = best?.key || null;
+    const matchedLabel = best?.label || null;
+    const matchedVehicle = best?.vehicle || null;
+    console.log(
+      `live-share match for ${truckNumber}: candidates=${candidates
+        .map((c) => `${c.label}(age=${Math.round(c.ageMs / 60000)}m)`)
+        .join(', ')} -> chose ${matchedLabel}`,
+    );
 
     if (!matchedKey || !matchedVehicle) {
       return new Response(JSON.stringify({ error: `Truck ${truckNumber} not found in any Samsara org` }), {
