@@ -182,7 +182,7 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name, user_id, gross_percent, cut_percent, office");
+        .select("full_name, user_id, gross_percent, cut_percent, office, created_at");
       if (error) throw error;
       const byName: Record<string, { g: number; c: number }> = {};
       const byUserId: Record<string, { g: number; c: number }> = {};
@@ -190,6 +190,8 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
       const userIdToName: Record<string, string> = {};
       const officeByUserId: Record<string, string | null> = {};
       const officeByName: Record<string, string | null> = {};
+      const createdByUserId: Record<string, string | null> = {};
+      const createdByName: Record<string, string | null> = {};
       for (const p of (data as any[]) || []) {
         const g = p.gross_percent != null ? Number(p.gross_percent) / 100 : 0.01;
         const c = p.cut_percent != null ? Number(p.cut_percent) / 100 : 0.05;
@@ -197,14 +199,16 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
           byName[p.full_name] = { g, c };
           if (p.user_id) nameToUserId[p.full_name] = p.user_id;
           officeByName[p.full_name] = p.office ?? null;
+          createdByName[p.full_name] = p.created_at ?? null;
         }
         if (p.user_id) {
           byUserId[p.user_id] = { g, c };
           if (p.full_name) userIdToName[p.user_id] = p.full_name;
           officeByUserId[p.user_id] = p.office ?? null;
+          createdByUserId[p.user_id] = p.created_at ?? null;
         }
       }
-      return { byName, byUserId, nameToUserId, userIdToName, officeByUserId, officeByName };
+      return { byName, byUserId, nameToUserId, userIdToName, officeByUserId, officeByName, createdByUserId, createdByName };
     },
     staleTime: 15 * 60 * 1000,
   });

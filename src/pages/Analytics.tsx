@@ -339,6 +339,15 @@ const Analytics = () => {
   ): number => {
     if (!hasFoodOffice(office)) return 0;
     const base = 70;
+    // Users created on or after 2026-06-01 do not receive the food allowance
+    // regardless of office.
+    const createdStrCutoff = userId ? dispatcherProfiles[userId]?.created_at : null;
+    if (createdStrCutoff) {
+      const createdCutoff = new Date(createdStrCutoff);
+      if (!isNaN(createdCutoff.getTime()) && createdCutoff >= new Date(2026, 5, 1)) {
+        return 0;
+      }
+    }
     if (!selectedMonth || selectedMonth === "all" || !selectedMonth.includes("-"))
       return base;
     const [yStr, mStr] = selectedMonth.split("-");
