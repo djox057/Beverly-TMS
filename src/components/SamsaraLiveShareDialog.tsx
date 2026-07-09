@@ -13,21 +13,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
-const PRESETS: { value: string; label: string; hours: number }[] = [
-  { value: "24", label: "24 hours", hours: 24 },
-  { value: "72", label: "3 days", hours: 72 },
-  { value: "168", label: "7 days", hours: 168 },
-  { value: "336", label: "14 days", hours: 336 },
-  { value: "720", label: "30 days", hours: 720 },
-];
+// Format a Date into a value acceptable by <input type="datetime-local"> in local time.
+const toLocalInputValue = (d: Date) => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const defaultExpiry = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 14);
+  return toLocalInputValue(d);
+};
 
 const extractMessageFromPayload = (payload: unknown): string | null => {
   if (!payload || typeof payload !== "object") return null;
@@ -77,7 +75,10 @@ interface Props {
 }
 
 export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Props) {
-  const [hours, setHours] = useState<string>("168");
+  const paddedTruck = String(truckNumber || "").replace(/^#/, "").padStart(5, "0");
+  const [pageTitle, setPageTitle] = useState<string>(`TRUCK ${paddedTruck}`);
+  const [includeExpiration, setIncludeExpiration] = useState<boolean>(true);
+  const [expiryLocal, setExpiryLocal] = useState<string>(defaultExpiry());
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ url: string; expiresAt: string } | null>(null);
 
@@ -85,11 +86,18 @@ export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Prop
     setLoading(true);
     setResult(null);
     try {
+      let expiresAtIso: string | undefined;
+      if (includeExpiration) {
+        const t = new Date(expiryLocal);
+        if (!expiryLocal || Number.isNaN(t.getTime())) throw new Error("Invalid expiration date");
+        if (t.getTime() <= Date.now()) throw new Error("Expiration must be in the future");
+        expiresAtIso = t.toISOString();
+      }
       const { data, error } = await supabase.functions.invoke("samsara-live-share", {
         body: {
           truck_number: truckNumber,
-          expires_in_hours: Number(hours),
-          name: `TRUCK ${truckNumber}`,
+          expires_at: expiresAtIso,
+          name: pageTitle.trim() || `TRUCK ${paddedTruck}`,
         },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error));
@@ -123,7 +131,9 @@ export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Prop
   const handleClose = (o: boolean) => {
     if (!o) {
       setResult(null);
-      setHours("168");
+      setPageTitle(`TRUCK ${paddedTruck}`);
+      setIncludeExpiration(true);
+      setExpiryLocal(defaultExpiry());
     }
     onOpenChange(o);
   };
@@ -149,19 +159,35 @@ export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Prop
         {!result ? (
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
-              <Label>Expires after</Label>
-              <Select value={hours} onValueChange={setHours} disabled={loading}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRESETS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="ls-page-title">Page title</Label>
+              <Input
+                id="ls-page-title"
+                value={pageTitle}
+                onChange={(e) => setPageTitle(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Date</Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="ls-include-exp"
+                  checked={includeExpiration}
+                  onCheckedChange={(v) => setIncludeExpiration(v === true)}
+                  disabled={loading}
+                />
+                <Label htmlFor="ls-include-exp" className="font-normal cursor-pointer">
+                  Include link expiration date
+                </Label>
+              </div>
+              {includeExpiration && (
+                <Input
+                  type="datetime-local"
+                  value={expiryLocal}
+                  onChange={(e) => setExpiryLocal(e.target.value)}
+                  disabled={loading}
+                />
+              )}
             </div>
           </div>
         ) : (
