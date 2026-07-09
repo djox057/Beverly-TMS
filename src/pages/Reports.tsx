@@ -1078,6 +1078,9 @@ const Reports = () => {
     companyName: string;
   } | null>(null);
 
+  // Samsara Live Share dialog state
+  const [liveShareDialog, setLiveShareDialog] = useState<{ truckNumber: string } | null>(null);
+
   // HOS Request dialog state
   const [hosRequestDialog, setHosRequestDialog] = useState<{
     driverName: string;
