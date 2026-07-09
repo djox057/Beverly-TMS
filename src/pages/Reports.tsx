@@ -8262,8 +8262,6 @@ const Reports = () => {
         open={!!liveShareDialog}
         onOpenChange={(open) => !open && setLiveShareDialog(null)}
         truckNumber={liveShareDialog?.truckNumber || ""}
-        requesterEmail={profile?.email}
-        requesterName={profile?.full_name}
       />
 
       {/* HOS Request Dialog */}
