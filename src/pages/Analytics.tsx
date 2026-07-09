@@ -919,16 +919,20 @@ const Analytics = () => {
             const primaryKey = record.user_id || record.dispatcher_name;
             const userOffice = dispatcherProfiles[primaryKey]?.office;
             const isMovingDay = record.scheduled_date === "2026-01-10" && userOffice === "KRAGUJEVAC";
+            // Deleted users (no user_id) don't have a regular afterhours shift, so any
+            // scheduled day for them counts as an extra day (no -1 subtraction).
+            const isDeletedUserExtra = !record.user_id;
 
             keys.forEach((key) => {
-              if (isWeekend && !isMovingDay) {
+              if (isWeekend && !isMovingDay && !isDeletedUserExtra) {
                 rawWeekendCountsMap[key] += 1;
                 weekendDatesMap[key].push(dateStr);
                 weekendRawDatesMap[key].push(record.scheduled_date);
-              } else if (isMovingDay) {
+              } else if (isMovingDay || isDeletedUserExtra) {
                 // Moving day is the only weekday entry that counts as an extra day.
                 // All other weekday entries in afterhours_schedule are treated as holidays
                 // and excluded from extra-day pay.
+                // Deleted-user entries always count as extras (they have no regular shift).
                 weekdayCountsMap[key] += 1;
                 weekdayDatesMap[key].push(dateStr);
                 weekdayRawDatesMap[key].push(record.scheduled_date);
