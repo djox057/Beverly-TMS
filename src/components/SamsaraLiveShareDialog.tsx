@@ -29,6 +29,47 @@ const PRESETS: { value: string; label: string; hours: number }[] = [
   { value: "720", label: "30 days", hours: 720 },
 ];
 
+const extractMessageFromPayload = (payload: unknown): string | null => {
+  if (!payload || typeof payload !== "object") return null;
+  const data = payload as Record<string, unknown>;
+  const details = data.details;
+
+  if (typeof details === "string" && details.trim()) {
+    try {
+      const parsed = JSON.parse(details) as Record<string, unknown>;
+      if (typeof parsed.message === "string" && parsed.message.trim()) return parsed.message;
+      if (typeof parsed.error === "string" && parsed.error.trim()) return parsed.error;
+    } catch {
+      return details;
+    }
+  }
+
+  if (typeof data.message === "string" && data.message.trim()) return data.message;
+  if (typeof data.error === "string" && data.error.trim()) return data.error;
+  return null;
+};
+
+const getFunctionErrorMessage = async (error: unknown): Promise<string> => {
+  const fallback = error instanceof Error ? error.message : "Failed to create live share link";
+  const context = (error as { context?: unknown })?.context;
+
+  if (context instanceof Response) {
+    try {
+      const payload = await context.clone().json();
+      return extractMessageFromPayload(payload) || fallback;
+    } catch {
+      try {
+        const text = await context.clone().text();
+        return text || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+  }
+
+  return fallback;
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -51,7 +92,7 @@ export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Prop
           name: `TRUCK ${truckNumber}`,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await getFunctionErrorMessage(error));
       if (!data?.url) throw new Error("No URL returned");
       setResult({ url: data.url, expiresAt: data.expiresAt });
       try {
@@ -60,8 +101,8 @@ export function SamsaraLiveShareDialog({ open, onOpenChange, truckNumber }: Prop
       } catch {
         toast.success("Live share link created");
       }
-    } catch (err: any) {
-      const msg = err?.message || "Failed to create live share link";
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to create live share link";
       console.error("live-share error:", err);
       toast.error(msg);
     } finally {

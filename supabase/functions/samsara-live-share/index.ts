@@ -52,6 +52,27 @@ async function fetchVehicles(apiKey: string): Promise<any[] | null> {
   }
 }
 
+async function createLiveShare(
+  apiKey: string,
+  payload: Record<string, unknown>,
+): Promise<{ ok: boolean; status: number; text: string }> {
+  const shareRes = await fetch('https://api.samsara.com/live-shares', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return {
+    ok: shareRes.ok,
+    status: shareRes.status,
+    text: await shareRes.text(),
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -137,26 +158,39 @@ serve(async (req) => {
     const endsAt = new Date(Date.now() + hours * 3600 * 1000).toISOString();
     const shareName = nameOverride || `TRUCK ${String(truckNumber).replace(/^#/, '')}`;
 
-    const shareRes = await fetch('https://api.samsara.com/live-shares', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${matchedKey}`,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
+    const primaryPayload = {
+      type: 'assetsLocation',
+      name: shareName,
+      expiresAtTime: endsAt,
+      assetsLocationLinkConfig: {
+        assetId: String(matchedVehicle.id),
       },
-      body: JSON.stringify({
-        name: shareName,
-        endsAtTime: endsAt,
-        assets: [{ vehicleId: String(matchedVehicle.id) }],
-      }),
-    });
+    };
 
-    const shareText = await shareRes.text();
-    if (!shareRes.ok) {
-      console.error(`Samsara live-shares error [${shareRes.status}]: ${shareText}`);
+    let shareResult = await createLiveShare(matchedKey, primaryPayload);
+
+    // Compatibility fallback for Samsara schema variations between asset/vehicle naming.
+    if (!shareResult.ok && shareResult.status === 400) {
+      const fallbackPayload = {
+        type: 'assetsLocation',
+        name: shareName,
+        expiresAtTime: endsAt,
+        assetsLocationLinkConfig: {
+          vehicleId: String(matchedVehicle.id),
+        },
+      };
+      const fallbackResult = await createLiveShare(matchedKey, fallbackPayload);
+      if (fallbackResult.ok) {
+        shareResult = fallbackResult;
+      }
+    }
+
+    const shareText = shareResult.text;
+    if (!shareResult.ok) {
+      console.error(`Samsara live-shares error [${shareResult.status}]: ${shareText}`);
       return new Response(
-        JSON.stringify({ error: 'Samsara live-shares request failed', status: shareRes.status, details: shareText }),
-        { status: shareRes.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        JSON.stringify({ error: 'Samsara live-shares request failed', status: shareResult.status, details: shareText }),
+        { status: shareResult.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
