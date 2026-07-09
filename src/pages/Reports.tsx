@@ -68,8 +68,10 @@ import {
   HeartPulse,
   FileWarning,
   AlertTriangle,
+  Share2,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
+import { SamsaraLiveShareDialog } from "@/components/SamsaraLiveShareDialog";
 import { TranslatableOrderNote } from "@/components/TranslatableOrderNote";
 import { TruckWeekRevenuePopover } from "@/components/TruckWeekRevenuePopover";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
