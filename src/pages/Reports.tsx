@@ -8256,6 +8256,12 @@ const Reports = () => {
         driverName={efsRequestDialog?.driverName || ""}
         truckNumber={efsRequestDialog?.truckNumber || ""}
         companyName={efsRequestDialog?.companyName || ""}
+      />
+
+      <SamsaraLiveShareDialog
+        open={!!liveShareDialog}
+        onOpenChange={(open) => !open && setLiveShareDialog(null)}
+        truckNumber={liveShareDialog?.truckNumber || ""}
         requesterEmail={profile?.email}
         requesterName={profile?.full_name}
       />
