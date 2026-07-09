@@ -68,8 +68,10 @@ import {
   HeartPulse,
   FileWarning,
   AlertTriangle,
+  Share2,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
+import { SamsaraLiveShareDialog } from "@/components/SamsaraLiveShareDialog";
 import { TranslatableOrderNote } from "@/components/TranslatableOrderNote";
 import { TruckWeekRevenuePopover } from "@/components/TruckWeekRevenuePopover";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -1075,6 +1077,9 @@ const Reports = () => {
     truckNumber: string;
     companyName: string;
   } | null>(null);
+
+  // Samsara Live Share dialog state
+  const [liveShareDialog, setLiveShareDialog] = useState<{ truckNumber: string } | null>(null);
 
   // HOS Request dialog state
   const [hosRequestDialog, setHosRequestDialog] = useState<{
@@ -5411,6 +5416,18 @@ const Reports = () => {
                                                                   >
                                                                     <DollarSign className="h-3 w-3" />
                                                                   </Button>
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    title="Share live location"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setLiveShareDialog({ truckNumber: truck.truckNumber });
+                                                                    }}
+                                                                  >
+                                                                    <Share2 className="h-3 w-3" />
+                                                                  </Button>
                                                                   {(hasRole("manager") ||
                                                                     hasRole("supervisor") ||
                                                                     hasRole("admin")) && (
@@ -5486,6 +5503,18 @@ const Reports = () => {
                                                                     }}
                                                                   >
                                                                     <DollarSign className="h-3 w-3" />
+                                                                  </Button>
+                                                                  <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 w-6 p-0"
+                                                                    title="Share live location"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      setLiveShareDialog({ truckNumber: truck.truckNumber });
+                                                                    }}
+                                                                  >
+                                                                    <Share2 className="h-3 w-3" />
                                                                   </Button>
                                                                 </div>
                                                               </div>
@@ -5750,6 +5779,18 @@ const Reports = () => {
                                                                       }}
                                                                     >
                                                                       <DollarSign className="h-3 w-3" />
+                                                                    </Button>
+                                                                    <Button
+                                                                      variant="ghost"
+                                                                      size="sm"
+                                                                      className="h-6 w-6 p-0"
+                                                                      title="Share live location"
+                                                                      onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setLiveShareDialog({ truckNumber: truck.truckNumber });
+                                                                      }}
+                                                                    >
+                                                                      <Share2 className="h-3 w-3" />
                                                                     </Button>
                                                                     {(hasRole("manager") ||
                                                                       hasRole("supervisor") ||
@@ -8215,8 +8256,12 @@ const Reports = () => {
         driverName={efsRequestDialog?.driverName || ""}
         truckNumber={efsRequestDialog?.truckNumber || ""}
         companyName={efsRequestDialog?.companyName || ""}
-        requesterEmail={profile?.email}
-        requesterName={profile?.full_name}
+      />
+
+      <SamsaraLiveShareDialog
+        open={!!liveShareDialog}
+        onOpenChange={(open) => !open && setLiveShareDialog(null)}
+        truckNumber={liveShareDialog?.truckNumber || ""}
       />
 
       {/* HOS Request Dialog */}
