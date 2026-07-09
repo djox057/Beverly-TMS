@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, Truck as TruckIcon } from "lucide-react";
+import { Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
@@ -9,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
+import { SamsaraLiveShareDialog } from "@/components/SamsaraLiveShareDialog";
 import { cn } from "@/lib/utils";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -257,6 +259,7 @@ export default function TrucksMap() {
   const canUseIndividual =
     isDispatch || (isAfterhours && afterhoursDriverIds.length > 0);
   const [individualOnly, setIndividualOnly] = useState<boolean>(isDispatch);
+  const [shareTruckNumber, setShareTruckNumber] = useState<string | null>(null);
 
   useEffect(() => {
     // Clear search when user re-clicks the Live Map nav item while already on the map
@@ -569,14 +572,28 @@ export default function TrucksMap() {
               >
                 <div className="flex w-full items-center justify-between gap-2">
                   <span className="font-semibold text-foreground">#{m.truckNumber}</span>
-                  {m.currentOrder?.loadNumber && (
-                    <Badge
-                      variant="secondary"
-                      className="h-5 px-1.5 text-[10px] font-normal"
+                  <div className="flex items-center gap-1">
+                    {m.currentOrder?.loadNumber && (
+                      <Badge
+                        variant="secondary"
+                        className="h-5 px-1.5 text-[10px] font-normal"
+                      >
+                        {m.currentOrder.loadNumber}
+                      </Badge>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShareTruckNumber(m.truckNumber);
+                      }}
+                      className="rounded p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
+                      title="Share live location"
+                      aria-label="Share live location"
                     >
-                      {m.currentOrder.loadNumber}
-                    </Badge>
-                  )}
+                      <Share2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <span className="truncate text-xs text-muted-foreground">
                   {m.driverName}
@@ -613,6 +630,11 @@ export default function TrucksMap() {
           }}
         />
       </div>
+      <SamsaraLiveShareDialog
+        open={!!shareTruckNumber}
+        onOpenChange={(o) => { if (!o) setShareTruckNumber(null); }}
+        truckNumber={shareTruckNumber || ""}
+      />
     </div>
   );
 }
