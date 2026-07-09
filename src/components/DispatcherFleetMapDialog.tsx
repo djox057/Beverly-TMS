@@ -1059,11 +1059,30 @@ export function DispatcherFleetMapView({
                 </div>
               </div>
             </div>
+
+            {/* Live share */}
+            <div className="pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setShareOpen(true)}
+                className="w-full flex items-center justify-center gap-2 rounded-md bg-[hsl(199_89%_48%)] px-3 py-1.5 text-xs font-medium text-white hover:brightness-110"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Share Live Location
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       <div ref={mapContainer} className="w-full h-full min-h-[600px]" />
+      {selectedTruck && (
+        <SamsaraLiveShareDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          truckNumber={selectedTruck.truckNumber}
+        />
+      )}
     </div>
   );
 }
