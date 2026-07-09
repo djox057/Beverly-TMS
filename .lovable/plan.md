@@ -1,50 +1,54 @@
-## Plan
+## Goal
+Add a button on each truck in the Live Fleet Map that generates a Samsara **public Live Share link** (the same feature shown in your screenshot) — a URL anyone can open without a Samsara login, with an expiration date and an optional destination/ETA.
 
-Reuse the same data the Dispatcher Salaries table already loads in `Analytics.tsx`. The chart should not run its own Supabase queries, so it stops re-fetching and re-deriving the same data — which is the real source of the freezes.
+## How Samsara exposes this
+Samsara's REST API endpoint:
 
-### What changes
-
-1. **Remove all Supabase fetching from `DispatcherSalaryChart`**
-   - Delete the 5 internal `useQuery` calls (profiles, afterhours_schedule, off-duty-days, monthly bonuses, salary payments additionals).
-   - The component becomes a pure presentation + memoization component.
-
-2. **Pass shared data in as props from `Analytics.tsx`**
-   - `Analytics.tsx` already loads: `dispatcherProfiles` (with `gross_percent`, `cut_percent`, `office`, `created_at`), `salaryPayments` (with `additionals`), monthly bonuses, `afterhours_schedule` entries, `dispatcher_off_duty_days`, and the orders array.
-   - Build small memoized maps in `Analytics.tsx` once (rates by user id / name, food-office flag, extra-days per user+month, lost-days per user+month, bonuses per user+month, additionals per user+month) and pass them into `DispatcherSalaryChart` as props.
-   - Use `React.memo` on `DispatcherSalaryChart` and pass stable prop references so chart hover / dispatcher toggles do not force parent recomputation.
-
-3. **Restore the chart UI**
-   - Bring back the Recharts `Tooltip`, visible dots, and active dots.
-   - Remove the temporary `pointer-events-none` guard.
-
-4. **Keep the salary precompute cache**
-   - Keep the good part of the previous change: salaries per dispatcher/month are computed once from the injected maps and reused by the chart, the per-dispatcher lines, and the averages table.
-   - Selecting / deselecting dispatchers only filters the cache; it does not recompute salaries.
-
-5. **Lower priority selection updates**
-   - Wrap the dispatcher checkbox toggle in `startTransition` so mouse clicks stay responsive even while lines rebuild.
-
-6. **Validate**
-   - Run TypeScript check.
-   - Confirm no duplicate network requests for the chart (only Dispatcher Salaries requests remain).
-   - Confirm the chart values still match the Dispatcher Salaries table.
-
-### Technical detail
-
-- New `DispatcherSalaryChart` props:
-  - `orders`
-  - `ratesByUserId`, `ratesByName`, `nameToUserId`, `userIdToName`, `officeByUserId`, `officeByName`
-  - `extraDaysByUserMonth`, `lostDaysByUserMonth`
-  - `bonusesByUserMonth`
-  - `additionalsByUserMonth`
-- All of these are derived in `Analytics.tsx` from state already populated by the Dispatcher Salaries tab.
-- The chart no longer imports `supabase` or `useQuery`.
-
-```text
-Analytics.tsx (already fetching)
-  ├── dispatcherProfiles ──▶ rates + office maps ─┐
-  ├── salaryPayments      ──▶ additionals map    ─┤
-  ├── monthlyBonuses       ──▶ bonuses map       ─┼──▶ <DispatcherSalaryChart {...maps} orders={orders} />
-  ├── afterhoursSchedule   ──▶ extraDays map     ─┤
-  └── offDutyDays          ──▶ lostDays map      ─┘
 ```
+POST https://api.samsara.com/live-shares
+Authorization: Bearer <SAMSARA_API_KEY_n>
+{
+  "name": "TRUCK 4677",
+  "vehicleId": "<samsara vehicle id>",
+  "endsAtTime": "2026-07-16T22:00:00Z"
+}
+```
+
+Response contains `liveSharingUrl` — the public link.
+
+Each API key is scoped to one Samsara org, so the request must be sent using the **same key** the truck was matched with. We already track `apiKeyIndex` per vehicle in `samsara-locations`.
+
+## Implementation
+
+### 1. New edge function — `supabase/functions/samsara-live-share/index.ts`
+- Auth: require a logged-in Supabase user (same pattern as `samsara-inspect`); reject anon.
+- Input (JSON body): `{ truck_id: string, truck_number: string, expires_in_hours?: number }` (default 168h = 7 days, max 90 days).
+- Look up the truck's Samsara vehicle: fetch `/fleet/vehicles` on all 7 keys and match by truck number using the existing matching logic. Reuse the matcher from `samsara-locations` (copy the function into this file — edge functions don't share modules easily).
+- Call `POST https://api.samsara.com/live-shares` with the matched key.
+- Return `{ url, expiresAt, keyLabel }` to the client. Log failures with status + body.
+
+### 2. Frontend hook — `src/hooks/useSamsaraLiveShare.ts`
+`useMutation` wrapper that invokes the edge function and returns the URL.
+
+### 3. UI — `src/pages/TrucksMap.tsx` and `src/components/DispatcherFleetMapDialog.tsx`
+Add a small **"Share Live Location"** button (Share2 icon from lucide) in the map popup and next to each sidebar row.
+
+Click flow:
+1. Open a small dialog with an expiration dropdown (24 h / 3 days / 7 days / 14 days / 30 days — default 7 days).
+2. On confirm, call the edge function, then:
+   - Copy the returned URL to clipboard.
+   - Show a toast: `Live share link copied — expires <date>`.
+   - Display the URL in the dialog with a copy button and an "Open" button so the user can paste it into email/SMS themselves.
+
+No link is persisted in our DB — each click creates a new link via Samsara. (Samsara stores/lists them in their dashboard.)
+
+### 4. Role gating
+Restrict button visibility to `admin`, `manager`, `accounting`, `dispatch`, and `afterhours` roles (i.e. everyone who currently sees the fleet map).
+
+## Notes / non-goals
+- No "destination + ETA" toggle in v1 — just plain live location share. We can add it later by passing `destination` coordinates to the Samsara endpoint.
+- No revocation UI in v1 — links expire on their own; deletion is done in the Samsara dashboard if needed.
+- No DB migration needed.
+
+## Open question
+OK with the expiration presets **24h / 3d / 7d / 14d / 30d, default 7 days**, or do you want a different set (or a custom date/time picker like Samsara's own dialog)?

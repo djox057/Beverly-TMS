@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useSamsaraLocations } from '@/hooks/useSamsaraLocations';
-import { Loader2, MapPin, X } from 'lucide-react';
+import { Loader2, MapPin, X, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { HosCircularTimer } from '@/components/HosCircularTimer';
+import { SamsaraLiveShareDialog } from '@/components/SamsaraLiveShareDialog';
 
 // Cache the token to avoid repeated API calls
 let cachedMapboxToken: string | null = null;
@@ -149,6 +150,7 @@ export function DispatcherFleetMapView({
   const [noLocationsFound, setNoLocationsFound] = useState(false);
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
   const [popupTick, setPopupTick] = useState(0);
+  const [shareOpen, setShareOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
 
   const { data: locations } = useSamsaraLocations();
@@ -1057,11 +1059,30 @@ export function DispatcherFleetMapView({
                 </div>
               </div>
             </div>
+
+            {/* Live share */}
+            <div className="pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setShareOpen(true)}
+                className="w-full flex items-center justify-center gap-2 rounded-md bg-[hsl(199_89%_48%)] px-3 py-1.5 text-xs font-medium text-white hover:brightness-110"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Share Live Location
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       <div ref={mapContainer} className="w-full h-full min-h-[600px]" />
+      {selectedTruck && (
+        <SamsaraLiveShareDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          truckNumber={selectedTruck.truckNumber}
+        />
+      )}
     </div>
   );
 }
