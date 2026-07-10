@@ -98,7 +98,8 @@ export const MissingPodTab = () => {
            pod_force_complete, canceled, truck_id, driver1_id,
            trucks:truck_id ( truck_number ),
            drivers:driver1_id ( first_name, last_name ),
-           order_files ( file_category, created_at )`,
+           order_files ( file_category, created_at ),
+           pickup_drops ( type, datetime )`,
         )
         .eq("canceled", false)
         .not("delivery_datetime", "is", null)
@@ -127,7 +128,19 @@ export const MissingPodTab = () => {
           .filter((d) => !isNaN(d.getTime()))
           .sort((a, b) => a.getTime() - b.getTime());
         const delivery = toNaiveDate((o as any).delivery_datetime);
-        if (!delivery) continue;
+        // For multi-drop loads use the LATEST delivery stop datetime
+        const dropStops: any[] = ((o as any).pickup_drops || []).filter(
+          (s: any) => s?.type === "delivery" || s?.type === "drop",
+        );
+        let latestDelivery = delivery;
+        for (const s of dropStops) {
+          const d = toNaiveDate(s.datetime);
+          if (d && (!latestDelivery || d.getTime() > latestDelivery.getTime())) {
+            latestDelivery = d;
+          }
+        }
+        if (!latestDelivery) continue;
+        const effectiveDelivery = latestDelivery;
 
         let elapsedMs: number;
         let frozen = false;
@@ -135,11 +148,11 @@ export const MissingPodTab = () => {
         if (podFiles.length > 0) {
           // Convert POD created_at (UTC) to Chicago naive
           const podChicago = toZonedTime(podFiles[0], CHICAGO_TZ);
-          elapsedMs = podChicago.getTime() - delivery.getTime();
+          elapsedMs = podChicago.getTime() - effectiveDelivery.getTime();
           frozen = true;
           podUploadedIso = podFiles[0].toISOString();
         } else {
-          elapsedMs = nowChicago.getTime() - delivery.getTime();
+          elapsedMs = nowChicago.getTime() - effectiveDelivery.getTime();
         }
         if (elapsedMs < 24 * 60 * 60 * 1000) continue;
 
@@ -152,7 +165,7 @@ export const MissingPodTab = () => {
           truck_number: truck?.truck_number || null,
           driver_name: drv ? `${drv.first_name || ""} ${drv.last_name || ""}`.trim() : "",
           booked_by: (o as any).booked_by,
-          delivery_datetime: (o as any).delivery_datetime,
+          delivery_datetime: `${effectiveDelivery.getFullYear()}-${String(effectiveDelivery.getMonth() + 1).padStart(2, "0")}-${String(effectiveDelivery.getDate()).padStart(2, "0")}T${String(effectiveDelivery.getHours()).padStart(2, "0")}:${String(effectiveDelivery.getMinutes()).padStart(2, "0")}:00`,
           pod_uploaded_at: podUploadedIso,
           elapsedMs,
           frozen,
