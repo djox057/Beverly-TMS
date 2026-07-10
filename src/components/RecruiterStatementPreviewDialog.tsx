@@ -384,8 +384,7 @@ export default function RecruiterStatementPreviewDialog({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const safeName = data.recruiterName.replace(/\s+/g, "_");
-      a.download = `Recruiter_Statement_${safeName}_${data.month}.pdf`;
+      a.download = `${data.recruiterName}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
