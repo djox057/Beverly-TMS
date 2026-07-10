@@ -4565,10 +4565,15 @@ const Analytics = () => {
                                                 const monthDate = new Date(year, monthNum, 1);
                                                 const payPeriod = format(monthDate, "MMMM, yyyy");
 
-                                                // Get dates for extra/lost days - only show 2nd+ dates (skip first which is regular)
+                                                // Get dates for extra/lost days. For regular users the 1st date is
+                                                // their regular weekend shift; for deleted users every scheduled day
+                                                // is an extra. Use `extraDays` count to slice from the end so both
+                                                // cases are handled correctly.
                                                 const allExtraDayDates =
                                                   extraDayDatesByUser[stat.userId || stat.name] || [];
-                                                const extraDayDates = allExtraDayDates.slice(1); // Skip 1st date (regular day)
+                                                const extraDayDates = allExtraDayDates.slice(
+                                                  Math.max(0, allExtraDayDates.length - extraDays),
+                                                );
                                                 const lostDayDates = stat.userId
                                                   ? lostDayDatesByUser[stat.userId] || []
                                                   : lostDayDatesByUser[stat.name] || [];
@@ -4630,10 +4635,12 @@ const Analytics = () => {
                                                 const monthDate = new Date(year, monthNum, 1);
                                                 const payPeriod = format(monthDate, "MMMM, yyyy");
 
-                                                // Get dates for extra/lost days
+                                                // Get dates for extra/lost days (see slice comment above).
                                                 const allExtraDayDates =
                                                   extraDayDatesByUser[stat.userId || stat.name] || [];
-                                                const extraDayDatesForDoc = allExtraDayDates.slice(1);
+                                                const extraDayDatesForDoc = allExtraDayDates.slice(
+                                                  Math.max(0, allExtraDayDates.length - extraDays),
+                                                );
                                                 const lostDayDatesForDoc = stat.userId
                                                   ? lostDayDatesByUser[stat.userId] || []
                                                   : lostDayDatesByUser[stat.name] || [];
@@ -4781,10 +4788,12 @@ const Analytics = () => {
                                                 const monthDate = new Date(year, monthNum, 1);
                                                 const payPeriod = format(monthDate, "MMMM, yyyy");
 
-                                                // Get dates for extra/lost days
+                                                // Get dates for extra/lost days (see slice comment above).
                                                 const allExtraDayDates =
                                                   extraDayDatesByUser[stat.userId || stat.name] || [];
-                                                const extraDayDatesForDoc = allExtraDayDates.slice(1);
+                                                const extraDayDatesForDoc = allExtraDayDates.slice(
+                                                  Math.max(0, allExtraDayDates.length - extraDays),
+                                                );
                                                 const lostDayDatesForDoc = stat.userId
                                                   ? lostDayDatesByUser[stat.userId] || []
                                                   : lostDayDatesByUser[stat.name] || [];
