@@ -6205,7 +6205,6 @@ const Trips = () => {
                                                   });
                                                 if (escortFee !== 0)
                                                   freightItems.push({ label: "Escort", value: escortFee });
-                                                if (lumper !== 0) freightItems.push({ label: "Lumper", value: lumper });
                                                 if (otherCharges !== 0) {
                                                   const reason = String((order as any).otherChargesReason || "").trim();
                                                   freightItems.push({
