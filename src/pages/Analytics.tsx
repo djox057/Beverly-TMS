@@ -3382,6 +3382,36 @@ const Analytics = () => {
                 {/* Only show dispatcher table if there's more than 1 dispatcher */}
                 {dispatcherStats.length > 1 && (
                   <div className="overflow-x-auto -mx-4 sm:mx-0">
+                    <div className="flex justify-end mb-2 px-4 sm:px-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const rows = dispatcherStats.map((s) => {
+                            const twelvePct = s.totalFreight * 0.12;
+                            return {
+                              Dispatcher: s.name,
+                              "Total Freight": Number(s.totalFreight.toFixed(2)),
+                              "Total Miles": Number(s.totalMiles.toFixed(0)),
+                              "Rate/Mile": Number(s.ratePerMile.toFixed(3)),
+                              "Comm.": Number(s.cut.toFixed(2)),
+                              "Comm. %": Number(s.cutPercent.toFixed(2)),
+                              "Avg Trucks": Number(s.avgTrucks.toFixed(2)),
+                              "Avg Wk Gross/Dr": Number(s.avgWeeklyGrossPerDriver.toFixed(2)),
+                              "12%": Number(twelvePct.toFixed(2)),
+                              "Total Comm": Number((twelvePct + s.cut).toFixed(2)),
+                            };
+                          });
+                          const ws = XLSX.utils.json_to_sheet(rows);
+                          const wb = XLSX.utils.book_new();
+                          XLSX.utils.book_append_sheet(wb, ws, "Dispatchers");
+                          XLSX.writeFile(wb, `dispatchers-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export to Excel
+                      </Button>
+                    </div>
                     <Table>
                       <TableHeader>
                         <TableRow>
