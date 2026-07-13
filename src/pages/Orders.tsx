@@ -233,6 +233,7 @@ const Orders = () => {
   );
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
+  const [ordersExporting, setOrdersExporting] = useState(false);
   const [uesExporting, setUesExporting] = useState(false);
   const [companyExportOpen, setCompanyExportOpen] = useState(false);
   const [companyExportRange, setCompanyExportRange] = useState<DateRange | undefined>();
@@ -432,6 +433,11 @@ const Orders = () => {
 
   const { data: brokers } = useBrokers();
 
+  const serverBackedStatusFilter =
+    missingDocsFilter === "canceled" || missingDocsFilter === "pending-payment" || missingDocsFilter === "billed"
+      ? missingDocsFilter
+      : undefined;
+
   // Detect if any filter is active that requires server-side filtering
   const hasActiveFilter = useMemo(() => {
     return (
@@ -441,6 +447,7 @@ const Orders = () => {
       (truckFilter && truckFilter !== "all-trucks") ||
       (driverFilter && driverFilter !== "all-drivers") ||
       (brokerFilter && brokerFilter !== "all-brokers") ||
+      !!serverBackedStatusFilter ||
       lockedNotInvoicedFilter ||
       invoicedFilter ||
       dateRange?.from ||
@@ -453,6 +460,7 @@ const Orders = () => {
     truckFilter,
     driverFilter,
     brokerFilter,
+    serverBackedStatusFilter,
     lockedNotInvoicedFilter,
     invoicedFilter,
     dateRange,
@@ -504,6 +512,7 @@ const Orders = () => {
       truckId,
       driverId,
       brokerId,
+      statusFilter: serverBackedStatusFilter,
       lockedNotInvoiced: lockedNotInvoicedFilter || undefined,
       invoiced: invoicedFilter || undefined,
       deliveryDateFrom: dateRange?.from ? formatDateNoTz(dateRange.from) : undefined,
@@ -520,6 +529,7 @@ const Orders = () => {
     truckFilter,
     driverFilter,
     brokerFilter,
+    serverBackedStatusFilter,
     lockedNotInvoicedFilter,
     invoicedFilter,
     dateRange,
@@ -1125,8 +1135,55 @@ const Orders = () => {
       searchText: `${b.name} ${b.mc_number || ""}`.toLowerCase(),
     }));
   const exportToExcel = () => {
-    if (!filteredOrders.length) return;
-    buildAndDownloadOrdersXlsx(filteredOrders, `orders_${new Date().toISOString().split("T")[0]}.xlsx`);
+    if (ordersExporting) return;
+
+    const filename = `orders_${new Date().toISOString().split("T")[0]}.xlsx`;
+    if (selectionMode && selectedOrderIds.size > 0) {
+      if (!selectedOrders.length) return;
+      buildAndDownloadOrdersXlsx(selectedOrders, filename);
+      return;
+    }
+
+    if (!hasActiveFilter || !serverFilters) {
+      if (!filteredOrders.length) return;
+      buildAndDownloadOrdersXlsx(filteredOrders, filename);
+      return;
+    }
+
+    setOrdersExporting(true);
+    toast.info("Fetching all matching orders for export...");
+    (async () => {
+      try {
+        const PAGE = 1000;
+        let offset = 0;
+        const allOrders: any[] = [];
+
+        while (true) {
+          const { data, error } = await supabase.functions.invoke("search-orders", {
+            body: { filters: serverFilters, offset, limit: PAGE },
+          });
+          if (error) throw error;
+
+          const rows = data?.orders || [];
+          allOrders.push(...rows);
+          if (!data?.hasMore || rows.length < PAGE) break;
+          offset += rows.length;
+        }
+
+        if (!allOrders.length) {
+          toast.warning("No orders found for the selected filters");
+          return;
+        }
+
+        buildAndDownloadOrdersXlsx(transformOrders(allOrders), filename);
+        toast.success(`Exported ${allOrders.length} orders`);
+      } catch (e: any) {
+        console.error("Orders export failed", e);
+        toast.error(`Export failed: ${e?.message || "unknown error"}`);
+      } finally {
+        setOrdersExporting(false);
+      }
+    })();
   };
 
   // Shared row+totals builder used by both exports
@@ -1582,10 +1639,14 @@ const Orders = () => {
                 <Button
                   variant="outline"
                   onClick={exportToExcel}
-                  disabled={!filteredOrders.length}
+                  disabled={ordersExporting || (!filteredOrders.length && !(hasActiveFilter && (filteredSummary?.totalCount || 0) > 0))}
                   className="text-xs md:text-sm"
                 >
-                  <Download className="mr-1 md:mr-2 h-4 w-4" />
+                  {ordersExporting ? (
+                    <Loader2 className="mr-1 md:mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-1 md:mr-2 h-4 w-4" />
+                  )}
                   <span className="hidden sm:inline">Export to Excel</span>
                   <span className="sm:hidden">Export</span>
                 </Button>
