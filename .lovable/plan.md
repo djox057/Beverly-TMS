@@ -1,33 +1,39 @@
-## Goal
-Fix the public Samsara Live Share generation for truck 2934 and similar trucks.
+## Problem
 
-## What I found
-- The current edge function is reaching Samsara, but Samsara returns:
-  - `400`: `"type" is missing from body`
-- Samsara’s current `POST /live-shares` API requires:
-  - `type: "assetsLocation"`
-  - `expiresAtTime` (not `endsAtTime`)
-  - `assetsLocationLinkConfig` containing the asset/vehicle id
-- The app currently sends the older/wrong shape:
-  - `endsAtTime`
-  - `assets: [{ vehicleId }]`
+`/orders` blocks for ~7–8s on `[OrdersProgressive] ⏱ locked count query`. The unlocked count returns in ~250–500ms, but the exact locked count on `orders` (39k+ rows) is what makes the page hang and sometimes fail to fetch. Nothing else on the page is slow.
 
-## Plan
-1. Update `supabase/functions/samsara-live-share/index.ts`
-   - Send Samsara the current required payload shape:
-     - `type: "assetsLocation"`
-     - `name`
-     - `expiresAtTime`
-     - `assetsLocationLinkConfig: { assetId: <matched vehicle id> }`
-   - Keep the existing truck matching across all configured Samsara keys.
-   - If Samsara still rejects `assetId` for a vehicle, add a fallback request using `vehicleId` inside the config so we can support either response/schema variation.
+## Root cause
 
-2. Improve the frontend error display in `src/components/SamsaraLiveShareDialog.tsx`
-   - Instead of showing only `Edge Function returned a non-2xx status code`, read the edge function response body when available.
-   - Show the Samsara message directly in the toast, for example: `"type" is missing from body` or permission errors.
+In `src/hooks/useOrdersProgressive.ts` the counts query uses `count: "exact"` for both unlocked and locked orders. Exact counts on a big filtered table force Postgres to scan every matching row. Locked = true is the vast majority of rows, so it's by far the worst case. There is no supporting partial index for `locked = true`.
 
-3. Verify with truck `2934`
-   - Deploy/test the edge function.
-   - Confirm it returns a URL shaped like:
-     - `https://cloud.samsara.com/o/.../fleet/viewer/...`
-   - Confirm the UI copies/displays the link.
+## Fix (only touches counts, no UI/behavior change)
+
+1. In `useOrdersProgressive.ts` counts query:
+   - Keep `count: "exact"` for the unlocked query (small, fast, needed to know exact unlocked size for the boundary logic).
+   - Switch the locked count to `count: "estimated"` (falls back to planner statistics). This returns in ~10–50ms and is only used to compute `serverTotalPages` for locked pagination, which does not need to be exact.
+   - If `estimated` returns `null` or `0` while there clearly are locked rows (rare, e.g. fresh table with no ANALYZE), fall back to `count: "planned"`, then to `exact` as a last resort.
+
+2. Add a partial index to help both the count and the paginated fetches on locked orders:
+
+```sql
+CREATE INDEX IF NOT EXISTS orders_locked_true_created_at_idx
+  ON public.orders (created_at DESC)
+  WHERE locked = true;
+
+CREATE INDEX IF NOT EXISTS orders_locked_false_created_at_idx
+  ON public.orders (created_at DESC)
+  WHERE locked = false;
+```
+
+These are pure performance additions — no schema/data change, no policy change.
+
+## Not changing
+
+- No UI changes.
+- No pagination/page-size changes.
+- No edge function changes.
+- Search, filters, realtime, and progressive fetch flow all stay identical.
+
+## Expected result
+
+Counts phase drops from ~7–8s to well under 1s, so page 1 renders in ~1s total instead of ~9s, and the "fails to fetch" timeout after the long count goes away.

@@ -122,7 +122,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       // Get locked count
       let lockedCountQuery = supabase
         .from("orders")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "estimated", head: true })
         .eq("locked", true);
       lockedCountQuery = buildFilter(lockedCountQuery);
       lockedCountQuery = applyExclusion(lockedCountQuery);
@@ -136,9 +136,23 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
       if (unlockedResult.error) throw unlockedResult.error;
       if (lockedResult.error) throw lockedResult.error;
-      
+
       const unlockedCount = unlockedResult.count ?? 0;
-      const lockedCount = lockedResult.count ?? 0;
+      let lockedCount = lockedResult.count ?? 0;
+
+      // Estimated counts can return 0/null on tables that haven't been ANALYZEd.
+      // Fall back to a planned/exact count only in that edge case.
+      if (!lockedCount) {
+        let fallbackQuery = supabase
+          .from("orders")
+          .select("id", { count: "planned", head: true })
+          .eq("locked", true);
+        fallbackQuery = buildFilter(fallbackQuery);
+        fallbackQuery = applyExclusion(fallbackQuery);
+        fallbackQuery = applyInclusion(fallbackQuery);
+        const fallback = await fallbackQuery;
+        lockedCount = fallback.count ?? 0;
+      }
       
       console.log(`[OrdersProgressive] ✓ counts DONE in ${(performance.now() - tCounts0).toFixed(0)}ms — Unlocked: ${unlockedCount}, Locked: ${lockedCount}, Total: ${unlockedCount + lockedCount}`);
 
