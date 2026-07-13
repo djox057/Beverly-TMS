@@ -3392,34 +3392,54 @@ const Analytics = () => {
                 {dispatcherStats.length > 1 && (
                   <div className="overflow-x-auto -mx-4 sm:mx-0">
                     <div className="flex justify-end mb-2 px-4 sm:px-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const rows = dispatcherStats.map((s) => {
-                            const twelvePct = s.totalFreight * 0.12;
-                            return {
-                              Dispatcher: s.name,
-                              "Total Freight": Number(s.totalFreight.toFixed(2)),
-                              "Total Miles": Number(s.totalMiles.toFixed(0)),
-                              "Rate/Mile": Number(s.ratePerMile.toFixed(3)),
-                              "Comm.": Number(s.cut.toFixed(2)),
-                              "Comm. %": Number(s.cutPercent.toFixed(2)),
-                              "Avg Trucks": Number(s.avgTrucks.toFixed(2)),
-                              "Avg Wk Gross/Dr": Number(s.avgWeeklyGrossPerDriver.toFixed(2)),
-                              "12%": Number(twelvePct.toFixed(2)),
-                              "Total Comm": Number((twelvePct + s.cut).toFixed(2)),
-                            };
-                          });
-                          const ws = XLSX.utils.json_to_sheet(rows);
-                          const wb = XLSX.utils.book_new();
-                          XLSX.utils.book_append_sheet(wb, ws, "Dispatchers");
-                          XLSX.writeFile(wb, `dispatchers-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
-                        }}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Export to Excel
-                      </Button>
+                       <Button
+                         variant="outline"
+                         size="sm"
+                         onClick={async () => {
+                           const jsPDFModule = await import("jspdf");
+                           const autoTableModule = await import("jspdf-autotable");
+                           const JsPDFCtor = jsPDFModule.default;
+                           const autoTable = autoTableModule.default;
+                           const doc = new JsPDFCtor({ orientation: "landscape" });
+                           const fmt = (n: number, d = 2) =>
+                             n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+                           const body = dispatcherStats.map((s) => {
+                             const twelvePct = s.totalDriverRate * 0.12;
+                             return [
+                               s.name,
+                               `$${fmt(s.totalFreight)}`,
+                               fmt(s.totalMiles, 0),
+                               fmt(s.ratePerMile, 3),
+                               `$${fmt(s.cut)}`,
+                               String(s.orderCount),
+                               `$${fmt(s.totalDriverRate)}`,
+                               `$${fmt(twelvePct)}`,
+                             ];
+                           });
+                           doc.setFontSize(14);
+                           doc.text(`Dispatchers - ${format(new Date(), "yyyy-MM-dd")}`, 14, 14);
+                           autoTable(doc, {
+                             head: [[
+                               "Dispatcher",
+                               "Total Freight",
+                               "Total Miles",
+                               "RPM",
+                               "Comm.",
+                               "Total Loads",
+                               "Driver Pay",
+                               "12% of Driver Pay",
+                             ]],
+                             body,
+                             startY: 20,
+                             styles: { fontSize: 9 },
+                             headStyles: { fillColor: [30, 41, 59] },
+                           });
+                           doc.save(`dispatchers-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+                         }}
+                       >
+                         <Download className="h-4 w-4 mr-2" />
+                         Export to PDF
+                       </Button>
                     </div>
                     <Table>
                       <TableHeader>
