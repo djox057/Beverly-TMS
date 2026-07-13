@@ -6162,7 +6162,6 @@ const Trips = () => {
                                                 const noTrackingFee = Number((order as any).noTrackingFee) || 0;
                                                 const wrongAddressFee = Number((order as any).wrongAddressFee) || 0;
                                                 const escortFee = Number((order as any).escortFee) || 0;
-                                                const lumper = Number((order as any).lumper) || 0;
                                                 const otherCharges = Number((order as any).otherCharges) || 0;
                                                 const otherAdditionals = Number((order as any).otherAdditionals) || 0;
 
@@ -6205,7 +6204,6 @@ const Trips = () => {
                                                   });
                                                 if (escortFee !== 0)
                                                   freightItems.push({ label: "Escort", value: escortFee });
-                                                if (lumper !== 0) freightItems.push({ label: "Lumper", value: lumper });
                                                 if (otherCharges !== 0) {
                                                   const reason = String((order as any).otherChargesReason || "").trim();
                                                   freightItems.push({
