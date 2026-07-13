@@ -3272,6 +3272,15 @@ const Analytics = () => {
                           maximumFractionDigits: 2,
                         })}
                       </p>
+                      {hasRole("admin") && (
+                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                          12% + Comm: $
+                          {(totals.totalDriverRate * 0.12 + totalCut).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </p>
+                      )}
                     </div>
                     <div className="text-center col-span-2 sm:col-span-1">
                       <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-1">Comm. %</p>
