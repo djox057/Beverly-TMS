@@ -3395,50 +3395,28 @@ const Analytics = () => {
                        <Button
                          variant="outline"
                          size="sm"
-                         onClick={async () => {
-                           const jsPDFModule = await import("jspdf");
-                           const autoTableModule = await import("jspdf-autotable");
-                           const JsPDFCtor = jsPDFModule.default;
-                           const autoTable = autoTableModule.default;
-                           const doc = new JsPDFCtor({ orientation: "landscape" });
-                           const fmt = (n: number, d = 2) =>
-                             n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
-                           const body = dispatcherStats.map((s) => {
+                         onClick={() => {
+                           const rows = dispatcherStats.map((s) => {
                              const twelvePct = s.totalDriverRate * 0.12;
-                             return [
-                               s.name,
-                               `$${fmt(s.totalFreight)}`,
-                               fmt(s.totalMiles, 0),
-                               fmt(s.ratePerMile, 3),
-                               `$${fmt(s.cut)}`,
-                               String(s.orderCount),
-                               `$${fmt(s.totalDriverRate)}`,
-                               `$${fmt(twelvePct)}`,
-                             ];
+                             return {
+                               Dispatcher: s.name,
+                               "Total Freight": Number(s.totalFreight.toFixed(2)),
+                               "Total Miles": Number(s.totalMiles.toFixed(0)),
+                               RPM: Number(s.ratePerMile.toFixed(3)),
+                               "Comm.": Number(s.cut.toFixed(2)),
+                               "Total Loads": s.orderCount,
+                               "Driver Pay": Number(s.totalDriverRate.toFixed(2)),
+                               "12% of Driver Pay": Number(twelvePct.toFixed(2)),
+                             };
                            });
-                           doc.setFontSize(14);
-                           doc.text(`Dispatchers - ${format(new Date(), "yyyy-MM-dd")}`, 14, 14);
-                           autoTable(doc, {
-                             head: [[
-                               "Dispatcher",
-                               "Total Freight",
-                               "Total Miles",
-                               "RPM",
-                               "Comm.",
-                               "Total Loads",
-                               "Driver Pay",
-                               "12% of Driver Pay",
-                             ]],
-                             body,
-                             startY: 20,
-                             styles: { fontSize: 9 },
-                             headStyles: { fillColor: [30, 41, 59] },
-                           });
-                           doc.save(`dispatchers-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+                           const ws = XLSX.utils.json_to_sheet(rows);
+                           const wb = XLSX.utils.book_new();
+                           XLSX.utils.book_append_sheet(wb, ws, "Dispatchers");
+                           XLSX.writeFile(wb, `dispatchers-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
                          }}
                        >
                          <Download className="h-4 w-4 mr-2" />
-                         Export to PDF
+                         Export to Excel
                        </Button>
                     </div>
                     <Table>
