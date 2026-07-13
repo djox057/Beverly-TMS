@@ -10,6 +10,7 @@ interface SearchFilters {
   truckId?: string;
   driverId?: string;
   brokerId?: string;
+  statusFilter?: "canceled" | "pending-payment" | "billed";
   lockedNotInvoiced?: boolean;
   invoiced?: boolean;
   deliveryDateFrom?: string;
@@ -57,6 +58,7 @@ function getFilterQueryKey(filters: SearchFilters): (string | boolean | undefine
     filters.truckId,
     filters.driverId,
     filters.brokerId,
+    filters.statusFilter,
     filters.lockedNotInvoiced,
     filters.invoiced,
     filters.deliveryDateFrom,

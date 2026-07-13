@@ -13,6 +13,7 @@ interface SearchFilters {
   truckId?: string;
   driverId?: string;
   brokerId?: string;
+  statusFilter?: "canceled" | "pending-payment" | "billed";
   lockedNotInvoiced?: boolean;
   invoiced?: boolean;
   deliveryDateFrom?: string;
@@ -266,6 +267,16 @@ Deno.serve(async (req) => {
     // Broker filter
     if (filters.brokerId) {
       query = query.eq("broker_id", filters.brokerId);
+    }
+
+    // Status filter from the Orders "All Orders" dropdown. These are
+    // DB-backed statuses and must be applied before pagination/counting.
+    if (filters.statusFilter === "canceled") {
+      query = query.eq("canceled", true);
+    } else if (filters.statusFilter === "pending-payment") {
+      query = query.eq("invoiced", true).or("paid.is.null,paid.eq.false");
+    } else if (filters.statusFilter === "billed") {
+      query = query.eq("paid", true);
     }
 
     // Locked/unlocked filter
