@@ -433,10 +433,14 @@ const Orders = () => {
 
   const { data: brokers } = useBrokers();
 
-  const serverBackedStatusFilter =
-    missingDocsFilter === "canceled" || missingDocsFilter === "pending-payment" || missingDocsFilter === "billed"
-      ? missingDocsFilter
-      : undefined;
+  const serverBackedStatusFilter: "canceled" | "pending-payment" | "billed" | undefined =
+    missingDocsFilter === "canceled"
+      ? "canceled"
+      : missingDocsFilter === "pending-payment"
+        ? "pending-payment"
+        : missingDocsFilter === "billed"
+          ? "billed"
+          : undefined;
 
   // Detect if any filter is active that requires server-side filtering
   const hasActiveFilter = useMemo(() => {
