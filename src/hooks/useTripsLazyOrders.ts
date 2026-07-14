@@ -218,7 +218,9 @@ async function searchByTruckOrDriver(searchTerm: string): Promise<any[]> {
 
 // Search by load number - flat+batch pattern (matches searchByTruckOrDriver)
 async function searchByLoadNumber(loadNumber: string): Promise<any[]> {
-  if (!loadNumber || loadNumber.length < 2) return [];
+  // Trigram indexes (gin_trgm_ops) need at least 3 chars to be usable —
+  // shorter inputs seq-scan the whole orders table and time out.
+  if (!loadNumber || loadNumber.length < 3) return [];
 
   const searchLower = loadNumber.toLowerCase().trim();
   const parsedNumber = parseInternalLoadNumber(searchLower);
