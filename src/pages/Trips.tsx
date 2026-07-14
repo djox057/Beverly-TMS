@@ -5570,16 +5570,7 @@ const Trips = () => {
                     </TableRow>
                   ) : (
                     groupedByWeek.map((week, weekIndex) => {
-                      // Filter out history and termination entries for totals calculation
-                      const actualOrders = week.orders.filter((o: any) => !o._isHistoryEntry && !o._isTerminationEntry);
-                      const weekTotal = actualOrders.reduce(
-                        (acc: any, order: any) => ({
-                          miles: acc.miles + (Number(order.mileage) || 0),
-                          driverPay: acc.driverPay + (Number(order.totalDriverPay) || 0),
-                          freightAmount: acc.freightAmount + (Number(order.totalFreightAmountNoLumper) || 0),
-                        }),
-                        { miles: 0, driverPay: 0, freightAmount: 0 },
-                      );
+                      // actualOrders and weekTotal are precomputed once per week in groupedByWeek
 
                       const weekStartDate = new Date(week.weekStart + "T12:00:00");
                       const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 2 });
