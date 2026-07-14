@@ -68,7 +68,10 @@ export const useTripsLazyOrders = (searchState?: SearchState) => {
 
         if (truckDriverSearch && truckDriverSearch.length >= 2) {
           results = await searchByTruckOrDriver(truckDriverSearch);
-        } else if (loadNumberSearch && loadNumberSearch.length >= 2) {
+        } else if (loadNumberSearch && loadNumberSearch.length >= 3) {
+          // Require >= 3 chars so Postgres can use the gin_trgm_ops indexes
+          // on broker_load_number / internal_load_number. Shorter prefixes
+          // force a seq scan on the orders table and hit statement_timeout.
           results = await searchByLoadNumber(loadNumberSearch);
         }
 
