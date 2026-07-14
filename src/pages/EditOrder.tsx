@@ -1844,29 +1844,41 @@ const EditOrder = () => {
   const emailDragHandlers = createFileDragHandlers("email");
 
   // Prepare options for dropdowns
-  const companyOptions =
-    companies?.map((company) => ({
-      value: company.id,
-      label: company.name,
-    })) || [];
-  const truckOptions =
-    trucks?.map((truck) => ({
-      value: truck.id,
-      label: truck.truck_number,
-    })) || [];
-  const trailerOptions = [
-    // Add deleted trailer option if exists
-    ...(deletedTrailerNumber && !trailerId ? [{ value: "deleted", label: deletedTrailerNumber }] : []),
-    ...(trailers?.map((trailer) => ({
-      value: trailer.id,
-      label: trailer.trailer_number,
-    })) || []),
-  ];
-  const driverOptions =
-    drivers?.map((driver) => ({
-      value: driver.id,
-      label: driver.name,
-    })) || [];
+  const companyOptions = useMemo(
+    () =>
+      companies?.map((company) => ({
+        value: company.id,
+        label: company.name,
+      })) || [],
+    [companies]
+  );
+  const truckOptions = useMemo(
+    () =>
+      trucks?.map((truck) => ({
+        value: truck.id,
+        label: truck.truck_number,
+      })) || [],
+    [trucks]
+  );
+  const trailerOptions = useMemo(
+    () => [
+      // Add deleted trailer option if exists
+      ...(deletedTrailerNumber && !trailerId ? [{ value: "deleted", label: deletedTrailerNumber }] : []),
+      ...(trailers?.map((trailer) => ({
+        value: trailer.id,
+        label: trailer.trailer_number,
+      })) || []),
+    ],
+    [deletedTrailerNumber, trailerId, trailers]
+  );
+  const driverOptions = useMemo(
+    () =>
+      drivers?.map((driver) => ({
+        value: driver.id,
+        label: driver.name,
+      })) || [],
+    [drivers]
+  );
   const handleRecoverySave = async (data: RecoveryData) => {
     try {
       // Check if original assignment was N/A (manual entry case)
