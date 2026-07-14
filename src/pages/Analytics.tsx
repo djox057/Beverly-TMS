@@ -544,12 +544,12 @@ const Analytics = () => {
   }, [drivers]);
 
   // Helper function: For company drivers, driver pay equals freight amount (0% cut)
-  const getEffectiveDriverPay = (order: any): number => {
+  const getEffectiveDriverPay = useCallback((order: any): number => {
     if (order.driver1Id && companyDriverIds.has(order.driver1Id)) {
       return Number(order.totalFreightAmountNoLumper) || 0;
     }
     return Number(order.totalDriverPay) || 0;
-  };
+  }, [companyDriverIds]);
 
   // Fetch all profiles to get office locations and roles indexed by full_name AND user_id
   useEffect(() => {
@@ -1813,7 +1813,7 @@ const Analytics = () => {
     }
 
     return acc;
-  }, [filteredOrders, isPrecomputed, dispatcherAggregates, companyDriverIds, drivers]);
+  }, [filteredOrders, isPrecomputed, dispatcherAggregates, getEffectiveDriverPay]);
   const dispatcherStats = Object.entries(dispatcherAnalytics)
     .map(
       ([name, stats]: [
@@ -2010,7 +2010,7 @@ const Analytics = () => {
     selectedSupervisor,
     dispatcherProfiles,
     supervisorAssignments,
-    companyDriverIds,
+    getEffectiveDriverPay,
   ]);
   const totalCut = totals.totalFreight - totals.totalDriverRate;
   const totalCutPercent = totals.totalFreight > 0 ? (totalCut / totals.totalFreight) * 100 : 0;
@@ -2368,83 +2368,95 @@ const Analytics = () => {
     return acc;
   }, [filteredOrders, isPrecomputed, driverAggregates]);
 
-  // Helper function to calculate gross tier based on weekly average
-  const calculateGrossTier = (driverName: string): string => {
-    const allTimeData = driverAnalyticsAllTime[driverName];
-    if (!allTimeData || !allTimeData.firstPickupDate) {
-      return "Tier 3"; // No data, default to Tier 3
-    }
+  const driverStats = useMemo(() => {
+    const calculateGrossTier = (driverName: string): string => {
+      const allTimeData = driverAnalyticsAllTime[driverName];
+      if (!allTimeData || !allTimeData.firstPickupDate) {
+        return "Tier 3"; // No data, default to Tier 3
+      }
 
-    // Get current date in Chicago time
-    const chicagoNow = new Date(
-      new Date().toLocaleString("en-US", {
-        timeZone: "America/Chicago",
-      }),
-    );
+      // Get current date in Chicago time
+      const chicagoNow = new Date(
+        new Date().toLocaleString("en-US", {
+          timeZone: "America/Chicago",
+        }),
+      );
 
-    // Parse first pickup date
-    const firstPickupStr = allTimeData.firstPickupDate.split("T")[0];
-    const [year, month, day] = firstPickupStr.split("-").map(Number);
-    const firstPickupDate = new Date(year, month - 1, day);
+      // Parse first pickup date
+      const firstPickupStr = allTimeData.firstPickupDate.split("T")[0];
+      const [year, month, day] = firstPickupStr.split("-").map(Number);
+      const firstPickupDate = new Date(year, month - 1, day);
 
-    // Calculate days in company
-    const diffTime = chicagoNow.getTime() - firstPickupDate.getTime();
-    const daysInCompany = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+      // Calculate days in company
+      const diffTime = chicagoNow.getTime() - firstPickupDate.getTime();
+      const daysInCompany = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
-    // Calculate weekly gross
-    const weeksInCompany = daysInCompany / 7;
-    const grossPerWeek = allTimeData.totalGross / weeksInCompany;
+      // Calculate weekly gross
+      const weeksInCompany = daysInCompany / 7;
+      const grossPerWeek = allTimeData.totalGross / weeksInCompany;
 
-    // Determine tier
-    if (grossPerWeek >= 6000) {
-      return "Tier 1";
-    } else if (grossPerWeek >= 3500) {
-      return "Tier 2";
-    } else {
-      return "Tier 3";
-    }
-  };
-  const driverStats = Object.entries(driverAnalytics)
-    .filter(([name]) => activeDriverNames.has(name)) // Only active drivers
-    .map(
-      ([name, stats]: [
-        string,
-        {
-          totalDriverRate: number;
-          totalMiles: number;
-          orderCount: number;
+      // Determine tier
+      if (grossPerWeek >= 6000) {
+        return "Tier 1";
+      } else if (grossPerWeek >= 3500) {
+        return "Tier 2";
+      } else {
+        return "Tier 3";
+      }
+    };
+
+    return Object.entries(driverAnalytics)
+      .filter(([name]) => activeDriverNames.has(name)) // Only active drivers
+      .map(
+        ([name, stats]: [
+          string,
+          {
+            totalDriverRate: number;
+            totalMiles: number;
+            orderCount: number;
+          },
+        ]) => {
+          const ratePerMile = stats.totalMiles > 0 ? stats.totalDriverRate / stats.totalMiles : 0;
+          return {
+            name,
+            totalDriverRate: stats.totalDriverRate,
+            totalMiles: stats.totalMiles,
+            orderCount: stats.orderCount,
+            ratePerMile,
+            grossTier: calculateGrossTier(name),
+            // Auto-calculated
+            safetyTier: driverTiers[name]?.safetyTier || "Tier 1",
+            managementTier: driverTiers[name]?.managementTier || "Tier 1",
+            notice: driverTiers[name]?.notice || "",
+          };
         },
-      ]) => {
-        const ratePerMile = stats.totalMiles > 0 ? stats.totalDriverRate / stats.totalMiles : 0;
-        return {
-          name,
-          totalDriverRate: stats.totalDriverRate,
-          totalMiles: stats.totalMiles,
-          orderCount: stats.orderCount,
-          ratePerMile,
-          grossTier: calculateGrossTier(name),
-          // Auto-calculated
-          safetyTier: driverTiers[name]?.safetyTier || "Tier 1",
-          managementTier: driverTiers[name]?.managementTier || "Tier 1",
-          notice: driverTiers[name]?.notice || "",
-        };
-      },
-    )
-    .filter((stat) => {
-      // Filter by driver name search
-      const matchesSearch = stat.name.toLowerCase().includes(driverSearchQuery.toLowerCase());
+      )
+      .filter((stat) => {
+        // Filter by driver name search
+        const matchesSearch = stat.name.toLowerCase().includes(driverSearchQuery.toLowerCase());
 
-      // Filter by tiers
-      const matchesGrossTier = grossTierFilter === "all" || stat.grossTier === grossTierFilter;
-      const matchesSafetyTier = safetyTierFilter === "all" || stat.safetyTier === safetyTierFilter;
-      const matchesManagementTier = managementTierFilter === "all" || stat.managementTier === managementTierFilter;
-      return matchesSearch && matchesGrossTier && matchesSafetyTier && matchesManagementTier;
-    })
-    .sort((a, b) => {
-      const aValue = a.totalDriverRate;
-      const bValue = b.totalDriverRate;
-      return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
-    });
+        // Filter by tiers
+        const matchesGrossTier = grossTierFilter === "all" || stat.grossTier === grossTierFilter;
+        const matchesSafetyTier = safetyTierFilter === "all" || stat.safetyTier === safetyTierFilter;
+        const matchesManagementTier = managementTierFilter === "all" || stat.managementTier === managementTierFilter;
+        return matchesSearch && matchesGrossTier && matchesSafetyTier && matchesManagementTier;
+      })
+      .sort((a, b) => {
+        const aValue = a.totalDriverRate;
+        const bValue = b.totalDriverRate;
+        return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
+      });
+  }, [
+    driverAnalytics,
+    activeDriverNames,
+    driverTiers,
+    driverAnalyticsAllTime,
+    driverSearchQuery,
+    grossTierFilter,
+    safetyTierFilter,
+    managementTierFilter,
+    sortDirection,
+  ]);
   const getTierColor = (tier: string) => {
     switch (tier) {
       case "Tier 1":
@@ -2858,13 +2870,19 @@ const Analytics = () => {
   ]);
 
   // Filter loads booked today with rate <= 2.00
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(today);
-  todayEnd.setHours(23, 59, 59, 999);
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+  const todayEnd = useMemo(() => {
+    const d = new Date(today);
+    d.setHours(23, 59, 59, 999);
+    return d;
+  }, [today]);
 
   // Calculate current week start (Monday) and end (Sunday) in Chicago time
-  const getChicagoWeekBounds = () => {
+  const { weekStart, weekEnd } = useMemo(() => {
     // Get current time in Chicago
     const chicagoNow = new Date(
       new Date().toLocaleString("en-US", {
@@ -2889,39 +2907,51 @@ const Analytics = () => {
       weekStart,
       weekEnd,
     };
-  };
-  const { weekStart, weekEnd } = getChicagoWeekBounds();
+  }, []);
 
   // Filter loads booked today with rate <= custom low threshold, respecting role permissions
-  const qualifyingLoads = filteredOrders.filter((order) => {
-    const createdAt = new Date(order.createdAt);
-    const isToday = createdAt >= today && createdAt <= todayEnd;
-    const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
-    const meetsRateThreshold = ratePerMile <= lowRateThreshold;
-    return isToday && meetsRateThreshold;
-  });
+  const { qualifyingLoads, highRateLoads, highCutLoads } = useMemo(() => {
+    const qualifyingLoads = filteredOrders.filter((order) => {
+      const createdAt = new Date(order.createdAt);
+      const isToday = createdAt >= today && createdAt <= todayEnd;
+      const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
+      const meetsRateThreshold = ratePerMile <= lowRateThreshold;
+      return isToday && meetsRateThreshold;
+    });
 
-  // Filter loads booked this week with rate >= custom high threshold (Chicago time, Monday reset)
-  const highRateLoads = filteredOrders.filter((order) => {
-    const createdAt = new Date(order.createdAt);
-    const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
-    const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
-    const meetsRateThreshold = ratePerMile >= highRateThreshold;
-    return isThisWeek && meetsRateThreshold;
-  });
+    // Filter loads booked this week with rate >= custom high threshold (Chicago time, Monday reset)
+    const highRateLoads = filteredOrders.filter((order) => {
+      const createdAt = new Date(order.createdAt);
+      const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
+      const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
+      const meetsRateThreshold = ratePerMile >= highRateThreshold;
+      return isThisWeek && meetsRateThreshold;
+    });
 
-  // Filter loads with 50%+ cut booked this week (Chicago time, Monday reset)
-  // Company driver orders are excluded since their effective driver pay = freight (0% cut)
-  const highCutLoads = filteredOrders.filter((order) => {
-    const createdAt = new Date(order.createdAt);
-    const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
-    if (!isThisWeek) return false;
-    const freightAmount = Number(order.totalFreightAmountNoLumper) || 0;
-    const driverPay = getEffectiveDriverPay(order);
-    if (freightAmount <= 0) return false;
-    const cutPercent = ((freightAmount - driverPay) / freightAmount) * 100;
-    return cutPercent >= 50;
-  });
+    // Filter loads with 50%+ cut booked this week (Chicago time, Monday reset)
+    // Company driver orders are excluded since their effective driver pay = freight (0% cut)
+    const highCutLoads = filteredOrders.filter((order) => {
+      const createdAt = new Date(order.createdAt);
+      const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
+      if (!isThisWeek) return false;
+      const freightAmount = Number(order.totalFreightAmountNoLumper) || 0;
+      const driverPay = getEffectiveDriverPay(order);
+      if (freightAmount <= 0) return false;
+      const cutPercent = ((freightAmount - driverPay) / freightAmount) * 100;
+      return cutPercent >= 50;
+    });
+
+    return { qualifyingLoads, highRateLoads, highCutLoads };
+  }, [
+    filteredOrders,
+    today,
+    todayEnd,
+    weekStart,
+    weekEnd,
+    lowRateThreshold,
+    highRateThreshold,
+    getEffectiveDriverPay,
+  ]);
   // Show loading animation while orders are being fetched
   if (isLoading || (progress && !progress.isComplete)) {
     const unlockedPercent = progress?.unlockedTotal
