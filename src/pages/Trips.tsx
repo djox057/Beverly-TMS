@@ -1364,7 +1364,10 @@ const Trips = () => {
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+  const paginatedOrders = useMemo(
+    () => filteredOrders.slice(startIndex, endIndex),
+    [filteredOrders, startIndex, endIndex],
+  );
 
   // Group paginated orders by week (Monday-Sunday), respecting week overrides
   const groupedByWeek = useMemo(() => {
@@ -1556,9 +1559,22 @@ const Trips = () => {
           return idB.localeCompare(idA);
         });
 
+        // Precompute actual orders and weekly totals once per group
+        const actualOrders = allItems.filter((o: any) => !o._isHistoryEntry && !o._isTerminationEntry);
+        const weekTotal = actualOrders.reduce(
+          (acc: any, order: any) => ({
+            miles: acc.miles + (Number(order.mileage) || 0),
+            driverPay: acc.driverPay + (Number(order.totalDriverPay) || 0),
+            freightAmount: acc.freightAmount + (Number(order.totalFreightAmountNoLumper) || 0),
+          }),
+          { miles: 0, driverPay: 0, freightAmount: 0 },
+        );
+
         return {
           weekStart: weekKey,
           orders: allItems,
+          actualOrders,
+          weekTotal,
         };
       });
 
