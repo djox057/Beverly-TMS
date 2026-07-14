@@ -2907,7 +2907,7 @@ const Analytics = () => {
       weekStart,
       weekEnd,
     };
-  }, [today]);
+  }, []);
 
   // Filter loads booked today with rate <= custom low threshold, respecting role permissions
   const { qualifyingLoads, highRateLoads, highCutLoads } = useMemo(() => {
