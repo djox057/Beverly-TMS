@@ -1813,7 +1813,7 @@ const Analytics = () => {
     }
 
     return acc;
-  }, [filteredOrders, isPrecomputed, dispatcherAggregates, companyDriverIds, drivers]);
+  }, [filteredOrders, isPrecomputed, dispatcherAggregates, companyDriverIds, drivers, getEffectiveDriverPay]);
   const dispatcherStats = Object.entries(dispatcherAnalytics)
     .map(
       ([name, stats]: [
@@ -2011,6 +2011,7 @@ const Analytics = () => {
     dispatcherProfiles,
     supervisorAssignments,
     companyDriverIds,
+    getEffectiveDriverPay,
   ]);
   const totalCut = totals.totalFreight - totals.totalDriverRate;
   const totalCutPercent = totals.totalFreight > 0 ? (totalCut / totals.totalFreight) * 100 : 0;
