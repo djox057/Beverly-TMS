@@ -209,7 +209,7 @@ const Fleets = () => {
   };
 
   // Memoized list of dispatchers with assigned drivers, sorted by active status
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  /* eslint-disable react-hooks/exhaustive-deps */
   const filteredDispatchers = useMemo(() => {
     return filterDispatchers(dispatchers.filter(d => d.drivers.length > 0)).sort((a, b) => {
       // Inactive dispatchers first
@@ -218,6 +218,7 @@ const Fleets = () => {
       return 0;
     });
   }, [dispatchers, officeFilter, dispatcherFilter]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const dispatchersWithNoDrivers = filterDispatchers(dispatchers.filter(d => d.drivers.length === 0));
 
