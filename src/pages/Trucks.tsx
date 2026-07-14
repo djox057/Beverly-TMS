@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -123,33 +123,35 @@ const Trucks = () => {
   } = useFleetManagement();
 
   // Filter trucks based on search term, company filter, assignment filter, and status filter
-  const filteredTrucks = trucks?.filter(truck => {
-    // Search filter
-    const matchesSearch = truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      truck.plate?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      truck.driver2?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Company filter - filter by driver's company
-    const driverCompanyId = truck.driver1?.company_id;
-    const matchesCompany = companyFilter === "all" || driverCompanyId === companyFilter;
-    
-    // Assignment filter - filter by driver1 assignment status
-    const matchesAssignment = assignmentFilter === "all" || 
-      (assignmentFilter === "assigned" && truck.driver1_id) || 
-      (assignmentFilter === "unassigned" && !truck.driver1_id);
-    
-    // Status filter - filter by is_active status
-    const matchesStatus = statusFilter === "all" || 
-      (statusFilter === "active" && truck.is_active !== false) || 
-      (statusFilter === "inactive" && truck.is_active === false);
-    
-    return matchesSearch && matchesCompany && matchesAssignment && matchesStatus;
-  }) || [];
+  const filteredTrucks = useMemo(() => {
+    return trucks?.filter(truck => {
+      // Search filter
+      const matchesSearch = truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        truck.plate?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        truck.driver2?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Company filter - filter by driver's company
+      const driverCompanyId = truck.driver1?.company_id;
+      const matchesCompany = companyFilter === "all" || driverCompanyId === companyFilter;
+      
+      // Assignment filter - filter by driver1 assignment status
+      const matchesAssignment = assignmentFilter === "all" || 
+        (assignmentFilter === "assigned" && truck.driver1_id) || 
+        (assignmentFilter === "unassigned" && !truck.driver1_id);
+      
+      // Status filter - filter by is_active status
+      const matchesStatus = statusFilter === "all" || 
+        (statusFilter === "active" && truck.is_active !== false) || 
+        (statusFilter === "inactive" && truck.is_active === false);
+      
+      return matchesSearch && matchesCompany && matchesAssignment && matchesStatus;
+    }) || [];
+  }, [trucks, searchTerm, companyFilter, assignmentFilter, statusFilter]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTrucks.length / ITEMS_PER_PAGE);
