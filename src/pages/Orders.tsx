@@ -621,8 +621,8 @@ const Orders = () => {
 
   // Filter orders based on search term and filters
   // When server-side filtering is active, skip most client-side filters
-  const filteredOrders =
-    dataSource?.filter((order) => {
+  const filteredOrders = useMemo(() => {
+    return dataSource?.filter((order) => {
       const isServerSearch = searchTerm && searchTerm.trim().length >= 3;
       const isServerFiltered = hasActiveFilter && filteredServerOrders && filteredServerOrders.length > 0;
 
