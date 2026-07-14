@@ -97,7 +97,7 @@ const Fleets = () => {
   };
 
   // Filter dispatchers by name
-  const filterDispatchers = (dispatcherFleets: any[]) => {
+  const filterDispatchers = useCallback((dispatcherFleets: any[]) => {
     let filtered = dispatcherFleets;
     if (officeFilter !== "all") {
       filtered = filtered.filter(fleet => {
@@ -110,7 +110,7 @@ const Fleets = () => {
       const name = fleet.dispatcher.full_name || fleet.dispatcher.email || "";
       return name.toLowerCase().includes(dispatcherFilter.toLowerCase());
     });
-  };
+  }, [officeFilter, dispatcherFilter]);
 
   // Get paginated drivers
   const getPaginatedDrivers = (drivers: any[], pageKey: string) => {
@@ -209,7 +209,6 @@ const Fleets = () => {
   };
 
   // Memoized list of dispatchers with assigned drivers, sorted by active status
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const filteredDispatchers = useMemo(() => {
     return filterDispatchers(dispatchers.filter(d => d.drivers.length > 0)).sort((a, b) => {
       // Inactive dispatchers first
@@ -217,7 +216,7 @@ const Fleets = () => {
       if (a.isActive && !b.isActive) return 1;
       return 0;
     });
-  }, [dispatchers, officeFilter, dispatcherFilter]);
+  }, [dispatchers, filterDispatchers, officeFilter, dispatcherFilter]);
 
   const dispatchersWithNoDrivers = filterDispatchers(dispatchers.filter(d => d.drivers.length === 0));
 
