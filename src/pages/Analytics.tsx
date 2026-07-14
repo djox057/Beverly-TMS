@@ -1813,7 +1813,7 @@ const Analytics = () => {
     }
 
     return acc;
-  }, [filteredOrders, isPrecomputed, dispatcherAggregates, companyDriverIds, drivers, getEffectiveDriverPay]);
+  }, [filteredOrders, isPrecomputed, dispatcherAggregates, getEffectiveDriverPay]);
   const dispatcherStats = Object.entries(dispatcherAnalytics)
     .map(
       ([name, stats]: [
@@ -2010,7 +2010,6 @@ const Analytics = () => {
     selectedSupervisor,
     dispatcherProfiles,
     supervisorAssignments,
-    companyDriverIds,
     getEffectiveDriverPay,
   ]);
   const totalCut = totals.totalFreight - totals.totalDriverRate;
