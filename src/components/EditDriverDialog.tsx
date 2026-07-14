@@ -182,17 +182,22 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   });
 
   // Get available trucks (excluding ones assigned to other drivers)
-  const editingDriverTruckId = editingDriver
-    ? allTrucks?.find((truck) => truck.driver1_id === editingDriver.id)?.id
-    : null;
+  const editingDriverTruckId = useMemo(() => {
+    return editingDriver
+      ? allTrucks?.find((truck) => truck.driver1_id === editingDriver.id)?.id
+      : null;
+  }, [allTrucks, editingDriver]);
 
-  const availableTrucks =
-    allTrucks?.filter((truck) => {
-      if (editingDriver && truck.id === editingDriverTruckId) {
-        return true;
-      }
-      return !truck.driver1_id;
-    }) || [];
+  const availableTrucks = useMemo(() => {
+    return (
+      allTrucks?.filter((truck) => {
+        if (editingDriver && truck.id === editingDriverTruckId) {
+          return true;
+        }
+        return !truck.driver1_id;
+      }) || []
+    );
+  }, [allTrucks, editingDriver, editingDriverTruckId]);
 
   const fetchTerminationNotes = async (driverId: string) => {
     setIsLoadingNotes(true);
