@@ -857,6 +857,23 @@ const Orders = () => {
         matchesInvoiced
       );
     }) || [];
+  }, [
+    dataSource,
+    searchTerm,
+    hasActiveFilter,
+    filteredServerOrders,
+    missingDocsFilter,
+    companyFilter,
+    truckCompanyFilter,
+    bookedByFilter,
+    truckFilter,
+    driverFilter,
+    brokerFilter,
+    dateRange,
+    pickupDateRange,
+    lockedNotInvoicedFilter,
+    invoicedFilter,
+  ]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
