@@ -5576,7 +5576,7 @@ const Trips = () => {
                       const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 2 });
 
                       // Get truck/driver info from first actual order (not history entry) for paid status
-                      const firstActualOrder = actualOrders[0];
+                      const firstActualOrder = week.actualOrders[0];
                       const weekTruckNumber = firstActualOrder?.truckNumber || "";
                       const weekDriverName = firstActualOrder?.driverName || "";
                       const weekIsPaid = isWeekPaid(weekTruckNumber, weekDriverName, week.weekStart);
@@ -5603,7 +5603,8 @@ const Trips = () => {
                                               firstActualOrder?.truckId || "",
                                               weekDriverName,
                                               week.weekStart,
-                                              actualOrders,
+                                              week.actualOrders,
+
                                             )
                                           }
                                         />
@@ -5637,9 +5638,9 @@ const Trips = () => {
                                   ? "bg-blue-200 dark:bg-blue-800 ring-2 ring-blue-500 ring-inset"
                                   : "hover:bg-muted/50"
                               }`}
-                              onClick={() => toggleCell(`week-miles-${week.weekStart}`, weekTotal.miles, "miles")}
+                              onClick={() => toggleCell(`week-miles-${week.weekStart}`, week.weekTotal.miles, "miles")}
                             >
-                              {weekTotal.miles.toLocaleString()}
+                              {week.weekTotal.miles.toLocaleString()}
                             </TableCell>
                             <TableCell colSpan={2} className="py-3"></TableCell>
                             <TableCell
@@ -5651,14 +5652,14 @@ const Trips = () => {
                               onClick={() =>
                                 toggleCell(
                                   `week-driver-${week.weekStart}`,
-                                  weekTotal.driverPay,
+                                  week.weekTotal.driverPay,
                                   "driverPay",
-                                  weekTotal.miles,
+                                  week.weekTotal.miles,
                                 )
                               }
                             >
                               <div className="font-semibold text-green-600 dark:text-green-400">
-                                {formatCurrency(weekTotal.driverPay)}
+                                {formatCurrency(week.weekTotal.driverPay)}
                               </div>
                             </TableCell>
                             <TableCell
@@ -5670,15 +5671,15 @@ const Trips = () => {
                               onClick={() =>
                                 toggleCell(
                                   `week-freight-${week.weekStart}`,
-                                  weekTotal.freightAmount,
+                                  week.weekTotal.freightAmount,
                                   "freightAmount",
-                                  weekTotal.miles,
-                                  weekTotal.driverPay,
+                                  week.weekTotal.miles,
+                                  week.weekTotal.driverPay,
                                 )
                               }
                             >
                               <div className="font-semibold text-green-600 dark:text-green-400">
-                                {formatCurrency(weekTotal.freightAmount)}
+                                {formatCurrency(week.weekTotal.freightAmount)}
                               </div>
                             </TableCell>
                             {canSeePaidColumn && <TableCell className="py-3"></TableCell>}
@@ -5689,7 +5690,7 @@ const Trips = () => {
                                   size="icon"
                                   onClick={() => {
                                     // Get the first actual order (not history/termination entries)
-                                    const firstActualOrder = actualOrders.find(
+                                    const firstActualOrder = week.actualOrders.find(
                                       (o: any) => !o._isHistoryEntry && !o._isTerminationEntry,
                                     );
                                     if (!firstActualOrder) {
@@ -5697,7 +5698,7 @@ const Trips = () => {
                                       return;
                                     }
                                     setStatementDialogData({
-                                      week: { ...week, orders: actualOrders },
+                                      week: { ...week, orders: week.actualOrders },
                                       weekStartDate,
                                       weekEndDate,
                                       driverId: firstActualOrder.driver1Id || "",
