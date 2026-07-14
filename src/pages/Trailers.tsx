@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -104,27 +104,29 @@ const Trailers = () => {
   }, [searchTerm, assignmentFilter]);
 
   // Filter trailers based on search term, assignment status, and status filter
-  const filteredTrailers = trailers?.filter(trailer => {
-    // Search filter
-    const matchesSearch = trailer.trailer_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      trailer.trailer_type?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      trailer.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      trailer.plate?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (trailer.trucks && trailer.trucks.length > 0 && trailer.trucks[0].truck_number.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    // Assignment filter
-    const isAssigned = trailer.trucks && trailer.trucks.length > 0;
-    const matchesAssignment = assignmentFilter === "all" || 
-      (assignmentFilter === "assigned" && isAssigned) || 
-      (assignmentFilter === "unassigned" && !isAssigned);
-    
-    // Status filter
-    const matchesStatus = statusFilter === "all" || 
-      (statusFilter === "active" && trailer.is_active !== false) || 
-      (statusFilter === "inactive" && trailer.is_active === false);
-    
-    return matchesSearch && matchesAssignment && matchesStatus;
-  }) || [];
+  const filteredTrailers = useMemo(() => {
+    return trailers?.filter(trailer => {
+      // Search filter
+      const matchesSearch = trailer.trailer_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        trailer.trailer_type?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        trailer.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        trailer.plate?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (trailer.trucks && trailer.trucks.length > 0 && trailer.trucks[0].truck_number.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Assignment filter
+      const isAssigned = trailer.trucks && trailer.trucks.length > 0;
+      const matchesAssignment = assignmentFilter === "all" || 
+        (assignmentFilter === "assigned" && isAssigned) || 
+        (assignmentFilter === "unassigned" && !isAssigned);
+      
+      // Status filter
+      const matchesStatus = statusFilter === "all" || 
+        (statusFilter === "active" && trailer.is_active !== false) || 
+        (statusFilter === "inactive" && trailer.is_active === false);
+      
+      return matchesSearch && matchesAssignment && matchesStatus;
+    }) || [];
+  }, [trailers, searchTerm, assignmentFilter, statusFilter]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
