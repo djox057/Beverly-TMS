@@ -576,8 +576,8 @@ const BgLoads = () => {
 
   // Filter orders based on search term and filters
   // When server-side filtering is active, skip most client-side filters
-  const filteredOrders =
-    dataSource?.filter((order) => {
+  const filteredOrders = useMemo(() => {
+    return dataSource?.filter((order) => {
       const isServerSearch = searchTerm && searchTerm.trim().length >= 2;
       const isServerFiltered = hasActiveFilter && filteredServerOrders && filteredServerOrders.length > 0;
 
@@ -809,6 +809,23 @@ const BgLoads = () => {
         matchesInvoiced
       );
     }) || [];
+  }, [
+    dataSource,
+    searchTerm,
+    hasActiveFilter,
+    filteredServerOrders,
+    missingDocsFilter,
+    companyFilter,
+    truckCompanyFilter,
+    bookedByFilter,
+    truckFilter,
+    driverFilter,
+    brokerFilter,
+    dateRange,
+    pickupDateRange,
+    lockedNotInvoicedFilter,
+    invoicedFilter,
+  ]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
