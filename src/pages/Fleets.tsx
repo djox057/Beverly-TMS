@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -207,6 +207,20 @@ const Fleets = () => {
     setDriverCoverAssignments({});
     setDayOffToggle(false);
   };
+
+  // Memoized list of dispatchers with assigned drivers, sorted by active status
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const filteredDispatchers = useMemo(() => {
+    return filterDispatchers(dispatchers.filter(d => d.drivers.length > 0)).sort((a, b) => {
+      // Inactive dispatchers first
+      if (!a.isActive && b.isActive) return -1;
+      if (a.isActive && !b.isActive) return 1;
+      return 0;
+    });
+  }, [dispatchers, officeFilter, dispatcherFilter]);
+
+  const dispatchersWithNoDrivers = filterDispatchers(dispatchers.filter(d => d.drivers.length === 0));
+
   if (loading) {
     return <div className="h-full flex flex-col overflow-hidden">
         <div className="flex-shrink-0 border-b bg-background px-4 sm:px-6 py-4">
@@ -452,12 +466,7 @@ const Fleets = () => {
 
               <TabsContent value="dispatchers" className="mt-4 space-y-4">
                 {/* Dispatcher Fleets */}
-            {filterDispatchers(dispatchers.filter(d => d.drivers.length > 0)).sort((a, b) => {
-              // Inactive dispatchers first
-              if (!a.isActive && b.isActive) return -1;
-              if (a.isActive && !b.isActive) return 1;
-              return 0;
-            }).map(dispatcherFleet => {
+            {filteredDispatchers.map(dispatcherFleet => {
             const filteredDrivers = filterDrivers(dispatcherFleet.drivers);
 
             // Hide dispatcher if searching and no matching drivers
@@ -778,13 +787,13 @@ const Fleets = () => {
           })}
 
             {/* Dispatchers with no drivers */}
-            {filterDispatchers(dispatchers.filter(d => d.drivers.length === 0)).length > 0 && <div className="space-y-3 sm:space-y-4">
+            {dispatchersWithNoDrivers.length > 0 && <div className="space-y-3 sm:space-y-4">
                 <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                   <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                   Available Dispatchers
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  {filterDispatchers(dispatchers.filter(d => d.drivers.length === 0)).map(dispatcherFleet => <Droppable key={dispatcherFleet.dispatcher.id} droppableId={`dispatcher-${dispatcherFleet.dispatcher.id}`}>
+                  {dispatchersWithNoDrivers.map(dispatcherFleet => <Droppable key={dispatcherFleet.dispatcher.id} droppableId={`dispatcher-${dispatcherFleet.dispatcher.id}`}>
                       {(provided, snapshot) => <Card ref={provided.innerRef} {...provided.droppableProps} className={`transition-colors ${snapshot.isDraggingOver ? "bg-primary/5 border-primary" : ""}`}>
                           <CardContent className="p-3 sm:p-4">
                             <div className="flex items-center justify-between gap-2">
