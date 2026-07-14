@@ -1580,21 +1580,30 @@ const NewOrder = () => {
   };
 
   // Prepare options for dropdowns
-  const companyOptions =
-    filteredCompanies?.map((company) => ({
-      value: company.id,
-      label: company.name,
-    })) || [];
-  const truckOptions =
-    trucks?.map((truck) => ({
-      value: truck.id,
-      label: truck.truck_number,
-    })) || [];
-  const driverOptions =
-    drivers?.map((driver) => ({
-      value: driver.id,
-      label: driver.name,
-    })) || [];
+  const companyOptions = useMemo(
+    () =>
+      filteredCompanies?.map((company) => ({
+        value: company.id,
+        label: company.name,
+      })) || [],
+    [filteredCompanies]
+  );
+  const truckOptions = useMemo(
+    () =>
+      trucks?.map((truck) => ({
+        value: truck.id,
+        label: truck.truck_number,
+      })) || [],
+    [trucks]
+  );
+  const driverOptions = useMemo(
+    () =>
+      drivers?.map((driver) => ({
+        value: driver.id,
+        label: driver.name,
+      })) || [],
+    [drivers]
+  );
 
   // Import timezone-agnostic date utilities
 
