@@ -1,80 +1,62 @@
-## TS 7 Prep — 4 Safe Non-Blocking Changes
+## Problem
 
-TypeScript stays on 5.8.3. typescript-eslint stays on 8.38.0. No compiler upgrade in this PR.
+`/orders` takes 10+ seconds to render its first page. From the logs:
 
----
+- `unlocked count query: 3926ms`
+- `locked count query: 8121ms` → returns **HTTP 500** (Postgres statement timeout)
+- The count query is repeated because it 500'd (React Query retry).
+- Only after both counts resolve does the page fetch start.
 
-### 1. Explicit `types` arrays
+The offending request is:
 
-**`tsconfig.app.json`** — add `"types": ["vite/client", "node"]` inside `compilerOptions`.
-- `vite/client` replaces the ambient reference currently in `src/vite-env.d.ts` (harmless to keep both; the triple-slash reference will remain and works either way).
-- `node` is included because a handful of files touch `process.env` / Node globals via Vite's `import.meta.env` shim resolution and to keep parity with what implicit inclusion gives us today.
-- `@types/react` and `@types/react-dom` are **not** added — React is only used through explicit `import` statements, no ambient `JSX.*` usage. If the type-check surfaces `JSX` global errors, I'll add `react` to the array and note it in the summary.
-
-**`tsconfig.node.json`** — add `"types": ["node"]` inside `compilerOptions`. This config only covers Node-side files, so `node` is the only ambient package needed.
-
-**`tsconfig.json`** (root) — no change; it has no `files`/`include`.
-
-### 2. `typecheck` script + baseline
-
-Add to `package.json` scripts:
 ```
-"typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json"
+HEAD /orders?select=id&locked=eq.true
+&or=(booked_by_company_id.neq.238a7acf-…,booked_by_company_id.is.null)
 ```
-Then run it twice and report cold/warm times and any errors. Expected: clean pass. If item 1 introduces errors I fix them in the same PR and note what I added.
 
-### 3. `scripts/upload-template.ts` — fold into `tsconfig.node.json`
+This is `count: "exact"` over the **entire** `orders` table (BG Prime is excluded, so it's basically "count all orders except one company"). Two problems compound it:
 
-Inspection: it's a plain Node ESM script that imports `@supabase/supabase-js` and Node built-ins (`fs`, `process`). Its needs (Node runtime, bundler-style module resolution, no DOM) fully overlap with `vite.config.ts`. A separate `tsconfig.scripts.json` would duplicate every option of `tsconfig.node.json` for no benefit.
+1. There is **no index on `booked_by_company_id`**, so the planner falls back to a seq scan of a very large table for every count.
+2. `count: "exact"` forces a full scan even with an index; on a table this size it will always be slow and often trip the statement timeout, which is exactly the 500 we see.
 
-**Change:** update `tsconfig.node.json` `include` from `["vite.config.ts"]` to `["vite.config.ts", "scripts/**/*.ts"]`. No new tsconfig file. Since `typecheck` already invokes `tsconfig.node.json`, the script is automatically type-checked from now on — no separate script entry needed.
+The multiple "Component rendering" logs are just React re-renders while `isLoading` is true — not duplicate fetches. The real problem is the two count queries blocking the page.
 
-Note: `tsconfig.node.json` has `strict: true`. If the script has latent strict-mode errors under TS 5.8 today, I will fix them in-place (they're likely just `any` on error catches) and note them in the summary. If the diff gets non-trivial, I'll stop and report instead of quietly rewriting the script.
+## Fix
 
-### 4. Package manager consolidation
+Two changes, small and targeted to the count path only.
 
-**Investigation findings:**
-- `bun.lock` (325 KB, text format, current), `bun.lockb` (197 KB, legacy binary format), and `package-lock.json` (349 KB) all exist with identical mtimes — Lovable's platform appears to regenerate them together, so mtime is not a tiebreaker.
-- No CI configs (`.github/`, `Dockerfile`, etc.) exist in the repo — nothing to check against.
-- `README.md` is empty.
-- `.gitignore` has no lockfile entries.
-- The presence of `bun.lock` (Bun's newer text lockfile, added in Bun 1.1+) alongside `bun.lockb` is itself a sign someone recently ran `bun install` — Bun writes the text lock automatically.
+### 1. Migration: add index for the excluded-company filter
 
-**Recommendation:** standardize on **Bun**.
-- Bun is the newer, faster manager and is what Lovable's sandbox uses by default (`bun add` / `bun install` are the documented commands).
-- Its peer-dependency resolution is stricter about version ranges than `npm --legacy-peer-deps`, which is exactly the property we want when the TS 7 bump lands — we want `typescript-eslint`'s narrow peer range to cause a visible failure, not a silent forced install.
-- Keeping `bun.lock` (text, diffable) over `bun.lockb` (binary, deprecated for source control).
+```sql
+CREATE INDEX IF NOT EXISTS idx_orders_booked_by_company_id
+  ON public.orders (booked_by_company_id);
 
-**Changes:**
-- Delete `bun.lockb` and `package-lock.json`.
-- Add both to `.gitignore` so a stray `npm install` / older `bun` doesn't reintroduce them:
-  ```
-  # Package manager lockfiles (project uses Bun; bun.lock is the source of truth)
-  package-lock.json
-  bun.lockb
-  yarn.lock
-  pnpm-lock.yaml
-  ```
-- Keep `bun.lock` committed.
+-- Speeds up the two most common count/list patterns on /orders:
+-- locked + excluded-company, and unlocked + excluded-company.
+CREATE INDEX IF NOT EXISTS idx_orders_locked_booked_by_company
+  ON public.orders (locked, booked_by_company_id);
+```
 
-**Blast-radius flag:** if Lovable's cloud build path specifically looks for `package-lock.json` (some hosting integrations do), removing it could break deploys. I'll delete both files in the last step and verify the dev server still comes up cleanly before finalizing. If the dev server fails, I revert just the deletion and leave the `.gitignore` prep in place, then report back.
+### 2. `src/hooks/useOrdersProgressive.ts`: stop using `count: "exact"` for pagination
 
----
+Exact counts are not needed for pagination UX — the page only needs "roughly how many pages" and "is there a next page". Change the counts query to use the planner's estimated count (`count: "planned"` with `head: true`), which is O(1) and never times out:
 
-## Execution order (once in build mode)
+- `.select("id", { count: "exact", head: true })` → `.select("id", { count: "planned", head: true })` for both unlocked and locked count queries.
+- Keep the same return shape (`{ unlockedCount, lockedCount }`) so nothing else changes.
+- Add `retry: 0` on `countsQuery` so a transient timeout doesn't double the wait.
 
-1. Edit `tsconfig.app.json` — add `types`.
-2. Edit `tsconfig.node.json` — add `types` and extend `include` to cover `scripts/**/*.ts`.
-3. Edit `package.json` — add `typecheck` script.
-4. Run `bun run typecheck` twice; capture cold + warm times and any errors.
-5. Fix any surfaced errors (expected: none, or trivial script-level fixes).
-6. Update `.gitignore` with lockfile entries.
-7. Delete `bun.lockb` and `package-lock.json` via `rm`.
-8. Restart dev server; confirm it still boots.
-9. Summarize: what changed, timings, any surprises.
+If the planner estimate is off by a page at the tail, the "hasMore" logic already tolerates it (last page just returns fewer rows). Exact totals are only cosmetic in the paginator.
 
-## Non-goals
+### Out of scope
 
-- No `typescript` or `typescript-eslint` version changes.
-- No TS 7 upgrade.
-- No source-file refactors beyond fixing errors caused strictly by items 1 or 3.
+- The per-page fetch itself (edge functions `get-all-unlocked-orders` / `get-all-locked-orders`) is not changed — logs show those return quickly once triggered. This plan only removes the ~12s count barrier that blocks them from starting.
+- No UI changes.
+
+### Expected result
+
+Counts return in <100ms (planner estimate + index-backed fallback later if we ever switch back). First page render should start within ~200ms instead of ~12s, and the 500 disappears.
+
+## Files touched
+
+- New migration: index on `orders.booked_by_company_id` (+ composite with `locked`).
+- `src/hooks/useOrdersProgressive.ts` — swap `count: "exact"` → `"planned"`, add `retry: 0`.
