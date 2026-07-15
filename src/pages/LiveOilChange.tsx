@@ -570,7 +570,19 @@ const LiveOilChange = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          {canEditAll ? (
+                          {isMaintenance ? (
+                            <MaintenanceDateCell
+                              value={t.miles_updated_at ? t.miles_updated_at.slice(0, 10) : null}
+                              onChange={(v) => {
+                                const currentDate = t.miles_updated_at
+                                  ? t.miles_updated_at.slice(0, 10)
+                                  : null;
+                                if (v !== currentDate) {
+                                  updateTruck.mutate({ id: t.id, patch: { miles_updated_at: v as any } });
+                                }
+                              }}
+                            />
+                          ) : canEditAll ? (
                             <Input
                               key={t.miles_updated_at ?? "empty-mua"}
                               defaultValue={fmtDate(t.miles_updated_at)}
