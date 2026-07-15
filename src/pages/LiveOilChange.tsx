@@ -67,6 +67,80 @@ const parseDateInput = (raw: string): string | null => {
   return "__invalid__";
 };
 
+// Date cell used for maintenance role: text input flanked by calendar icons
+// that open a date picker on either side.
+const MaintenanceDateCell = ({
+  value,
+  onChange,
+  placeholder = "MM/DD/YYYY",
+}: {
+  value: string | null;
+  onChange: (iso: string | null) => void;
+  placeholder?: string;
+}) => {
+  const [open, setOpen] = useState<"left" | "right" | null>(null);
+  const selectedDate = (() => {
+    if (!value) return undefined;
+    try {
+      const d = parseISO(value);
+      return isValid(d) ? d : undefined;
+    } catch { return undefined; }
+  })();
+
+  const IconTrigger = ({ side }: { side: "left" | "right" }) => (
+    <Popover open={open === side} onOpenChange={(o) => setOpen(o ? side : null)}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="p-1 text-muted-foreground hover:text-foreground"
+          title="Pick a date"
+        >
+          <CalendarIcon className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0 pointer-events-auto" align={side === "left" ? "start" : "end"}>
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={(d) => {
+            if (d) onChange(format(d, "yyyy-MM-dd"));
+            setOpen(null);
+          }}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <IconTrigger side="left" />
+      <Input
+        key={value ?? "empty"}
+        defaultValue={value ? fmtDate(value) : ""}
+        placeholder={placeholder}
+        onBlur={(e) => {
+          const raw = e.target.value.trim();
+          if (raw === "") {
+            if (value !== null) onChange(null);
+            return;
+          }
+          const parsed = parseDateInput(raw);
+          if (parsed === "__invalid__") {
+            toast({ title: "Invalid date", description: "Use MM/DD/YYYY", variant: "destructive" });
+            e.target.value = value ? fmtDate(value) : "";
+            return;
+          }
+          if (parsed !== value) onChange(parsed);
+        }}
+        className={bareInput}
+      />
+      <IconTrigger side="right" />
+    </div>
+  );
+};
+
 const LiveOilChange = () => {
   const queryClient = useQueryClient();
   useEffect(() => {
