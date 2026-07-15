@@ -523,6 +523,16 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell className="font-medium">{t.truck_number}</TableCell>
                         <TableCell>
+                          {isMaintenance ? (
+                            <MaintenanceDateCell
+                              value={t.oil_change_date}
+                              onChange={(v) => {
+                                if (v !== (t.oil_change_date ?? null)) {
+                                  updateTruck.mutate({ id: t.id, patch: { oil_change_date: v as any } });
+                                }
+                              }}
+                            />
+                          ) : (
                           <Input
                             key={t.oil_change_date ?? "empty"}
                             defaultValue={fmtDate(t.oil_change_date)}
@@ -541,6 +551,7 @@ const LiveOilChange = () => {
                             className={bareInput}
                             readOnly={!canEditAll}
                           />
+                          )}
                         </TableCell>
                         <TableCell>
                           <Input
