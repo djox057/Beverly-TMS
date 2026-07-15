@@ -381,24 +381,23 @@ const LiveOilChange = () => {
           </div>
         </CardHeader>
         <CardContent className="px-2">
-          <div className="overflow-x-auto">
-            <Table className="table-fixed">
-              <TableHeader className="sticky top-0 z-10 bg-background">
-                <TableRow>
-                  <TableHead className="w-[120px]">Source</TableHead>
-                  <TableHead className="w-[80px]">Unit</TableHead>
-                  <TableHead className="w-[130px]">Last oil change date</TableHead>
-                  <TableHead className="w-[110px] whitespace-normal leading-tight">Last oil change mileage</TableHead>
-                  <TableHead className="w-[120px]">Last Update</TableHead>
-                  <TableHead className="w-[180px]">Total mileage - last update</TableHead>
-                  <TableHead className="w-[90px] whitespace-normal leading-tight">Miles since last oil change</TableHead>
-                  <TableHead className="w-[130px] whitespace-normal leading-tight">Odometer</TableHead>
-                  <TableHead className="w-[180px]">Note</TableHead>
-                  <TableHead className="w-[90px] whitespace-normal leading-tight">last OC<br/>invoice</TableHead>
-                  <TableHead className="w-[110px]">AIR FILTER</TableHead>
-                  <TableHead className="w-[90px] whitespace-normal leading-tight">mil since<br/>last AF</TableHead>
-                </TableRow>
-              </TableHeader>
+          <Table className="table-fixed">
+            <TableHeader className="sticky top-0 z-20 bg-background">
+              <TableRow>
+                <TableHead className="sticky top-0 z-20 w-[120px] bg-background">Source</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[80px] bg-background">Unit</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[130px] bg-background">Last oil change date</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[110px] whitespace-normal leading-tight bg-background">Last oil change mileage</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[120px] bg-background">Last Update</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Total mileage - last update</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">Miles since last oil change</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[130px] whitespace-normal leading-tight bg-background">Odometer</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Note</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">last OC<br/>invoice</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[110px] bg-background">AIR FILTER</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">mil since<br/>last AF</TableHead>
+              </TableRow>
+            </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
@@ -614,7 +613,6 @@ const LiveOilChange = () => {
                 )}
               </TableBody>
             </Table>
-          </div>
           <p className="text-xs text-muted-foreground mt-3">
             Miles since last oil change and mil since last AF are computed from current mileage.
           </p>
