@@ -215,6 +215,22 @@ const LiveOilChange = () => {
 
   const updateTruck = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<TruckRow> }) => {
+      // Dispatchers cannot UPDATE the trucks table directly (RLS). Route
+      // miles-only updates through a security-definer RPC that scopes to
+      // trucks assigned to the dispatcher's drivers.
+      const patchKeys = Object.keys(patch);
+      const isMilesOnly =
+        isDispatcher &&
+        patchKeys.length === 1 &&
+        patchKeys[0] === "miles";
+      if (isMilesOnly) {
+        const { error } = await supabase.rpc("dispatcher_update_truck_miles", {
+          _truck_id: id,
+          _miles: (patch as any).miles,
+        });
+        if (error) throw error;
+        return;
+      }
       const { error } = await supabase.from("trucks").update(patch).eq("id", id);
       if (error) throw error;
     },
