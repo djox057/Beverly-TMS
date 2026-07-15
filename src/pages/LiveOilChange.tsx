@@ -719,7 +719,7 @@ const LiveOilChange = () => {
                             }}
                             className={cn(bareInput, "min-h-7 py-1 resize-none")}
                             placeholder="—"
-                            readOnly={!canEditAll}
+                            readOnly={!canEditAll && !isDispatcher}
                           />
                         </TableCell>
                         <TableCell>
