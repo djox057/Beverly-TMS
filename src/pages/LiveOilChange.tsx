@@ -491,7 +491,7 @@ const LiveOilChange = () => {
                         <TableCell className="text-muted-foreground">
                           {fmtDate(t.miles_updated_at)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className={cn(isDispatcher && "outline outline-1 outline-primary rounded-sm")}>
                           <Input
                             key={t.miles ?? "empty-miles"}
                             type="number"
