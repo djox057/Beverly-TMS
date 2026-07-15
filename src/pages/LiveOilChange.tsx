@@ -613,7 +613,6 @@ const LiveOilChange = () => {
                 )}
               </TableBody>
             </Table>
-          </div>
           <p className="text-xs text-muted-foreground mt-3">
             Miles since last oil change and mil since last AF are computed from current mileage.
           </p>
