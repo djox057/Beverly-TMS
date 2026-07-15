@@ -101,7 +101,9 @@ const MaintenanceDateCell = ({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <div className="flex items-center gap-0.5">
-        {iconBtn}
+        <PopoverTrigger asChild>
+          {iconBtn}
+        </PopoverTrigger>
         <Input
         key={value ?? "empty"}
         defaultValue={value ? fmtDate(value) : ""}
@@ -120,7 +122,7 @@ const MaintenanceDateCell = ({
           }
           if (parsed !== value) onChange(parsed);
         }}
-          className={cn(bareInput, "min-w-0 flex-1")}
+          className={cn(bareInput, "min-w-0 flex-1 text-center")}
         />
         <PopoverTrigger asChild>
           <button
