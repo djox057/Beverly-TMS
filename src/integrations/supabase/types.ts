@@ -4976,6 +4976,10 @@ export type Database = {
         Args: { order_data: Json }
         Returns: Json
       }
+      dispatcher_update_truck_miles: {
+        Args: { _miles: number; _truck_id: string }
+        Returns: undefined
+      }
       estimate_locked_orders_count: {
         Args: {
           p_booked_by?: string
