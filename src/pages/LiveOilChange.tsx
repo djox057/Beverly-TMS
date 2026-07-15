@@ -258,6 +258,7 @@ const LiveOilChange = () => {
   const { getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
   const isDispatcher = primaryRole === 'dispatch';
+  const isMaintenance = primaryRole === 'maintenance';
   const { allDispatchers } = useFleetManagement();
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
   const canEditAll = primaryRole !== 'dispatch';
