@@ -546,7 +546,7 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell className="font-medium">{t.truck_number}</TableCell>
                         <TableCell>
-                          {isMaintenance ? (
+                          {canEditAll ? (
                             <MaintenanceDateCell
                               value={t.oil_change_date}
                               onChange={(v) => {
@@ -593,7 +593,7 @@ const LiveOilChange = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          {isMaintenance ? (
+                          {canEditAll ? (
                             <MaintenanceDateCell
                               value={t.miles_updated_at ? t.miles_updated_at.slice(0, 10) : null}
                               onChange={(v) => {
@@ -604,34 +604,6 @@ const LiveOilChange = () => {
                                   updateTruck.mutate({ id: t.id, patch: { miles_updated_at: v as any } });
                                 }
                               }}
-                            />
-                          ) : canEditAll ? (
-                            <Input
-                              key={t.miles_updated_at ?? "empty-mua"}
-                              defaultValue={fmtDate(t.miles_updated_at)}
-                              placeholder="MM/DD/YYYY"
-                              onBlur={(e) => {
-                                const raw = e.target.value.trim();
-                                const currentDate = t.miles_updated_at
-                                  ? t.miles_updated_at.slice(0, 10)
-                                  : null;
-                                if (raw === "") {
-                                  if (currentDate !== null) {
-                                    updateTruck.mutate({ id: t.id, patch: { miles_updated_at: null as any } });
-                                  }
-                                  return;
-                                }
-                                const parsed = parseDateInput(raw);
-                                if (parsed === "__invalid__") {
-                                  toast({ title: "Invalid date", description: "Use MM/DD/YYYY", variant: "destructive" });
-                                  e.target.value = fmtDate(t.miles_updated_at);
-                                  return;
-                                }
-                                if (parsed !== currentDate) {
-                                  updateTruck.mutate({ id: t.id, patch: { miles_updated_at: parsed as any } });
-                                }
-                              }}
-                              className={bareInput}
                             />
                           ) : (
                             <span className="text-muted-foreground">{fmtDate(t.miles_updated_at)}</span>
