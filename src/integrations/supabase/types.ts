@@ -4980,6 +4980,10 @@ export type Database = {
         Args: { _miles: number; _truck_id: string }
         Returns: undefined
       }
+      dispatcher_update_truck_oil_change_note: {
+        Args: { _note: string; _truck_id: string }
+        Returns: undefined
+      }
       estimate_locked_orders_count: {
         Args: {
           p_booked_by?: string
