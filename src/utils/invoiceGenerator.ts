@@ -515,7 +515,12 @@ export const generateInvoicePDF = async (
       const isBgPrime = derivedCompany === "BG Prime Inc";
       if (!isBgPrime) {
         yPosition += 30;
-        doc.setTextColor(255, 0, 0);
+        const isBeverlyFreight = derivedCompany === "Beverly Freight Inc";
+        if (isBeverlyFreight) {
+          doc.setTextColor(0, 0, 255);
+        } else {
+          doc.setTextColor(255, 0, 0);
+        }
         doc.setFont("helvetica", "bold");
         doc.text("NOTICE OF ASSIGMENT", 105, yPosition, { align: "center" });
 
