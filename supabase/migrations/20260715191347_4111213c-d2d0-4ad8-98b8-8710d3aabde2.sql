@@ -1,0 +1,2 @@
+CREATE INDEX IF NOT EXISTS idx_orders_booked_by_company_id ON public.orders (booked_by_company_id);
+CREATE INDEX IF NOT EXISTS idx_orders_locked_booked_by_company ON public.orders (locked, booked_by_company_id);
