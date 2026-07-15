@@ -463,10 +463,10 @@ const LiveOilChange = () => {
               <TableRow>
                 <TableHead className="sticky top-0 z-20 w-[120px] bg-background">Source</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[80px] bg-background">Unit</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[130px] bg-background">Last oil change date</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[170px] bg-background">Last oil change date</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[110px] whitespace-normal leading-tight bg-background">Last oil change mileage</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[120px] bg-background">Last Update</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Total mileage - last update</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[170px] bg-background">Last Update</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[130px] bg-background">Total mileage - last update</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">Miles since last oil change</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[130px] whitespace-normal leading-tight bg-background">Odometer</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Note</TableHead>
