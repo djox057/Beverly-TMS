@@ -383,7 +383,7 @@ const LiveOilChange = () => {
         <CardContent className="px-2">
           <div className="overflow-x-auto">
             <Table className="table-fixed">
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-background">
                 <TableRow>
                   <TableHead className="w-[120px]">Source</TableHead>
                   <TableHead className="w-[80px]">Unit</TableHead>
