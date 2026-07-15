@@ -113,7 +113,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       // Get unlocked count
       let unlockedCountQuery = supabase
         .from("orders")
-        .select("id", { count: "planned", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("locked", false);
       unlockedCountQuery = buildFilter(unlockedCountQuery);
       unlockedCountQuery = applyExclusion(unlockedCountQuery);
@@ -122,7 +122,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       // Get locked count
       let lockedCountQuery = supabase
         .from("orders")
-        .select("id", { count: "planned", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("locked", true);
       lockedCountQuery = buildFilter(lockedCountQuery);
       lockedCountQuery = applyExclusion(lockedCountQuery);
