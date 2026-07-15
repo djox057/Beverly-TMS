@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid } from "date-fns";
-import { Droplet, Search, Upload, Eye, RefreshCcw } from "lucide-react";
+import { Droplet, Search, Upload, Eye, RefreshCcw, Calendar as CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -63,6 +65,80 @@ const parseDateInput = (raw: string): string | null => {
     if (isValid(d)) return format(d, "yyyy-MM-dd");
   }
   return "__invalid__";
+};
+
+// Date cell used for maintenance role: text input flanked by calendar icons
+// that open a date picker on either side.
+const MaintenanceDateCell = ({
+  value,
+  onChange,
+  placeholder = "MM/DD/YYYY",
+}: {
+  value: string | null;
+  onChange: (iso: string | null) => void;
+  placeholder?: string;
+}) => {
+  const [open, setOpen] = useState<"left" | "right" | null>(null);
+  const selectedDate = (() => {
+    if (!value) return undefined;
+    try {
+      const d = parseISO(value);
+      return isValid(d) ? d : undefined;
+    } catch { return undefined; }
+  })();
+
+  const IconTrigger = ({ side }: { side: "left" | "right" }) => (
+    <Popover open={open === side} onOpenChange={(o) => setOpen(o ? side : null)}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="p-1 text-muted-foreground hover:text-foreground"
+          title="Pick a date"
+        >
+          <CalendarIcon className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0 pointer-events-auto" align={side === "left" ? "start" : "end"}>
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={(d) => {
+            if (d) onChange(format(d, "yyyy-MM-dd"));
+            setOpen(null);
+          }}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <IconTrigger side="left" />
+      <Input
+        key={value ?? "empty"}
+        defaultValue={value ? fmtDate(value) : ""}
+        placeholder={placeholder}
+        onBlur={(e) => {
+          const raw = e.target.value.trim();
+          if (raw === "") {
+            if (value !== null) onChange(null);
+            return;
+          }
+          const parsed = parseDateInput(raw);
+          if (parsed === "__invalid__") {
+            toast({ title: "Invalid date", description: "Use MM/DD/YYYY", variant: "destructive" });
+            e.target.value = value ? fmtDate(value) : "";
+            return;
+          }
+          if (parsed !== value) onChange(parsed);
+        }}
+        className={bareInput}
+      />
+      <IconTrigger side="right" />
+    </div>
+  );
 };
 
 const LiveOilChange = () => {
@@ -182,6 +258,7 @@ const LiveOilChange = () => {
   const { getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
   const isDispatcher = primaryRole === 'dispatch';
+  const isMaintenance = primaryRole === 'maintenance';
   const { allDispatchers } = useFleetManagement();
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
   const canEditAll = primaryRole !== 'dispatch';
@@ -446,6 +523,16 @@ const LiveOilChange = () => {
                         </TableCell>
                         <TableCell className="font-medium">{t.truck_number}</TableCell>
                         <TableCell>
+                          {isMaintenance ? (
+                            <MaintenanceDateCell
+                              value={t.oil_change_date}
+                              onChange={(v) => {
+                                if (v !== (t.oil_change_date ?? null)) {
+                                  updateTruck.mutate({ id: t.id, patch: { oil_change_date: v as any } });
+                                }
+                              }}
+                            />
+                          ) : (
                           <Input
                             key={t.oil_change_date ?? "empty"}
                             defaultValue={fmtDate(t.oil_change_date)}
@@ -464,6 +551,7 @@ const LiveOilChange = () => {
                             className={bareInput}
                             readOnly={!canEditAll}
                           />
+                          )}
                         </TableCell>
                         <TableCell>
                           <Input
@@ -482,7 +570,19 @@ const LiveOilChange = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          {canEditAll ? (
+                          {isMaintenance ? (
+                            <MaintenanceDateCell
+                              value={t.miles_updated_at ? t.miles_updated_at.slice(0, 10) : null}
+                              onChange={(v) => {
+                                const currentDate = t.miles_updated_at
+                                  ? t.miles_updated_at.slice(0, 10)
+                                  : null;
+                                if (v !== currentDate) {
+                                  updateTruck.mutate({ id: t.id, patch: { miles_updated_at: v as any } });
+                                }
+                              }}
+                            />
+                          ) : canEditAll ? (
                             <Input
                               key={t.miles_updated_at ?? "empty-mua"}
                               defaultValue={fmtDate(t.miles_updated_at)}
