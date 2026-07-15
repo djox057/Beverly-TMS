@@ -315,6 +315,18 @@ const LiveOilChange = () => {
         if (error) throw error;
         return;
       }
+      const isNoteOnly =
+        isDispatcher &&
+        patchKeys.length === 1 &&
+        patchKeys[0] === "oil_change_note";
+      if (isNoteOnly) {
+        const { error } = await supabase.rpc("dispatcher_update_truck_oil_change_note", {
+          _truck_id: id,
+          _note: (patch as any).oil_change_note,
+        });
+        if (error) throw error;
+        return;
+      }
       const { error } = await supabase.from("trucks").update(patch).eq("id", id);
       if (error) throw error;
     },
@@ -707,7 +719,7 @@ const LiveOilChange = () => {
                             }}
                             className={cn(bareInput, "min-h-7 py-1 resize-none")}
                             placeholder="—"
-                            readOnly={!canEditAll}
+                            readOnly={!canEditAll && !isDispatcher}
                           />
                         </TableCell>
                         <TableCell>
