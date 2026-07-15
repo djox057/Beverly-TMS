@@ -78,7 +78,7 @@ const MaintenanceDateCell = ({
   onChange: (iso: string | null) => void;
   placeholder?: string;
 }) => {
-  const [open, setOpen] = useState<"left" | "right" | null>(null);
+  const [open, setOpen] = useState(false);
   const selectedDate = (() => {
     if (!value) return undefined;
     try {
@@ -87,36 +87,22 @@ const MaintenanceDateCell = ({
     } catch { return undefined; }
   })();
 
-  const IconTrigger = ({ side }: { side: "left" | "right" }) => (
-    <Popover open={open === side} onOpenChange={(o) => setOpen(o ? side : null)}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="p-1 text-muted-foreground hover:text-foreground"
-          title="Pick a date"
-        >
-          <CalendarIcon className="h-3.5 w-3.5" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 pointer-events-auto" align={side === "left" ? "start" : "end"}>
-        <Calendar
-          mode="single"
-          selected={selectedDate}
-          onSelect={(d) => {
-            if (d) onChange(format(d, "yyyy-MM-dd"));
-            setOpen(null);
-          }}
-          initialFocus
-          className={cn("p-3 pointer-events-auto")}
-        />
-      </PopoverContent>
-    </Popover>
+  const iconBtn = (
+    <button
+      type="button"
+      className="p-1 text-muted-foreground hover:text-foreground shrink-0"
+      title="Pick a date"
+      onClick={() => setOpen((o) => !o)}
+    >
+      <CalendarIcon className="h-3.5 w-3.5" />
+    </button>
   );
 
   return (
-    <div className="flex items-center gap-0.5">
-      <IconTrigger side="left" />
-      <Input
+    <Popover open={open} onOpenChange={setOpen}>
+      <div className="flex items-center gap-0.5">
+        {iconBtn}
+        <Input
         key={value ?? "empty"}
         defaultValue={value ? fmtDate(value) : ""}
         placeholder={placeholder}
@@ -134,10 +120,31 @@ const MaintenanceDateCell = ({
           }
           if (parsed !== value) onChange(parsed);
         }}
-        className={bareInput}
-      />
-      <IconTrigger side="right" />
-    </div>
+          className={cn(bareInput, "min-w-0 flex-1")}
+        />
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="p-1 text-muted-foreground hover:text-foreground shrink-0"
+            title="Pick a date"
+          >
+            <CalendarIcon className="h-3.5 w-3.5" />
+          </button>
+        </PopoverTrigger>
+      </div>
+      <PopoverContent className="w-auto p-0 pointer-events-auto" align="end">
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={(d) => {
+            if (d) onChange(format(d, "yyyy-MM-dd"));
+            setOpen(false);
+          }}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
   );
 };
 
@@ -463,10 +470,10 @@ const LiveOilChange = () => {
               <TableRow>
                 <TableHead className="sticky top-0 z-20 w-[120px] bg-background">Source</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[80px] bg-background">Unit</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[130px] bg-background">Last oil change date</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[170px] bg-background">Last oil change date</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[110px] whitespace-normal leading-tight bg-background">Last oil change mileage</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[120px] bg-background">Last Update</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Total mileage - last update</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[170px] bg-background">Last Update</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[130px] bg-background">Total mileage - last update</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">Miles since last oil change</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[130px] whitespace-normal leading-tight bg-background">Odometer</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Note</TableHead>
