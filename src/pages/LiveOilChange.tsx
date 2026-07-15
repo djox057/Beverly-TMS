@@ -389,14 +389,7 @@ const LiveOilChange = () => {
                 <TableHead className="sticky top-0 z-20 w-[130px] bg-background">Last oil change date</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[110px] whitespace-normal leading-tight bg-background">Last oil change mileage</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[120px] bg-background">Last Update</TableHead>
-                <TableHead
-                  className={cn(
-                    "sticky top-0 z-20 w-[180px] bg-background",
-                    isDispatcher && "outline outline-2 outline-primary rounded-sm font-semibold text-primary"
-                  )}
-                >
-                  Total mileage - last update
-                </TableHead>
+                <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Total mileage - last update</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">Miles since last oil change</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[130px] whitespace-normal leading-tight bg-background">Odometer</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Note</TableHead>
@@ -491,7 +484,7 @@ const LiveOilChange = () => {
                         <TableCell className="text-muted-foreground">
                           {fmtDate(t.miles_updated_at)}
                         </TableCell>
-                        <TableCell className={cn(isDispatcher && "outline outline-1 outline-primary rounded-sm")}>
+                        <TableCell>
                           <Input
                             key={t.miles ?? "empty-miles"}
                             type="number"
