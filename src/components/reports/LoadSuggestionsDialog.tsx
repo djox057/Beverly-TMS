@@ -221,40 +221,48 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                     loadedMiles == null || m.deadhead_miles == null
                       ? null
                       : loadedMiles + m.deadhead_miles;
+                  const expected = expectedMap[key];
                   return (
                   <tr key={`${m.source_load_id}-${m.count}`} className="border-t">
-                    <td className="px-3 py-2 whitespace-nowrap font-mono">
+                    <td className="px-2 py-1.5 whitespace-nowrap font-mono">
                       {m.source_load_id}
                       {m.count > 1 && (
-                        <span className="ml-1 text-xs text-muted-foreground">x{m.count}</span>
+                        <span className="ml-1 text-[10px] text-muted-foreground">x{m.count}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    <td className="px-2 py-1.5 whitespace-nowrap">
                       {m.origin_city}, {m.origin_state}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    <td className="px-2 py-1.5 whitespace-nowrap">
                       {m.dest_city}, {m.dest_state}
                     </td>
-                    <td className="px-3 py-2 text-right">{fmtMoney(m.rate)}</td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-2 py-1.5 text-right">{fmtMoney(m.rate)}</td>
+                    <td className="px-2 py-1.5 text-right">
+                      {expected === undefined ? (
+                        <Loader2 className="h-3 w-3 animate-spin inline text-muted-foreground" />
+                      ) : (
+                        fmtMoney(expected)
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5 text-right">
                       {loadedMiles === undefined ? (
                         <Loader2 className="h-3 w-3 animate-spin inline text-muted-foreground" />
                       ) : (
                         fmtMiles(loadedMiles)
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-2 py-1.5 text-right">
                       {loadedMiles === undefined ? (
                         <Loader2 className="h-3 w-3 animate-spin inline text-muted-foreground" />
                       ) : (
                         fmtRatePerMile(m.rate, totalMiles)
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-2 py-1.5 text-right">
                       {m.deadhead_miles == null ? "—" : m.deadhead_miles.toFixed(1)}
                     </td>
-                    <td className="px-3 py-2 text-right">{fmtScore(m.score)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtPickupRange(m.pickup_start, m.pickup_end)}</td>
+                    <td className="px-2 py-1.5 text-right">{fmtScore(m.score)}</td>
+                    <td className="px-2 py-1.5 whitespace-nowrap">{fmtPickupRange(m.pickup_start, m.pickup_end)}</td>
                   </tr>
                   );
                 })}
