@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import {
   Dialog,
@@ -7,6 +8,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useMatchedOrders } from "@/hooks/useLoadSuggestions";
+import { calculateLoadedMiles } from "@/utils/mapboxRouteCalculator";
 
 interface Props {
   open: boolean;
@@ -29,6 +31,17 @@ const fmtMoney = (n: number | null) =>
 
 const fmtScore = (n: number | null) => (n == null ? "—" : n.toFixed(3));
 
+const fmtMiles = (n: number | null | undefined) =>
+  n == null ? "—" : n.toFixed(1);
+
+const fmtRatePerMile = (rate: number | null, miles: number | null) => {
+  if (rate == null || miles == null || miles <= 0) return "—";
+  return `$${(rate / miles).toFixed(2)}`;
+};
+
+const laneKey = (o: string, os: string, d: string, ds: string) =>
+  `${(o || "").trim()}|${(os || "").trim()}|${(d || "").trim()}|${(ds || "").trim()}`.toUpperCase();
+
 export const LoadSuggestionsDialog: React.FC<Props> = ({
   open,
   onOpenChange,
@@ -37,6 +50,48 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
   driverName,
 }) => {
   const { data, isLoading, isFetching, error } = useMatchedOrders(truckId, open && !!truckId);
+  // Map of laneKey → loaded miles (null = failed, undefined = still loading)
+  const [loadedMilesMap, setLoadedMilesMap] = useState<Record<string, number | null>>({});
+
+  useEffect(() => {
+    if (!open || !data || data.length === 0) return;
+    // Collect unique lanes we haven't computed yet.
+    const seen = new Set<string>();
+    const lanes: { key: string; pickup: string; delivery: string }[] = [];
+    for (const m of data) {
+      const key = laneKey(m.origin_city, m.origin_state, m.dest_city, m.dest_state);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (key in loadedMilesMap) continue;
+      if (!m.origin_city || !m.origin_state || !m.dest_city || !m.dest_state) continue;
+      lanes.push({
+        key,
+        pickup: `${m.origin_city}, ${m.origin_state}`,
+        delivery: `${m.dest_city}, ${m.dest_state}`,
+      });
+    }
+    if (lanes.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      // Fire lanes in parallel; each has its own internal timeout.
+      const results = await Promise.all(
+        lanes.map(async (l) => {
+          const miles = await calculateLoadedMiles(l.pickup, l.delivery);
+          return { key: l.key, miles: miles && miles > 0 ? miles : null };
+        }),
+      );
+      if (cancelled) return;
+      setLoadedMilesMap((prev) => {
+        const next = { ...prev };
+        for (const r of results) next[r.key] = r.miles;
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, data]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -85,6 +140,8 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                   <th className="text-left px-3 py-2">destination</th>
                   <th className="text-left px-3 py-2">equipment</th>
                   <th className="text-right px-3 py-2">rate</th>
+                  <th className="text-right px-3 py-2">loaded_miles</th>
+                  <th className="text-right px-3 py-2">DH</th>
                   <th className="text-right px-3 py-2">deadhead_miles</th>
                   <th className="text-right px-3 py-2">score</th>
                   <th className="text-left px-3 py-2">pickup_start</th>
@@ -92,7 +149,14 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody>
-                {data.map((m) => (
+                {data.map((m) => {
+                  const key = laneKey(m.origin_city, m.origin_state, m.dest_city, m.dest_state);
+                  const loadedMiles = loadedMilesMap[key];
+                  const totalMiles =
+                    loadedMiles == null || m.deadhead_miles == null
+                      ? null
+                      : loadedMiles + m.deadhead_miles;
+                  return (
                   <tr key={m.source_load_id} className="border-t">
                     <td className="px-3 py-2 whitespace-nowrap font-mono">{m.source_load_id}</td>
                     <td className="px-3 py-2 text-right">{m.count}</td>
@@ -105,13 +169,28 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                     <td className="px-3 py-2">{m.equipment}</td>
                     <td className="px-3 py-2 text-right">{fmtMoney(m.rate)}</td>
                     <td className="px-3 py-2 text-right">
+                      {loadedMiles === undefined ? (
+                        <Loader2 className="h-3 w-3 animate-spin inline text-muted-foreground" />
+                      ) : (
+                        fmtMiles(loadedMiles)
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {loadedMiles === undefined ? (
+                        <Loader2 className="h-3 w-3 animate-spin inline text-muted-foreground" />
+                      ) : (
+                        fmtRatePerMile(m.rate, totalMiles)
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right">
                       {m.deadhead_miles == null ? "—" : m.deadhead_miles.toFixed(1)}
                     </td>
                     <td className="px-3 py-2 text-right">{fmtScore(m.score)}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{fmtDateTime(m.pickup_start)}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{fmtDateTime(m.pickup_end)}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
