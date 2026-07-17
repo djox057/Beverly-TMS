@@ -19,11 +19,19 @@ interface Props {
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
-const fmtDateTime = (iso: string | null) => {
-  if (!iso) return "—";
+const fmtTime = (iso: string | null) => {
+  if (!iso) return null;
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (Number.isNaN(d.getTime())) return null;
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const fmtPickupRange = (start: string | null, end: string | null) => {
+  const s = fmtTime(start);
+  const e = fmtTime(end);
+  if (!s && !e) return "—";
+  if (!s || !e) return s || e || "—";
+  if (s === e) return s;
+  return `${s}-${e}`;
 };
 
 const fmtMoney = (n: number | null) =>
