@@ -164,8 +164,8 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
               },
             });
             if (laneErr || !laneData || typeof laneData !== "object") return { key: l.key, expected: null };
-            const avgFreight = (laneData as any).overall?.avgFreight;
-            return { key: l.key, expected: avgFreight && avgFreight > 0 ? avgFreight : null };
+            const rpm = (laneData as any).overall?.rpm;
+            return { key: l.key, expected: rpm && rpm > 0 ? rpm : null };
           } catch {
             return { key: l.key, expected: null };
           }
