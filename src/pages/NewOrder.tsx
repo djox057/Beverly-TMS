@@ -29,6 +29,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
+import { usePromoRateSuggestion } from "@/hooks/usePromoRateSuggestion";
 import { combineDateAndTime } from "@/utils/dateUtils";
 import {
   calculateLoadedMiles,
@@ -329,6 +330,13 @@ const NewOrder = () => {
   // Get the first pickup datetime for DH miles calculation
   const firstPickupDatetime = pickupsDrops.find((item) => item.type === "pickup")?.datetime || null;
   const { data: lastDelivery } = useTruckLastDelivery(driver1 || null, firstPickupDatetime);
+
+  const promoLoadMiles = (parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0);
+  const { data: promoSuggestion, isLoading: promoLoading } = usePromoRateSuggestion(
+    driver1 || null,
+    firstPickupDatetime,
+    promoLoadMiles,
+  );
 
   // Auto-extract AI when RC file is uploaded (only for single load mode)
   useEffect(() => {
@@ -3234,9 +3242,34 @@ const NewOrder = () => {
                     </p>
                   );
                 })()}
-                <p className="text-xs text-muted-foreground">
-                  Suggested rate based on driver's weekly promo bracket will appear here.
-                </p>
+                {(() => {
+                  const selectedDriver = allDrivers?.find((d) => d.id === driver1);
+                  if (selectedDriver?.is_company_driver) return null;
+                  if (!promoSuggestion) {
+                    return (
+                      <p className="text-xs text-muted-foreground">
+                        {promoLoading
+                          ? "Calculating promo rate suggestion…"
+                          : "Select driver, pickup date, and miles to see the suggested rate."}
+                      </p>
+                    );
+                  }
+                  const s = promoSuggestion;
+                  return (
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      <p>
+                        Suggested: <span className="font-semibold text-foreground">${s.suggestedRate.toLocaleString()}</span>{" "}
+                        (req. RPM ${s.requiredRpm.toFixed(2)})
+                      </p>
+                      <p>
+                        Bracket {s.bracket.minMiles}–{s.bracket.maxMiles} mi · target ${s.bracket.midpoint.toFixed(2)} ·
+                        proj. {s.projectedMiles} mi
+                        {s.confidence === "low" ? " · low confidence" : ""}
+                      </p>
+                      {s.warning ? <p className="text-amber-500">{s.warning}</p> : null}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
