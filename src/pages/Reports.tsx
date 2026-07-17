@@ -3233,35 +3233,21 @@ const Reports = () => {
                             ) : hasHomeTime ? (
                               <Home className="h-4 w-4" />
                             ) : showSuggestionPlus ? (
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground w-5 h-5 animate-pulse hover:opacity-90"
-                                    title="Suggested loads"
-                                  >
-                                    <Plus className="h-3 w-3" strokeWidth={3} />
-                                  </button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl p-0">
-                                  <DialogHeader className="px-4 pt-4">
-                                    <DialogTitle>Suggested loads</DialogTitle>
-                                    <DialogDescription>
-                                      {(truck.truckNumber || truck.truck_number) ? `Truck ${truck.truckNumber || truck.truck_number}` : ""}
-                                      {(truck.driverName || truck.driver_name) ? ` · ${truck.driverName || truck.driver_name}` : ""}
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="px-2 pb-2">
-                                    <LoadSuggestionsPopover
-                                      truckId={truck.id}
-                                      truckNumber={truck.truckNumber || truck.truck_number}
-                                      driverName={truck.driverName || truck.driver_name}
-                                      enabled={true}
-                                    />
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSuggestionsDialog({
+                                    truckId: truck.id,
+                                    truckNumber: truck.truckNumber || truck.truck_number || null,
+                                    driverName: truck.driverName || truck.driver_name || null,
+                                  });
+                                }}
+                                className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground w-5 h-5 animate-pulse hover:opacity-90"
+                                title="Suggested loads"
+                              >
+                                <Plus className="h-3 w-3" strokeWidth={3} />
+                              </button>
                             ) : (
                               "—"
                             )}
