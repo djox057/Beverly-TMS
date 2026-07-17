@@ -2377,6 +2377,9 @@ const Reports = () => {
     // Red box logic is based on actual current date, not the carousel viewing window
     const chicagoToday = getChicagoToday();
     const oneDayInFuture = addDays(chicagoToday, 1);
+    // Suggestions: track whether we've placed the flashing `+` for this truck yet.
+    // The `+` renders on the first empty pickup cell whose day is today or newer.
+    const suggestionsState = { plusPlaced: false };
     return days.map((day, index) => {
       // Check if this day matches the 2-week block date
       const twoWeekBlockDate = truck.twoWeekBlockDate
