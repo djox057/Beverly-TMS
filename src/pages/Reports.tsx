@@ -3142,6 +3142,20 @@ const Reports = () => {
                         const hasHomeTime = !!homeTimeNote;
                         const hasDeliveryThisDay = allDeliveryOrders.length > 0;
 
+                        // Flashing `+` for load suggestions on the first empty
+                        // pickup cell that is today or newer.
+                        const isTodayOrLater = day >= chicagoToday;
+                        const showSuggestionPlus =
+                          canUseSuggestions &&
+                          suggestionsMode &&
+                          isTodayOrLater &&
+                          !suggestionsState.plusPlaced &&
+                          !isMissingPickup &&
+                          !isInTransit &&
+                          !shouldShowPickupInTransit &&
+                          !hasHomeTime;
+                        if (showSuggestionPlus) suggestionsState.plusPlaced = true;
+
                         return (
                           <div
                             className={`text-xs h-full flex items-center justify-center ${hasLateIncompleteDelivery ? "text-muted-foreground font-semibold" : isMissingPickup && !hasHomeTime ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
@@ -3205,6 +3219,27 @@ const Reports = () => {
                               )
                             ) : hasHomeTime ? (
                               <Home className="h-4 w-4" />
+                            ) : showSuggestionPlus ? (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground w-5 h-5 animate-pulse hover:opacity-90"
+                                    title="Suggested loads"
+                                  >
+                                    <Plus className="h-3 w-3" strokeWidth={3} />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent align="start" className="p-0" side="bottom">
+                                  <LoadSuggestionsPopover
+                                    truckId={truck.id}
+                                    truckNumber={truck.truckNumber || truck.truck_number}
+                                    driverName={truck.driverName || truck.driver_name}
+                                    enabled={true}
+                                  />
+                                </PopoverContent>
+                              </Popover>
                             ) : (
                               "—"
                             )}
