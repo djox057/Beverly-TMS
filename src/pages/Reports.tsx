@@ -69,6 +69,7 @@ import {
   FileWarning,
   AlertTriangle,
   Share2,
+  Plus,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { SamsaraLiveShareDialog } from "@/components/SamsaraLiveShareDialog";
