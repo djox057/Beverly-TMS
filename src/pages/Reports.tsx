@@ -2677,6 +2677,31 @@ const Reports = () => {
 
       // Check if this day is today (Chicago time) - always use actual today for the red border
       const isToday = isSameDay(day, chicagoToday);
+      // Load-suggestions flashing `+` placement (computed once per day so both
+      // the pickup cell background and the cell contents can use it).
+      // Rule: place on the first empty pickup cell that is today or newer.
+      // For a red "Empty" cell that falls on today, the `+` overwrites it
+      // rather than skipping to the next day.
+      const _plusDateStr = format(day, "yyyy-MM-dd");
+      const _plusLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
+      const _plusHasHomeTime = _plusLostDayNotes.some(
+        (n: any) => String(n?.date || "").slice(0, 10) === _plusDateStr && n.note_type === "home_time",
+      );
+      const _plusIsOwnDispatcherTruck =
+        hasRole("admin") || (!!profile?.user_id && truck.dispatcherId === profile.user_id);
+      const _plusIsTodayOrLater = day >= chicagoToday;
+      const showSuggestionPlus =
+        canUseSuggestions &&
+        suggestionsMode &&
+        _plusIsOwnDispatcherTruck &&
+        _plusIsTodayOrLater &&
+        !suggestionsState.plusPlaced &&
+        !_plusHasHomeTime &&
+        !isInTransit &&
+        !shouldShowPickupInTransit &&
+        !hasLateIncompleteDelivery &&
+        (!isMissingPickup || isToday);
+      if (showSuggestionPlus) suggestionsState.plusPlaced = true;
       type LoadMatchSlot = { matched: boolean; orderId: string };
       const buildLoadMatchSlots = (sources: any[][], stopKey: "pickupStops" | "deliveryStops"): LoadMatchSlot[] => {
         if (!debouncedLoadNumberFilter) return [];
