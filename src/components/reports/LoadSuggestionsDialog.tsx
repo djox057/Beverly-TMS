@@ -19,11 +19,19 @@ interface Props {
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
-const fmtDateTime = (iso: string | null) => {
-  if (!iso) return "—";
+const fmtTime = (iso: string | null) => {
+  if (!iso) return null;
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (Number.isNaN(d.getTime())) return null;
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const fmtPickupRange = (start: string | null, end: string | null) => {
+  const s = fmtTime(start);
+  const e = fmtTime(end);
+  if (!s && !e) return "—";
+  if (!s || !e) return s || e || "—";
+  if (s === e) return s;
+  return `${s}-${e}`;
 };
 
 const fmtMoney = (n: number | null) =>
@@ -144,8 +152,7 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                   <th className="text-right px-3 py-2">RPM</th>
                   <th className="text-right px-3 py-2">deadhead_miles</th>
                   <th className="text-right px-3 py-2">score</th>
-                  <th className="text-left px-3 py-2">pickup_start</th>
-                  <th className="text-left px-3 py-2">pickup_end</th>
+                  <th className="text-left px-3 py-2">Pickup</th>
                 </tr>
               </thead>
               <tbody>
@@ -186,8 +193,7 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                       {m.deadhead_miles == null ? "—" : m.deadhead_miles.toFixed(1)}
                     </td>
                     <td className="px-3 py-2 text-right">{fmtScore(m.score)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtDateTime(m.pickup_start)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtDateTime(m.pickup_end)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtPickupRange(m.pickup_start, m.pickup_end)}</td>
                   </tr>
                   );
                 })}
