@@ -1083,9 +1083,6 @@ const AdminUsers = () => {
             <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
               <div>
                 <p className="text-sm font-semibold text-foreground">Load Suggestions</p>
-                <p className="text-xs text-muted-foreground">
-                  When on, this user sees the Suggestions toggle in Reports. When off, the toggle is hidden.
-                </p>
               </div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="edit-suggestions-enabled" className="text-sm cursor-pointer">
