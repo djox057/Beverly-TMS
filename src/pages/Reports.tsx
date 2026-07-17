@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -132,7 +132,7 @@ import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { usePrefetchTruckMatches } from "@/hooks/useLoadSuggestions";
-import LoadSuggestionsPopover from "@/components/reports/LoadSuggestionsPopover";
+import LoadSuggestionsDialog from "@/components/reports/LoadSuggestionsDialog";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useReportsDialogs } from "./Reports/useReportsDialogs";
@@ -1179,6 +1179,13 @@ const Reports = () => {
     driverId: string;
     date: string;
     isCurrentlyHomeTime: boolean;
+  } | null>(null);
+
+  // Suggested-loads dialog (opened from the flashing `+` in Reports pickup cells).
+  const [suggestionsDialog, setSuggestionsDialog] = useState<{
+    truckId: string;
+    truckNumber: string | null;
+    driverName: string | null;
   } | null>(null);
 
   const [redCellDialog, setRedCellDialog] = useState<{
@@ -3226,35 +3233,21 @@ const Reports = () => {
                             ) : hasHomeTime ? (
                               <Home className="h-4 w-4" />
                             ) : showSuggestionPlus ? (
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground w-5 h-5 animate-pulse hover:opacity-90"
-                                    title="Suggested loads"
-                                  >
-                                    <Plus className="h-3 w-3" strokeWidth={3} />
-                                  </button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl p-0">
-                                  <DialogHeader className="px-4 pt-4">
-                                    <DialogTitle>Suggested loads</DialogTitle>
-                                    <DialogDescription>
-                                      {(truck.truckNumber || truck.truck_number) ? `Truck ${truck.truckNumber || truck.truck_number}` : ""}
-                                      {(truck.driverName || truck.driver_name) ? ` · ${truck.driverName || truck.driver_name}` : ""}
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="px-2 pb-2">
-                                    <LoadSuggestionsPopover
-                                      truckId={truck.id}
-                                      truckNumber={truck.truckNumber || truck.truck_number}
-                                      driverName={truck.driverName || truck.driver_name}
-                                      enabled={true}
-                                    />
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSuggestionsDialog({
+                                    truckId: truck.id,
+                                    truckNumber: truck.truckNumber || truck.truck_number || null,
+                                    driverName: truck.driverName || truck.driver_name || null,
+                                  });
+                                }}
+                                className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground w-5 h-5 animate-pulse hover:opacity-90"
+                                title="Suggested loads"
+                              >
+                                <Plus className="h-3 w-3" strokeWidth={3} />
+                              </button>
                             ) : (
                               "—"
                             )}
@@ -8374,6 +8367,15 @@ const Reports = () => {
         open={!!liveShareDialog}
         onOpenChange={(open) => !open && setLiveShareDialog(null)}
         truckNumber={liveShareDialog?.truckNumber || ""}
+      />
+
+      {/* Suggested Loads Dialog */}
+      <LoadSuggestionsDialog
+        open={!!suggestionsDialog}
+        onOpenChange={(open) => !open && setSuggestionsDialog(null)}
+        truckId={suggestionsDialog?.truckId ?? null}
+        truckNumber={suggestionsDialog?.truckNumber ?? null}
+        driverName={suggestionsDialog?.driverName ?? null}
       />
 
       {/* HOS Request Dialog */}
