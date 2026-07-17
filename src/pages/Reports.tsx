@@ -2692,6 +2692,7 @@ const Reports = () => {
         _plusIsOwnDispatcherTruck &&
         _plusIsTodayOrLater &&
         !suggestionsState.plusPlaced &&
+        isEmptyPickup &&
         !_plusHasHomeTime &&
         !isInTransit &&
         !shouldShowPickupInTransit &&
