@@ -246,7 +246,11 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                     loadedMiles == null || m.deadhead_miles == null
                       ? null
                       : loadedMiles + m.deadhead_miles;
-                  const expected = expectedMap[key];
+                  const expected = expectedMap[key]; // lane-search RPM
+                  const expectedRate =
+                    expected == null || loadedMiles == null
+                      ? null
+                      : expected * loadedMiles;
                   return (
                   <tr key={`${m.source_load_id}-${m.count}`} className="border-t">
                     <td className="px-2 py-1.5 whitespace-nowrap font-mono">
@@ -263,10 +267,10 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                     </td>
                     <td className="px-2 py-1.5 text-right">{fmtMoney(m.rate)}</td>
                     <td className="px-2 py-1.5 text-right">
-                      {expected === undefined ? (
+                      {expected === undefined || loadedMiles === undefined ? (
                         <Loader2 className="h-3 w-3 animate-spin inline text-muted-foreground" />
                       ) : (
-                        fmtMoney(expected)
+                        fmtMoney(expectedRate)
                       )}
                     </td>
                     <td className="px-2 py-1.5 text-right">
