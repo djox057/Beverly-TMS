@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -132,7 +132,7 @@ import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { usePrefetchTruckMatches } from "@/hooks/useLoadSuggestions";
-import LoadSuggestionsPopover from "@/components/reports/LoadSuggestionsPopover";
+import LoadSuggestionsDialog from "@/components/reports/LoadSuggestionsDialog";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useReportsDialogs } from "./Reports/useReportsDialogs";
@@ -1179,6 +1179,13 @@ const Reports = () => {
     driverId: string;
     date: string;
     isCurrentlyHomeTime: boolean;
+  } | null>(null);
+
+  // Suggested-loads dialog (opened from the flashing `+` in Reports pickup cells).
+  const [suggestionsDialog, setSuggestionsDialog] = useState<{
+    truckId: string;
+    truckNumber: string | null;
+    driverName: string | null;
   } | null>(null);
 
   const [redCellDialog, setRedCellDialog] = useState<{
