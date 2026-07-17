@@ -4006,6 +4006,27 @@ const Reports = () => {
     lateTrucks,
     hasDriverProblem,
   ]);
+
+  // Suggestions prefetch: dispatchers pre-load matches for every truck in the
+  // active office when Suggestions is toggled on. Admin does NOT prefetch — the
+  // request only fires on click for admin.
+  const dispatcherPrefetchTruckIds = useMemo(() => {
+    if (!canUseSuggestions || !suggestionsMode) return [];
+    if (!hasRole("dispatch") || hasRole("admin")) return [];
+    const ids = new Set<string>();
+    for (const group of activeOfficeReports) {
+      for (const t of (group as any).trucks || []) {
+        if (t?.id) ids.add(t.id);
+      }
+    }
+    return Array.from(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canUseSuggestions, suggestionsMode, activeOfficeReports]);
+  usePrefetchTruckMatches(
+    dispatcherPrefetchTruckIds,
+    canUseSuggestions && suggestionsMode && hasRole("dispatch") && !hasRole("admin"),
+  );
+
   // Progressive rendering: render dispatcher groups incrementally to avoid freezing.
   // We use a counter that increments on each tab switch to trigger the effect,
   // rather than depending on activeOfficeReports (which gets a new reference on every render).
