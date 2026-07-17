@@ -41,7 +41,7 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-3xl p-0"
+        className="max-w-6xl p-0"
         // Prevent clicks inside the dialog from bubbling through the React tree
         // to the underlying cell's onClick (which would open the Home Time dialog).
         onClick={(e) => e.stopPropagation()}
