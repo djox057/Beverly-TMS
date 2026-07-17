@@ -2683,10 +2683,13 @@ const Reports = () => {
       const _plusHasHomeTime = _plusLostDayNotes.some(
         (n: any) => String(n?.date || "").slice(0, 10) === _plusDateStr && n.note_type === "home_time",
       );
+      const _plusIsOwnDispatcherTruck =
+        hasRole("admin") || (!!profile?.user_id && truck.dispatcherId === profile.user_id);
       const _plusIsTodayOrLater = day >= chicagoToday;
       const showSuggestionPlus =
         canUseSuggestions &&
         suggestionsMode &&
+        _plusIsOwnDispatcherTruck &&
         _plusIsTodayOrLater &&
         !suggestionsState.plusPlaced &&
         !_plusHasHomeTime &&
