@@ -2998,7 +2998,7 @@ const Reports = () => {
                 const pickupBgClass =
                   allPickupOrders.length > 0 || sameDayOrders.length > 0
                     ? ""
-                    : isMissingPickup && !hasLateIncompleteDelivery && !hasHomeTimePickup
+                    : isMissingPickup && !hasLateIncompleteDelivery && !hasHomeTimePickup && !showSuggestionPlus
                       ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]"
                       : "bg-muted";
                 return (
