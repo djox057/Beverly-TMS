@@ -4022,12 +4022,15 @@ const Reports = () => {
     const ids = new Set<string>();
     for (const group of activeOfficeReports) {
       for (const t of (group as any).trucks || []) {
-        if (t?.id) ids.add(t.id);
+        // Only prefetch matches for trucks this dispatcher owns.
+        if (t?.id && t?.dispatcherId && t.dispatcherId === profile?.user_id) {
+          ids.add(t.id);
+        }
       }
     }
     return Array.from(ids);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canUseSuggestions, suggestionsMode, activeOfficeReports]);
+  }, [canUseSuggestions, suggestionsMode, activeOfficeReports, profile?.user_id]);
   usePrefetchTruckMatches(
     dispatcherPrefetchTruckIds,
     canUseSuggestions && suggestionsMode && hasRole("dispatch") && !hasRole("admin"),
