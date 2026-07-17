@@ -41,6 +41,7 @@ interface User {
   daily_report_can_edit: boolean;
   gross_percent: number | null;
   cut_percent: number | null;
+  suggestions_enabled: boolean;
 }
 
 const AdminUsers = () => {
@@ -61,6 +62,7 @@ const AdminUsers = () => {
   const [editExt, setEditExt] = useState('');
   const [editDailyView, setEditDailyView] = useState(false);
   const [editDailyEdit, setEditDailyEdit] = useState(false);
+  const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
   const [editGrossPercent, setEditGrossPercent] = useState<string>('');
   const [editCutPercent, setEditCutPercent] = useState<string>('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
@@ -180,6 +182,7 @@ const AdminUsers = () => {
           daily_report_can_edit: isAdmin ? true : !!perm?.can_edit,
           gross_percent: (profile as any).gross_percent ?? null,
           cut_percent: (profile as any).cut_percent ?? null,
+          suggestions_enabled: !!(profile as any).suggestions_enabled,
         };
       });
 
@@ -358,6 +361,7 @@ const AdminUsers = () => {
     setEditExt(user.ext || '');
     setEditDailyView(user.daily_report_can_view);
     setEditDailyEdit(user.daily_report_can_edit);
+    setEditSuggestionsEnabled(user.suggestions_enabled);
     setEditGrossPercent(user.gross_percent != null ? String(user.gross_percent) : (user.roles.includes('dispatch') ? '1' : ''));
     setEditCutPercent(user.cut_percent != null ? String(user.cut_percent) : (user.roles.includes('dispatch') ? '5' : ''));
     setIsEditDialogOpen(true);
