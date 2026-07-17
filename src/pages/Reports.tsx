@@ -3226,8 +3226,8 @@ const Reports = () => {
                             ) : hasHomeTime ? (
                               <Home className="h-4 w-4" />
                             ) : showSuggestionPlus ? (
-                              <Popover>
-                                <PopoverTrigger asChild>
+                              <Dialog>
+                                <DialogTrigger asChild>
                                   <button
                                     type="button"
                                     onClick={(e) => e.stopPropagation()}
@@ -3236,16 +3236,25 @@ const Reports = () => {
                                   >
                                     <Plus className="h-3 w-3" strokeWidth={3} />
                                   </button>
-                                </PopoverTrigger>
-                                <PopoverContent align="start" className="p-0" side="bottom">
-                                  <LoadSuggestionsPopover
-                                    truckId={truck.id}
-                                    truckNumber={truck.truckNumber || truck.truck_number}
-                                    driverName={truck.driverName || truck.driver_name}
-                                    enabled={true}
-                                  />
-                                </PopoverContent>
-                              </Popover>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl p-0">
+                                  <DialogHeader className="px-4 pt-4">
+                                    <DialogTitle>Suggested loads</DialogTitle>
+                                    <DialogDescription>
+                                      {(truck.truckNumber || truck.truck_number) ? `Truck ${truck.truckNumber || truck.truck_number}` : ""}
+                                      {(truck.driverName || truck.driver_name) ? ` · ${truck.driverName || truck.driver_name}` : ""}
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="px-2 pb-2">
+                                    <LoadSuggestionsPopover
+                                      truckId={truck.id}
+                                      truckNumber={truck.truckNumber || truck.truck_number}
+                                      driverName={truck.driverName || truck.driver_name}
+                                      enabled={true}
+                                    />
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
                             ) : (
                               "—"
                             )}
