@@ -193,8 +193,7 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                       {m.deadhead_miles == null ? "—" : m.deadhead_miles.toFixed(1)}
                     </td>
                     <td className="px-3 py-2 text-right">{fmtScore(m.score)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtDateTime(m.pickup_start)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtDateTime(m.pickup_end)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtPickupRange(m.pickup_start, m.pickup_end)}</td>
                   </tr>
                   );
                 })}
