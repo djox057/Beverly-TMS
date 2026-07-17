@@ -107,20 +107,33 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
   useEffect(() => {
     if (!open || !data || data.length === 0) return;
     const seen = new Set<string>();
-    const lanes: { key: string; pickup: string; delivery: string }[] = [];
+    const lanes: { key: string; pickup: string; delivery: string; miles: number }[] = [];
     for (const m of data) {
       const key = laneKey(m.origin_city, m.origin_state, m.dest_city, m.dest_state);
       if (seen.has(key)) continue;
       seen.add(key);
       if (key in expectedMap) continue;
       if (!m.origin_city || !m.origin_state || !m.dest_city || !m.dest_state) continue;
+      // Need loaded miles first to choose the correct miles bucket for lane-search.
+      const miles = loadedMilesMap[key];
+      if (miles == null) continue;
       lanes.push({
         key,
         pickup: `${m.origin_city}, ${m.origin_state}`,
         delivery: `${m.dest_city}, ${m.dest_state}`,
+        miles,
       });
     }
     if (lanes.length === 0) return;
+    // Current + previous calendar week (Mon-Sun), Chicago-agnostic UTC bounds.
+    const now = new Date();
+    const day = now.getUTCDay(); // 0=Sun..6=Sat
+    const daysSinceMonday = (day + 6) % 7;
+    const monThisWeek = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysSinceMonday));
+    const monLastWeek = new Date(monThisWeek);
+    monLastWeek.setUTCDate(monLastWeek.getUTCDate() - 7);
+    const dateFrom = monLastWeek.toISOString().split("T")[0];
+    const dateTo = now.toISOString().split("T")[0];
     let cancelled = false;
     (async () => {
       const results = await Promise.all(
@@ -135,8 +148,11 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
               body: {
                 pickup: { lat: pickupCoords.lat, lng: pickupCoords.lon },
                 delivery: { lat: deliveryCoords.lat, lng: deliveryCoords.lon },
-                pickupRadius: 60,
-                deliveryRadius: 60,
+                pickupRadius: 150,
+                deliveryRadius: 150,
+                dateFrom,
+                dateTo,
+                milesFilter: l.miles >= 650 ? "over650" : "under650",
               },
             });
             if (laneErr || !laneData || typeof laneData !== "object") return { key: l.key, expected: null };
@@ -158,7 +174,7 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, data]);
+  }, [open, data, loadedMilesMap]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
