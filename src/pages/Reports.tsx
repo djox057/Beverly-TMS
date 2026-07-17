@@ -449,14 +449,10 @@ const Reports = () => {
 
   // Load Suggestions toggle (Reports header). Visible only when the user has
   // suggestions_enabled on their profile AND role is admin or dispatch.
+  // Suggestions always start off on initial page load or refresh.
   const canUseSuggestions =
     !!profile?.suggestions_enabled && (hasRole("admin") || hasRole("dispatch"));
-  const [suggestionsMode, setSuggestionsMode] = useState<boolean>(
-    !!profile?.suggestions_mode,
-  );
-  useEffect(() => {
-    setSuggestionsMode(!!profile?.suggestions_mode);
-  }, [profile?.suggestions_mode]);
+  const [suggestionsMode, setSuggestionsMode] = useState<boolean>(false);
   const toggleSuggestionsMode = async () => {
     const next = !suggestionsMode;
     setSuggestionsMode(next);
