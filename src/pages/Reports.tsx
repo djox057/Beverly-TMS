@@ -8369,6 +8369,15 @@ const Reports = () => {
         truckNumber={liveShareDialog?.truckNumber || ""}
       />
 
+      {/* Suggested Loads Dialog */}
+      <LoadSuggestionsDialog
+        open={!!suggestionsDialog}
+        onOpenChange={(open) => !open && setSuggestionsDialog(null)}
+        truckId={suggestionsDialog?.truckId ?? null}
+        truckNumber={suggestionsDialog?.truckNumber ?? null}
+        driverName={suggestionsDialog?.driverName ?? null}
+      />
+
       {/* HOS Request Dialog */}
       <HosRequestDialog
         open={!!hosRequestDialog}
