@@ -198,18 +198,19 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
           ) : !data || data.length === 0 ? (
             <div className="p-6 text-muted-foreground">No matching loads.</div>
           ) : (
-            <table className="w-full text-xs">
+            <table className="w-full text-xs table-fixed">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
-                  <th className="text-left px-3 py-2">Load number</th>
-                  <th className="text-left px-3 py-2">origin</th>
-                  <th className="text-left px-3 py-2">destination</th>
-                  <th className="text-right px-3 py-2">rate</th>
-                  <th className="text-right px-3 py-2">loaded_miles</th>
-                  <th className="text-right px-3 py-2">RPM</th>
-                  <th className="text-right px-3 py-2">deadhead_miles</th>
-                  <th className="text-right px-3 py-2">score</th>
-                  <th className="text-left px-3 py-2">Pickup</th>
+                  <th className="text-left px-2 py-1.5 w-[110px]">Load #</th>
+                  <th className="text-left px-2 py-1.5 w-[115px]">origin</th>
+                  <th className="text-left px-2 py-1.5 w-[120px]">destination</th>
+                  <th className="text-right px-2 py-1.5 w-[70px]">rate</th>
+                  <th className="text-right px-2 py-1.5 w-[75px]">expected</th>
+                  <th className="text-right px-2 py-1.5 w-[75px]">loaded</th>
+                  <th className="text-right px-2 py-1.5 w-[55px]">RPM</th>
+                  <th className="text-right px-2 py-1.5 w-[55px]">dh_miles</th>
+                  <th className="text-right px-2 py-1.5 w-[55px]">score</th>
+                  <th className="text-left px-2 py-1.5 w-[75px]">Pickup</th>
                 </tr>
               </thead>
               <tbody>
