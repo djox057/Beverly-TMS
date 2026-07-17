@@ -142,11 +142,9 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
             <table className="w-full text-xs">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
-                  <th className="text-left px-3 py-2">source_load_id</th>
-                  <th className="text-right px-3 py-2">count</th>
+                  <th className="text-left px-3 py-2">Load number</th>
                   <th className="text-left px-3 py-2">origin</th>
                   <th className="text-left px-3 py-2">destination</th>
-                  <th className="text-left px-3 py-2">equipment</th>
                   <th className="text-right px-3 py-2">rate</th>
                   <th className="text-right px-3 py-2">loaded_miles</th>
                   <th className="text-right px-3 py-2">RPM</th>
