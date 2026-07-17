@@ -3145,9 +3145,15 @@ const Reports = () => {
                         // Flashing `+` for load suggestions on the first empty
                         // pickup cell that is today or newer.
                         const isTodayOrLater = day >= chicagoToday;
+                        // Dispatchers only see suggestions for their own drivers.
+                        // Admins can click on any truck.
+                        const isOwnDispatcherTruck =
+                          hasRole("admin") ||
+                          (!!profile?.user_id && truck.dispatcherId === profile.user_id);
                         const showSuggestionPlus =
                           canUseSuggestions &&
                           suggestionsMode &&
+                          isOwnDispatcherTruck &&
                           isTodayOrLater &&
                           !suggestionsState.plusPlaced &&
                           !isMissingPickup &&
