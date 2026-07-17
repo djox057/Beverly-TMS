@@ -331,6 +331,13 @@ const NewOrder = () => {
   const firstPickupDatetime = pickupsDrops.find((item) => item.type === "pickup")?.datetime || null;
   const { data: lastDelivery } = useTruckLastDelivery(driver1 || null, firstPickupDatetime);
 
+  const promoLoadMiles = (parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0);
+  const { data: promoSuggestion, isLoading: promoLoading } = usePromoRateSuggestion(
+    driver1 || null,
+    firstPickupDatetime,
+    promoLoadMiles,
+  );
+
   // Auto-extract AI when RC file is uploaded (only for single load mode)
   useEffect(() => {
     // Skip auto-extraction for partial loads
