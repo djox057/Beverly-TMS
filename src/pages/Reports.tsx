@@ -447,6 +447,27 @@ const Reports = () => {
   const { individualMode } = useIndividualMode();
   const navigate = useNavigate();
 
+  // Load Suggestions toggle (Reports header). Visible only when the user has
+  // suggestions_enabled on their profile AND role is admin or dispatch.
+  const canUseSuggestions =
+    !!profile?.suggestions_enabled && (hasRole("admin") || hasRole("dispatch"));
+  const [suggestionsMode, setSuggestionsMode] = useState<boolean>(
+    !!profile?.suggestions_mode,
+  );
+  useEffect(() => {
+    setSuggestionsMode(!!profile?.suggestions_mode);
+  }, [profile?.suggestions_mode]);
+  const toggleSuggestionsMode = async () => {
+    const next = !suggestionsMode;
+    setSuggestionsMode(next);
+    if (profile?.user_id) {
+      await (supabase as any)
+        .from("profiles")
+        .update({ suggestions_mode: next })
+        .eq("user_id", profile.user_id);
+    }
+  };
+
   // Use consolidated filter hook
   const {
     showEmptyTrucks,
