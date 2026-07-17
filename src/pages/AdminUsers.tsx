@@ -41,6 +41,7 @@ interface User {
   daily_report_can_edit: boolean;
   gross_percent: number | null;
   cut_percent: number | null;
+  suggestions_enabled: boolean;
 }
 
 const AdminUsers = () => {
@@ -61,6 +62,7 @@ const AdminUsers = () => {
   const [editExt, setEditExt] = useState('');
   const [editDailyView, setEditDailyView] = useState(false);
   const [editDailyEdit, setEditDailyEdit] = useState(false);
+  const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
   const [editGrossPercent, setEditGrossPercent] = useState<string>('');
   const [editCutPercent, setEditCutPercent] = useState<string>('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
@@ -180,6 +182,7 @@ const AdminUsers = () => {
           daily_report_can_edit: isAdmin ? true : !!perm?.can_edit,
           gross_percent: (profile as any).gross_percent ?? null,
           cut_percent: (profile as any).cut_percent ?? null,
+          suggestions_enabled: !!(profile as any).suggestions_enabled,
         };
       });
 
@@ -358,6 +361,7 @@ const AdminUsers = () => {
     setEditExt(user.ext || '');
     setEditDailyView(user.daily_report_can_view);
     setEditDailyEdit(user.daily_report_can_edit);
+    setEditSuggestionsEnabled(user.suggestions_enabled);
     setEditGrossPercent(user.gross_percent != null ? String(user.gross_percent) : (user.roles.includes('dispatch') ? '1' : ''));
     setEditCutPercent(user.cut_percent != null ? String(user.cut_percent) : (user.roles.includes('dispatch') ? '5' : ''));
     setIsEditDialogOpen(true);
@@ -409,6 +413,18 @@ const AdminUsers = () => {
         if (permError) {
           console.error('Error updating Daily Report permissions:', permError);
           throw new Error(permError.message || 'Failed to save Daily Report permissions');
+        }
+      }
+
+      // Persist Suggestions permission on the profile row
+      {
+        const { error: sugError } = await (supabase as any)
+          .from('profiles')
+          .update({ suggestions_enabled: editSuggestionsEnabled })
+          .eq('user_id', userToEdit.user_id);
+        if (sugError) {
+          console.error('Error updating Suggestions permission:', sugError);
+          throw new Error(sugError.message || 'Failed to save Suggestions permission');
         }
       }
 
@@ -1060,6 +1076,25 @@ const AdminUsers = () => {
                     if (checked) setEditDailyView(true);
                   }}
                   disabled={userToEdit?.roles.includes('admin')}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Load Suggestions</p>
+                <p className="text-xs text-muted-foreground">
+                  When on, this user sees the Suggestions toggle in Reports. When off, the toggle is hidden.
+                </p>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="edit-suggestions-enabled" className="text-sm cursor-pointer">
+                  Can use Suggestions
+                </Label>
+                <Switch
+                  id="edit-suggestions-enabled"
+                  checked={editSuggestionsEnabled}
+                  onCheckedChange={setEditSuggestionsEnabled}
                 />
               </div>
             </div>

@@ -69,6 +69,7 @@ import {
   FileWarning,
   AlertTriangle,
   Share2,
+  Plus,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { SamsaraLiveShareDialog } from "@/components/SamsaraLiveShareDialog";
@@ -130,6 +131,8 @@ import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
+import { usePrefetchTruckMatches } from "@/hooks/useLoadSuggestions";
+import LoadSuggestionsPopover from "@/components/reports/LoadSuggestionsPopover";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useReportsDialogs } from "./Reports/useReportsDialogs";
@@ -443,6 +446,27 @@ const Reports = () => {
   const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
   const { individualMode } = useIndividualMode();
   const navigate = useNavigate();
+
+  // Load Suggestions toggle (Reports header). Visible only when the user has
+  // suggestions_enabled on their profile AND role is admin or dispatch.
+  const canUseSuggestions =
+    !!profile?.suggestions_enabled && (hasRole("admin") || hasRole("dispatch"));
+  const [suggestionsMode, setSuggestionsMode] = useState<boolean>(
+    !!profile?.suggestions_mode,
+  );
+  useEffect(() => {
+    setSuggestionsMode(!!profile?.suggestions_mode);
+  }, [profile?.suggestions_mode]);
+  const toggleSuggestionsMode = async () => {
+    const next = !suggestionsMode;
+    setSuggestionsMode(next);
+    if (profile?.user_id) {
+      await (supabase as any)
+        .from("profiles")
+        .update({ suggestions_mode: next })
+        .eq("user_id", profile.user_id);
+    }
+  };
 
   // Use consolidated filter hook
   const {
@@ -2353,6 +2377,9 @@ const Reports = () => {
     // Red box logic is based on actual current date, not the carousel viewing window
     const chicagoToday = getChicagoToday();
     const oneDayInFuture = addDays(chicagoToday, 1);
+    // Suggestions: track whether we've placed the flashing `+` for this truck yet.
+    // The `+` renders on the first empty pickup cell whose day is today or newer.
+    const suggestionsState = { plusPlaced: false };
     return days.map((day, index) => {
       // Check if this day matches the 2-week block date
       const twoWeekBlockDate = truck.twoWeekBlockDate
@@ -3115,6 +3142,20 @@ const Reports = () => {
                         const hasHomeTime = !!homeTimeNote;
                         const hasDeliveryThisDay = allDeliveryOrders.length > 0;
 
+                        // Flashing `+` for load suggestions on the first empty
+                        // pickup cell that is today or newer.
+                        const isTodayOrLater = day >= chicagoToday;
+                        const showSuggestionPlus =
+                          canUseSuggestions &&
+                          suggestionsMode &&
+                          isTodayOrLater &&
+                          !suggestionsState.plusPlaced &&
+                          !isMissingPickup &&
+                          !isInTransit &&
+                          !shouldShowPickupInTransit &&
+                          !hasHomeTime;
+                        if (showSuggestionPlus) suggestionsState.plusPlaced = true;
+
                         return (
                           <div
                             className={`text-xs h-full flex items-center justify-center ${hasLateIncompleteDelivery ? "text-muted-foreground font-semibold" : isMissingPickup && !hasHomeTime ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
@@ -3178,6 +3219,27 @@ const Reports = () => {
                               )
                             ) : hasHomeTime ? (
                               <Home className="h-4 w-4" />
+                            ) : showSuggestionPlus ? (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground w-5 h-5 animate-pulse hover:opacity-90"
+                                    title="Suggested loads"
+                                  >
+                                    <Plus className="h-3 w-3" strokeWidth={3} />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent align="start" className="p-0" side="bottom">
+                                  <LoadSuggestionsPopover
+                                    truckId={truck.id}
+                                    truckNumber={truck.truckNumber || truck.truck_number}
+                                    driverName={truck.driverName || truck.driver_name}
+                                    enabled={true}
+                                  />
+                                </PopoverContent>
+                              </Popover>
                             ) : (
                               "—"
                             )}
@@ -3944,6 +4006,27 @@ const Reports = () => {
     lateTrucks,
     hasDriverProblem,
   ]);
+
+  // Suggestions prefetch: dispatchers pre-load matches for every truck in the
+  // active office when Suggestions is toggled on. Admin does NOT prefetch — the
+  // request only fires on click for admin.
+  const dispatcherPrefetchTruckIds = useMemo(() => {
+    if (!canUseSuggestions || !suggestionsMode) return [];
+    if (!hasRole("dispatch") || hasRole("admin")) return [];
+    const ids = new Set<string>();
+    for (const group of activeOfficeReports) {
+      for (const t of (group as any).trucks || []) {
+        if (t?.id) ids.add(t.id);
+      }
+    }
+    return Array.from(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canUseSuggestions, suggestionsMode, activeOfficeReports]);
+  usePrefetchTruckMatches(
+    dispatcherPrefetchTruckIds,
+    canUseSuggestions && suggestionsMode && hasRole("dispatch") && !hasRole("admin"),
+  );
+
   // Progressive rendering: render dispatcher groups incrementally to avoid freezing.
   // We use a counter that increments on each tab switch to trigger the effect,
   // rather than depending on activeOfficeReports (which gets a new reference on every render).
@@ -4351,6 +4434,17 @@ const Reports = () => {
                 hasRole("dispatch") ||
                 hasRole("afterhours")) && (
                 <div className="flex flex-wrap gap-1 sm:gap-2 sm:ml-4">
+                  {canUseSuggestions && (
+                    <Button
+                      variant={suggestionsMode ? "default" : "outline"}
+                      size="sm"
+                      onClick={toggleSuggestionsMode}
+                      className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
+                    >
+                      <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                      Suggestions
+                    </Button>
+                  )}
                   <Button
                     variant={showEmptyTrucks ? "default" : "outline"}
                     size="sm"
