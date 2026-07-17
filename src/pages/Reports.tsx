@@ -2695,8 +2695,7 @@ const Reports = () => {
         !_plusHasHomeTime &&
         !isInTransit &&
         !shouldShowPickupInTransit &&
-        !hasLateIncompleteDelivery &&
-        (!isMissingPickup || isToday);
+        !hasLateIncompleteDelivery;
       if (showSuggestionPlus) suggestionsState.plusPlaced = true;
       type LoadMatchSlot = { matched: boolean; orderId: string };
       const buildLoadMatchSlots = (sources: any[][], stopKey: "pickupStops" | "deliveryStops"): LoadMatchSlot[] => {
