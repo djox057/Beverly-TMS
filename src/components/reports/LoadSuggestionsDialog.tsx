@@ -60,6 +60,8 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
   const { data, isLoading, isFetching, error } = useMatchedOrders(truckId, open && !!truckId);
   // Map of laneKey → loaded miles (null = failed, undefined = still loading)
   const [loadedMilesMap, setLoadedMilesMap] = useState<Record<string, number | null>>({});
+  // Map of laneKey → expected average freight for the lane (null = failed, undefined = still loading)
+  const [expectedMap, setExpectedMap] = useState<Record<string, number | null>>({});
 
   useEffect(() => {
     if (!open || !data || data.length === 0) return;
@@ -92,6 +94,62 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
       setLoadedMilesMap((prev) => {
         const next = { ...prev };
         for (const r of results) next[r.key] = r.miles;
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, data]);
+
+  useEffect(() => {
+    if (!open || !data || data.length === 0) return;
+    const seen = new Set<string>();
+    const lanes: { key: string; pickup: string; delivery: string }[] = [];
+    for (const m of data) {
+      const key = laneKey(m.origin_city, m.origin_state, m.dest_city, m.dest_state);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (key in expectedMap) continue;
+      if (!m.origin_city || !m.origin_state || !m.dest_city || !m.dest_state) continue;
+      lanes.push({
+        key,
+        pickup: `${m.origin_city}, ${m.origin_state}`,
+        delivery: `${m.dest_city}, ${m.dest_state}`,
+      });
+    }
+    if (lanes.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.all(
+        lanes.map(async (l) => {
+          try {
+            const [pickupCoords, deliveryCoords] = await Promise.all([
+              geocodeAddress(l.pickup),
+              geocodeAddress(l.delivery),
+            ]);
+            if (!pickupCoords || !deliveryCoords) return { key: l.key, expected: null };
+            const { data: laneData, error: laneErr } = await supabase.functions.invoke("lane-search", {
+              body: {
+                pickup: { lat: pickupCoords.lat, lng: pickupCoords.lon },
+                delivery: { lat: deliveryCoords.lat, lng: deliveryCoords.lon },
+                pickupRadius: 60,
+                deliveryRadius: 60,
+              },
+            });
+            if (laneErr || !laneData || typeof laneData !== "object") return { key: l.key, expected: null };
+            const avgFreight = (laneData as any).overall?.avgFreight;
+            return { key: l.key, expected: avgFreight && avgFreight > 0 ? avgFreight : null };
+          } catch {
+            return { key: l.key, expected: null };
+          }
+        }),
+      );
+      if (cancelled) return;
+      setExpectedMap((prev) => {
+        const next = { ...prev };
+        for (const r of results) next[r.key] = r.expected;
         return next;
       });
     })();
