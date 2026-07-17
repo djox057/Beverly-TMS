@@ -152,8 +152,7 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                   <th className="text-right px-3 py-2">RPM</th>
                   <th className="text-right px-3 py-2">deadhead_miles</th>
                   <th className="text-right px-3 py-2">score</th>
-                  <th className="text-left px-3 py-2">pickup_start</th>
-                  <th className="text-left px-3 py-2">pickup_end</th>
+                  <th className="text-left px-3 py-2">Pickup</th>
                 </tr>
               </thead>
               <tbody>
