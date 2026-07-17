@@ -3174,34 +3174,20 @@ const Reports = () => {
                         const hasHomeTime = !!homeTimeNote;
                         const hasDeliveryThisDay = allDeliveryOrders.length > 0;
 
-                        // Flashing `+` for load suggestions on the first empty
-                        // pickup cell that is today or newer.
-                        const isTodayOrLater = day >= chicagoToday;
-                        // Dispatchers only see suggestions for their own drivers.
-                        // Admins can click on any truck.
-                        const isOwnDispatcherTruck =
-                          hasRole("admin") ||
-                          (!!profile?.user_id && truck.dispatcherId === profile.user_id);
-                        const showSuggestionPlus =
-                          canUseSuggestions &&
-                          suggestionsMode &&
-                          isOwnDispatcherTruck &&
-                          isTodayOrLater &&
-                          !suggestionsState.plusPlaced &&
-                          !isMissingPickup &&
-                          !isInTransit &&
-                          !shouldShowPickupInTransit &&
-                          !hasHomeTime;
-                        if (showSuggestionPlus) suggestionsState.plusPlaced = true;
+                        // showSuggestionPlus is computed at the outer scope so
+                        // it can also drive pickup-cell background (overwriting
+                        // the red "Empty" block for today).
 
                         return (
                           <div
-                            className={`text-xs h-full flex items-center justify-center ${hasLateIncompleteDelivery ? "text-muted-foreground font-semibold" : isMissingPickup && !hasHomeTime ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
+                            className={`text-xs h-full flex items-center justify-center ${hasLateIncompleteDelivery ? "text-muted-foreground font-semibold" : showSuggestionPlus ? "cursor-pointer" : isMissingPickup && !hasHomeTime ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
                             onClick={(e) => {
                               e.stopPropagation();
 
                               if (hasLateIncompleteDelivery) {
                                 // Do nothing — late delivery indicator is not clickable
+                              } else if (showSuggestionPlus) {
+                                // Clicks handled by the `+` button below.
                               } else if (isMissingPickup) {
                                 const currentNote = getLostDayNote(day);
                                 const allLostDayNotes: any[] = (truck.lost_day_notes ??
@@ -3241,22 +3227,6 @@ const Reports = () => {
                                 <span>LATE DEL</span>
                                 {"<<"}
                               </span>
-                            ) : isMissingPickup ? (
-                              hasHomeTime ? (
-                                <Home className="h-4 w-4" />
-                              ) : (
-                                <span className="line-clamp-2 text-center px-0.5" title={getLostDayNote(day)}>
-                                  {getLostDayNote(day)}
-                                </span>
-                              )
-                            ) : isInTransit || shouldShowPickupInTransit ? (
-                              hasRescheduledOrders ? (
-                                "RESCHEDULED"
-                              ) : (
-                                ">>>"
-                              )
-                            ) : hasHomeTime ? (
-                              <Home className="h-4 w-4" />
                             ) : showSuggestionPlus ? (
                               <button
                                 type="button"
@@ -3273,6 +3243,22 @@ const Reports = () => {
                               >
                                 <Plus className="h-3 w-3" strokeWidth={3} />
                               </button>
+                            ) : isMissingPickup ? (
+                              hasHomeTime ? (
+                                <Home className="h-4 w-4" />
+                              ) : (
+                                <span className="line-clamp-2 text-center px-0.5" title={getLostDayNote(day)}>
+                                  {getLostDayNote(day)}
+                                </span>
+                              )
+                            ) : isInTransit || shouldShowPickupInTransit ? (
+                              hasRescheduledOrders ? (
+                                "RESCHEDULED"
+                              ) : (
+                                ">>>"
+                              )
+                            ) : hasHomeTime ? (
+                              <Home className="h-4 w-4" />
                             ) : (
                               "—"
                             )}
