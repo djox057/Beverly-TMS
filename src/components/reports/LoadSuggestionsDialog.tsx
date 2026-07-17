@@ -142,11 +142,9 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
             <table className="w-full text-xs">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
-                  <th className="text-left px-3 py-2">source_load_id</th>
-                  <th className="text-right px-3 py-2">count</th>
+                  <th className="text-left px-3 py-2">Load number</th>
                   <th className="text-left px-3 py-2">origin</th>
                   <th className="text-left px-3 py-2">destination</th>
-                  <th className="text-left px-3 py-2">equipment</th>
                   <th className="text-right px-3 py-2">rate</th>
                   <th className="text-right px-3 py-2">loaded_miles</th>
                   <th className="text-right px-3 py-2">RPM</th>
@@ -164,16 +162,19 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                       ? null
                       : loadedMiles + m.deadhead_miles;
                   return (
-                  <tr key={m.source_load_id} className="border-t">
-                    <td className="px-3 py-2 whitespace-nowrap font-mono">{m.source_load_id}</td>
-                    <td className="px-3 py-2 text-right">{m.count}</td>
+                  <tr key={`${m.source_load_id}-${m.count}`} className="border-t">
+                    <td className="px-3 py-2 whitespace-nowrap font-mono">
+                      {m.source_load_id}
+                      {m.count > 1 && (
+                        <span className="ml-1 text-xs text-muted-foreground">x{m.count}</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       {m.origin_city}, {m.origin_state}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       {m.dest_city}, {m.dest_state}
                     </td>
-                    <td className="px-3 py-2">{m.equipment}</td>
                     <td className="px-3 py-2 text-right">{fmtMoney(m.rate)}</td>
                     <td className="px-3 py-2 text-right">
                       {loadedMiles === undefined ? (
