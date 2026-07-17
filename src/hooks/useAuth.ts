@@ -11,6 +11,8 @@ export interface UserProfile {
   avatar_url: string | null;
   office: string | null;
   individual_mode?: boolean;
+  suggestions_enabled?: boolean;
+  suggestions_mode?: boolean;
 }
 
 export type UserRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims';
