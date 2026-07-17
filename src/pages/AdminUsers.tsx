@@ -416,6 +416,18 @@ const AdminUsers = () => {
         }
       }
 
+      // Persist Suggestions permission on the profile row
+      {
+        const { error: sugError } = await (supabase as any)
+          .from('profiles')
+          .update({ suggestions_enabled: editSuggestionsEnabled })
+          .eq('user_id', userToEdit.user_id);
+        if (sugError) {
+          console.error('Error updating Suggestions permission:', sugError);
+          throw new Error(sugError.message || 'Failed to save Suggestions permission');
+        }
+      }
+
       await fetchUsers();
       setIsEditDialogOpen(false);
       setUserToEdit(null);
