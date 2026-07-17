@@ -8,7 +8,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useMatchedOrders } from "@/hooks/useLoadSuggestions";
-import { calculateLoadedMiles } from "@/utils/mapboxRouteCalculator";
+import { supabase } from "@/integrations/supabase/client";
+import { calculateLoadedMiles, geocodeAddress } from "@/utils/mapboxRouteCalculator";
 
 interface Props {
   open: boolean;
