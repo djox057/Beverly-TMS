@@ -162,16 +162,19 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                       ? null
                       : loadedMiles + m.deadhead_miles;
                   return (
-                  <tr key={m.source_load_id} className="border-t">
-                    <td className="px-3 py-2 whitespace-nowrap font-mono">{m.source_load_id}</td>
-                    <td className="px-3 py-2 text-right">{m.count}</td>
+                  <tr key={`${m.source_load_id}-${m.count}`} className="border-t">
+                    <td className="px-3 py-2 whitespace-nowrap font-mono">
+                      {m.source_load_id}
+                      {m.count > 1 && (
+                        <span className="ml-1 text-xs text-muted-foreground">x{m.count}</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       {m.origin_city}, {m.origin_state}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       {m.dest_city}, {m.dest_state}
                     </td>
-                    <td className="px-3 py-2">{m.equipment}</td>
                     <td className="px-3 py-2 text-right">{fmtMoney(m.rate)}</td>
                     <td className="px-3 py-2 text-right">
                       {loadedMiles === undefined ? (
