@@ -1,62 +1,108 @@
-## Problem
+## Overview
 
-`/orders` takes 10+ seconds to render its first page. From the logs:
+Two pieces:
+1. A typed HTTP client for App 2 (LoadMatch VPS at `http://128.140.115.63:8080/api/matched-orders`).
+2. A "Load Suggestions" feature in Reports: a flashing `+` icon in each driver's first available future pickup cell that opens a panel of matched loads from App 2. Gated by a per-user permission set in User Management, and a runtime toggle in Reports for dispatchers.
 
-- `unlocked count query: 3926ms`
-- `locked count query: 8121ms` → returns **HTTP 500** (Postgres statement timeout)
-- The count query is repeated because it 500'd (React Query retry).
-- Only after both counts resolve does the page fetch start.
+## 1. App 2 client — `src/lib/loadMatch/client.ts`
 
-The offending request is:
+Fresh module (project has no existing axios/fetch wrapper for external APIs — direct `fetch` per hook pattern).
 
-```
-HEAD /orders?select=id&locked=eq.true
-&or=(booked_by_company_id.neq.238a7acf-…,booked_by_company_id.is.null)
-```
+```ts
+export interface MatchedOrder {
+  source_load_id: string;
+  count: number;
+  truck_id: string;
+  origin_city: string;
+  origin_state: string;
+  dest_city: string;
+  dest_state: string;
+  equipment: "van";
+  rate: number | null;
+  deadhead_miles: number | null;
+  score: number | null;
+  pickup_start: string | null; // ISO 8601
+  pickup_end: string | null;
+}
 
-This is `count: "exact"` over the **entire** `orders` table (BG Prime is excluded, so it's basically "count all orders except one company"). Two problems compound it:
+export class LoadMatchError extends Error {
+  constructor(msg: string, public cause?: unknown, public status?: number) { ... }
+}
 
-1. There is **no index on `booked_by_company_id`**, so the planner falls back to a seq scan of a very large table for every count.
-2. `count: "exact"` forces a full scan even with an index; on a table this size it will always be slow and often trip the statement timeout, which is exactly the 500 we see.
-
-The multiple "Component rendering" logs are just React re-renders while `isLoading` is true — not duplicate fetches. The real problem is the two count queries blocking the page.
-
-## Fix
-
-Two changes, small and targeted to the count path only.
-
-### 1. Migration: add index for the excluded-company filter
-
-```sql
-CREATE INDEX IF NOT EXISTS idx_orders_booked_by_company_id
-  ON public.orders (booked_by_company_id);
-
--- Speeds up the two most common count/list patterns on /orders:
--- locked + excluded-company, and unlocked + excluded-company.
-CREATE INDEX IF NOT EXISTS idx_orders_locked_booked_by_company
-  ON public.orders (locked, booked_by_company_id);
+export async function getMatchedOrders(truckId?: string, signal?: AbortSignal): Promise<MatchedOrder[]>
 ```
 
-### 2. `src/hooks/useOrdersProgressive.ts`: stop using `count: "exact"` for pagination
+- Base URL from `import.meta.env.VITE_LOADMATCH_URL` with fallback to `http://128.140.115.63:8080`.
+- Builds `?truck_id=...` when provided.
+- 15s timeout via `AbortController` (merged with caller's `signal` if passed).
+- Non-2xx or network failure → throws `LoadMatchError` (never returns `[]` silently).
+- No caching layer added; consumers will use React Query so caching is per-query.
 
-Exact counts are not needed for pagination UX — the page only needs "roughly how many pages" and "is there a next page". Change the counts query to use the planner's estimated count (`count: "planned"` with `head: true`), which is O(1) and never times out:
+**Flag to user (not implemented):** App 2 has no auth and CORS is `*`. If access control is needed, that's a separate decision.
 
-- `.select("id", { count: "exact", head: true })` → `.select("id", { count: "planned", head: true })` for both unlocked and locked count queries.
-- Keep the same return shape (`{ unlockedCount, lockedCount }`) so nothing else changes.
-- Add `retry: 0` on `countsQuery` so a transient timeout doesn't double the wait.
+## 2. Per-user "Suggestions" permission (User Management)
 
-If the planner estimate is off by a page at the tail, the "hasMore" logic already tolerates it (last page just returns fewer rows). Exact totals are only cosmetic in the paginator.
+Add `suggestions_enabled boolean not null default false` to `profiles`.
 
-### Out of scope
+- `AdminUsers.tsx`: add a Switch column/field "Suggestions" (admin-only edit), wired to update `profiles.suggestions_enabled`.
+- `useAuth` / profile hook already selects `profile` — expose this flag.
 
-- The per-page fetch itself (edge functions `get-all-unlocked-orders` / `get-all-locked-orders`) is not changed — logs show those return quickly once triggered. This plan only removes the ~12s count barrier that blocks them from starting.
-- No UI changes.
+RLS: existing profile policies already allow admin update / self read; no policy changes needed beyond confirming admins can update this field (they can, admins update profiles today).
 
-### Expected result
+## 3. Reports UI — flashing `+` and header toggle
 
-Counts return in <100ms (planner estimate + index-backed fallback later if we ever switch back). First page render should start within ~200ms instead of ~12s, and the 500 disappears.
+### Header toggle (in same row as Empty trucks / Late trucks buttons, line ~4353 in `src/pages/Reports.tsx`)
 
-## Files touched
+- Visible only when `hasRole('dispatch') || hasRole('admin')` **AND** `profile.suggestions_enabled === true`.
+- Dispatcher: toggle state persists per user (add `suggestions_mode boolean` to `profiles`, or reuse a client-side `useState` — plan: persist to `profiles.suggestions_mode` for parity with individual mode).
+- Admin: toggle is shown but flipping it does not preload anything (see behavior).
 
-- New migration: index on `orders.booked_by_company_id` (+ composite with `locked`).
-- `src/hooks/useOrdersProgressive.ts` — swap `count: "exact"` → `"planned"`, add `retry: 0`.
+### Prefetch behavior on toggle ON
+
+New hook `src/hooks/useLoadSuggestions.ts`:
+
+- Reads the list of drivers visible in Reports for the current user.
+- **Dispatcher, toggle ON:** for each driver's `truck_id`, kick off `getMatchedOrders(truck_id)` via React Query `prefetchQuery` (staleTime ~2min). One call per driver.
+- **Admin, toggle ON:** no bulk prefetch. Only fetches on individual `+` click.
+- Toggle OFF: cancels/skips; per-truck queries fall back to on-demand.
+
+Query key: `["load-matches", truckId]`.
+
+### Flashing `+` icon in pickup cell
+
+Reports renders a grid of driver rows × date columns with pickup/delivery cells. The `+` appears in **the first pickup cell whose date ≥ today (Chicago)** for each driver row, and only when:
+
+- User has role `dispatch` or `admin` **AND** `profile.suggestions_enabled` is true **AND** header toggle is ON.
+- The driver has an assigned `truck_id`.
+
+Rendering:
+- Small `Plus` icon (lucide) with a Tailwind `animate-pulse` (or a custom keyframe for a stronger flash) positioned in the cell (does not replace existing cell content; overlays as a small badge, e.g. top-right corner).
+- Clicking it opens a Popover / Dialog listing matched loads for that truck, sorted by score desc (data already sorted server-side).
+  - For dispatcher (toggle ON) the data is already prefetched → instant.
+  - For admin, click triggers the fetch for that single truck (`getMatchedOrders(truck_id)`), shows a spinner, then renders.
+- Popover content: table of `pickup_start | origin → dest | rate | DH miles | score | count`. Read-only for this task; no "assign to load" wiring.
+
+Cell detection: identify the first future pickup cell per driver by iterating the existing per-driver column data in render (Reports already knows pickup datetimes per column) — attach the `+` overlay in the same cell renderer used at lines ~5311/5476/5684 where pickup cells render.
+
+## 4. Env / config
+
+- Add `VITE_LOADMATCH_URL=http://128.140.115.63:8080` to `.env` (documented; user can override).
+
+## Technical details
+
+- **Files added:**
+  - `src/lib/loadMatch/client.ts` — typed client + `MatchedOrder` + `LoadMatchError`.
+  - `src/hooks/useLoadSuggestions.ts` — React Query wrapper (`useMatchedOrders(truckId)`, `usePrefetchDriverMatches(driverList)`).
+  - `src/components/reports/LoadSuggestionsPopover.tsx` — popover UI for the `+` click.
+- **Files modified:**
+  - `src/pages/Reports.tsx` — header toggle button (row at line ~4353); `+` overlay in the first-future-pickup cell renderer.
+  - `src/pages/AdminUsers.tsx` — per-user "Suggestions" switch.
+  - `src/hooks/useAuth.ts` — select `suggestions_enabled` (+ optionally `suggestions_mode`) on profile.
+- **Migration:** add `suggestions_enabled boolean default false` and `suggestions_mode boolean default false` to `profiles`.
+- **CORS:** already permissive on App 2, no proxy needed. Browser will hit App 2 directly.
+- **Volume note:** we always call with `truck_id`, so response is small; the full-fleet code path is not exercised by this feature.
+- **Out of scope:** authenticating App 2, writing back a chosen load into an order, polling loop.
+
+## Open question
+
+The task says the toggle turning on "will do nothing" for admin, but also that admin can still click a `+` to fetch that truck. I'll implement it exactly that way (admin toggle = only reveals the `+` icons; click = per-truck fetch). Say if you'd rather the admin toggle be hidden entirely and `+` always visible for admins.
