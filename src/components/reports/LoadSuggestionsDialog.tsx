@@ -63,6 +63,14 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
   const [loadedMilesMap, setLoadedMilesMap] = useState<Record<string, number | null>>({});
   // Map of laneKey → expected average freight for the lane (null = failed, undefined = still loading)
   const [expectedMap, setExpectedMap] = useState<Record<string, number | null>>({});
+  // Pagination: show first N, click "Load more" to reveal the next batch.
+  const PAGE_SIZE = 10;
+  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE);
+
+  // Reset pagination whenever the dialog opens for a different truck.
+  useEffect(() => {
+    if (open) setVisibleCount(PAGE_SIZE);
+  }, [open, truckId]);
 
   useEffect(() => {
     if (!open || !data || data.length === 0) return;
@@ -214,6 +222,7 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
           ) : !data || data.length === 0 ? (
             <div className="p-6 text-muted-foreground">No matching loads.</div>
           ) : (
+            <>
             <table className="w-full text-xs table-fixed">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
@@ -230,7 +239,7 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody>
-                {data.map((m) => {
+                {data.slice(0, visibleCount).map((m) => {
                   const key = laneKey(m.origin_city, m.origin_state, m.dest_city, m.dest_state);
                   const loadedMiles = loadedMilesMap[key];
                   const totalMiles =
@@ -284,6 +293,18 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
                 })}
               </tbody>
             </table>
+            {data.length > visibleCount && (
+              <div className="flex justify-center p-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+                  className="text-xs px-3 py-1.5 rounded border hover:bg-muted"
+                >
+                  Load more ({data.length - visibleCount} remaining)
+                </button>
+              </div>
+            )}
+            </>
           )}
         </div>
       </DialogContent>
