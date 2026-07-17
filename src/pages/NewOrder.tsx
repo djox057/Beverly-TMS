@@ -3234,6 +3234,9 @@ const NewOrder = () => {
                     </p>
                   );
                 })()}
+                <p className="text-xs text-muted-foreground">
+                  Suggested rate based on driver's weekly promo bracket will appear here.
+                </p>
               </div>
             </div>
 
