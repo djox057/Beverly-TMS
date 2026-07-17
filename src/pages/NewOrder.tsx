@@ -29,6 +29,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
+import { usePromoRateSuggestion } from "@/hooks/usePromoRateSuggestion";
 import { combineDateAndTime } from "@/utils/dateUtils";
 import {
   calculateLoadedMiles,
