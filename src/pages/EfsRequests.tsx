@@ -210,34 +210,9 @@ export default function EfsRequests() {
     staleTime: 30 * 1000,
   });
 
-  // Delete mutation (admin only) — sends void email before deleting
+  // Delete mutation (admin only)
   const deleteMutation = useMutation({
     mutationFn: async (request: EfsRequest) => {
-      // Send void email (works with or without resend_email_id)
-      try {
-        const { data, error } = await supabase.functions.invoke("void-efs-request", {
-          body: {
-            requestId: request.id,
-            source: request.source,
-            driverName: request.driver_name,
-            truckNumber: request.truck_number || "",
-            amount: request.amount,
-            purpose: request.purpose,
-            requestedByName: request.requested_by,
-          },
-        });
-        if (error) {
-          console.warn("Void email failed:", error);
-          toast.warning("Void email could not be sent, but request will still be deleted");
-        } else if (data && !data.success) {
-          console.warn("Void email failed:", data.error);
-          toast.warning("Void email could not be sent, but request will still be deleted");
-        }
-      } catch (e) {
-        console.warn("Void email error:", e);
-      }
-
-      // Delete the record
       const tableName = request.source === 'cash_advance' ? 'driver_cash_advances' : 'efs_other_requests';
       const { error } = await supabase
         .from(tableName)
