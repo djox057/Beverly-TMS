@@ -145,7 +145,6 @@ const Drivers = () => {
   const [homeStateFilter, setHomeStateFilter] = useState<string>("all");
   const [inactiveSortField, setInactiveSortField] = useState<"hire_date" | "termination_date" | null>(null);
   const [inactiveSortDir, setInactiveSortDir] = useState<"asc" | "desc">("desc");
-  const [createdAtSort, setCreatedAtSort] = useState<"asc" | "desc" | null>(null);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [historyDriverId, setHistoryDriverId] = useState<string | null>(null);
   const [historyDriverName, setHistoryDriverName] = useState<string>("");
