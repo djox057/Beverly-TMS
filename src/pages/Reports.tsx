@@ -8402,6 +8402,12 @@ const Reports = () => {
         driverName={suggestionsDialog?.driverName ?? null}
       />
 
+      {/* Rate Calculator Dialog */}
+      <RateCalculatorDialog
+        open={rateCalculatorOpen}
+        onOpenChange={setRateCalculatorOpen}
+      />
+
       {/* HOS Request Dialog */}
       <HosRequestDialog
         open={!!hosRequestDialog}
