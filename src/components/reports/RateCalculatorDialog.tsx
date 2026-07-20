@@ -93,7 +93,8 @@ export const RateCalculatorDialog: React.FC<Props> = ({ open, onOpenChange, truc
       seen.add(t.truckId);
       list.push(t);
     }
-    return list.sort((a, b) => (a.truckNumber || "").localeCompare(b.truckNumber || ""));
+    // Preserve incoming order (matches Reports grouping / sort).
+    return list;
   }, [trucks]);
 
   // Unique drivers derived from the truck list.
@@ -106,7 +107,8 @@ export const RateCalculatorDialog: React.FC<Props> = ({ open, onOpenChange, truc
       seen.add(t.driverId);
       list.push({ driverId: t.driverId, driverName: t.driverName, truckId: t.truckId });
     }
-    return list.sort((a, b) => a.driverName.localeCompare(b.driverName));
+    // Preserve incoming order (matches Reports grouping / sort).
+    return list;
   }, [truckOptions]);
 
   const handleTruckChange = (truckId: string) => {
