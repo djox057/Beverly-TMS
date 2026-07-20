@@ -35,7 +35,9 @@ import {
   History,
   CalendarIcon,
   Download,
+  ArrowUpDown,
 } from "lucide-react";
+import { US_STATES } from "@/lib/constants";
 import * as XLSX from "xlsx";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -141,8 +143,10 @@ const Drivers = () => {
   const [truckFilter, setTruckFilter] = useState<"all" | "assigned" | "unassigned">("all");
   const [recoveryFilter, setRecoveryFilter] = useState<"all" | "recovery" | "regular">("all");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [homeStateFilter, setHomeStateFilter] = useState<string>("all");
   const [inactiveSortField, setInactiveSortField] = useState<"hire_date" | "termination_date" | null>(null);
   const [inactiveSortDir, setInactiveSortDir] = useState<"asc" | "desc">("desc");
+  const [createdAtSort, setCreatedAtSort] = useState<"asc" | "desc" | null>(null);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [historyDriverId, setHistoryDriverId] = useState<string | null>(null);
   const [historyDriverName, setHistoryDriverName] = useState<string>("");
@@ -2243,6 +2247,26 @@ const Drivers = () => {
                   placeholder="Company"
                   searchPlaceholder="Search companies..."
                   emptyText="No company found."
+                />
+              </div>
+
+              <div className="w-[160px]">
+                <Combobox
+                  options={[
+                    { value: "all", label: "All Home States" },
+                    ...US_STATES.map((state) => ({
+                      value: state.value,
+                      label: `${state.label} (${state.value})`,
+                    })),
+                  ]}
+                  value={homeStateFilter}
+                  onValueChange={(value) => {
+                    setHomeStateFilter(value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Home State"
+                  searchPlaceholder="Search home state..."
+                  emptyText="No state found."
                 />
               </div>
 
