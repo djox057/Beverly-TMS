@@ -35,7 +35,6 @@ import {
   History,
   CalendarIcon,
   Download,
-  ArrowUpDown,
 } from "lucide-react";
 import { US_STATES } from "@/lib/constants";
 import * as XLSX from "xlsx";
