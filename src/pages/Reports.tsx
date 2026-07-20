@@ -71,6 +71,7 @@ import {
   Share2,
   Plus,
 } from "lucide-react";
+import { Calculator } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { SamsaraLiveShareDialog } from "@/components/SamsaraLiveShareDialog";
 import { TranslatableOrderNote } from "@/components/TranslatableOrderNote";
@@ -133,6 +134,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { usePrefetchTruckMatches } from "@/hooks/useLoadSuggestions";
 import LoadSuggestionsDialog from "@/components/reports/LoadSuggestionsDialog";
+import RateCalculatorDialog from "@/components/reports/RateCalculatorDialog";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useReportsDialogs } from "./Reports/useReportsDialogs";
@@ -1183,6 +1185,9 @@ const Reports = () => {
     truckNumber: string | null;
     driverName: string | null;
   } | null>(null);
+
+  // Standalone rate calculator dialog (opened from the calculator icon in the group header).
+  const [rateCalculatorOpen, setRateCalculatorOpen] = useState(false);
 
   const [redCellDialog, setRedCellDialog] = useState<{
     truckId: string;
@@ -4650,7 +4655,19 @@ const Reports = () => {
                                       minWidth: "220px",
                                       maxWidth: "220px",
                                     }}
-                                  ></th>
+                                  >
+                                    <div className="flex items-center justify-end pr-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setRateCalculatorOpen(true)}
+                                        className="p-1 hover:bg-muted rounded"
+                                        title="Rate calculator"
+                                        aria-label="Open rate calculator"
+                                      >
+                                        <Calculator className="h-4 w-4 text-muted-foreground" />
+                                      </button>
+                                    </div>
+                                  </th>
                                   <th
                                     colSpan={2}
                                     className={`bg-muted/50 border-l border-b-[2px] border-gray-400 px-2 py-1 text-center text-[10px] font-medium text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`}
@@ -8383,6 +8400,12 @@ const Reports = () => {
         truckId={suggestionsDialog?.truckId ?? null}
         truckNumber={suggestionsDialog?.truckNumber ?? null}
         driverName={suggestionsDialog?.driverName ?? null}
+      />
+
+      {/* Rate Calculator Dialog */}
+      <RateCalculatorDialog
+        open={rateCalculatorOpen}
+        onOpenChange={setRateCalculatorOpen}
       />
 
       {/* HOS Request Dialog */}
