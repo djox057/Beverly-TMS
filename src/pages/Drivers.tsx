@@ -35,7 +35,9 @@ import {
   History,
   CalendarIcon,
   Download,
+  ArrowUpDown,
 } from "lucide-react";
+import { US_STATES } from "@/lib/constants";
 import * as XLSX from "xlsx";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -141,8 +143,10 @@ const Drivers = () => {
   const [truckFilter, setTruckFilter] = useState<"all" | "assigned" | "unassigned">("all");
   const [recoveryFilter, setRecoveryFilter] = useState<"all" | "recovery" | "regular">("all");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [homeStateFilter, setHomeStateFilter] = useState<string>("all");
   const [inactiveSortField, setInactiveSortField] = useState<"hire_date" | "termination_date" | null>(null);
   const [inactiveSortDir, setInactiveSortDir] = useState<"asc" | "desc">("desc");
+  const [createdAtSort, setCreatedAtSort] = useState<"asc" | "desc" | null>(null);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [historyDriverId, setHistoryDriverId] = useState<string | null>(null);
   const [historyDriverName, setHistoryDriverName] = useState<string>("");
@@ -338,13 +342,17 @@ const Drivers = () => {
       // Company filter
       const matchesCompany = companyFilter === "all" || driver.company_id === companyFilter;
 
-      return matchesSearch && matchesStatus && matchesTruck && matchesRecovery && matchesCompany;
+      // Home state filter
+      const matchesHomeState = homeStateFilter === "all" || driver.home_state === homeStateFilter;
+
+      return matchesSearch && matchesStatus && matchesTruck && matchesRecovery && matchesCompany && matchesHomeState;
     }) || [];
 
-  // Sort inactive drivers by date if sort is active
+  // Sort inactive drivers by date if sort is active, then creation date sort
   const sortedFilteredDrivers = (() => {
+    const result = [...filteredDrivers];
     if (statusFilter === "inactive" && inactiveSortField) {
-      return [...filteredDrivers].sort((a, b) => {
+      result.sort((a, b) => {
         const aVal = a[inactiveSortField] || "";
         const bVal = b[inactiveSortField] || "";
         if (aVal === bVal) return 0;
@@ -353,7 +361,14 @@ const Drivers = () => {
         return inactiveSortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       });
     }
-    return filteredDrivers;
+    if (createdAtSort) {
+      result.sort((a, b) => {
+        const aDate = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bDate = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return createdAtSort === "asc" ? aDate - bDate : bDate - aDate;
+      });
+    }
+    return result;
   })();
 
   // Pagination
@@ -2246,6 +2261,26 @@ const Drivers = () => {
                 />
               </div>
 
+              <div className="w-[160px]">
+                <Combobox
+                  options={[
+                    { value: "all", label: "All Home States" },
+                    ...US_STATES.map((state) => ({
+                      value: state.value,
+                      label: `${state.label} (${state.value})`,
+                    })),
+                  ]}
+                  value={homeStateFilter}
+                  onValueChange={(value) => {
+                    setHomeStateFilter(value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Home State"
+                  searchPlaceholder="Search home state..."
+                  emptyText="No state found."
+                />
+              </div>
+
               <div className="relative w-80">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
@@ -2290,13 +2325,25 @@ const Drivers = () => {
                   )}
                   <TableHead className="w-[220px]">Contact</TableHead>
                   <TableHead className="w-[120px]">Home Location</TableHead>
+                  <TableHead
+                    className="w-[100px] cursor-pointer select-none"
+                    onClick={() =>
+                      setCreatedAtSort((prev) => (prev === "desc" ? "asc" : prev === "asc" ? null : "desc"))
+                    }
+                  >
+                    <div className="flex items-center gap-1">
+                      Created
+                      <ArrowUpDown className="h-3 w-3" />
+                      {createdAtSort === "asc" ? "↑" : createdAtSort === "desc" ? "↓" : ""}
+                    </div>
+                  </TableHead>
                   <TableHead className="w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedDrivers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No drivers found
                     </TableCell>
                   </TableRow>
@@ -2357,6 +2404,11 @@ const Drivers = () => {
                         {driver.home_city && driver.home_state
                           ? `${driver.home_city}, ${driver.home_state}`
                           : driver.home_city || driver.home_state || "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {driver.created_at
+                          ? format(new Date(driver.created_at), "MM/dd/yyyy")
+                          : "—"}
                       </TableCell>
 
                       <TableCell className="whitespace-nowrap">
