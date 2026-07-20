@@ -1187,7 +1187,15 @@ const Reports = () => {
   } | null>(null);
 
   // Standalone rate calculator dialog (opened from the calculator icon in the group header).
-  const [rateCalculatorOpen, setRateCalculatorOpen] = useState(false);
+  // Holds the list of trucks/drivers scoped to the dispatcher group that opened it.
+  const [rateCalculator, setRateCalculator] = useState<{
+    trucks: Array<{
+      truckId: string;
+      truckNumber: string;
+      driverId: string | null;
+      driverName: string | null;
+    }>;
+  } | null>(null);
 
   const [redCellDialog, setRedCellDialog] = useState<{
     truckId: string;
@@ -4659,7 +4667,35 @@ const Reports = () => {
                                     <div className="flex items-center justify-end pr-2">
                                       <button
                                         type="button"
-                                        onClick={() => setRateCalculatorOpen(true)}
+                                        onClick={() => {
+                                          const opts = (group.trucks || []).flatMap((t: any) => {
+                                            const truckId = t.id || t.truckId;
+                                            const truckNumber = t.truckNumber || t.truck_number || "";
+                                            if (!truckId || !truckNumber) return [];
+                                            const entries: Array<{
+                                              truckId: string;
+                                              truckNumber: string;
+                                              driverId: string | null;
+                                              driverName: string | null;
+                                            }> = [];
+                                            entries.push({
+                                              truckId,
+                                              truckNumber,
+                                              driverId: t.driverId ?? null,
+                                              driverName: t.driver1Name || t.driver || null,
+                                            });
+                                            if (t.driver2Id && t.driver2Name) {
+                                              entries.push({
+                                                truckId: `${truckId}-2`,
+                                                truckNumber,
+                                                driverId: t.driver2Id,
+                                                driverName: t.driver2Name,
+                                              });
+                                            }
+                                            return entries;
+                                          });
+                                          setRateCalculator({ trucks: opts });
+                                        }}
                                         className="p-1 hover:bg-muted rounded"
                                         title="Rate calculator"
                                         aria-label="Open rate calculator"
@@ -8404,8 +8440,9 @@ const Reports = () => {
 
       {/* Rate Calculator Dialog */}
       <RateCalculatorDialog
-        open={rateCalculatorOpen}
-        onOpenChange={setRateCalculatorOpen}
+        open={!!rateCalculator}
+        onOpenChange={(open) => !open && setRateCalculator(null)}
+        trucks={rateCalculator?.trucks ?? []}
       />
 
       {/* HOS Request Dialog */}
