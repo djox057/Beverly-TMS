@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Bracket table: [minMiles, maxMiles, minRpm, maxRpm]
 const BRACKETS: Array<[number, number, number, number]> = [
@@ -47,14 +54,71 @@ function bracketFor(miles: number) {
 
 const roundTo50 = (n: number) => Math.round(n / 50) * 50;
 
+export interface RateCalculatorTruckOption {
+  truckId: string;
+  truckNumber: string;
+  driverId: string | null;
+  driverName: string | null;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  trucks?: RateCalculatorTruckOption[];
 }
 
-export const RateCalculatorDialog: React.FC<Props> = ({ open, onOpenChange }) => {
+export const RateCalculatorDialog: React.FC<Props> = ({ open, onOpenChange, trucks = [] }) => {
   const [loadedMiles, setLoadedMiles] = useState("");
   const [dhMiles, setDhMiles] = useState("");
+  const [selectedTruckId, setSelectedTruckId] = useState<string>("");
+  const [selectedDriverId, setSelectedDriverId] = useState<string>("");
+
+  // Reset selections when the dialog is reopened.
+  useEffect(() => {
+    if (open) {
+      setSelectedTruckId("");
+      setSelectedDriverId("");
+      setLoadedMiles("");
+      setDhMiles("");
+    }
+  }, [open]);
+
+  // Deduplicate trucks by truckId; keep only those with a truck number.
+  const truckOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const list: RateCalculatorTruckOption[] = [];
+    for (const t of trucks) {
+      if (!t.truckId || seen.has(t.truckId)) continue;
+      seen.add(t.truckId);
+      list.push(t);
+    }
+    return list.sort((a, b) => (a.truckNumber || "").localeCompare(b.truckNumber || ""));
+  }, [trucks]);
+
+  // Unique drivers derived from the truck list.
+  const driverOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const list: { driverId: string; driverName: string; truckId: string }[] = [];
+    for (const t of truckOptions) {
+      if (!t.driverId || !t.driverName) continue;
+      if (seen.has(t.driverId)) continue;
+      seen.add(t.driverId);
+      list.push({ driverId: t.driverId, driverName: t.driverName, truckId: t.truckId });
+    }
+    return list.sort((a, b) => a.driverName.localeCompare(b.driverName));
+  }, [truckOptions]);
+
+  const handleTruckChange = (truckId: string) => {
+    setSelectedTruckId(truckId);
+    const match = truckOptions.find((t) => t.truckId === truckId);
+    setSelectedDriverId(match?.driverId ?? "");
+  };
+
+  const handleDriverChange = (driverId: string) => {
+    setSelectedDriverId(driverId);
+    const match = truckOptions.find((t) => t.driverId === driverId);
+    if (match) setSelectedTruckId(match.truckId);
+  };
 
   const result = useMemo(() => {
     const loaded = parseFloat(loadedMiles) || 0;
@@ -77,10 +141,56 @@ export const RateCalculatorDialog: React.FC<Props> = ({ open, onOpenChange }) =>
         <DialogHeader>
           <DialogTitle>Rate calculator</DialogTitle>
           <DialogDescription>
-            Enter loaded and deadhead miles to see the suggested rate and promo bracket.
+            Pick a truck or driver, then enter loaded and deadhead miles to see the suggested rate and promo bracket.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="rc-truck">Truck</Label>
+              <Select value={selectedTruckId} onValueChange={handleTruckChange}>
+                <SelectTrigger id="rc-truck">
+                  <SelectValue placeholder="Select truck" />
+                </SelectTrigger>
+                <SelectContent>
+                  {truckOptions.length === 0 ? (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                      No trucks available
+                    </div>
+                  ) : (
+                    truckOptions.map((t) => (
+                      <SelectItem key={t.truckId} value={t.truckId}>
+                        {t.truckNumber}
+                        {t.driverName ? ` · ${t.driverName}` : ""}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rc-driver">Driver</Label>
+              <Select value={selectedDriverId} onValueChange={handleDriverChange}>
+                <SelectTrigger id="rc-driver">
+                  <SelectValue placeholder="Select driver" />
+                </SelectTrigger>
+                <SelectContent>
+                  {driverOptions.length === 0 ? (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                      No drivers available
+                    </div>
+                  ) : (
+                    driverOptions.map((d) => (
+                      <SelectItem key={d.driverId} value={d.driverId}>
+                        {d.driverName}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="rc-loaded">Loaded miles</Label>
@@ -92,7 +202,6 @@ export const RateCalculatorDialog: React.FC<Props> = ({ open, onOpenChange }) =>
                 placeholder="0"
                 value={loadedMiles}
                 onChange={(e) => setLoadedMiles(e.target.value)}
-                autoFocus
               />
             </div>
             <div className="space-y-1.5">
