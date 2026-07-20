@@ -1186,6 +1186,9 @@ const Reports = () => {
     driverName: string | null;
   } | null>(null);
 
+  // Standalone rate calculator dialog (opened from the calculator icon in the group header).
+  const [rateCalculatorOpen, setRateCalculatorOpen] = useState(false);
+
   const [redCellDialog, setRedCellDialog] = useState<{
     truckId: string;
     truckNumber: string;
@@ -4652,7 +4655,19 @@ const Reports = () => {
                                       minWidth: "220px",
                                       maxWidth: "220px",
                                     }}
-                                  ></th>
+                                  >
+                                    <div className="flex items-center justify-end pr-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setRateCalculatorOpen(true)}
+                                        className="p-1 hover:bg-muted rounded"
+                                        title="Rate calculator"
+                                        aria-label="Open rate calculator"
+                                      >
+                                        <Calculator className="h-4 w-4 text-muted-foreground" />
+                                      </button>
+                                    </div>
+                                  </th>
                                   <th
                                     colSpan={2}
                                     className={`bg-muted/50 border-l border-b-[2px] border-gray-400 px-2 py-1 text-center text-[10px] font-medium text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`}
