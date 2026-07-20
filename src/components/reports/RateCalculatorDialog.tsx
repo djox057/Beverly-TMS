@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { usePromoRateSuggestion } from "@/hooks/usePromoRateSuggestion";
 
 // Bracket table: [minMiles, maxMiles, minRpm, maxRpm]
 const BRACKETS: Array<[number, number, number, number]> = [
@@ -120,11 +121,42 @@ export const RateCalculatorDialog: React.FC<Props> = ({ open, onOpenChange, truc
     if (match) setSelectedTruckId(match.truckId);
   };
 
+  const loaded = parseFloat(loadedMiles) || 0;
+  const dh = parseFloat(dhMiles) || 0;
+  const total = loaded + dh;
+
+  // Use "now" (Chicago) as pickup reference so the weekly projection uses today's DOW.
+  const pickupIso = useMemo(() => (open ? new Date().toISOString() : null), [open]);
+
+  const { data: promo } = usePromoRateSuggestion(
+    selectedDriverId || null,
+    pickupIso,
+    total,
+  );
+
   const result = useMemo(() => {
-    const loaded = parseFloat(loadedMiles) || 0;
-    const dh = parseFloat(dhMiles) || 0;
-    const total = loaded + dh;
     if (total <= 0) return null;
+
+    // When a driver is chosen, use the weekly-projection bracket (same logic as NewOrder).
+    if (selectedDriverId && promo) {
+      const rate = promo.suggestedRate;
+      const rateMin = roundTo50(total * promo.bracket.minRpm);
+      const rateMax = roundTo50(total * promo.bracket.maxRpm);
+      return {
+        total,
+        bracket: promo.bracket,
+        rate,
+        rateMin,
+        rateMax,
+        projectedMiles: promo.projectedMiles,
+        milesBookedSoFar: promo.milesBookedSoFar,
+        requiredRpm: promo.requiredRpm,
+        warning: promo.warning,
+        weekly: true,
+      };
+    }
+
+    // Fallback: no driver selected — use single-load bracket.
     const bracket = bracketFor(total);
     const rate = roundTo50(total * bracket.midpoint);
     const rateMin = roundTo50(total * bracket.minRpm);
@@ -132,8 +164,8 @@ export const RateCalculatorDialog: React.FC<Props> = ({ open, onOpenChange, truc
     let warning: string | undefined;
     if (total < 1500) warning = "Total miles below 1,500 — under promo minimum.";
     else if (total > 3600) warning = "Total miles above 3,600 — top bracket in use.";
-    return { total, bracket, rate, rateMin, rateMax, warning };
-  }, [loadedMiles, dhMiles]);
+    return { total, bracket, rate, rateMin, rateMax, warning, weekly: false };
+  }, [total, selectedDriverId, promo]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -221,9 +253,25 @@ export const RateCalculatorDialog: React.FC<Props> = ({ open, onOpenChange, truc
           {result ? (
             <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1.5">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Total miles</span>
+                <span className="text-muted-foreground">
+                  {result.weekly ? "This load miles" : "Total miles"}
+                </span>
                 <span className="font-medium">{result.total.toFixed(0)}</span>
               </div>
+              {result.weekly && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Booked this week</span>
+                    <span className="font-medium">
+                      {result.milesBookedSoFar?.toFixed(0) ?? 0} mi
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Projected weekly</span>
+                    <span className="font-medium">{result.projectedMiles} mi</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Bracket</span>
                 <span className="font-medium">
@@ -232,8 +280,12 @@ export const RateCalculatorDialog: React.FC<Props> = ({ open, onOpenChange, truc
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Target RPM (mid)</span>
-                <span className="font-medium">${result.bracket.midpoint.toFixed(2)}</span>
+                <span className="text-muted-foreground">
+                  {result.weekly ? "Required RPM" : "Target RPM (mid)"}
+                </span>
+                <span className="font-medium">
+                  ${(result.weekly ? result.requiredRpm! : result.bracket.midpoint).toFixed(2)}
+                </span>
               </div>
               <div className="flex justify-between pt-1 border-t">
                 <span className="text-muted-foreground">Suggested rate</span>
@@ -249,6 +301,11 @@ export const RateCalculatorDialog: React.FC<Props> = ({ open, onOpenChange, truc
               </div>
               {result.warning && (
                 <p className="text-xs text-amber-500 pt-1">{result.warning}</p>
+              )}
+              {!result.weekly && selectedDriverId === "" && (
+                <p className="text-xs text-muted-foreground pt-1">
+                  Pick a driver to use weekly projection instead of single-load miles.
+                </p>
               )}
             </div>
           ) : (
