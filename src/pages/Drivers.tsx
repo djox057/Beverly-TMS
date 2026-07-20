@@ -2325,13 +2325,25 @@ const Drivers = () => {
                   )}
                   <TableHead className="w-[220px]">Contact</TableHead>
                   <TableHead className="w-[120px]">Home Location</TableHead>
+                  <TableHead
+                    className="w-[100px] cursor-pointer select-none"
+                    onClick={() =>
+                      setCreatedAtSort((prev) => (prev === "desc" ? "asc" : prev === "asc" ? null : "desc"))
+                    }
+                  >
+                    <div className="flex items-center gap-1">
+                      Created
+                      <ArrowUpDown className="h-3 w-3" />
+                      {createdAtSort === "asc" ? "↑" : createdAtSort === "desc" ? "↓" : ""}
+                    </div>
+                  </TableHead>
                   <TableHead className="w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedDrivers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No drivers found
                     </TableCell>
                   </TableRow>
@@ -2392,6 +2404,11 @@ const Drivers = () => {
                         {driver.home_city && driver.home_state
                           ? `${driver.home_city}, ${driver.home_state}`
                           : driver.home_city || driver.home_state || "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {driver.created_at
+                          ? format(new Date(driver.created_at), "MM/dd/yyyy")
+                          : "—"}
                       </TableCell>
 
                       <TableCell className="whitespace-nowrap">
