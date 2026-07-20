@@ -342,13 +342,17 @@ const Drivers = () => {
       // Company filter
       const matchesCompany = companyFilter === "all" || driver.company_id === companyFilter;
 
-      return matchesSearch && matchesStatus && matchesTruck && matchesRecovery && matchesCompany;
+      // Home state filter
+      const matchesHomeState = homeStateFilter === "all" || driver.home_state === homeStateFilter;
+
+      return matchesSearch && matchesStatus && matchesTruck && matchesRecovery && matchesCompany && matchesHomeState;
     }) || [];
 
-  // Sort inactive drivers by date if sort is active
+  // Sort inactive drivers by date if sort is active, then creation date sort
   const sortedFilteredDrivers = (() => {
+    const result = [...filteredDrivers];
     if (statusFilter === "inactive" && inactiveSortField) {
-      return [...filteredDrivers].sort((a, b) => {
+      result.sort((a, b) => {
         const aVal = a[inactiveSortField] || "";
         const bVal = b[inactiveSortField] || "";
         if (aVal === bVal) return 0;
@@ -357,7 +361,14 @@ const Drivers = () => {
         return inactiveSortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       });
     }
-    return filteredDrivers;
+    if (createdAtSort) {
+      result.sort((a, b) => {
+        const aDate = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bDate = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return createdAtSort === "asc" ? aDate - bDate : bDate - aDate;
+      });
+    }
+    return result;
   })();
 
   // Pagination
