@@ -346,7 +346,7 @@ const Drivers = () => {
       return matchesSearch && matchesStatus && matchesTruck && matchesRecovery && matchesCompany && matchesHomeState;
     }) || [];
 
-  // Sort inactive drivers by date if sort is active, then creation date sort
+  // Sort inactive drivers by date if sort is active
   const sortedFilteredDrivers = (() => {
     const result = [...filteredDrivers];
     if (statusFilter === "inactive" && inactiveSortField) {
@@ -357,13 +357,6 @@ const Drivers = () => {
         if (!aVal) return 1;
         if (!bVal) return -1;
         return inactiveSortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-      });
-    }
-    if (createdAtSort) {
-      result.sort((a, b) => {
-        const aDate = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bDate = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return createdAtSort === "asc" ? aDate - bDate : bDate - aDate;
       });
     }
     return result;
