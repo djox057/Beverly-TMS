@@ -74,10 +74,10 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
 
   useEffect(() => {
     if (!open || !data || data.length === 0) return;
-    // Collect unique lanes we haven't computed yet.
+    // Only compute for rows currently visible (paginated).
     const seen = new Set<string>();
     const lanes: { key: string; pickup: string; delivery: string }[] = [];
-    for (const m of data) {
+    for (const m of data.slice(0, visibleCount)) {
       const key = laneKey(m.origin_city, m.origin_state, m.dest_city, m.dest_state);
       if (seen.has(key)) continue;
       seen.add(key);
@@ -110,13 +110,13 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, data]);
+  }, [open, data, visibleCount]);
 
   useEffect(() => {
     if (!open || !data || data.length === 0) return;
     const seen = new Set<string>();
     const lanes: { key: string; pickup: string; delivery: string; miles: number }[] = [];
-    for (const m of data) {
+    for (const m of data.slice(0, visibleCount)) {
       const key = laneKey(m.origin_city, m.origin_state, m.dest_city, m.dest_state);
       if (seen.has(key)) continue;
       seen.add(key);
@@ -182,7 +182,7 @@ export const LoadSuggestionsDialog: React.FC<Props> = ({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, data, loadedMilesMap]);
+  }, [open, data, loadedMilesMap, visibleCount]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
