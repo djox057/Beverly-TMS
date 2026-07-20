@@ -2385,12 +2385,6 @@ const Drivers = () => {
                           : driver.home_city || driver.home_state || "—"}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {driver.created_at
-                          ? format(new Date(driver.created_at), "MM/dd/yyyy")
-                          : "—"}
-                      </TableCell>
-
-                      <TableCell className="whitespace-nowrap">
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(driver)}>
                             <Edit className="h-4 w-4" />
