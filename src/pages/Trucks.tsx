@@ -43,6 +43,8 @@ interface TruckFormData {
   oil_change_date: string;
   tires_swap_date: string;
   maintenance_check_date: string;
+  company_id: string;
+  dispatcher_id: string;
 }
 
 interface TerminationNote {
@@ -92,7 +94,9 @@ const Trucks = () => {
     insurance_expiration_date: "",
     oil_change_date: "",
     tires_swap_date: "",
-    maintenance_check_date: ""
+    maintenance_check_date: "",
+    company_id: "",
+    dispatcher_id: ""
   });
   const { user } = useAuth();
   const { hasRole } = useAuthContext();
@@ -181,7 +185,9 @@ const Trucks = () => {
       insurance_expiration_date: "",
       oil_change_date: "",
       tires_swap_date: "",
-      maintenance_check_date: ""
+      maintenance_check_date: "",
+      company_id: "",
+      dispatcher_id: ""
     });
   };
   const handleAddTruck = async (e: React.FormEvent) => {
