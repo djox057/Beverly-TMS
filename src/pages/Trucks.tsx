@@ -202,10 +202,12 @@ const Trucks = () => {
       }
 
       // Get driver's company_id to set on truck (truck inherits driver's company)
-      let truckCompanyId = null;
+      let truckCompanyId: string | null = formData.company_id || null;
+      let truckDispatcherId: string | null = formData.dispatcher_id || null;
       if (formData.driver_id) {
         const driver = drivers?.find(d => d.id === formData.driver_id);
-        truckCompanyId = driver?.company_id || null;
+        truckCompanyId = driver?.company_id || truckCompanyId;
+        truckDispatcherId = driver?.dispatcher_id || truckDispatcherId;
       }
 
       // ATOMIC OPERATION: Insert the truck with driver assignments
@@ -222,6 +224,7 @@ const Trucks = () => {
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
         company_id: truckCompanyId,
+        dispatcher_id: truckDispatcherId,
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
@@ -399,10 +402,12 @@ const Trucks = () => {
       }
 
       // Get driver's company_id to set on truck (truck inherits driver's company)
-      let truckCompanyId = null;
+      let truckCompanyId: string | null = formData.company_id || null;
+      let truckDispatcherId: string | null = formData.dispatcher_id || null;
       if (formData.driver_id) {
         const driver = drivers?.find(d => d.id === formData.driver_id);
-        truckCompanyId = driver?.company_id || null;
+        truckCompanyId = driver?.company_id || truckCompanyId;
+        truckDispatcherId = driver?.dispatcher_id || truckDispatcherId;
       }
 
       // ATOMIC OPERATION: Update the truck with new driver assignments FIRST
@@ -419,6 +424,7 @@ const Trucks = () => {
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
         company_id: truckCompanyId,
+        dispatcher_id: truckDispatcherId,
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
