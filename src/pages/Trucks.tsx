@@ -585,7 +585,9 @@ const Trucks = () => {
       insurance_expiration_date: truck.insurance_expiration_date || "",
       oil_change_date: truck.oil_change_date || "",
       tires_swap_date: truck.tires_swap_date || "",
-      maintenance_check_date: truck.maintenance_check_date || ""
+      maintenance_check_date: truck.maintenance_check_date || "",
+      company_id: truck.company_id || "",
+      dispatcher_id: truck.dispatcher_id || ""
     });
     
     // Store original assignments for comparison
