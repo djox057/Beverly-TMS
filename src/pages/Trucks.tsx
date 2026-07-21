@@ -871,6 +871,31 @@ const Trucks = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
+                  <Label htmlFor="company_id">Company</Label>
+                  <Combobox
+                    options={companyOptions}
+                    value={formData.company_id}
+                    onValueChange={value => setFormData({ ...formData, company_id: value })}
+                    placeholder="Select company"
+                    searchPlaceholder="Search companies..."
+                    emptyText="No company found."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dispatcher_id">Dispatcher</Label>
+                  <Combobox
+                    options={dispatcherOptions}
+                    value={formData.dispatcher_id}
+                    onValueChange={value => setFormData({ ...formData, dispatcher_id: value })}
+                    placeholder="Select dispatcher"
+                    searchPlaceholder="Search dispatchers..."
+                    emptyText="No dispatcher found."
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label htmlFor="ipass">IPASS</Label>
                   <Input id="ipass" value={formData.ipass} onChange={e => setFormData({
                   ...formData,
