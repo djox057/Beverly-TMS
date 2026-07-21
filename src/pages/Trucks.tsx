@@ -43,6 +43,8 @@ interface TruckFormData {
   oil_change_date: string;
   tires_swap_date: string;
   maintenance_check_date: string;
+  company_id: string;
+  dispatcher_id: string;
 }
 
 interface TerminationNote {
@@ -92,7 +94,9 @@ const Trucks = () => {
     insurance_expiration_date: "",
     oil_change_date: "",
     tires_swap_date: "",
-    maintenance_check_date: ""
+    maintenance_check_date: "",
+    company_id: "",
+    dispatcher_id: ""
   });
   const { user } = useAuth();
   const { hasRole } = useAuthContext();
@@ -181,7 +185,9 @@ const Trucks = () => {
       insurance_expiration_date: "",
       oil_change_date: "",
       tires_swap_date: "",
-      maintenance_check_date: ""
+      maintenance_check_date: "",
+      company_id: "",
+      dispatcher_id: ""
     });
   };
   const handleAddTruck = async (e: React.FormEvent) => {
@@ -196,10 +202,12 @@ const Trucks = () => {
       }
 
       // Get driver's company_id to set on truck (truck inherits driver's company)
-      let truckCompanyId = null;
+      let truckCompanyId: string | null = formData.company_id || null;
+      let truckDispatcherId: string | null = formData.dispatcher_id || null;
       if (formData.driver_id) {
         const driver = drivers?.find(d => d.id === formData.driver_id);
-        truckCompanyId = driver?.company_id || null;
+        truckCompanyId = driver?.company_id || truckCompanyId;
+        truckDispatcherId = driver?.dispatcher_id || truckDispatcherId;
       }
 
       // ATOMIC OPERATION: Insert the truck with driver assignments
@@ -216,6 +224,7 @@ const Trucks = () => {
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
         company_id: truckCompanyId,
+        dispatcher_id: truckDispatcherId,
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
@@ -393,10 +402,12 @@ const Trucks = () => {
       }
 
       // Get driver's company_id to set on truck (truck inherits driver's company)
-      let truckCompanyId = null;
+      let truckCompanyId: string | null = formData.company_id || null;
+      let truckDispatcherId: string | null = formData.dispatcher_id || null;
       if (formData.driver_id) {
         const driver = drivers?.find(d => d.id === formData.driver_id);
-        truckCompanyId = driver?.company_id || null;
+        truckCompanyId = driver?.company_id || truckCompanyId;
+        truckDispatcherId = driver?.dispatcher_id || truckDispatcherId;
       }
 
       // ATOMIC OPERATION: Update the truck with new driver assignments FIRST
@@ -413,6 +424,7 @@ const Trucks = () => {
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
         company_id: truckCompanyId,
+        dispatcher_id: truckDispatcherId,
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
@@ -579,7 +591,9 @@ const Trucks = () => {
       insurance_expiration_date: truck.insurance_expiration_date || "",
       oil_change_date: truck.oil_change_date || "",
       tires_swap_date: truck.tires_swap_date || "",
-      maintenance_check_date: truck.maintenance_check_date || ""
+      maintenance_check_date: truck.maintenance_check_date || "",
+      company_id: truck.company_id || "",
+      dispatcher_id: truck.dispatcher_id || ""
     });
     
     // Store original assignments for comparison
@@ -852,6 +866,31 @@ const Trucks = () => {
                     ...formData,
                     plate: e.target.value
                   })} placeholder="Enter plate number" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="company_id">Company</Label>
+                  <Combobox
+                    options={companyOptions}
+                    value={formData.company_id}
+                    onValueChange={value => setFormData({ ...formData, company_id: value })}
+                    placeholder="Select company"
+                    searchPlaceholder="Search companies..."
+                    emptyText="No company found."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dispatcher_id">Dispatcher</Label>
+                  <Combobox
+                    options={dispatcherOptions}
+                    value={formData.dispatcher_id}
+                    onValueChange={value => setFormData({ ...formData, dispatcher_id: value })}
+                    placeholder="Select dispatcher"
+                    searchPlaceholder="Search dispatchers..."
+                    emptyText="No dispatcher found."
+                  />
                 </div>
               </div>
 
@@ -1286,6 +1325,31 @@ const Trucks = () => {
                       ...formData,
                       plate: e.target.value
                     })} placeholder="Enter plate number" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_company_id">Company</Label>
+                    <Combobox
+                      options={companyOptions}
+                      value={formData.company_id}
+                      onValueChange={value => setFormData({ ...formData, company_id: value })}
+                      placeholder="Select company"
+                      searchPlaceholder="Search companies..."
+                      emptyText="No company found."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_dispatcher_id">Dispatcher</Label>
+                    <Combobox
+                      options={dispatcherOptions}
+                      value={formData.dispatcher_id}
+                      onValueChange={value => setFormData({ ...formData, dispatcher_id: value })}
+                      placeholder="Select dispatcher"
+                      searchPlaceholder="Search dispatchers..."
+                      emptyText="No dispatcher found."
+                    />
                   </div>
                 </div>
 
