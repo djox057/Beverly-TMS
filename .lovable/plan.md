@@ -1,37 +1,63 @@
-## Root cause
+## Goal
 
-The Lovable preview is served over HTTPS, but `src/lib/loadMatch/client.ts` calls App 2 over plain HTTP (`http://128.140.115.63:8080`). Browsers block HTTP subresource requests from HTTPS pages — that's the `NetworkError when attempting to fetch resource` in your network log. The VPS is fine; the request never leaves the browser.
+Make `trucks.company_id` and `trucks.dispatcher_id` reliably mirror the assigned driver's values (`driver1.company_id` / `driver1.dispatcher_id`). No UI or behavior changes — the columns are just kept accurate as data.
 
-## Fix
+## Verified current state
 
-Add a Supabase edge function that server-side proxies the request. Browser → HTTPS edge function → HTTP VPS. Also gives us an auth choke point (JWT verification + optional shared secret) so the VPS can eventually be firewalled.
+- Both columns exist on `trucks`.
+- They are **not** synced today:
+  - 365 rows where `trucks.dispatcher_id` ≠ `driver1.dispatcher_id`
+  - 16 rows where `trucks.company_id` ≠ `driver1.company_id`
+  - 31 rows with `driver1_id IS NULL` but stale `company_id`/`dispatcher_id`
+- No existing trigger writes to `trucks.company_id` or `trucks.dispatcher_id`. The UI (`useTrucks.ts`) always derives them from `driver1` at read time, so the stored values have drifted.
 
-## Steps
+## Changes (single migration)
 
-1. **Edge function** `supabase/functions/loadmatch-proxy/index.ts`
-   - Validates the caller's JWT via `getClaims()` (rejects anonymous).
-   - Reads optional `truck_id` query param, validates it as a UUID with Zod.
-   - Fetches `http://128.140.115.63:8080/api/matched-orders?truck_id=<id>` with a 15s timeout.
-   - If `LOADMATCH_SHARED_SECRET` is set as a secret, forwards it as `Authorization: Bearer <secret>` so you can lock down the VPS later without a code change here.
-   - Returns the JSON array with CORS headers, or a structured JSON error with the upstream status.
+### 1. One-time backfill
 
-2. **Client** `src/lib/loadMatch/client.ts`
-   - Replace the direct `fetch(http://128.140.115.63:8080/...)` with `supabase.functions.invoke("loadmatch-proxy", { body: { truck_id } })` (using GET-style query via a POST body — invoke uses POST; edge function will read `truck_id` from JSON body or query param).
-   - Keep the existing `LoadMatchError`, timeout, and typed `MatchedOrder[]` return so `useLoadSuggestions` and the popover keep working unchanged.
-   - Drop `VITE_LOADMATCH_URL` — no longer needed.
+```sql
+-- Fill from current driver1
+UPDATE public.trucks t
+SET company_id    = d.company_id,
+    dispatcher_id = d.dispatcher_id
+FROM public.drivers d
+WHERE t.driver1_id = d.id
+  AND (t.company_id    IS DISTINCT FROM d.company_id
+    OR t.dispatcher_id IS DISTINCT FROM d.dispatcher_id);
 
-3. **Optional (recommended, not blocking)**
-   - Add a `LOADMATCH_SHARED_SECRET` secret. Once set, tell you the value so you can add it as a required `Authorization` header on the VPS and firewall the port to only accept requests bearing it. Until you configure the VPS side, this secret is harmless — the function only sends it if present.
+-- Clear orphans (no driver1)
+UPDATE public.trucks
+SET company_id = NULL, dispatcher_id = NULL
+WHERE driver1_id IS NULL
+  AND (company_id IS NOT NULL OR dispatcher_id IS NOT NULL);
+```
 
-## Files touched
+### 2. Keep in sync going forward (2 triggers)
 
-- `supabase/functions/loadmatch-proxy/index.ts` (new)
-- `src/lib/loadMatch/client.ts` (rewrite `getMatchedOrders` to call the edge function)
+- **`trucks` BEFORE INSERT OR UPDATE OF `driver1_id`**: if `driver1_id` is set, copy `company_id`/`dispatcher_id` from that driver; if null, null them.
+- **`drivers` AFTER UPDATE OF `company_id`, `dispatcher_id`**: propagate the new values to `trucks` where `driver1_id = drivers.id`.
 
-No changes to `useLoadSuggestions.ts`, `LoadSuggestionsPopover.tsx`, or `Reports.tsx` — the client function keeps its signature.
+Both functions are `SECURITY DEFINER`, `SET search_path = public`, and only touch these two columns.
 
-## Verification
+### 3. No frontend changes
 
-- Toggle Suggestions in Reports as a dispatcher → prefetch fires against `.../functions/v1/loadmatch-proxy?truck_id=...` (HTTPS) instead of `http://128.140.115.63:8080`.
-- Click a flashing `+` → popover shows loads or a clean "No matching loads" message; no more `NetworkError`.
-- Check edge function logs for any 4xx/5xx and confirm the VPS is actually being reached from the function.
+`useTrucks.ts` and all consumers keep deriving display values from `driver1` exactly as today.
+
+## Verification after migration
+
+```sql
+SELECT COUNT(*) FROM trucks t JOIN drivers d ON d.id = t.driver1_id
+WHERE t.company_id IS DISTINCT FROM d.company_id
+   OR t.dispatcher_id IS DISTINCT FROM d.dispatcher_id;
+-- expect 0
+
+SELECT COUNT(*) FROM trucks
+WHERE driver1_id IS NULL AND (company_id IS NOT NULL OR dispatcher_id IS NOT NULL);
+-- expect 0
+```
+
+## Out of scope
+
+- Changing any component to read from `trucks.company_id`/`dispatcher_id` instead of `driver1`.
+- RLS/grants (columns already exist).
+- Historical snapshots — values follow the current driver, matching current UI behavior.
