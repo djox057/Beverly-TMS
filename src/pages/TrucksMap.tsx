@@ -491,7 +491,7 @@ export default function TrucksMap() {
   const loading = fleetLoading || locsLoading;
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] w-full overflow-hidden bg-background">
+    <div className="relative flex h-[calc(100vh-3rem)] w-full overflow-hidden bg-background">
       {/* Floating nav toggle (collapses both app nav and truck list) */}
       <div className="pointer-events-none absolute left-2 top-14 z-30 flex gap-1">
         <Button
