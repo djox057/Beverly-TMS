@@ -404,9 +404,9 @@ export const generateInvoicePDF = async (
       // Position text vertically centered in the cells
       const textYOffset = (calculatedHeight - lines.length * lineHeight) / 2 + lineHeight;
 
-      doc.text(pickupDate, 22, yPosition + textYOffset + 1);
-      doc.text(order.truckNumber, 44, yPosition + textYOffset + 1);
-      doc.text(order.brokerLoadNumber, 64, yPosition + textYOffset + 1);
+      doc.text(String(pickupDate ?? ""), 22, yPosition + textYOffset + 1);
+      doc.text(String(order.truckNumber ?? ""), 44, yPosition + textYOffset + 1);
+      doc.text(String(order.brokerLoadNumber ?? ""), 64, yPosition + textYOffset + 1);
       doc.text(lines, 99, yPosition + textYOffset);
       doc.text("1", 152, yPosition + textYOffset + 3);
       doc.text(formatCurrency(order.totalFreightAmount).replace("$", "$"), 164, yPosition + textYOffset + 3);
