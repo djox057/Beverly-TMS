@@ -280,7 +280,7 @@ export const generateInvoicePDF = async (
       doc.setFont("helvetica", "bold");
       doc.text("Bill To:", 22, 48);
       doc.setFont("helvetica", "normal");
-      doc.text(order.brokerName, 22, 55);
+      doc.text(String(order.brokerName ?? ""), 22, 55);
 
       // Add broker address if available
       let yPos = 61;
