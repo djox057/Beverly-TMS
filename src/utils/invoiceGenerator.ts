@@ -88,6 +88,42 @@ const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T | null> => 
   return Promise.race([promise, new Promise<T | null>((resolve) => setTimeout(() => resolve(null), ms))]);
 };
 
+const toPdfText = (value: unknown): string => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? "" : value.toLocaleDateString();
+  return String(value);
+};
+
+const toPdfTextLines = (value: unknown): string | string[] => {
+  if (Array.isArray(value)) return value.map(toPdfText);
+  return toPdfText(value);
+};
+
+const toFiniteNumber = (value: unknown): number => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+const formatPdfCurrency = (value: unknown): string => formatCurrency(toFiniteNumber(value));
+
+const safePdfText = (
+  doc: jsPDF,
+  value: unknown,
+  x: number,
+  y: number,
+  options?: Parameters<jsPDF["text"]>[3],
+) => {
+  const safeX = Number.isFinite(x) ? x : 0;
+  const safeY = Number.isFinite(y) ? y : 0;
+  const text = toPdfTextLines(value);
+  doc.text(text, safeX, safeY, options);
+};
+
 // Process a single invoice merge
 interface MergeTask {
   invoicePdfBytes: ArrayBuffer;
@@ -239,7 +275,7 @@ export const generateInvoicePDF = async (
   );
 
   // Fetch broker MC numbers for all orders
-  const brokerNames = [...new Set(orders.map((o) => o.brokerName))];
+  const brokerNames = [...new Set(orders.map((o) => toPdfText(o.brokerName)).filter(Boolean))];
   const { data: brokersData } = await supabase.from("brokers").select("name, mc_number").in("name", brokerNames);
 
   const brokerMcMap = new Map(brokersData?.map((b) => [b.name, b.mc_number]) || []);
@@ -270,7 +306,7 @@ export const generateInvoicePDF = async (
 
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text(displayCompanyName, 20, 25);
+      safePdfText(doc, displayCompanyName, 20, 25);
       //doc.text('INVOICE', 150, 25);
 
       // Bill To section
@@ -278,24 +314,28 @@ export const generateInvoicePDF = async (
       doc.setFont("helvetica", "normal");
       doc.rect(20, 40, 100, 30);
       doc.setFont("helvetica", "bold");
-      doc.text("Bill To:", 22, 48);
+      safePdfText(doc, "Bill To:", 22, 48);
       doc.setFont("helvetica", "normal");
-      doc.text(String(order.brokerName ?? ""), 22, 55);
+      safePdfText(doc, order.brokerName, 22, 55);
 
       // Add broker address if available
       let yPos = 61;
-      if (order.brokerAddress) {
+      const brokerAddress = toPdfText(order.brokerAddress);
+      if (brokerAddress) {
         // Split long address into multiple lines within the box
-        const addressLines = doc.splitTextToSize(order.brokerAddress, 95);
+        const addressLines = doc.splitTextToSize(brokerAddress, 95);
         for (let i = 0; i < Math.min(addressLines.length, 2); i++) {
-          doc.text(addressLines[i], 22, yPos);
+          safePdfText(doc, addressLines[i], 22, yPos);
           yPos += 5;
         }
       }
       if (order.brokerCity || order.brokerState || order.brokerZipCode) {
-        const cityStateZip = [order.brokerCity, order.brokerState, order.brokerZipCode].filter(Boolean).join(", ");
+        const cityStateZip = [order.brokerCity, order.brokerState, order.brokerZipCode]
+          .map(toPdfText)
+          .filter(Boolean)
+          .join(", ");
         if (cityStateZip) {
-          doc.text(cityStateZip, 22, yPos);
+          safePdfText(doc, cityStateZip, 22, yPos);
         }
       }
 
@@ -321,23 +361,23 @@ export const generateInvoicePDF = async (
       }
 
       doc.setFont("helvetica", "bold");
-      doc.text("Invoice Date", 132, 46);
-      doc.text("Invoice #", 132, 54);
+      safePdfText(doc, "Invoice Date", 132, 46);
+      safePdfText(doc, "Invoice #", 132, 54);
       if (!isBgPrimeInvoice) {
-        doc.text("Terms", 132, 62);
-        doc.text("Due Date", 132, 70);
+        safePdfText(doc, "Terms", 132, 62);
+        safePdfText(doc, "Due Date", 132, 70);
       }
 
       doc.setFont("helvetica", "normal");
-      doc.text(currentDate, 162, 46);
-      doc.text(invoiceNumber.toString(), 162, 54);
+      safePdfText(doc, currentDate, 162, 46);
+      safePdfText(doc, invoiceNumber, 162, 54);
       if (!isBgPrimeInvoice) {
-        doc.text("NET 30", 162, 62);
+        safePdfText(doc, "NET 30", 162, 62);
 
         // Calculate due date (30 days from now)
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + 30);
-        doc.text(dueDate.toLocaleDateString(), 162, 70);
+        safePdfText(doc, dueDate.toLocaleDateString(), 162, 70);
       }
 
 
@@ -352,19 +392,19 @@ export const generateInvoicePDF = async (
       doc.rect(162, yPosition, 20, 8);
       doc.rect(182, yPosition, 25, 8);
 
-      doc.text("Date", 22, yPosition + 5);
-      doc.text("Truck #", 44, yPosition + 5);
-      doc.text("Load #", 64, yPosition + 5);
-      doc.text("Origin - Destination", 99, yPosition + 5);
-      doc.text("Qty", 152, yPosition + 5);
-      doc.text("Rate", 164, yPosition + 5);
-      doc.text("Amount", 184, yPosition + 5);
+      safePdfText(doc, "Date", 22, yPosition + 5);
+      safePdfText(doc, "Truck #", 44, yPosition + 5);
+      safePdfText(doc, "Load #", 64, yPosition + 5);
+      safePdfText(doc, "Origin - Destination", 99, yPosition + 5);
+      safePdfText(doc, "Qty", 152, yPosition + 5);
+      safePdfText(doc, "Rate", 164, yPosition + 5);
+      safePdfText(doc, "Amount", 184, yPosition + 5);
 
       // Table row for this single order
       doc.setFont("helvetica", "normal");
       yPosition += 8;
 
-      const pickupDate = formatDateNoTimezone(order.pickupDate.split(" - ")[0]);
+      const pickupDate = formatDateNoTimezone(toPdfText(order.pickupDate).split(" - ")[0]);
 
       // Build origin-destination text with all pickups and deliveries
       let originDestination = "";
@@ -374,20 +414,20 @@ export const generateInvoicePDF = async (
       // If we have pickup_drops data, use it
       if (pickups.length > 0 || deliveries.length > 0) {
         pickups.forEach((pickup, idx) => {
-          originDestination += `Pickup ${pickups.length > 1 ? idx + 1 : ""}: ${pickup.city}, ${pickup.state}\n`;
+          originDestination += `Pickup ${pickups.length > 1 ? idx + 1 : ""}: ${toPdfText(pickup.city)}, ${toPdfText(pickup.state)}\n`;
         });
         deliveries.forEach((delivery, idx) => {
-          originDestination += `Delivery ${deliveries.length > 1 ? idx + 1 : ""}: ${delivery.city}, ${delivery.state}\n`;
+          originDestination += `Delivery ${deliveries.length > 1 ? idx + 1 : ""}: ${toPdfText(delivery.city)}, ${toPdfText(delivery.state)}\n`;
         });
       } else {
         // Fallback to old single pickup/delivery format
-        const origin = `${order.pickupCity}, ${order.pickupState}`;
-        const destination = `${order.deliveryCity}, ${order.deliveryState}`;
+        const origin = `${toPdfText(order.pickupCity)}, ${toPdfText(order.pickupState)}`;
+        const destination = `${toPdfText(order.deliveryCity)}, ${toPdfText(order.deliveryState)}`;
         originDestination = `Pickup: ${origin}\nDelivery: ${destination}`;
       }
 
       // Calculate required height based on text content
-      const lines = doc.splitTextToSize(originDestination.trim(), 50);
+      const lines = doc.splitTextToSize(originDestination.trim() || " ", 50) as string[];
       const lineHeight = 4;
       const minHeight = 12;
       const calculatedHeight = Math.max(minHeight, lines.length * lineHeight + 4);
@@ -404,73 +444,73 @@ export const generateInvoicePDF = async (
       // Position text vertically centered in the cells
       const textYOffset = (calculatedHeight - lines.length * lineHeight) / 2 + lineHeight;
 
-      doc.text(String(pickupDate ?? ""), 22, yPosition + textYOffset + 1);
-      doc.text(String(order.truckNumber ?? ""), 44, yPosition + textYOffset + 1);
-      doc.text(String(order.brokerLoadNumber ?? ""), 64, yPosition + textYOffset + 1);
-      doc.text(lines, 99, yPosition + textYOffset);
-      doc.text("1", 152, yPosition + textYOffset + 3);
-      doc.text(formatCurrency(order.totalFreightAmount).replace("$", "$"), 164, yPosition + textYOffset + 3);
-      doc.text(formatCurrency(order.totalFreightAmount).replace("$", "$"), 184, yPosition + textYOffset + 3);
+      safePdfText(doc, pickupDate, 22, yPosition + textYOffset + 1);
+      safePdfText(doc, order.truckNumber, 44, yPosition + textYOffset + 1);
+      safePdfText(doc, order.brokerLoadNumber, 64, yPosition + textYOffset + 1);
+      safePdfText(doc, lines, 99, yPosition + textYOffset);
+      safePdfText(doc, "1", 152, yPosition + textYOffset + 3);
+      safePdfText(doc, formatPdfCurrency(order.totalFreightAmount), 164, yPosition + textYOffset + 3);
+      safePdfText(doc, formatPdfCurrency(order.totalFreightAmount), 184, yPosition + textYOffset + 3);
 
       yPosition += calculatedHeight;
 
       // Totals for this single order
-      const freightTotal = order.freightAmount;
-      const detentionTotal = order.detention || 0;
-      const layoverTotal = order.layover || 0;
-      const extraStopTotal = order.extraStop || 0;
-      const lumperTotal = order.lumper || 0;
-      const tonuTotal = order.tonu || 0;
-      const otherChargesTotal = order.otherCharges || 0;
-      const otherAdditionalsTotal = order.otherAdditionals || 0;
-      const lateFeeTotal = order.lateFee || 0;
+      const freightTotal = toFiniteNumber(order.freightAmount);
+      const detentionTotal = toFiniteNumber(order.detention);
+      const layoverTotal = toFiniteNumber(order.layover);
+      const extraStopTotal = toFiniteNumber(order.extraStop);
+      const lumperTotal = toFiniteNumber(order.lumper);
+      const tonuTotal = toFiniteNumber(order.tonu);
+      const otherChargesTotal = toFiniteNumber(order.otherCharges);
+      const otherAdditionalsTotal = toFiniteNumber(order.otherAdditionals);
+      const lateFeeTotal = toFiniteNumber(order.lateFee);
 
       // Freight Income and additional fees
       doc.rect(150, yPosition, 32, 8);
       doc.rect(182, yPosition, 25, 8);
       doc.setFont("helvetica", "bold");
-      doc.text("Freight Income", 152, yPosition + 5);
-      doc.text(formatCurrency(freightTotal), 184, yPosition + 5);
+      safePdfText(doc, "Freight Income", 152, yPosition + 5);
+      safePdfText(doc, formatPdfCurrency(freightTotal), 184, yPosition + 5);
       yPosition += 8;
 
       // Additional fees sections...
       if (detentionTotal > 0) {
         doc.rect(150, yPosition, 32, 8);
         doc.rect(182, yPosition, 25, 8);
-        doc.text("Detention", 152, yPosition + 5);
-        doc.text(formatCurrency(detentionTotal), 184, yPosition + 5);
+        safePdfText(doc, "Detention", 152, yPosition + 5);
+        safePdfText(doc, formatPdfCurrency(detentionTotal), 184, yPosition + 5);
         yPosition += 8;
       }
 
       if (layoverTotal > 0) {
         doc.rect(150, yPosition, 32, 8);
         doc.rect(182, yPosition, 25, 8);
-        doc.text("Layover", 152, yPosition + 5);
-        doc.text(formatCurrency(layoverTotal), 184, yPosition + 5);
+        safePdfText(doc, "Layover", 152, yPosition + 5);
+        safePdfText(doc, formatPdfCurrency(layoverTotal), 184, yPosition + 5);
         yPosition += 8;
       }
 
       if (extraStopTotal > 0) {
         doc.rect(150, yPosition, 32, 8);
         doc.rect(182, yPosition, 25, 8);
-        doc.text("Extra Stop", 152, yPosition + 5);
-        doc.text(formatCurrency(extraStopTotal), 184, yPosition + 5);
+        safePdfText(doc, "Extra Stop", 152, yPosition + 5);
+        safePdfText(doc, formatPdfCurrency(extraStopTotal), 184, yPosition + 5);
         yPosition += 8;
       }
 
       if (lumperTotal > 0) {
         doc.rect(150, yPosition, 32, 8);
         doc.rect(182, yPosition, 25, 8);
-        doc.text("Lumper", 152, yPosition + 5);
-        doc.text(formatCurrency(lumperTotal), 184, yPosition + 5);
+        safePdfText(doc, "Lumper", 152, yPosition + 5);
+        safePdfText(doc, formatPdfCurrency(lumperTotal), 184, yPosition + 5);
         yPosition += 8;
       }
 
       if (tonuTotal > 0) {
         doc.rect(150, yPosition, 32, 8);
         doc.rect(182, yPosition, 25, 8);
-        doc.text("TONU", 152, yPosition + 5);
-        doc.text(formatCurrency(tonuTotal), 184, yPosition + 5);
+        safePdfText(doc, "TONU", 152, yPosition + 5);
+        safePdfText(doc, formatPdfCurrency(tonuTotal), 184, yPosition + 5);
         yPosition += 8;
       }
 
@@ -478,10 +518,10 @@ export const generateInvoicePDF = async (
         doc.rect(150, yPosition, 32, 8);
         doc.rect(182, yPosition, 25, 8);
         const otherChargesLabel = order.otherChargesReason
-          ? `${order.otherChargesReason.substring(0, 25)}`
+          ? `${toPdfText(order.otherChargesReason).substring(0, 25)}`
           : "Other Charges";
-        doc.text(otherChargesLabel, 152, yPosition + 5);
-        doc.text(formatCurrency(otherChargesTotal), 184, yPosition + 5);
+        safePdfText(doc, otherChargesLabel, 152, yPosition + 5);
+        safePdfText(doc, formatPdfCurrency(otherChargesTotal), 184, yPosition + 5);
         yPosition += 8;
       }
 
@@ -489,27 +529,27 @@ export const generateInvoicePDF = async (
         doc.rect(150, yPosition, 32, 8);
         doc.rect(182, yPosition, 25, 8);
         const otherAddLabel = order.otherAdditionalsReason
-          ? `${order.otherAdditionalsReason.substring(0, 25)}`
+          ? `${toPdfText(order.otherAdditionalsReason).substring(0, 25)}`
           : "Other Additionals";
-        doc.text(otherAddLabel, 152, yPosition + 5);
-        doc.text(formatCurrency(otherAdditionalsTotal), 184, yPosition + 5);
+        safePdfText(doc, otherAddLabel, 152, yPosition + 5);
+        safePdfText(doc, formatPdfCurrency(otherAdditionalsTotal), 184, yPosition + 5);
         yPosition += 8;
       }
 
       if (lateFeeTotal > 0) {
         doc.rect(150, yPosition, 32, 8);
         doc.rect(182, yPosition, 25, 8);
-        doc.text("Late Fee", 152, yPosition + 5);
-        doc.text(`-${formatCurrency(lateFeeTotal).replace("$", "")}`, 184, yPosition + 5);
+        safePdfText(doc, "Late Fee", 152, yPosition + 5);
+        safePdfText(doc, `-${formatPdfCurrency(lateFeeTotal).replace("$", "")}`, 184, yPosition + 5);
         yPosition += 8;
       }
 
       // Total
-      const finalTotal = order.totalFreightAmount;
+      const finalTotal = toFiniteNumber(order.totalFreightAmount);
       doc.rect(162, yPosition, 20, 8);
       doc.rect(182, yPosition, 25, 8);
-      doc.text("TOTAL:", 164, yPosition + 5);
-      doc.text(formatCurrency(finalTotal), 184, yPosition + 5);
+      safePdfText(doc, "TOTAL:", 164, yPosition + 5);
+      safePdfText(doc, formatPdfCurrency(finalTotal), 184, yPosition + 5);
 
       // Notice section — skipped for BG Prime Inc
       const isBgPrime = derivedCompany === "BG Prime Inc";
@@ -522,33 +562,33 @@ export const generateInvoicePDF = async (
           doc.setTextColor(255, 0, 0);
         }
         doc.setFont("helvetica", "bold");
-        doc.text("NOTICE OF ASSIGMENT", 105, yPosition, { align: "center" });
+        safePdfText(doc, "NOTICE OF ASSIGMENT", 105, yPosition, { align: "center" });
 
         yPosition += 6;
         doc.setFont("helvetica", "normal");
-        doc.text("This invoice is assigned to, owned by and only payable to:", 105, yPosition, { align: "center" });
+        safePdfText(doc, "This invoice is assigned to, owned by and only payable to:", 105, yPosition, { align: "center" });
 
         yPosition += 8;
         doc.setFont("helvetica", "bold");
-        doc.text("Capital Depot INC", 105, yPosition, { align: "center" });
+        safePdfText(doc, "Capital Depot INC", 105, yPosition, { align: "center" });
         yPosition += 5;
-        doc.text("606 Potter Road", 105, yPosition, { align: "center" });
+        safePdfText(doc, "606 Potter Road", 105, yPosition, { align: "center" });
         yPosition += 5;
-        doc.text("Des Plaines IL 60016", 105, yPosition, { align: "center" });
+        safePdfText(doc, "Des Plaines IL 60016", 105, yPosition, { align: "center" });
         yPosition += 5;
-        doc.text("847-470-1687", 105, yPosition, { align: "center" });
+        safePdfText(doc, "847-470-1687", 105, yPosition, { align: "center" });
 
         yPosition += 8;
         doc.setFont("helvetica", "normal");
-        doc.text("ACH Payments to be sent to:", 105, yPosition, { align: "center" });
+        safePdfText(doc, "ACH Payments to be sent to:", 105, yPosition, { align: "center" });
         yPosition += 5;
-        doc.text("Account name: Capital Depot INC", 105, yPosition, { align: "center" });
+        safePdfText(doc, "Account name: Capital Depot INC", 105, yPosition, { align: "center" });
         yPosition += 5;
-        doc.text("Routing Number: 071000013", 105, yPosition, { align: "center" });
+        safePdfText(doc, "Routing Number: 071000013", 105, yPosition, { align: "center" });
         yPosition += 5;
-        doc.text("Account Number: 522702898", 105, yPosition, { align: "center" });
+        safePdfText(doc, "Account Number: 522702898", 105, yPosition, { align: "center" });
         yPosition += 5;
-        doc.text("Remittance address: AR@capitaldepot.com", 105, yPosition, { align: "center" });
+        safePdfText(doc, "Remittance address: AR@capitaldepot.com", 105, yPosition, { align: "center" });
       }
 
       // Footer
@@ -556,12 +596,12 @@ export const generateInvoicePDF = async (
       doc.setFontSize(8);
       if (isBgPrime) {
         doc.setTextColor(0, 0, 255);
-        doc.text("Beverly Trucking Software", 105, 280, { align: "center" });
+        safePdfText(doc, "Beverly Trucking Software", 105, 280, { align: "center" });
         doc.setTextColor(0, 0, 0);
       } else {
-        doc.text("Beverly Trucking Software", 105, 280, { align: "center" });
+        safePdfText(doc, "Beverly Trucking Software", 105, 280, { align: "center" });
       }
-      doc.text("Page 1 Of 1", 190, 280);
+      safePdfText(doc, "Page 1 Of 1", 190, 280);
 
       // Get PDF bytes and collect RC/POD/Additional files for this order
       const invoicePdfBytes = doc.output("arraybuffer");
@@ -586,12 +626,12 @@ export const generateInvoicePDF = async (
       // Add order data to company's XLSX data (use suffix-derived company)
       const derivedCompanyForXlsx = getCompanyNameFromSuffix(order.internalLoadNumber) || order.companyName;
       xlsxDataByCompany[sanitizedCompanyName].push({
-        ClientNo: brokerMcMap.get(order.brokerName) || "",
-        "Invoice#": formatInternalLoadNumber(order.internalLoadNumber, derivedCompanyForXlsx),
-        "Debtor Debtor Name": order.brokerName,
-        Pono: order.brokerLoadNumber,
+        ClientNo: brokerMcMap.get(toPdfText(order.brokerName)) || "",
+        "Invoice#": formatInternalLoadNumber(toPdfText(order.internalLoadNumber), derivedCompanyForXlsx),
+        "Debtor Debtor Name": toPdfText(order.brokerName),
+        Pono: toPdfText(order.brokerLoadNumber),
         InvDate: currentDate,
-        InvAmt: `$${order.totalFreightAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        InvAmt: formatPdfCurrency(order.totalFreightAmount),
       });
     }
   }
