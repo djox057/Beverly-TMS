@@ -6971,7 +6971,7 @@ const Reports = () => {
                         .invoke("send-sms", {
                           body: {
                             message: smsMessage,
-                            phoneNumbers: ["+12192465764", "+18474835375", "+15743787396"],
+                            phoneNumbers: ["+12192465764", "+18474835375", "+15743787396", "+18475104072"],
                           },
                         })
                         .catch((smsError) => {
