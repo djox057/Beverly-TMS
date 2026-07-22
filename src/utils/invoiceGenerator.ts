@@ -121,7 +121,11 @@ const safePdfText = (
   const safeX = Number.isFinite(x) ? x : 0;
   const safeY = Number.isFinite(y) ? y : 0;
   const text = toPdfTextLines(value);
-  doc.text(text, safeX, safeY, options);
+  if (options) {
+    doc.text(text, safeX, safeY, options);
+  } else {
+    doc.text(text, safeX, safeY);
+  }
 };
 
 // Process a single invoice merge
