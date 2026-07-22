@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, Truck as TruckIcon } from "lucide-react";
-import { Share2 } from "lucide-react";
+import { Share2, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
+import { useSidebar } from "@/components/ui/sidebar";
 
 interface TruckRow {
   id: string;
@@ -248,6 +249,9 @@ function pickCurrentOrder(allOrders: OrderRow[]): OrderRow | null {
 export default function TrucksMap() {
   const [search, setSearch] = useState("");
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
+  const { toggleSidebar, state: appSidebarState, isMobile: isMobileNav, openMobile } = useSidebar();
+  const appNavOpen = isMobileNav ? openMobile : appSidebarState === "expanded";
+  const [listCollapsed, setListCollapsed] = useState(false);
   const [companyFilter, setCompanyFilter] = useState<string>("");
   const [dispatcherFilter, setDispatcherFilter] = useState<string>("");
   const { profile, getPrimaryRole } = useAuthContext();
@@ -487,8 +491,31 @@ export default function TrucksMap() {
   const loading = fleetLoading || locsLoading;
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] w-full overflow-hidden bg-background">
+    <div className="relative flex h-[calc(100vh-3rem)] w-full overflow-hidden bg-background">
+      {/* Floating nav toggle (collapses both app nav and truck list) */}
+      <div className="pointer-events-none absolute left-2 top-14 z-30 flex gap-1">
+        <Button
+          type="button"
+          size="icon"
+          variant="secondary"
+          className="pointer-events-auto h-8 w-8 shadow"
+          onClick={() => {
+            toggleSidebar();
+            setListCollapsed((v) => !v);
+          }}
+          title={appNavOpen || !listCollapsed ? "Collapse navigation" : "Expand navigation"}
+          aria-label="Toggle navigation"
+        >
+          {appNavOpen || !listCollapsed ? (
+            <PanelLeftClose className="h-4 w-4" />
+          ) : (
+            <PanelLeftOpen className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+
       {/* Sidebar list */}
+      {!listCollapsed && (
       <aside className="flex w-80 flex-col border-r bg-card">
         <div className="border-b p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -609,6 +636,7 @@ export default function TrucksMap() {
           </div>
         </ScrollArea>
       </aside>
+      )}
 
       {/* Map */}
       <div className="relative flex-1">
