@@ -29,10 +29,16 @@ function getChicagoNow(): Date {
 /**
  * Returns [start, end) UTC timestamps for the Chicago Mon 00:00 -> next Mon 00:00 week
  * containing the provided reference date (defaults to now).
+ *
+ * NOTE: pickup_datetime values in the DB are stored with a `+00` offset but the
+ * numeric value represents Chicago wall time (not real UTC). So the returned
+ * range is Chicago wall time expressed as if it were UTC, and we compare
+ * against pickup timestamps as if they were UTC too. This keeps the semantics
+ * consistent with how the values are stored and avoids off-by-one-week issues
+ * across DST / timezone boundaries.
  */
 function getChicagoWeekRange(reference?: Date): { start: number; end: number } {
   const now = reference ?? new Date();
-  // Get Chicago Y/M/D and weekday parts
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
     year: "numeric",
@@ -46,16 +52,9 @@ function getChicagoWeekRange(reference?: Date): { start: number; end: number } {
   const d = Number(get("day"));
   const wd = get("weekday"); // Sun, Mon, ...
   const wdIndex = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd);
-  // Days since Monday (Mon=0)
   const daysSinceMon = (wdIndex + 6) % 7;
-
-  // Chicago Monday at 00:00 expressed as a Date. Chicago is UTC-5 (CDT) or UTC-6 (CST).
-  // We approximate by finding the UTC instant matching Chicago Mon 00:00 via offset probing.
-  // Easier: build a UTC date for that calendar day, then adjust by Chicago offset for that day.
-  const monUtcGuess = Date.UTC(y, m - 1, d - daysSinceMon, 0, 0, 0);
-  // Determine Chicago offset (minutes) at monUtcGuess
-  const offsetMin = chicagoOffsetMinutes(new Date(monUtcGuess));
-  const start = monUtcGuess + offsetMin * 60 * 1000;
+  // Chicago Monday 00:00 as-if-UTC (matches how pickup_datetime is stored).
+  const start = Date.UTC(y, m - 1, d - daysSinceMon, 0, 0, 0);
   const end = start + 7 * 24 * 60 * 60 * 1000;
   return { start, end };
 }
@@ -174,7 +173,15 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate, driverId, drive
       if (!o || o.canceled) return false;
       const raw = getOrderPickupDate(o);
       if (!raw) return false;
-      const t = new Date(typeof raw === "string" ? raw.replace(" ", "T") : raw).getTime();
+      // Parse pickup as Chicago wall time (stored with +00 but represents Chicago).
+      // Strip trailing zone info and treat as UTC to match getChicagoWeekRange().
+      let t: number;
+      if (typeof raw === "string") {
+        const s = raw.replace(" ", "T").replace(/(?:Z|[+-]\d{2}:?\d{2})$/, "") + "Z";
+        t = new Date(s).getTime();
+      } else {
+        t = new Date(raw).getTime();
+      }
       if (!Number.isFinite(t)) return false;
       return t >= start && t < end;
     });
