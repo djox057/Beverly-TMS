@@ -485,6 +485,18 @@ const fetchIndividualDriverScope = async (
 
   const driverIdSet = new Set<string>((directDrivers || []).map(d => d.id));
 
+  // Fallback: include drivers whose truck's stored dispatcher is this dispatcher,
+  // even if the driver row itself has no dispatcher assigned.
+  const { data: dispatcherTrucks } = await supabase
+    .from("trucks")
+    .select("driver1_id, driver2_id")
+    .eq("is_active", true)
+    .eq("dispatcher_id", individualDispatcherId);
+  for (const t of dispatcherTrucks || []) {
+    if (t.driver1_id) driverIdSet.add(t.driver1_id);
+    if (t.driver2_id) driverIdSet.add(t.driver2_id);
+  }
+
   // Also include drivers that appear on orders booked by this user.
   // This surfaces recovery/transfer loads booked by the dispatcher even when
   // the load is now assigned to another dispatcher's driver.
