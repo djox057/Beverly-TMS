@@ -509,8 +509,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // Fetch additional data needed for transformation
   const driverIdsForScope = dateWindowHook.driverIds || [];
-  const dispatcherIdsForScope = dateWindowHook.dispatcherIds || [];
-  const scopeEnabled = USE_DATE_WINDOW_LOADING && !!dispatcherId && (driverIdsForScope.length > 0 || dispatcherIdsForScope.length > 0);
+  const scopeEnabled = USE_DATE_WINDOW_LOADING && !!dispatcherId && driverIdsForScope.length > 0;
   // Global queries fire as soon as we have a dispatcher, regardless of which office is selected
   const globalEnabled = USE_DATE_WINDOW_LOADING && !!dispatcherId;
   
@@ -551,16 +550,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // Client-side filtering: only trucks assigned to drivers in current office scope
   const filteredTrucks = useMemo(() => {
-    if (!allTrucks || (driverIdsForScope.length === 0 && dispatcherIdsForScope.length === 0)) return [];
+    if (!allTrucks || driverIdsForScope.length === 0) return [];
     const scopeSet = new Set(driverIdsForScope);
-    const dispatcherScopeSet = new Set(dispatcherIdsForScope);
-    return allTrucks.filter(
-      (t) =>
-        scopeSet.has(t.driver1_id) ||
-        scopeSet.has(t.driver2_id) ||
-        (!t.driver1_id && !t.driver2_id && !!t.dispatcher_id && dispatcherScopeSet.has(t.dispatcher_id)),
-    );
-  }, [allTrucks, driverIdsForScope, dispatcherIdsForScope]);
+    return allTrucks.filter(t => scopeSet.has(t.driver1_id) || scopeSet.has(t.driver2_id));
+  }, [allTrucks, driverIdsForScope]);
 
   // Get all trailer IDs from filtered trucks to fetch trailer numbers
   const trailerIdsFromTrucks = useMemo(() => {
@@ -614,15 +607,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return allDrivers.filter(d => scopeSet.has(d.id));
   }, [allDrivers, driverIdsForScope]);
 
-  // Get unique dispatcher IDs from filtered drivers and driverless trucks - use stable string for queryKey
-  const dispatcherIdsFromScope = useMemo(() => {
-    if ((!filteredDrivers || filteredDrivers.length === 0) && (!filteredTrucks || filteredTrucks.length === 0)) return [];
+  // Get unique dispatcher IDs from the filtered drivers - use stable string for queryKey
+  const dispatcherIdsFromDrivers = useMemo(() => {
+    if (!filteredDrivers || filteredDrivers.length === 0) return [];
     const ids = new Set<string>();
     for (const d of filteredDrivers) {
       if (d.dispatcher_id) ids.add(d.dispatcher_id);
-    }
-    for (const t of filteredTrucks) {
-      if (!t.driver1_id && !t.driver2_id && t.dispatcher_id) ids.add(t.dispatcher_id);
     }
     const allIds = Array.from(ids);
     const validIds = allIds.filter(isValidUUID);
@@ -630,10 +620,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       console.warn(`[ReportsAdapter] Filtered ${allIds.length - validIds.length} invalid UUIDs from dispatcher_id`);
     }
     return validIds.sort();
-  }, [filteredDrivers, filteredTrucks]);
+  }, [filteredDrivers]);
 
   // Create a stable string key to prevent React Query re-renders
-  const dispatcherIdsKey = dispatcherIdsFromScope.join(",");
+  const dispatcherIdsKey = dispatcherIdsFromDrivers.join(",");
 
   const { data: dispatchers } = useQuery({
     queryKey: ["adapter-dispatchers", dispatcherIdsKey],
@@ -1557,8 +1547,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     console.time('[perf] transformedData');
     if (!USE_DATE_WINDOW_LOADING) { console.timeEnd('[perf] transformedData'); return null; }
     
-    // If we have no driver/truck scope yet, return empty (not null)
-    if ((!dateWindowHook.driverIds || dateWindowHook.driverIds.length === 0) && filteredTrucks.length === 0) {
+    // If we have no driver scope yet, return empty (not null)
+    if (!dateWindowHook.driverIds || dateWindowHook.driverIds.length === 0) {
       console.timeEnd('[perf] transformedData');
       return dateWindowHook.isLoading ? null : [];
     }
@@ -2036,123 +2026,6 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       });
     }
 
-    // Add active trucks that have no assigned driver but do have stored dispatcher/company metadata.
-    // These are not reachable through driverIds, so they must be rendered directly from the truck row.
-    for (const truck of filteredTrucks) {
-      if (truck.driver1_id || truck.driver2_id || !truck.dispatcher_id) continue;
-
-      const storedDispatcherId = truck.dispatcher_id;
-      const dispatcherInfo = dispatcherMap.get(storedDispatcherId);
-      if (!dispatcherInfo) continue;
-
-      if (!dispatcherGroups.has(storedDispatcherId)) {
-        dispatcherGroups.set(storedDispatcherId, {
-          dispatcher: dispatcherInfo.full_name || dispatcherInfo.email || "Unknown",
-          dispatcherId: storedDispatcherId,
-          office: dispatcherInfo.office || null,
-          ext: dispatcherInfo.ext || null,
-          createdAt: dispatcherInfo.created_at || null,
-          trucks: [],
-          isOffDuty: false,
-        });
-      }
-
-      const group = dispatcherGroups.get(storedDispatcherId);
-      if (!group) continue;
-
-      const trailerInfo = truck.trailer_id ? trailerMap.get(truck.trailer_id) : null;
-      const companyName = truck.company_id ? companyMap.get(truck.company_id) || null : null;
-      const truckStatus = truck.status === "available" || !truck.status ? "Available" : truck.status;
-
-      group.trucks.push({
-        id: truck.id,
-        orderId: null,
-        truckNumber: truck.truck_number || null,
-        companyName,
-        driver: "",
-        driver1Name: "",
-        driverId: null,
-        driverPhone: null,
-        driverEmail: null,
-        driver2Id: null,
-        driver2Name: null,
-        driver2Phone: null,
-        driver2Email: null,
-        emergencyContactName: null,
-        emergencyContactRelation: null,
-        emergencyContactPhone: null,
-        driverHazmat: false,
-        driverTanker: false,
-        driverTwic: false,
-        driverCitizen: true,
-        driverCriminal: false,
-        driverStraps: 0,
-        driverLoadBars: 0,
-        truckVin: truck.vin || null,
-        truckPlate: truck.plate || null,
-        trailerVin: trailerInfo?.vin || null,
-        trailerPlate: trailerInfo?.plate || null,
-        trailerNumber: trailerInfo?.trailer_number || null,
-        trailerVented: (trailerInfo as any)?.vented || false,
-        home: "—",
-        homeLatitude: null,
-        homeLongitude: null,
-        homeCity: null,
-        homeState: null,
-        dispatcher: dispatcherInfo.full_name || dispatcherInfo.email || "Unknown",
-        dispatcherId: storedDispatcherId,
-        currentDispatcherName: null,
-        status: truckStatus,
-        pickup: { id: null, location: "—", date: "—", time: "—" },
-        delivery: { id: null, location: "—", date: "—", time: "—" },
-        awayDays: 0,
-        driveHours: "0:00h",
-        shiftHours: "0:00h",
-        cycleHours: "0:00h",
-        driveMinutes: 0,
-        shiftMinutes: 0,
-        breakMinutes: 0,
-        cycleMinutes: 0,
-        hosStatus: null,
-        hosLastUpdated: null,
-        twoWeekBlockDate: null,
-        randomDrugTestDate: null,
-        doNotTouchHos: false,
-        note: "",
-        lastEdit: "",
-        editDate: "",
-        allOrders: [],
-        activeOrders: [],
-        activeOrdersCount: 0,
-        totalOrdersCount: 0,
-        hasMultipleOrders: false,
-        lost_day_notes: [],
-        lostDayNotes: [],
-        milesAway: truck.miles_away ?? null,
-        fuelLevel: truck.fuel_level ?? null,
-        totalMiles: 0,
-        goingYard: false,
-        isOffDutyDriver: false,
-        driverCreatedAt: truck.created_at || null,
-        oil_change_date: truck.oil_change_date || null,
-        tires_swap_date: truck.tires_swap_date || null,
-        maintenance_check_date: truck.maintenance_check_date || null,
-        last_oil_change_miles: truck.last_oil_change_miles ?? null,
-        truck_miles: truck.miles ?? null,
-        source: truck.source ?? null,
-        dot_inspection_date: truck.dot_inspection_date || null,
-        trailer_dot_inspection_date: trailerInfo?.dot_inspection_date || null,
-        plate_expiration_date: truck.plate_expiration_date || null,
-        insurance_expiration_date: truck.insurance_expiration_date || null,
-        trailer_plate_expiration_date: trailerInfo?.plate_expiration_date || null,
-        trailer_insurance_expiration_date: trailerInfo?.insurance_expiration_date || null,
-        cdl_expiration_date: null,
-        mvr_date: null,
-        clearing_house: null,
-        medical_card_expiration_date: null,
-      });
-    }
-
     // Convert to array and filter by office if needed
     let groupedData = Array.from(dispatcherGroups.values());
 
@@ -2475,7 +2348,6 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     dateWindowHook.isLoading,
     dateWindowHook.isFetching,
     filteredTrucks,
-    dispatcherIdsForScope,
     allTrucks,
     trailers,
     filteredDrivers,

@@ -1049,7 +1049,6 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     // (trucks, drivers, notes, etc.) follow the spotlight → full expansion.
     driverIds: publishedDriverIds,
     fullDriverIds: scopeForOffice.driverIds,
-    dispatcherIds: scopeForOffice.dispatcherIds,
     dateWindow: currentWindow,
     isLoading: initialLoading && globalAccumulatedOrders.size === 0,
     isFetching,
