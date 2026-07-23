@@ -655,6 +655,8 @@ const TransferList = () => {
 
   const filteredRows = useMemo(() => {
     let rows = enrichedRows.filter((row: any) => (row.transfer_type || 'bf_prime') === activeTab);
+    // Hide finished transfers
+    rows = rows.filter((row) => !row.finished);
     // Hide rows where the driver is done (inactive)
     rows = rows.filter((row) => {
       if (!row.driver_id) return true;
@@ -850,6 +852,7 @@ const TransferList = () => {
       <Tabs value={activeTab} onValueChange={(tab) => setActiveTab(tab)}>
         <TabsList>
           <TabsTrigger value="bf_prime">BF Prime Transfers</TabsTrigger>
+          <TabsTrigger value="ues">UES Transfers</TabsTrigger>
         </TabsList>
       </Tabs>
 
