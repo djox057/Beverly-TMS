@@ -46,10 +46,9 @@ export const useDrivers = () => {
 
         // Stage 3: Parallel batch fetches (no joins, simple index lookups)
         const [trucksRes, companiesRes, dispatchersRes, driverRolesRes] = await Promise.all([
-          supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id, trailer_id'),
-          companyIds.length > 0
-            ? supabase.from('companies').select('id, name').in('id', companyIds)
-            : { data: [], error: null },
+          supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id, trailer_id, company_id, dispatcher_id'),
+          // Fetch all companies (small table) so we can resolve truck-fallback companies too.
+          supabase.from('companies').select('id, name'),
           supabase.from('profiles').select('user_id, full_name, email'),
           supabase.from('user_roles').select('user_id').eq('role', 'driver'),
         ]);
