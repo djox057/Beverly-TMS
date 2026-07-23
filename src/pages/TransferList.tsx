@@ -655,6 +655,8 @@ const TransferList = () => {
 
   const filteredRows = useMemo(() => {
     let rows = enrichedRows.filter((row: any) => (row.transfer_type || 'bf_prime') === activeTab);
+    // Hide finished transfers
+    rows = rows.filter((row) => !row.finished);
     // Hide rows where the driver is done (inactive)
     rows = rows.filter((row) => {
       if (!row.driver_id) return true;
@@ -850,6 +852,7 @@ const TransferList = () => {
       <Tabs value={activeTab} onValueChange={(tab) => setActiveTab(tab)}>
         <TabsList>
           <TabsTrigger value="bf_prime">BF Prime Transfers</TabsTrigger>
+          <TabsTrigger value="ues">UES Transfers</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -1162,7 +1165,8 @@ function TransferRowDialog({
   const isEdit = !!editData;
   const [truckId, setTruckId] = useState<string | null>(editData?.truck_id || null);
   const [driverId, setDriverId] = useState<string | null>(editData?.driver_id || null);
-  const [goingToCompany, setGoingToCompany] = useState(editData?.going_to_company || "BF Prime LLC");
+  const defaultCompany = transferType === "ues" ? "United Enterprise solutions" : "BF Prime LLC";
+  const [goingToCompany, setGoingToCompany] = useState(editData?.going_to_company || defaultCompany);
   const [drugTestDate, setDrugTestDate] = useState<Date | undefined>(
     editData?.drug_test_date ? new Date(editData.drug_test_date + "T00:00:00") : undefined
   );
@@ -1230,7 +1234,7 @@ function TransferRowDialog({
   }, [driverTruckMap]);
 
   const reset = () => {
-    setTruckId(null); setDriverId(null); setGoingToCompany("BF Prime LLC"); setDrugTestDate(undefined);
+    setTruckId(null); setDriverId(null); setGoingToCompany(defaultCompany); setDrugTestDate(undefined);
     setDrugTestResult(""); setComingToOffice(undefined); setEtaTime("");
     setSafetyUserId(null); setDriverInformed(false); setSign(false); setFinished(false);
     setTruckSearch(""); setDriverSearch("");
