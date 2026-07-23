@@ -485,6 +485,18 @@ const fetchIndividualDriverScope = async (
 
   const driverIdSet = new Set<string>((directDrivers || []).map(d => d.id));
 
+  // Fallback: include drivers whose truck's stored dispatcher is this dispatcher,
+  // even if the driver row itself has no dispatcher assigned.
+  const { data: dispatcherTrucks } = await supabase
+    .from("trucks")
+    .select("driver1_id, driver2_id")
+    .eq("is_active", true)
+    .eq("dispatcher_id", individualDispatcherId);
+  for (const t of dispatcherTrucks || []) {
+    if (t.driver1_id) driverIdSet.add(t.driver1_id);
+    if (t.driver2_id) driverIdSet.add(t.driver2_id);
+  }
+
   // Also include drivers that appear on orders booked by this user.
   // This surfaces recovery/transfer loads booked by the dispatcher even when
   // the load is now assigned to another dispatcher's driver.
@@ -546,6 +558,18 @@ const fetchAllOfficeDriverScopes = async (): Promise<Map<string, { driverIds: st
     console.warn('[useReportsDateWindow] off-duty status fetch failed (non-fatal):', offDutyRes.error);
   }
 
+  // Fetch trucks so drivers without a direct dispatcher_id can inherit from their assigned truck.
+  const { data: trucksForScope } = await supabase
+    .from("trucks")
+    .select("driver1_id, driver2_id, dispatcher_id")
+    .eq("is_active", true);
+  const truckDispatcherByDriverId = new Map<string, string>();
+  for (const t of trucksForScope || []) {
+    if (!t.dispatcher_id) continue;
+    if (t.driver1_id) truckDispatcherByDriverId.set(t.driver1_id, t.dispatcher_id);
+    if (t.driver2_id) truckDispatcherByDriverId.set(t.driver2_id, t.dispatcher_id);
+  }
+
   // Group dispatchers by office and build dispatcher→office lookup
   const dispatchersByOffice = new Map<string, string[]>();
   const dispatcherToOffice = new Map<string, string>();
@@ -565,8 +589,10 @@ const fetchAllOfficeDriverScopes = async (): Promise<Map<string, { driverIds: st
 
   // Map each active driver to their current dispatcher's office
   for (const driver of driversRes.data || []) {
-    if (!driver.dispatcher_id) continue;
-    const office = dispatcherToOffice.get(driver.dispatcher_id);
+    // Fallback: if driver has no dispatcher, use their assigned truck's dispatcher.
+    const effectiveDispatcherId = driver.dispatcher_id || truckDispatcherByDriverId.get(driver.id);
+    if (!effectiveDispatcherId) continue;
+    const office = dispatcherToOffice.get(effectiveDispatcherId);
     if (!office) continue;
     const entry = working.get(office);
     if (entry) entry.driverIds.add(driver.id);
