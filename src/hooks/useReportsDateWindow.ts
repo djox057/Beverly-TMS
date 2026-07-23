@@ -546,6 +546,18 @@ const fetchAllOfficeDriverScopes = async (): Promise<Map<string, { driverIds: st
     console.warn('[useReportsDateWindow] off-duty status fetch failed (non-fatal):', offDutyRes.error);
   }
 
+  // Fetch trucks so drivers without a direct dispatcher_id can inherit from their assigned truck.
+  const { data: trucksForScope } = await supabase
+    .from("trucks")
+    .select("driver1_id, driver2_id, dispatcher_id")
+    .eq("is_active", true);
+  const truckDispatcherByDriverId = new Map<string, string>();
+  for (const t of trucksForScope || []) {
+    if (!t.dispatcher_id) continue;
+    if (t.driver1_id) truckDispatcherByDriverId.set(t.driver1_id, t.dispatcher_id);
+    if (t.driver2_id) truckDispatcherByDriverId.set(t.driver2_id, t.dispatcher_id);
+  }
+
   // Group dispatchers by office and build dispatcher→office lookup
   const dispatchersByOffice = new Map<string, string[]>();
   const dispatcherToOffice = new Map<string, string>();
@@ -565,8 +577,10 @@ const fetchAllOfficeDriverScopes = async (): Promise<Map<string, { driverIds: st
 
   // Map each active driver to their current dispatcher's office
   for (const driver of driversRes.data || []) {
-    if (!driver.dispatcher_id) continue;
-    const office = dispatcherToOffice.get(driver.dispatcher_id);
+    // Fallback: if driver has no dispatcher, use their assigned truck's dispatcher.
+    const effectiveDispatcherId = driver.dispatcher_id || truckDispatcherByDriverId.get(driver.id);
+    if (!effectiveDispatcherId) continue;
+    const office = dispatcherToOffice.get(effectiveDispatcherId);
     if (!office) continue;
     const entry = working.get(office);
     if (entry) entry.driverIds.add(driver.id);
