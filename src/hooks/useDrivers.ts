@@ -94,9 +94,12 @@ export const useDrivers = () => {
 
         // Stage 4: Assemble
         return allDrivers.map(driver => {
-          const company = companyMap.get(driver.company_id) || null;
           const truck = trucksByDriverId.get(driver.id);
-          const dispatcher = dispatcherMap.get(driver.dispatcher_id) || null;
+          // Fallback: inherit company/dispatcher from assigned truck when driver has none.
+          const effectiveCompanyId = driver.company_id || truck?.company_id || null;
+          const effectiveDispatcherId = driver.dispatcher_id || truck?.dispatcher_id || null;
+          const company = effectiveCompanyId ? companyMap.get(effectiveCompanyId) || null : null;
+          const dispatcher = effectiveDispatcherId ? dispatcherMap.get(effectiveDispatcherId) || null : null;
 
           // Remove companies property if it leaked from old schema
           const { companies, ...cleanDriver } = driver;
