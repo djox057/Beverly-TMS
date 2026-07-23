@@ -1781,10 +1781,14 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       // Skip driver2s - they are shown on the same row as driver1 (team)
       if (driver2IdsToSkip.has(driverId)) continue;
 
-      const dispatcherInfo = driver.dispatcher_id ? dispatcherMap.get(driver.dispatcher_id) : null;
-      if (!dispatcherInfo) continue;
+      // Fallback: if driver has no dispatcher, inherit from their assigned truck.
+      const truckForDispatcher = truckByDriverId.get(driverId);
+      const effectiveDispatcherId =
+        driver.dispatcher_id || truckForDispatcher?.dispatcher_id || null;
+      const dispatcherInfo = effectiveDispatcherId ? dispatcherMap.get(effectiveDispatcherId) : null;
+      if (!dispatcherInfo || !effectiveDispatcherId) continue;
 
-      const dispatcherId = driver.dispatcher_id!;
+      const dispatcherId = effectiveDispatcherId;
 
       // Get or create dispatcher group
       if (!dispatcherGroups.has(dispatcherId)) {
@@ -1804,7 +1808,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       const truck = truckByDriverId.get(driverId);
       const note = notesByDriverId.get(driverId);
       const driverLostNotes = lostNotesByDriverId.get(driverId) || [];
-      const companyName = driver.company_id ? companyMap.get(driver.company_id) : null;
+      // Fallback: if driver has no company, inherit from their assigned truck.
+      const effectiveCompanyId = driver.company_id || truck?.company_id || null;
+      const companyName = effectiveCompanyId ? companyMap.get(effectiveCompanyId) || null : null;
 
       // Sort orders by pickup_datetime
       const sortedOrders = [...driverOrders].sort((a, b) => {
@@ -1851,7 +1857,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         const loadDetails = {
           loadNumber: order.internal_load_number || "—",
           brokerLoadNumber: order.broker_load_number || "—",
-          companyName: driver.company_id ? companyMap.get(driver.company_id) : null,
+          companyName,
           pickupInfo: pickupStop
             ? {
                 address: pickupStop.address || "—",
