@@ -1057,6 +1057,40 @@ const Drivers = () => {
       });
       if (noteError) throw noteError;
 
+      // Capture driver's dispatcher/company BEFORE we null them out so we can
+      // persist them onto the truck below.
+      const driverDispatcherId = (editingDriver as any).dispatcher_id || null;
+      const driverCompanyId = (editingDriver as any).company_id || null;
+
+      // Find and disconnect truck/trailer FIRST — copy dispatcher/company from the
+      // driver onto the truck (only where the truck has none) so the driverless
+      // truck keeps its dispatcher/company after Done.
+      const { data: truck, error: truckFindError } = await supabase
+        .from("trucks")
+        .select("id, driver1_id, driver2_id, company_id, dispatcher_id")
+        .or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`)
+        .maybeSingle();
+      if (truckFindError) throw truckFindError;
+      if (truck) {
+        const updateData: any = {
+          trailer_id: null,
+        };
+        if (truck.driver1_id === editingDriver.id) {
+          updateData.driver1_id = null;
+        }
+        if (truck.driver2_id === editingDriver.id) {
+          updateData.driver2_id = null;
+        }
+        if (!truck.dispatcher_id && driverDispatcherId) {
+          updateData.dispatcher_id = driverDispatcherId;
+        }
+        if (!truck.company_id && driverCompanyId) {
+          updateData.company_id = driverCompanyId;
+        }
+        const { error: truckUpdateError } = await supabase.from("trucks").update(updateData).eq("id", truck.id);
+        if (truckUpdateError) throw truckUpdateError;
+      }
+
       // Set termination date, mark as inactive, clear dispatcher and 2-week notice
       const { error: driverError } = await supabase
         .from("drivers")
@@ -1068,28 +1102,6 @@ const Drivers = () => {
         })
         .eq("id", editingDriver.id);
       if (driverError) throw driverError;
-
-      // Find and disconnect truck/trailer
-      const { data: truck, error: truckFindError } = await supabase
-        .from("trucks")
-        .select("id, driver1_id, driver2_id, company_id")
-        .or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`)
-        .maybeSingle();
-      if (truckFindError) throw truckFindError;
-      if (truck) {
-        // Determine which driver field to clear
-        const updateData: any = {
-          trailer_id: null,
-        };
-        if (truck.driver1_id === editingDriver.id) {
-          updateData.driver1_id = null;
-        }
-        if (truck.driver2_id === editingDriver.id) {
-          updateData.driver2_id = null;
-        }
-        const { error: truckUpdateError } = await supabase.from("trucks").update(updateData).eq("id", truck.id);
-        if (truckUpdateError) throw truckUpdateError;
-      }
       toast({
         title: "Success",
         description: `${formData.first_name} ${formData.last_name} has been marked as done and removed from active drivers`,
