@@ -44,7 +44,6 @@ export const useTrucks = () => {
         // Stage 2: Collect unique IDs for batch fetches
         const trailerIds = [...new Set(allTrucks.map(t => t.trailer_id).filter(Boolean))] as string[];
         const driverIds = [...new Set(allTrucks.flatMap(t => [t.driver1_id, t.driver2_id]).filter(Boolean))] as string[];
-        const companyIds = [...new Set(allTrucks.map(t => t.company_id).filter(Boolean))] as string[];
 
         // Stage 3: Parallel batch fetches (each is a simple index lookup, no joins)
         const [trailersRes, driversRes, companiesRes, dispatchersRes] = await Promise.all([
@@ -83,8 +82,8 @@ export const useTrucks = () => {
             company: companyMap.get(driver2Raw.company_id) || null,
           } : null;
 
-          // Dispatcher from driver1
-          const dispatcherId = driver1?.dispatcher_id;
+          // Dispatcher from driver1, fallback to truck.dispatcher_id
+          const dispatcherId = driver1?.dispatcher_id || truck.dispatcher_id;
           const dispatcherProfile = dispatcherId ? dispatcherMap.get(dispatcherId) : null;
 
           return {
