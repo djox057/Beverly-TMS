@@ -1640,6 +1640,14 @@ const Drivers = () => {
                               ...formData,
                               truck_id: value,
                               trailer_id: selectedTruck?.trailer_id || "",
+                              company_id:
+                                formData.company_id ||
+                                (selectedTruck as any)?.company_id ||
+                                "",
+                              dispatcher_id:
+                                formData.dispatcher_id ||
+                                (selectedTruck as any)?.dispatcher_id ||
+                                "",
                             });
                             setSelectedTruckId(value);
                           }}
