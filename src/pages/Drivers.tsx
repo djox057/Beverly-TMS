@@ -2692,10 +2692,19 @@ const Drivers = () => {
                       }))}
                       value={formData.truck_id}
                       onValueChange={(value) => {
+                        const selectedTruck = trucks?.find((t) => t.id === value);
                         setFormData({
                           ...formData,
                           truck_id: value,
                           // Keep current trailer - don't auto-fill from new truck
+                          company_id:
+                            formData.company_id ||
+                            (selectedTruck as any)?.company_id ||
+                            "",
+                          dispatcher_id:
+                            formData.dispatcher_id ||
+                            (selectedTruck as any)?.dispatcher_id ||
+                            "",
                         });
                         setSelectedTruckId(value);
                       }}
