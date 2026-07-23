@@ -8,7 +8,7 @@ export const useAvailableTrucks = (forRecovery?: boolean) => {
       // Stage 1: Flat trucks fetch
       const { data: trucks, error } = await supabase
         .from('trucks')
-        .select('id, truck_number, driver1_id, driver2_id, trailer_id, is_active')
+        .select('id, truck_number, driver1_id, driver2_id, trailer_id, is_active, company_id, dispatcher_id')
         .eq('is_active', true)
         .order('truck_number', { ascending: true });
       
