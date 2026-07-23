@@ -46,9 +46,10 @@ export const useDrivers = () => {
 
         // Stage 3: Parallel batch fetches (no joins, simple index lookups)
         const [trucksRes, companiesRes, dispatchersRes, driverRolesRes] = await Promise.all([
-          supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id, trailer_id, company_id, dispatcher_id'),
-          // Fetch all companies (small table) so we can resolve truck-fallback companies too.
-          supabase.from('companies').select('id, name'),
+          supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id, trailer_id'),
+          companyIds.length > 0
+            ? supabase.from('companies').select('id, name').in('id', companyIds)
+            : { data: [], error: null },
           supabase.from('profiles').select('user_id, full_name, email'),
           supabase.from('user_roles').select('user_id').eq('role', 'driver'),
         ]);
@@ -93,12 +94,9 @@ export const useDrivers = () => {
 
         // Stage 4: Assemble
         return allDrivers.map(driver => {
+          const company = companyMap.get(driver.company_id) || null;
           const truck = trucksByDriverId.get(driver.id);
-          // Fallback: inherit company/dispatcher from assigned truck when driver has none.
-          const effectiveCompanyId = driver.company_id || truck?.company_id || null;
-          const effectiveDispatcherId = driver.dispatcher_id || truck?.dispatcher_id || null;
-          const company = effectiveCompanyId ? companyMap.get(effectiveCompanyId) || null : null;
-          const dispatcher = effectiveDispatcherId ? dispatcherMap.get(effectiveDispatcherId) || null : null;
+          const dispatcher = dispatcherMap.get(driver.dispatcher_id) || null;
 
           // Remove companies property if it leaked from old schema
           const { companies, ...cleanDriver } = driver;

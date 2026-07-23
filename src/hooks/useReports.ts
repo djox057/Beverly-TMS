@@ -933,10 +933,9 @@ export const useReports = (options?: UseReportsOptions) => {
 
     // Filter trucks by driver's dispatcher for priority office loading
     if (filterDispatcherIds && filterDispatcherIds.length > 0 && trucks) {
-      trucks = trucks.filter(truck => {
-        const effectiveDispatcherId = truck.driver1?.dispatcher_id || truck.dispatcher_id;
-        return effectiveDispatcherId && filterDispatcherIds.includes(effectiveDispatcherId);
-      });
+      trucks = trucks.filter(truck =>
+        truck.driver1?.dispatcher_id && filterDispatcherIds.includes(truck.driver1.dispatcher_id)
+      );
     }
     
     console.log(`[useReports] ✅ Fetched ${trucks?.length} trucks${filterOffice ? ` for ${filterOffice}` : ""}`);
@@ -1526,9 +1525,8 @@ export const useReports = (options?: UseReportsOptions) => {
             // Get lost day notes for this truck's driver
             const truckLostDayNotes = driverId ? (lostDayNotesByDriverId.get(driverId) || []) : [];
 
-            // Find dispatcher info from driver1, fallback to truck.dispatcher_id
-            const effectiveDispatcherId = truck.driver1?.dispatcher_id || truck.dispatcher_id;
-            const dispatcherInfo = effectiveDispatcherId ? dispatchersByUserId.get(effectiveDispatcherId) : undefined;
+            // Find dispatcher info from driver1
+            const dispatcherInfo = truck.driver1?.dispatcher_id ? dispatchersByUserId.get(truck.driver1.dispatcher_id) : undefined;
 
             // Format location
             const formatLocation = (city: string | null, state: string | null) => {
@@ -1689,7 +1687,7 @@ export const useReports = (options?: UseReportsOptions) => {
               homeCity: truck.driver1?.home_city ?? null,
               homeState: truck.driver1?.home_state ?? null,
               dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
-              dispatcherId: effectiveDispatcherId,
+              dispatcherId: truck.driver1?.dispatcher_id,
               status,
               pickup: transferStopInfo.transferPickupInfo 
                 ? formatTransferInfo(transferStopInfo.transferPickupInfo)! 

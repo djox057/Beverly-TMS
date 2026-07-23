@@ -1062,8 +1062,8 @@ const Trucks = () => {
                         <TableCell className="font-medium text-center whitespace-nowrap">{truck.truck_number}</TableCell>
                         <TableCell className="font-mono text-sm text-center whitespace-nowrap">{truck.vin || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">
-                          {(truck.driver1?.company?.name || truck.company?.name)
-                            ? (truck.driver1?.company?.name || truck.company?.name)
+                          {truck.driver1?.company?.name 
+                            ? truck.driver1.company.name
                                 .replace(/\s+(LLC|Inc\.?|INC|Corporation|Corp\.?)$/i, '')
                                 .replace(/\s+Solutions$/i, '')
                             : "—"}

@@ -53,24 +53,12 @@ export function useDriversRealtime() {
       const [companiesRes, dispatchersRes, trucksRes] = await Promise.all([
         companyIds.length > 0 ? supabase.from("companies").select("id, name").in("id", companyIds) : { data: [] },
         dispatcherIds.length > 0 ? supabase.from("profiles").select("user_id, full_name, email").in("user_id", dispatcherIds) : { data: [] },
-        supabase.from("trucks").select("id, truck_number, trailer_id, driver1_id, driver2_id, company_id, dispatcher_id")
+        supabase.from("trucks").select("id, truck_number, trailer_id, driver1_id, driver2_id")
           .or(driverIds.map(id => `driver1_id.eq.${id},driver2_id.eq.${id}`).join(",")),
       ]);
 
       const companyMap = new Map((companiesRes.data || []).map(c => [c.id, c]));
       const dispatcherMap = new Map((dispatchersRes.data || []).map(d => [d.user_id, d]));
-
-      // Also fetch any truck-fallback companies/dispatchers not yet in the maps.
-      const extraCompanyIds = [...new Set((trucksRes.data || []).map(t => (t as any).company_id).filter(Boolean))].filter(id => !companyMap.has(id)) as string[];
-      const extraDispatcherIds = [...new Set((trucksRes.data || []).map(t => (t as any).dispatcher_id).filter(Boolean))].filter(id => !dispatcherMap.has(id) && isValidUUID(id)) as string[];
-      if (extraCompanyIds.length > 0) {
-        const { data } = await supabase.from("companies").select("id, name").in("id", extraCompanyIds);
-        for (const c of data || []) companyMap.set(c.id, c);
-      }
-      if (extraDispatcherIds.length > 0) {
-        const { data } = await supabase.from("profiles").select("user_id, full_name, email").in("user_id", extraDispatcherIds);
-        for (const d of data || []) dispatcherMap.set(d.user_id, d);
-      }
 
       // Fetch trailers for trucks
       const trailerIds = [...new Set((trucksRes.data || []).map(t => t.trailer_id).filter(Boolean))] as string[];
@@ -93,12 +81,10 @@ export function useDriversRealtime() {
 
       return cleanDrivers.map(driver => {
         const truck = truckByDriver.get(driver.id);
-        const effectiveDispatcherId = driver.dispatcher_id || truck?.dispatcher_id || null;
-        const effectiveCompanyId = driver.company_id || truck?.company_id || null;
-        const dispatcher = effectiveDispatcherId ? dispatcherMap.get(effectiveDispatcherId) : null;
+        const dispatcher = dispatcherMap.get(driver.dispatcher_id);
         return {
           ...driver,
-          company: effectiveCompanyId ? companyMap.get(effectiveCompanyId) || null : null,
+          company: companyMap.get(driver.company_id) || null,
           truck_info: truck ? { truck_number: truck.truck_number, trailer_number: truck.trailer?.trailer_number || null } : null,
           dispatcher_info: dispatcher ? { full_name: dispatcher.full_name, email: dispatcher.email } : null,
           has_account: cachedMap.get(driver.id)?.has_account ?? false,
