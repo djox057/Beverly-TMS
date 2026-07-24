@@ -498,8 +498,12 @@ const Trailers = () => {
   const exportToExcel = () => {
     const exportData = filteredTrailers.map(trailer => ({
       "Trailer #": trailer.trailer_number,
+      "Year": trailer.year || "",
+      "Make": trailer.make || "",
+      "Model": trailer.model || "",
       "Trailer Type": trailer.trailer_type || "",
       "VIN": trailer.vin || "",
+      "Plate": trailer.plate || "",
       "Connected Truck #": trailer.trucks?.[0]?.truck_number || "",
       "DOT Inspection": trailer.dot_inspection_date || "",
       "Plate Exp.": trailer.plate_expiration_date || "",
