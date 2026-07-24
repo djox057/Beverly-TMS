@@ -47,6 +47,7 @@ const Trailers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [assignmentFilter, setAssignmentFilter] = useState<"all" | "assigned" | "unassigned">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -101,9 +102,28 @@ const Trailers = () => {
   // Reset to first page when search or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, assignmentFilter]);
+  }, [searchTerm, assignmentFilter, companyFilter]);
 
-  // Filter trailers based on search term, assignment status, and status filter
+  // Map connected truck (and its driver's company) to each trailer
+  const trailerCompanyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!trucks) return map;
+    for (const truck of trucks) {
+      if (!truck.trailer_id) continue;
+      const companyName = truck.company?.name || "Unassigned";
+      map.set(truck.trailer_id, companyName);
+    }
+    return map;
+  }, [trucks]);
+
+  // Available company options derived from connected trucks
+  const companyOptions = useMemo(() => {
+    const names = new Set<string>();
+    trailerCompanyMap.forEach(name => names.add(name));
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [trailerCompanyMap]);
+
+  // Filter trailers based on search term, assignment status, status filter, and company
   const filteredTrailers = useMemo(() => {
     return trailers?.filter(trailer => {
       // Search filter
@@ -124,9 +144,15 @@ const Trailers = () => {
         (statusFilter === "active" && trailer.is_active !== false) || 
         (statusFilter === "inactive" && trailer.is_active === false);
       
-      return matchesSearch && matchesAssignment && matchesStatus;
+      // Company filter (company of the truck/driver this trailer is connected to)
+      const companyName = trailerCompanyMap.get(trailer.id) || "Unassigned";
+      const matchesCompany = companyFilter === "all" || 
+        (companyFilter === "unassigned" && companyName === "Unassigned") || 
+        companyFilter === companyName;
+      
+      return matchesSearch && matchesAssignment && matchesStatus && matchesCompany;
     }) || [];
-  }, [trailers, searchTerm, assignmentFilter, statusFilter]);
+  }, [trailers, searchTerm, assignmentFilter, statusFilter, companyFilter, trailerCompanyMap]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
@@ -670,6 +696,18 @@ const Trailers = () => {
                   <SelectItem value="all">All Trailers</SelectItem>
                   <SelectItem value="assigned">Assigned</SelectItem>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={companyFilter} onValueChange={(value: string) => setCompanyFilter(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Companies</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {companyOptions.map(company => (
+                    <SelectItem key={company} value={company}>{company}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <div className="relative w-72">
