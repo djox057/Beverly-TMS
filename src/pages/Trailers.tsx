@@ -102,7 +102,7 @@ const Trailers = () => {
   // Reset to first page when search or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, assignmentFilter]);
+  }, [searchTerm, assignmentFilter, companyFilter]);
 
   // Filter trailers based on search term, assignment status, and status filter
   const filteredTrailers = useMemo(() => {
