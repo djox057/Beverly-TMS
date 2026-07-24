@@ -392,7 +392,7 @@ export function ImportDriverExcelDialog({ open, onOpenChange, driverId, driverNa
 
         const { error: driverError } = await supabase
           .from('drivers')
-          .update(updates)
+          .update(updates as never)
           .eq('id', driverId);
 
         if (driverError) {

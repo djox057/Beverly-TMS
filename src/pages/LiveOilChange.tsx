@@ -331,7 +331,7 @@ const LiveOilChange = () => {
         if (error) throw error;
         return;
       }
-      const { error } = await supabase.from("trucks").update(patch).eq("id", id);
+      const { error } = await supabase.from("trucks").update(patch as never).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

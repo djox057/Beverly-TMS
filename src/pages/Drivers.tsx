@@ -921,7 +921,7 @@ const Drivers = () => {
 
         const { error: truckError } = await supabase
           .from("trucks")
-          .update(truckUpdatePayload)
+          .update(truckUpdatePayload as never)
           .eq("id", formData.truck_id);
         if (truckError) throw truckError;
 
