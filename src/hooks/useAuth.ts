@@ -70,7 +70,7 @@ export const useAuth = () => {
     if (!userId) return;
 
     const channel = supabase
-      .channel(`user_roles:${userId}`)
+      .channel(`user_roles:${userId}:${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
