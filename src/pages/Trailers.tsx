@@ -104,7 +104,26 @@ const Trailers = () => {
     setCurrentPage(1);
   }, [searchTerm, assignmentFilter, companyFilter]);
 
-  // Filter trailers based on search term, assignment status, and status filter
+  // Map connected truck (and its driver's company) to each trailer
+  const trailerCompanyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!trucks) return map;
+    for (const truck of trucks) {
+      if (!truck.trailer_id) continue;
+      const companyName = truck.company?.name || "Unassigned";
+      map.set(truck.trailer_id, companyName);
+    }
+    return map;
+  }, [trucks]);
+
+  // Available company options derived from connected trucks
+  const companyOptions = useMemo(() => {
+    const names = new Set<string>();
+    trailerCompanyMap.forEach(name => names.add(name));
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [trailerCompanyMap]);
+
+  // Filter trailers based on search term, assignment status, status filter, and company
   const filteredTrailers = useMemo(() => {
     return trailers?.filter(trailer => {
       // Search filter
@@ -125,9 +144,15 @@ const Trailers = () => {
         (statusFilter === "active" && trailer.is_active !== false) || 
         (statusFilter === "inactive" && trailer.is_active === false);
       
-      return matchesSearch && matchesAssignment && matchesStatus;
+      // Company filter (company of the truck/driver this trailer is connected to)
+      const companyName = trailerCompanyMap.get(trailer.id) || "Unassigned";
+      const matchesCompany = companyFilter === "all" || 
+        (companyFilter === "unassigned" && companyName === "Unassigned") || 
+        companyFilter === companyName;
+      
+      return matchesSearch && matchesAssignment && matchesStatus && matchesCompany;
     }) || [];
-  }, [trailers, searchTerm, assignmentFilter, statusFilter]);
+  }, [trailers, searchTerm, assignmentFilter, statusFilter, companyFilter, trailerCompanyMap]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
