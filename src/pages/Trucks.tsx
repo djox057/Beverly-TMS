@@ -718,6 +718,10 @@ const Trucks = () => {
     const exportData = filteredTrucks.map(truck => ({
       "Truck #": truck.truck_number,
       "VIN": truck.vin || "",
+      "Year": truck.year || "",
+      "Make": truck.make || "",
+      "Model": truck.model || "",
+      "Plate": truck.plate || "",
       "Company": truck.driver1?.company?.name || "",
       "Trailer #": truck.trailer?.trailer_number || "",
       "Driver 1": truck.driver1?.name || "",
