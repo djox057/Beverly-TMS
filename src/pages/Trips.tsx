@@ -3748,7 +3748,7 @@ const Trips = () => {
       const filename = `United_Enterprise_Solutions_${weekRange}${driverInfo}.xlsx`;
 
       // Nuclear option: rebuild workbook from scratch with only the data we need
-      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70, 12);
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 73, 12);
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
