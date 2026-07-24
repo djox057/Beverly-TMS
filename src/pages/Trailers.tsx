@@ -698,6 +698,18 @@ const Trailers = () => {
                   <SelectItem value="unassigned">Unassigned</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={companyFilter} onValueChange={(value: string) => setCompanyFilter(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Companies</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {companyOptions.map(company => (
+                    <SelectItem key={company} value={company}>{company}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="relative w-72">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input placeholder="Search trailers..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
