@@ -4092,7 +4092,7 @@ const Trips = () => {
       const driverInfo = driverName && typeof driverName === "string" ? `_${driverName.replace(/\s+/g, "-")}` : "";
       const filename = `AP_Silver_Trans_${weekRange}${driverInfo}.xlsx`;
 
-      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70, 12);
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 73, 12);
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
@@ -5257,7 +5257,7 @@ const Trips = () => {
         c.numFmt = "$#,##0.00";
       }
 
-      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70 + extraRowsNeeded, 12);
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 73 + extraRowsNeeded, 12);
       const filename = `AP_Silver_Final_${format(startDate, "MMM-d")}-${format(endDate, "MMM-d-yyyy")}_${(driver?.name || "Unknown").replace(/\s+/g, "-")}.xlsx`;
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
