@@ -3937,9 +3937,9 @@ const Trips = () => {
           });
       });
 
-      let creditsRow = 58;
+      let creditsRow = 62;
       credits.forEach((credit) => {
-        if (creditsRow > 60) return;
+        if (creditsRow > 64) return;
         worksheet.getCell(`C${creditsRow}`).value = credit.type;
         worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
         const amtCell = worksheet.getCell(`J${creditsRow}`);
@@ -4058,7 +4058,7 @@ const Trips = () => {
         const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
         const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
         creditDeductions.forEach((credit) => {
-          if (creditsRow > 60) return;
+          if (creditsRow > 64) return;
           worksheet.getCell(`C${creditsRow}`).value = `Credit: ${credit.explanation}`;
           worksheet.getCell(`I${creditsRow}`).value = endDateFormatted;
           const amtCell = worksheet.getCell(`J${creditsRow}`);
