@@ -521,7 +521,7 @@ export function BulkImportDriverExcelDialog({
               updates.agreement_start_date = dealInfo.agreement_start_date;
             if (dealInfo.hire_date) updates.hire_date = dealInfo.hire_date;
 
-            await supabase.from("drivers").update(updates).eq("id", driverId);
+            await supabase.from("drivers").update(updates as never).eq("id", driverId);
           }
 
           // Insert expenses in batches

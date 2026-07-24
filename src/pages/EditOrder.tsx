@@ -3252,7 +3252,7 @@ const EditOrder = () => {
           reTransferUpdate.bol_location = yardBolLocation.trim();
         }
 
-        const { error } = await supabase.from("orders").update(reTransferUpdate).eq("id", id);
+        const { error } = await supabase.from("orders").update(reTransferUpdate as never).eq("id", id);
 
         if (error) throw error;
 
@@ -3303,7 +3303,7 @@ const EditOrder = () => {
 
       console.log("Updating order with:", fullUpdateData);
 
-      const { error } = await supabase.from("orders").update(fullUpdateData).eq("id", id);
+      const { error } = await supabase.from("orders").update(fullUpdateData as never).eq("id", id);
 
       if (error) throw error;
 
