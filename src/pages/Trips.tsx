@@ -2467,7 +2467,7 @@ const Trips = () => {
       const filename = `${driverName}_Statement_${weekStart}_to_${weekEnd}.xlsx`;
 
       // Nuclear option: rebuild workbook from scratch with only the data we need
-      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 73, 12);
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70, 12);
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -4092,7 +4092,7 @@ const Trips = () => {
       const driverInfo = driverName && typeof driverName === "string" ? `_${driverName.replace(/\s+/g, "-")}` : "";
       const filename = `AP_Silver_Trans_${weekRange}${driverInfo}.xlsx`;
 
-      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70, 12);
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 73, 12);
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
@@ -4827,7 +4827,7 @@ const Trips = () => {
       }
 
       // Nuclear option: rebuild workbook from scratch with only the data we need
-      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 73 + extraRowsNeeded, 12);
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70 + extraRowsNeeded, 12);
       const filename = `${(driver?.name || "Unknown").replace(/\s+/g, "_")}_Final_${format(startDate, "MM-dd-yyyy")}_to_${format(endDate, "MM-dd-yyyy")}.xlsx`;
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -5257,7 +5257,7 @@ const Trips = () => {
         c.numFmt = "$#,##0.00";
       }
 
-      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70 + extraRowsNeeded, 12);
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 73 + extraRowsNeeded, 12);
       const filename = `AP_Silver_Final_${format(startDate, "MMM-d")}-${format(endDate, "MMM-d-yyyy")}_${(driver?.name || "Unknown").replace(/\s+/g, "-")}.xlsx`;
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
