@@ -4275,6 +4275,8 @@ export type Database = {
           id: string
           insurance_expiration_date: string | null
           is_active: boolean
+          make: string | null
+          model: string | null
           plate: string | null
           plate_expiration_date: string | null
           status: string | null
@@ -4284,6 +4286,7 @@ export type Database = {
           updated_at: string
           vented: boolean
           vin: string | null
+          year: number | null
         }
         Insert: {
           capacity?: number | null
@@ -4292,6 +4295,8 @@ export type Database = {
           id?: string
           insurance_expiration_date?: string | null
           is_active?: boolean
+          make?: string | null
+          model?: string | null
           plate?: string | null
           plate_expiration_date?: string | null
           status?: string | null
@@ -4301,6 +4306,7 @@ export type Database = {
           updated_at?: string
           vented?: boolean
           vin?: string | null
+          year?: number | null
         }
         Update: {
           capacity?: number | null
@@ -4309,6 +4315,8 @@ export type Database = {
           id?: string
           insurance_expiration_date?: string | null
           is_active?: boolean
+          make?: string | null
+          model?: string | null
           plate?: string | null
           plate_expiration_date?: string | null
           status?: string | null
@@ -4318,6 +4326,7 @@ export type Database = {
           updated_at?: string
           vented?: boolean
           vin?: string | null
+          year?: number | null
         }
         Relationships: []
       }
