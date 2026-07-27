@@ -310,7 +310,12 @@ const Billboard = () => {
         const displayName = profile?.full_name || name;
         const userId = profile?.user_id;
         const office = profile?.office || null;
-        const avgTrucks = userId ? dispatcherTruckCounts?.[userId] || 0 : 0;
+        const avgTrucks = userId
+          ? dispatcherMonthlyTruckCounts?.[userId] ||
+            dispatcherTruckCounts?.[userId] ||
+            liveTruckCounts[userId] ||
+            0
+          : 0;
 
         return {
           name,
