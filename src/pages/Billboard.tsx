@@ -9,6 +9,8 @@ const Billboard = () => {
     Record<string, { full_name: string; user_id: string; office: string | null }>
   >({});
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>();
+  const [dispatcherMonthlyTruckCounts, setDispatcherMonthlyTruckCounts] = useState<Record<string, number>>();
+  const [liveTruckCounts, setLiveTruckCounts] = useState<Record<string, number>>({});
   const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
   const [recoveryDriverIds, setRecoveryDriverIds] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<
