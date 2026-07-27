@@ -461,7 +461,9 @@ const Billboard = () => {
         const displayName = profile?.full_name || name;
         const userId = profile?.user_id;
         const office = profile?.office || null;
-        const avgTrucks = userId ? dispatcherTruckCounts?.[userId] || 0 : 0;
+        const avgTrucks = userId
+          ? dispatcherTruckCounts?.[userId] || liveTruckCounts[userId] || 0
+          : 0;
 
         return {
           name,
@@ -477,7 +479,7 @@ const Billboard = () => {
       })
       .filter((d) => d.name !== "Unknown" && d.orderCount > 0)
       .filter((d) => !d.userId || !managerUserIds.has(d.userId));
-  }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds, recoveryDriverIds]);
+  }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts, liveTruckCounts, managerUserIds, recoveryDriverIds]);
 
   // Sorted lists for Gross and RPM
   const sortedByGross = useMemo(() => {
