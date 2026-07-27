@@ -331,7 +331,7 @@ const Billboard = () => {
       })
       .filter((d) => d.name !== "Unknown" && d.orderCount > 0)
       .filter((d) => !d.userId || !managerUserIds.has(d.userId));
-  }, [thisMonthOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds, recoveryDriverIds]);
+  }, [thisMonthOrders, dispatcherProfiles, dispatcherTruckCounts, dispatcherMonthlyTruckCounts, liveTruckCounts, managerUserIds, recoveryDriverIds]);
 
   // Sorted monthly RPM list (filtered by 4.8+ trucks)
   const sortedMonthlyByRPM = useMemo(() => {
