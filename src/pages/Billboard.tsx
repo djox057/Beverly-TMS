@@ -213,6 +213,39 @@ const Billboard = () => {
 
   const { monthStart, monthEnd } = getMonthBounds();
 
+  const monthRangeKey = `${monthStart.getFullYear()}-${monthStart.getMonth()}`;
+
+  // Monthly boards use month-wide average truck counts (matches Analytics)
+  useEffect(() => {
+    const fetchMonthlyTruckCounts = async () => {
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const { data } = await supabase
+        .from("dispatcher_daily_driver_counts")
+        .select("dispatcher_id, driver_count, truck_count, date")
+        .gte("date", fmt(monthStart))
+        .lte("date", fmt(monthEnd));
+      if (data) {
+        const sums = new Map<string, { total: number; days: Set<string> }>();
+        data.forEach((row: any) => {
+          const id = row.dispatcher_id;
+          if (!id) return;
+          if (!sums.has(id)) sums.set(id, { total: 0, days: new Set() });
+          const entry = sums.get(id)!;
+          entry.total += Number(row.truck_count ?? row.driver_count ?? 0);
+          entry.days.add(row.date);
+        });
+        const avg: Record<string, number> = {};
+        sums.forEach((entry, id) => {
+          avg[id] = entry.days.size > 0 ? entry.total / entry.days.size : 0;
+        });
+        setDispatcherMonthlyTruckCounts(avg);
+      }
+    };
+    fetchMonthlyTruckCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthRangeKey]);
+
   // Filter orders for current month
   const thisMonthOrders = useMemo(() => {
     if (!orders) return [];
