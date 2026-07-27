@@ -569,8 +569,8 @@ const NewOrder = () => {
               miles = await calculateRouteFromCoords(originCoords, pickupCoords);
             }
           } else {
-            // Use default base coordinates
-            const baseCoords: Coordinates = { lat: 41.53803, lon: -87.578617 };
+            // Use default base coordinates (yard) when the driver has no prior loads
+            const baseCoords: Coordinates = { lat: 41.53782517269106, lon: -87.57865749016162 };
             miles = await calculateRouteFromCoords(baseCoords, pickupCoords);
           }
         } else {
@@ -580,7 +580,7 @@ const NewOrder = () => {
           if (firstPickup.state) addressParts.push(firstPickup.state);
           if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
           const pickupAddress = addressParts.join(", ");
-          const dhOriginAddress = lastDelivery?.deliveryAddress || "41.538030,-87.578617";
+          const dhOriginAddress = lastDelivery?.deliveryAddress || "41.53782517269106,-87.57865749016162";
           miles = await calculateDhMiles(dhOriginAddress, pickupAddress);
         }
 
