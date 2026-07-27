@@ -1590,10 +1590,18 @@ const NewOrder = () => {
   );
   const truckOptions = useMemo(
     () =>
-      trucks?.map((truck) => ({
-        value: truck.id,
-        label: truck.truck_number,
-      })) || [],
+      trucks?.map((truck) => {
+        const driver1Name = truck.driver1?.name;
+        const driver2Name = truck.driver2?.name;
+        const team = driver1Name && driver2Name
+          ? `${driver1Name} / ${driver2Name}`
+          : driver1Name || null;
+        return {
+          value: truck.id,
+          label: team ? `${truck.truck_number} — ${team}` : truck.truck_number,
+          searchText: `${truck.truck_number} ${driver1Name || ""} ${driver2Name || ""}`.trim(),
+        };
+      }) || [],
     [trucks]
   );
   const driverOptions = useMemo(
