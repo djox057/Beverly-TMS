@@ -9,6 +9,8 @@ const Billboard = () => {
     Record<string, { full_name: string; user_id: string; office: string | null }>
   >({});
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, number>>();
+  const [dispatcherMonthlyTruckCounts, setDispatcherMonthlyTruckCounts] = useState<Record<string, number>>();
+  const [liveTruckCounts, setLiveTruckCounts] = useState<Record<string, number>>({});
   const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
   const [recoveryDriverIds, setRecoveryDriverIds] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<
@@ -62,6 +64,43 @@ const Billboard = () => {
       }
     };
     fetchRecoveryDrivers();
+  }, []);
+
+  // Fetch live (current) truck counts per dispatcher as a fallback when
+  // daily snapshots are missing (e.g. before tonight's snapshot job runs,
+  // or after drivers were temporarily reassigned to other dispatchers).
+  useEffect(() => {
+    const fetchLiveTruckCounts = async () => {
+      const [{ data: activeDrivers }, { data: trucks }] = await Promise.all([
+        supabase.from("drivers").select("id, dispatcher_id").eq("is_active", true).not("dispatcher_id", "is", null),
+        supabase.from("trucks").select("id, driver1_id, driver2_id"),
+      ]);
+
+      if (!activeDrivers || !trucks) return;
+
+      const driverToDispatcher = new Map<string, string>();
+      activeDrivers.forEach((d) => {
+        if (d.dispatcher_id) driverToDispatcher.set(d.id, d.dispatcher_id);
+      });
+
+      const sets = new Map<string, Set<string>>();
+      trucks.forEach((t) => {
+        [t.driver1_id, t.driver2_id].forEach((driverId) => {
+          if (!driverId) return;
+          const dispatcherId = driverToDispatcher.get(driverId);
+          if (!dispatcherId) return;
+          if (!sets.has(dispatcherId)) sets.set(dispatcherId, new Set());
+          sets.get(dispatcherId)!.add(t.id);
+        });
+      });
+
+      const counts: Record<string, number> = {};
+      sets.forEach((set, dispatcherId) => {
+        counts[dispatcherId] = set.size;
+      });
+      setLiveTruckCounts(counts);
+    };
+    fetchLiveTruckCounts();
   }, []);
 
   const { weekStart, weekEnd } = useMemo(() => {
@@ -174,6 +213,39 @@ const Billboard = () => {
 
   const { monthStart, monthEnd } = getMonthBounds();
 
+  const monthRangeKey = `${monthStart.getFullYear()}-${monthStart.getMonth()}`;
+
+  // Monthly boards use month-wide average truck counts (matches Analytics)
+  useEffect(() => {
+    const fetchMonthlyTruckCounts = async () => {
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const { data } = await supabase
+        .from("dispatcher_daily_driver_counts")
+        .select("dispatcher_id, driver_count, truck_count, date")
+        .gte("date", fmt(monthStart))
+        .lte("date", fmt(monthEnd));
+      if (data) {
+        const sums = new Map<string, { total: number; days: Set<string> }>();
+        data.forEach((row: any) => {
+          const id = row.dispatcher_id;
+          if (!id) return;
+          if (!sums.has(id)) sums.set(id, { total: 0, days: new Set() });
+          const entry = sums.get(id)!;
+          entry.total += Number(row.truck_count ?? row.driver_count ?? 0);
+          entry.days.add(row.date);
+        });
+        const avg: Record<string, number> = {};
+        sums.forEach((entry, id) => {
+          avg[id] = entry.days.size > 0 ? entry.total / entry.days.size : 0;
+        });
+        setDispatcherMonthlyTruckCounts(avg);
+      }
+    };
+    fetchMonthlyTruckCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthRangeKey]);
+
   // Filter orders for current month
   const thisMonthOrders = useMemo(() => {
     if (!orders) return [];
@@ -238,7 +310,12 @@ const Billboard = () => {
         const displayName = profile?.full_name || name;
         const userId = profile?.user_id;
         const office = profile?.office || null;
-        const avgTrucks = userId ? dispatcherTruckCounts?.[userId] || 0 : 0;
+        const avgTrucks = userId
+          ? dispatcherMonthlyTruckCounts?.[userId] ||
+            dispatcherTruckCounts?.[userId] ||
+            liveTruckCounts[userId] ||
+            0
+          : 0;
 
         return {
           name,
@@ -254,7 +331,7 @@ const Billboard = () => {
       })
       .filter((d) => d.name !== "Unknown" && d.orderCount > 0)
       .filter((d) => !d.userId || !managerUserIds.has(d.userId));
-  }, [thisMonthOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds, recoveryDriverIds]);
+  }, [thisMonthOrders, dispatcherProfiles, dispatcherTruckCounts, dispatcherMonthlyTruckCounts, liveTruckCounts, managerUserIds, recoveryDriverIds]);
 
   // Sorted monthly RPM list (filtered by 4.8+ trucks)
   const sortedMonthlyByRPM = useMemo(() => {
@@ -384,7 +461,9 @@ const Billboard = () => {
         const displayName = profile?.full_name || name;
         const userId = profile?.user_id;
         const office = profile?.office || null;
-        const avgTrucks = userId ? dispatcherTruckCounts?.[userId] || 0 : 0;
+        const avgTrucks = userId
+          ? dispatcherTruckCounts?.[userId] || liveTruckCounts[userId] || 0
+          : 0;
 
         return {
           name,
@@ -400,7 +479,7 @@ const Billboard = () => {
       })
       .filter((d) => d.name !== "Unknown" && d.orderCount > 0)
       .filter((d) => !d.userId || !managerUserIds.has(d.userId));
-  }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts, managerUserIds, recoveryDriverIds]);
+  }, [thisWeekOrders, dispatcherProfiles, dispatcherTruckCounts, liveTruckCounts, managerUserIds, recoveryDriverIds]);
 
   // Sorted lists for Gross and RPM
   const sortedByGross = useMemo(() => {
