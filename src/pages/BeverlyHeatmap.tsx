@@ -91,7 +91,7 @@ function haversineDistanceMiles(lat1: number, lon1: number, lat2: number, lon2: 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const CLUSTER_RADIUS_MILES = 60;
+const CLUSTER_RADIUS_MILES = 100;
 
 interface CityNextData {
   freight: number;
@@ -411,7 +411,7 @@ export default function BeverlyHeatmap() {
       // Step 5: Aggregate per city — only delivery-to-cluster orders, verify next pickup is near cluster
       const cityNextMap = new Map<string, CityNextData>();
       for (const cityAgg of baseCities) {
-        // Filter to orders that have a delivery stop within 60 miles of this cluster center
+        // Filter to orders that have a delivery stop within 100 miles of this cluster center
         const deliveryFilteredIds = cityAgg.orderIds.filter((oid) => {
           const delivStops = orderDeliveryStops.get(oid);
           if (!delivStops) return false;

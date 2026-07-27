@@ -248,14 +248,14 @@ Deno.serve(async (req) => {
         const centLat = sumLat / bestIndices.length;
         const centLng = sumLng / bestIndices.length;
 
-        // Collect stops within 60 miles
+        // Collect stops within 100 miles
         const clusterTrucks = new Set<string>();
         const clusterOrders = new Set<string>();
         for (let i = 0; i < allStops.length; i++) {
           if (consumed.has(i)) continue;
           const s = allStops[i];
           if (Math.abs(s.latitude - centLat) > 1 || Math.abs(s.longitude - centLng) > 1) continue;
-          if (haversine(centLat, centLng, s.latitude, s.longitude) <= 60) {
+          if (haversine(centLat, centLng, s.latitude, s.longitude) <= 100) {
             clusterTrucks.add(s.truck_id);
             clusterOrders.add(s.order_id);
             consumed.add(i);
@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
         let bestCity: City | null = null;
         for (const city of refCities) {
           if (Math.abs(city.latitude - centLat) > 1 || Math.abs(city.longitude - centLng) > 1) continue;
-          if (haversine(centLat, centLng, city.latitude, city.longitude) <= 60) {
+          if (haversine(centLat, centLng, city.latitude, city.longitude) <= 100) {
             if (!bestCity || city.population > bestCity.population) {
               bestCity = city;
             }
