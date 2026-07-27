@@ -66,6 +66,43 @@ const Billboard = () => {
     fetchRecoveryDrivers();
   }, []);
 
+  // Fetch live (current) truck counts per dispatcher as a fallback when
+  // daily snapshots are missing (e.g. before tonight's snapshot job runs,
+  // or after drivers were temporarily reassigned to other dispatchers).
+  useEffect(() => {
+    const fetchLiveTruckCounts = async () => {
+      const [{ data: activeDrivers }, { data: trucks }] = await Promise.all([
+        supabase.from("drivers").select("id, dispatcher_id").eq("is_active", true).not("dispatcher_id", "is", null),
+        supabase.from("trucks").select("id, driver1_id, driver2_id"),
+      ]);
+
+      if (!activeDrivers || !trucks) return;
+
+      const driverToDispatcher = new Map<string, string>();
+      activeDrivers.forEach((d) => {
+        if (d.dispatcher_id) driverToDispatcher.set(d.id, d.dispatcher_id);
+      });
+
+      const sets = new Map<string, Set<string>>();
+      trucks.forEach((t) => {
+        [t.driver1_id, t.driver2_id].forEach((driverId) => {
+          if (!driverId) return;
+          const dispatcherId = driverToDispatcher.get(driverId);
+          if (!dispatcherId) return;
+          if (!sets.has(dispatcherId)) sets.set(dispatcherId, new Set());
+          sets.get(dispatcherId)!.add(t.id);
+        });
+      });
+
+      const counts: Record<string, number> = {};
+      sets.forEach((set, dispatcherId) => {
+        counts[dispatcherId] = set.size;
+      });
+      setLiveTruckCounts(counts);
+    };
+    fetchLiveTruckCounts();
+  }, []);
+
   const { weekStart, weekEnd } = useMemo(() => {
     const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
     const dayOfWeek = today.getDay();
