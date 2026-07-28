@@ -2049,6 +2049,44 @@ export type Database = {
           },
         ]
       }
+      driver_yard_action_comments: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+          yard_action_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          yard_action_id: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          yard_action_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_yard_action_comments_yard_action_id_fkey"
+            columns: ["yard_action_id"]
+            isOneToOne: false
+            referencedRelation: "driver_yard_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_yard_actions: {
         Row: {
           action_type: string
