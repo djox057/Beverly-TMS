@@ -33,6 +33,7 @@ import { useState, useMemo } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useDrivers } from "@/hooks/useDrivers";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
+import { YardActionComments } from "@/components/yard/YardActionComments";
 
 function TranslatableComment({ actionId, comment, commentEng, defaultEnglish = false, showTranslateButton = true }: { actionId: string; comment: string; commentEng: string | null; defaultEnglish?: boolean; showTranslateButton?: boolean }) {
   const [showEng, setShowEng] = useState(defaultEnglish);
@@ -929,6 +930,7 @@ export default function YardArrivals() {
                             <div>
                               <p className="text-sm font-medium mb-1">Reason:</p>
                               <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} defaultEnglish={isYardRole} showTranslateButton={true} />
+                              <YardActionComments actionId={action.id} />
                             </div>
                           </div>
                        ))}
@@ -1039,6 +1041,7 @@ export default function YardArrivals() {
                           <div>
                             <p className="text-sm font-medium mb-1">Reason:</p>
                             <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} defaultEnglish={isYardRole} showTranslateButton={true} />
+                            <YardActionComments actionId={action.id} />
                           </div>
                         </div>
                        ))}
@@ -1159,6 +1162,7 @@ export default function YardArrivals() {
                             </Button>
                           </div>
                           <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} defaultEnglish={isYardRole} showTranslateButton={true} />
+                          <YardActionComments actionId={action.id} />
                         </div>
                        ))}
                      </div>
@@ -1267,6 +1271,7 @@ export default function YardArrivals() {
                           <div>
                             <p className="text-sm font-medium mb-1">Reason:</p>
                             <TranslatableComment actionId={action.id} comment={action.comment} commentEng={action.comment_eng} defaultEnglish={isYardRole} showTranslateButton={true} />
+                            <YardActionComments actionId={action.id} />
                           </div>
                         </div>
                        ))}
