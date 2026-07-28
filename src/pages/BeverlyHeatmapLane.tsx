@@ -53,8 +53,9 @@ export default function BeverlyHeatmapLane() {
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
-  const [pickupRadius, setPickupRadius] = useState(60);
-  const [deliveryRadius, setDeliveryRadius] = useState(60);
+  const [pickupRadius, setPickupRadius] = useState(100);
+  const [deliveryRadius, setDeliveryRadius] = useState(100);
+
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "order_count", dir: "desc",
   });
