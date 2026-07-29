@@ -120,6 +120,7 @@ import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
 import { supabase } from "@/integrations/supabase/client";
 import React, { useState, useEffect, useMemo, memo, useRef, useCallback, startTransition } from "react";
+import { formatWorkTenure } from "@/utils/tenureDuration";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -4621,6 +4622,11 @@ const Reports = () => {
                                         {(group as any).isOffDuty && (
                                           <span className="ml-2 text-xs font-normal italic">(Off Duty)</span>
                                         )}
+                                        {(group as any).dispatcherCreatedAt && (
+                                          <span className="block text-[10px] font-normal italic text-muted-foreground">
+                                            {`// working here ${formatWorkTenure((group as any).dispatcherCreatedAt)}`}
+                                          </span>
+                                        )}
                                       </span>
                                       {group.ext && (
                                         <span className="text-xs font-normal text-muted-foreground">
@@ -5486,6 +5492,11 @@ const Reports = () => {
                                                                 >
                                                                   {truck.driver1Name}
                                                                 </span>
+                                                                {(truck as any).driver1HireDate && (
+                                                                  <span className="block text-[10px] font-normal italic text-muted-foreground">
+                                                                    {`// working here ${formatWorkTenure((truck as any).driver1HireDate)}`}
+                                                                  </span>
+                                                                )}
                                                               </p>
                                                               {truck.driverId && truck.driver2Id && (
                                                                 <div className="flex items-center gap-1">
@@ -5651,6 +5662,11 @@ const Reports = () => {
                                                                   >
                                                                     {truck.driver2Name}
                                                                   </span>
+                                                                  {(truck as any).driver2HireDate && (
+                                                                    <span className="block text-[10px] font-normal italic text-muted-foreground">
+                                                                      {`// working here ${formatWorkTenure((truck as any).driver2HireDate)}`}
+                                                                    </span>
+                                                                  )}
                                                                 </p>
                                                                 <div className="flex items-center gap-1">
                                                                   <Button
@@ -5858,6 +5874,11 @@ const Reports = () => {
                                                                 >
                                                                   {truck.driver}
                                                                 </span>
+                                                                {(truck as any).driver1HireDate && (
+                                                                  <span className="block text-[10px] font-normal italic text-muted-foreground">
+                                                                    {`// working here ${formatWorkTenure((truck as any).driver1HireDate)}`}
+                                                                  </span>
+                                                                )}
                                                               </p>
                                                               <div className="flex items-center gap-1">
                                                                 {truck.driverId && (
