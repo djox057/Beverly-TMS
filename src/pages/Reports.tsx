@@ -401,10 +401,7 @@ const LeaseAgreementButton = ({
             },
             leaseTemplate,
           );
-          downloadLeaseAgreement(
-            bytes,
-            `Lease_Agreement_${truck.truck_number || truckNumber || "Truck"}.pdf`,
-          );
+          downloadLeaseAgreement(bytes, `Lease_Agreement_${truck.truck_number || truckNumber || "Truck"}.pdf`);
         } catch (err: any) {
           toast({
             title: "Failed to generate lease agreement",
@@ -453,17 +450,13 @@ const Reports = () => {
   // Load Suggestions toggle (Reports header). Visible only when the user has
   // suggestions_enabled on their profile AND role is admin or dispatch.
   // Suggestions always start off on initial page load or refresh.
-  const canUseSuggestions =
-    !!profile?.suggestions_enabled && (hasRole("admin") || hasRole("dispatch"));
+  const canUseSuggestions = !!profile?.suggestions_enabled && (hasRole("admin") || hasRole("dispatch"));
   const [suggestionsMode, setSuggestionsMode] = useState<boolean>(false);
   const toggleSuggestionsMode = async () => {
     const next = !suggestionsMode;
     setSuggestionsMode(next);
     if (profile?.user_id) {
-      await (supabase as any)
-        .from("profiles")
-        .update({ suggestions_mode: next })
-        .eq("user_id", profile.user_id);
+      await (supabase as any).from("profiles").update({ suggestions_mode: next }).eq("user_id", profile.user_id);
     }
   };
 
@@ -539,10 +532,7 @@ const Reports = () => {
       if (roles.includes("admin") || roles.includes("manager")) return true;
       if (roles.includes("supervisor")) {
         if (!truck?.dispatcherId) return false;
-        return (
-          truck.dispatcherId === profile?.user_id ||
-          supervisedDispatcherIds.includes(truck.dispatcherId)
-        );
+        return truck.dispatcherId === profile?.user_id || supervisedDispatcherIds.includes(truck.dispatcherId);
       }
       if (roles.includes("dispatch")) {
         return !!truck?.dispatcherId && truck.dispatcherId === profile?.user_id;
@@ -4624,7 +4614,7 @@ const Reports = () => {
                                         )}
                                         {(group as any).dispatcherCreatedAt && (
                                           <span className="block text-[10px] font-normal italic text-muted-foreground">
-                                            {`// working here ${formatWorkTenure((group as any).dispatcherCreatedAt)}`}
+                                            {`// ${formatWorkTenure((group as any).dispatcherCreatedAt)}`}
                                           </span>
                                         )}
                                       </span>
@@ -4962,8 +4952,7 @@ const Reports = () => {
                                             (file: any) => file.file_category === "POD",
                                           );
                                           if (lastWithBOL && lastWithBOLHasPOD) {
-                                            const idxInSorted =
-                                              allSortedOrders.length - 1 - lastWithBOLReverseIdx;
+                                            const idxInSorted = allSortedOrders.length - 1 - lastWithBOLReverseIdx;
                                             currentOrder = allSortedOrders[idxInSorted + 1] || lastOrder;
                                           } else {
                                             currentOrder = lastWithBOL || lastOrder;
@@ -5494,7 +5483,7 @@ const Reports = () => {
                                                                 </span>
                                                                 {(truck as any).driver1HireDate && (
                                                                   <span className="block text-[10px] font-normal italic text-muted-foreground">
-                                                                    {`// working here ${formatWorkTenure((truck as any).driver1HireDate)}`}
+                                                                    {`// ${formatWorkTenure((truck as any).driver1HireDate)}`}
                                                                   </span>
                                                                 )}
                                                               </p>
@@ -5599,7 +5588,9 @@ const Reports = () => {
                                                                     title="Share live location"
                                                                     onClick={(e) => {
                                                                       e.stopPropagation();
-                                                                      setLiveShareDialog({ truckNumber: truck.truckNumber });
+                                                                      setLiveShareDialog({
+                                                                        truckNumber: truck.truckNumber,
+                                                                      });
                                                                     }}
                                                                   >
                                                                     <Share2 className="h-3 w-3" />
@@ -5664,7 +5655,7 @@ const Reports = () => {
                                                                   </span>
                                                                   {(truck as any).driver2HireDate && (
                                                                     <span className="block text-[10px] font-normal italic text-muted-foreground">
-                                                                      {`// working here ${formatWorkTenure((truck as any).driver2HireDate)}`}
+                                                                      {`// ${formatWorkTenure((truck as any).driver2HireDate)}`}
                                                                     </span>
                                                                   )}
                                                                 </p>
@@ -5692,7 +5683,9 @@ const Reports = () => {
                                                                     title="Share live location"
                                                                     onClick={(e) => {
                                                                       e.stopPropagation();
-                                                                      setLiveShareDialog({ truckNumber: truck.truckNumber });
+                                                                      setLiveShareDialog({
+                                                                        truckNumber: truck.truckNumber,
+                                                                      });
                                                                     }}
                                                                   >
                                                                     <Share2 className="h-3 w-3" />
@@ -5876,7 +5869,7 @@ const Reports = () => {
                                                                 </span>
                                                                 {(truck as any).driver1HireDate && (
                                                                   <span className="block text-[10px] font-normal italic text-muted-foreground">
-                                                                    {`// working here ${formatWorkTenure((truck as any).driver1HireDate)}`}
+                                                                    {`// ${formatWorkTenure((truck as any).driver1HireDate)}`}
                                                                   </span>
                                                                 )}
                                                               </p>
@@ -5973,7 +5966,9 @@ const Reports = () => {
                                                                       title="Share live location"
                                                                       onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        setLiveShareDialog({ truckNumber: truck.truckNumber });
+                                                                        setLiveShareDialog({
+                                                                          truckNumber: truck.truckNumber,
+                                                                        });
                                                                       }}
                                                                     >
                                                                       <Share2 className="h-3 w-3" />
@@ -6187,7 +6182,7 @@ const Reports = () => {
                                                     <div>
                                                       {truck.driver2Name
                                                         ? `// ${truck.driver1Name}: ${formatWorkTenure((truck as any).driver1HireDate)}`
-                                                        : `// working here ${formatWorkTenure((truck as any).driver1HireDate)}`}
+                                                        : `// ${formatWorkTenure((truck as any).driver1HireDate)}`}
                                                     </div>
                                                   )}
                                                   {truck.driver2Name && (truck as any).driver2HireDate && (
@@ -6714,10 +6709,7 @@ const Reports = () => {
               placeholder="Add note..."
             />
             <div className="flex justify-end gap-2 mt-4">
-              <TranslateNoteButton
-                text={noteDialogContent}
-                onReplace={(t) => setNoteDialogContent(t)}
-              />
+              <TranslateNoteButton text={noteDialogContent} onReplace={(t) => setNoteDialogContent(t)} />
               <Button variant="outline" onClick={() => setNoteDialogOpen(null)}>
                 Cancel
               </Button>
@@ -7830,8 +7822,9 @@ const Reports = () => {
               <div className="mt-4 pt-3 border-t border-border">
                 <h4 className="text-sm font-semibold mb-1">Scale Services</h4>
                 <p className="text-sm text-muted-foreground">
-                  Available at any <span className="font-medium text-foreground">CAT scale</span> location. Scale tickets are charged
-                  at standard location rates — there is currently no discount program for scale services.
+                  Available at any <span className="font-medium text-foreground">CAT scale</span> location. Scale
+                  tickets are charged at standard location rates — there is currently no discount program for scale
+                  services.
                 </p>
               </div>
             </div>
