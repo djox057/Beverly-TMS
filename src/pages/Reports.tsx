@@ -6181,6 +6181,20 @@ const Reports = () => {
                                                   </Popover>
                                                 )}
                                               </div>
+                                              {((truck as any).driver1HireDate || (truck as any).driver2HireDate) && (
+                                                <div className="text-[9px] text-muted-foreground italic mt-0.5 leading-tight">
+                                                  {(truck as any).driver1HireDate && (
+                                                    <div>
+                                                      {truck.driver2Name
+                                                        ? `// ${truck.driver1Name}: ${formatWorkTenure((truck as any).driver1HireDate)}`
+                                                        : `// working here ${formatWorkTenure((truck as any).driver1HireDate)}`}
+                                                    </div>
+                                                  )}
+                                                  {truck.driver2Name && (truck as any).driver2HireDate && (
+                                                    <div>{`// ${truck.driver2Name}: ${formatWorkTenure((truck as any).driver2HireDate)}`}</div>
+                                                  )}
+                                                </div>
+                                              )}
                                               {/* Show original dispatcher name for drivers belonging to off-duty dispatchers (only in active sections) */}
                                               {(truck as any).originalDispatcherName && !(group as any).isOffDuty && (
                                                 <div className="text-[9px] text-muted-foreground italic mt-0.5">
