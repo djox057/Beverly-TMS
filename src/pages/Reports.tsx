@@ -6176,17 +6176,12 @@ const Reports = () => {
                                                   </Popover>
                                                 )}
                                               </div>
-                                              {((truck as any).driver1HireDate || (truck as any).driver2HireDate) && (
+                                              {((truck as any).driver1HireDate) && (
                                                 <div className="text-[9px] text-muted-foreground italic mt-0.5 leading-tight">
                                                   {(truck as any).driver1HireDate && (
                                                     <div>
-                                                      {truck.driver2Name
-                                                        ? `// ${truck.driver1Name}: ${formatWorkTenure((truck as any).driver1HireDate)}`
-                                                        : `// ${formatWorkTenure((truck as any).driver1HireDate)}`}
+                                                      {`// ${formatWorkTenure((truck as any).driver1HireDate)}`}
                                                     </div>
-                                                  )}
-                                                  {truck.driver2Name && (truck as any).driver2HireDate && (
-                                                    <div>{`// ${truck.driver2Name}: ${formatWorkTenure((truck as any).driver2HireDate)}`}</div>
                                                   )}
                                                 </div>
                                               )}
