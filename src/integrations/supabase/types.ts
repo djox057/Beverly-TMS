@@ -959,6 +959,54 @@ export type Database = {
         }
         Relationships: []
       }
+      dat_lane_lookups: {
+        Row: {
+          broker: string | null
+          confidence: string
+          created_at: string
+          dat_load_id: string | null
+          destination: string
+          expected_rate: number | null
+          expected_rpm: number | null
+          id: string
+          loads_matched: number
+          origin: string
+          posted_rate: number | null
+          trip_miles: number | null
+          user_id: string
+        }
+        Insert: {
+          broker?: string | null
+          confidence: string
+          created_at?: string
+          dat_load_id?: string | null
+          destination: string
+          expected_rate?: number | null
+          expected_rpm?: number | null
+          id?: string
+          loads_matched?: number
+          origin: string
+          posted_rate?: number | null
+          trip_miles?: number | null
+          user_id: string
+        }
+        Update: {
+          broker?: string | null
+          confidence?: string
+          created_at?: string
+          dat_load_id?: string | null
+          destination?: string
+          expected_rate?: number | null
+          expected_rpm?: number | null
+          id?: string
+          loads_matched?: number
+          origin?: string
+          posted_rate?: number | null
+          trip_miles?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       deleted_drivers: {
         Row: {
           agreement_start_date: string | null
@@ -2767,6 +2815,30 @@ export type Database = {
           last_monday?: string
           statement_type?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      lane_geocode_cache: {
+        Row: {
+          created_at: string
+          key: string
+          lat: number
+          lng: number
+          resolved_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          lat: number
+          lng: number
+          resolved_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          lat?: number
+          lng?: number
+          resolved_name?: string | null
         }
         Relationships: []
       }
