@@ -1784,6 +1784,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           office: dispatcherInfo.office || null,
           ext: dispatcherInfo.ext || null,
           createdAt: dispatcherInfo.created_at || null, // For sorting by user creation date
+          dispatcherCreatedAt: dispatcherInfo.created_at || null,
           trucks: [],
           isOffDuty: false,
         });
@@ -2000,6 +2001,8 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         isOffDutyDriver: false,
         // Additional fields for compatibility
         hireDate: driver.hire_date,
+        driver1HireDate: driver.hire_date || null,
+        driver2HireDate: (driver2 as any)?.hire_date || null,
         driverCreatedAt: driver.created_at || null, // For sorting by driver creation date
         // Maintenance dates (snake_case to match helper functions in helpers.ts)
         oil_change_date: truck?.oil_change_date || null,
@@ -2232,6 +2235,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             driverPhone: realDriver?.phone || driver.phone || null,
             driverEmail: realDriver?.email || driver.email || null,
             driverCreatedAt: realDriver?.created_at || null,
+            hireDate: (realDriver as any)?.hire_date || (driver as any)?.hire_date || null,
+            driver1HireDate: (realDriver as any)?.hire_date || (driver as any)?.hire_date || null,
+            driver2HireDate: null,
             driver2Id: null,
             driver2Name: null,
             driver2Phone: null,
@@ -2299,6 +2305,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             office: offDutyDispatcherInfo?.office || null,
             ext: offDutyDispatcherInfo?.ext || null,
             createdAt: offDutyDispatcherInfo?.created_at || null,
+            dispatcherCreatedAt: offDutyDispatcherInfo?.created_at || null,
             trucks: offDutyTrucks,
             isOffDuty: true,
             originalDispatcherName: offDutyDispatcherName,
