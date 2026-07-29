@@ -5641,25 +5641,20 @@ const Reports = () => {
                                                             )}
                                                             <div className="border-t pt-1 mt-1">
                                                               <div className="flex items-center justify-between gap-2">
-                                                                <p className="font-semibold text-sm">
-                                                                  Driver 2:{" "}
-                                                                  <span
-                                                                    className="cursor-pointer hover:opacity-70 transition-opacity"
-                                                                    onClick={(e) => {
-                                                                      e.stopPropagation();
-                                                                      if (truck.driver2Id)
-                                                                        setEditingDriverId(truck.driver2Id);
-                                                                    }}
-                                                                  >
-                                                                    {truck.driver2Name}
-                                                                  </span>
-                                                                  {(truck as any).driver2HireDate && (
-                                                                    <span className="block text-[10px] font-normal italic text-muted-foreground">
-                                                                      {`// ${formatWorkTenure((truck as any).driver2HireDate)}`}
-                                                                    </span>
-                                                                  )}
-                                                                </p>
-                                                                <div className="flex items-center gap-1">
+                                                                 <p className="font-semibold text-sm">
+                                                                   Driver 2:{" "}
+                                                                   <span
+                                                                     className="cursor-pointer hover:opacity-70 transition-opacity"
+                                                                     onClick={(e) => {
+                                                                       e.stopPropagation();
+                                                                       if (truck.driver2Id)
+                                                                         setEditingDriverId(truck.driver2Id);
+                                                                     }}
+                                                                   >
+                                                                     {truck.driver2Name}
+                                                                   </span>
+                                                                 </p>
+                                                                 <div className="flex items-center gap-1">
                                                                   <Button
                                                                     variant="ghost"
                                                                     size="sm"
