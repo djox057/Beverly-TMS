@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
+import { formatWorkTenure } from "@/utils/tenureDuration";
 import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -679,6 +680,9 @@ const Fleets = () => {
                                             <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 flex-nowrap">
                                               <span className="whitespace-nowrap">Truck {truckNum}</span>
                                             </div>
+                                            {drivers.map(driver => formatWorkTenure(driver.hire_date) && <div key={`tenure-${driver.id}`} className="text-[11px] italic text-muted-foreground">
+                                                // {isTeam ? `${driver.name}: ` : ""}working here {formatWorkTenure(driver.hire_date)}
+                                              </div>)}
                                           </div>
                                         </div>
                                         {(hasRole("admin") || hasRole("manager") || hasRole("supervisor")) && <div className="flex gap-1 sm:gap-2">
@@ -743,6 +747,9 @@ const Fleets = () => {
                                               </Popover>
                                             </div>
                                             <div className="text-xs sm:text-sm text-muted-foreground">No truck assigned</div>
+                                            {formatWorkTenure(driver.hire_date) && <div className="text-[11px] italic text-muted-foreground">
+                                                // working here {formatWorkTenure(driver.hire_date)}
+                                              </div>}
                                           </div>
                                         </div>
                                         {(hasRole("admin") || hasRole("manager") || hasRole("supervisor")) && <div className="flex gap-1 sm:gap-2">
