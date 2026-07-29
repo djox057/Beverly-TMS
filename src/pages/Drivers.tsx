@@ -1718,21 +1718,14 @@ const Drivers = () => {
 
                     <div className="space-y-2">
                       <Label htmlFor="dispatcher">Dispatcher</Label>
-                      <Select
+                      <Combobox
+                        options={allDispatchers.map((d) => ({ value: d.id, label: d.full_name || d.email }))}
                         value={formData.dispatcher_id}
                         onValueChange={(value) => setFormData({ ...formData, dispatcher_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select dispatcher..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allDispatchers.map((dispatcher) => (
-                            <SelectItem key={dispatcher.id} value={dispatcher.id}>
-                              {dispatcher.full_name || dispatcher.email}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select dispatcher..."
+                        emptyText="No dispatchers found"
+                        searchPlaceholder="Search dispatchers..."
+                      />
                     </div>
 
                     <div className="border-t pt-4">
