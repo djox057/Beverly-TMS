@@ -143,7 +143,7 @@ Purpose Lumper fee`;
     const lastNamePart = getLastNamePart(requesterName);
     const emailResponse = await resend.emails.send({
       from: `EFS Request <${fromEmail}>`,
-      to: ["efsrequest@gmail.com"],
+      to: ["efsrequest@fuelfnd.com"],
       ...(requesterEmail ? { bcc: [requesterEmail] } : {}),
       replyTo: requesterEmail ? [requesterEmail, fromEmail] : [fromEmail],
       subject: `EFS request by ${lastNamePart}`,
