@@ -10,6 +10,7 @@ interface DispatcherFleet {
     ext?: string;
     office?: string | null;
     roles?: string[];
+    created_at?: string | null;
   };
   drivers: any[];
   isActive: boolean;
@@ -41,7 +42,7 @@ export const useFleetManagement = () => {
 
       const { data: dispatcherProfiles, error: dispatcherError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, email, ext, office')
+        .select('user_id, full_name, email, ext, office, created_at')
         .in('user_id', dispatcherUserIds.length > 0 ? dispatcherUserIds : ['00000000-0000-0000-0000-000000000000'])
         .order('full_name');
 
@@ -121,6 +122,7 @@ export const useFleetManagement = () => {
             email: dispatcher.email,
           ext: dispatcher.ext,
             office: dispatcher.office,
+            created_at: (dispatcher as any).created_at,
             roles: userRoles
           },
           drivers: dispatcherDrivers,
