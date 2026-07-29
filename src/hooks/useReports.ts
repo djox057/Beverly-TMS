@@ -846,7 +846,7 @@ export const useReports = (options?: UseReportsOptions) => {
     // STEP 0: Fetch dispatcher info FIRST to enable filtering
     const { data: dispatchers, error: dispatchersError } = await supabase
       .from("profiles")
-      .select("user_id, full_name, email, office, ext")
+      .select("user_id, full_name, email, office, ext, created_at")
       .order("user_id", { ascending: true });
 
     if (dispatchersError) throw dispatchersError;
@@ -886,7 +886,7 @@ export const useReports = (options?: UseReportsOptions) => {
     // Parallel batch fetches for truck relations
     const [truckDriversRes, truckTrailersRes, truckCompaniesRes] = await Promise.all([
       truckDriverIdsBatch.size > 0
-        ? supabase.from("drivers").select("id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, home_latitude, home_longitude, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company_id, do_not_touch_hos, hazmat, tanker, twic, citizen, criminal, straps, load_bars").in("id", Array.from(truckDriverIdsBatch))
+        ? supabase.from("drivers").select("id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, home_latitude, home_longitude, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, hire_date, dispatcher_id, going_yard, is_recovery, company_id, do_not_touch_hos, hazmat, tanker, twic, citizen, criminal, straps, load_bars").in("id", Array.from(truckDriverIdsBatch))
         : { data: [], error: null },
       truckTrailerIdsBatch.size > 0
         ? supabase.from("trailers").select("id, trailer_number, dot_inspection_date, vented").in("id", Array.from(truckTrailerIdsBatch))
@@ -1660,6 +1660,8 @@ export const useReports = (options?: UseReportsOptions) => {
               companyName: truck.company?.name || null,
               driver: isTeam ? "Team" : truck.driver1?.name || "Unassigned",
               driver1Name: truck.driver1?.name || "Unassigned",
+              driver1HireDate: (truck.driver1 as any)?.hire_date || null,
+              driver2HireDate: (truck.driver2 as any)?.hire_date || null,
               driverId: truck.driver1?.id || null,
               driverPhone: truck.driver1?.phone || null,
               driverEmail: truck.driver1?.email || null,
@@ -1757,7 +1759,7 @@ export const useReports = (options?: UseReportsOptions) => {
         let driversQuery = supabase
           .from("drivers")
           .select(
-            "id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, home_latitude, home_longitude, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, is_active, going_yard, company_id, do_not_touch_hos",
+            "id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, home_latitude, home_longitude, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, hire_date, dispatcher_id, is_active, going_yard, company_id, do_not_touch_hos",
           )
           .eq("is_active", true)
           .order("name", { ascending: true });
@@ -1995,6 +1997,8 @@ export const useReports = (options?: UseReportsOptions) => {
             companyName: driverCompanyName,
             driver: driver.name,
             driver1Name: driver.name,
+            driver1HireDate: (driver as any).hire_date || null,
+            driver2HireDate: null,
             driverId: driver.id,
             driverPhone: driver.phone || null,
             driverEmail: driver.email || null,
@@ -2074,6 +2078,7 @@ export const useReports = (options?: UseReportsOptions) => {
             dispatcherId: string;
             office: string | null;
             ext: string | null;
+            dispatcherCreatedAt?: string | null;
             trucks: typeof allReports;
             isOffDuty?: boolean;
             originalDispatcherName?: string;
@@ -2089,6 +2094,7 @@ export const useReports = (options?: UseReportsOptions) => {
               dispatcherId: report.dispatcherId,
               office: dispatcherInfo?.office || null,
               ext: dispatcherInfo?.ext || null,
+              dispatcherCreatedAt: (dispatcherInfo as any)?.created_at || null,
               trucks: [],
               isOffDuty: false,
             });
@@ -2115,7 +2121,7 @@ export const useReports = (options?: UseReportsOptions) => {
           if (missingOffDutyIds.length > 0) {
             const { data: extra } = await supabase
               .from("profiles")
-              .select("user_id, full_name, email, office, ext")
+              .select("user_id, full_name, email, office, ext, created_at")
               .in("user_id", missingOffDutyIds);
             (extra || []).forEach((p: any) => {
               if (p.user_id) dispatchersByUserId.set(p.user_id, p);
@@ -2207,7 +2213,7 @@ export const useReports = (options?: UseReportsOptions) => {
             if (neededDispIds.length > 0) {
               const { data: extraDispProfiles } = await supabase
                 .from("profiles")
-                .select("user_id, full_name, email")
+                .select("user_id, full_name, email, created_at")
                 .in("user_id", neededDispIds);
               (extraDispProfiles || []).forEach((p: any) => {
                 if (p.user_id) extraDispMap.set(p.user_id, p);
@@ -2375,6 +2381,8 @@ export const useReports = (options?: UseReportsOptions) => {
                 companyName: driverCompanyName,
                 driver: driver.name,
                 driver1Name: driver.name,
+                driver1HireDate: (realDriver as any)?.hire_date || (driver as any).hire_date || null,
+                driver2HireDate: null,
                 driverId: driver.id,
                 driverPhone: realDriver?.phone || driver.phone || null,
                 driverEmail: realDriver?.email || driver.email || null,
@@ -2433,6 +2441,7 @@ export const useReports = (options?: UseReportsOptions) => {
                 dispatcherId: `off-duty-${offDutyDispatcherId}`,
                 office: offDutyDispatcherInfo.office || null,
                 ext: offDutyDispatcherInfo.ext || null,
+                dispatcherCreatedAt: (offDutyDispatcherInfo as any).created_at || null,
                 trucks: offDutyTrucks,
                 isOffDuty: true,
                 originalDispatcherName: offDutyDispatcherInfo.full_name || offDutyDispatcherInfo.email || "Unknown",
