@@ -7821,13 +7821,7 @@ const Reports = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      setCoiBrokerName("");
-                      setCoiBrokerEmail("");
-                      setCoiBrokerAddress("");
-                      setCoiConfirmation(null);
-                      setCoiDialogOpen(true);
-                    }}
+                    onClick={() => openCoiDialog(zoomedLoad?.bookedByCompanyName)}
                   >
                     <FileText className="h-4 w-4 mr-2" />
                     COI
@@ -8536,13 +8530,21 @@ const Reports = () => {
                 />
               </div>
 
-              {zoomedLoad?.bookedByCompanyName && (
-                <div className="text-sm text-muted-foreground">
-                  <p>
-                    <strong>Booked by:</strong> {zoomedLoad.bookedByCompanyName}
-                  </p>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="coi-company">Booked By Company</Label>
+                <Select value={coiCompanyName} onValueChange={setCoiCompanyName}>
+                  <SelectTrigger id="coi-company">
+                    <SelectValue placeholder="Select company" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COI_COMPANY_OPTIONS.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setCoiDialogOpen(false)} disabled={isSubmittingCoi}>
@@ -8550,7 +8552,13 @@ const Reports = () => {
                 </Button>
                 <Button
                   onClick={handleCoiRequest}
-                  disabled={isSubmittingCoi || !coiBrokerName.trim() || !coiBrokerEmail.trim() || !coiBrokerAddress.trim()}
+                  disabled={
+                    isSubmittingCoi ||
+                    !coiBrokerName.trim() ||
+                    !coiBrokerEmail.trim() ||
+                    !coiBrokerAddress.trim() ||
+                    !coiCompanyName
+                  }
                 >
                   {isSubmittingCoi ? (
                     <>
