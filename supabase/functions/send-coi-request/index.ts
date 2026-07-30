@@ -98,29 +98,43 @@ ${brokerAddress}`;
 
     console.log("Sending COI request:", { fromEmail, to, ccAddress, bookedByCompanyName });
 
-    const emailResponse = await resend.emails.send({
-      from: `Dispatch <${fromEmail}>`,
-      to,
-      ...(ccAddress ? { cc: [ccAddress] } : {}),
-      replyTo: ccAddress ? [ccAddress, fromEmail] : [fromEmail],
-      subject: `COI Request - ${brokerName}`,
-      text: emailBody,
-    });
+    // Send a separate email to each recipient so BF Prime gets two independent emails
+    // (one to ATS, one to World Insurance) rather than a single email with both in To:.
+    const sendResults = await Promise.all(
+      to.map(async (recipient) => {
+        try {
+          const response = await resend.emails.send({
+            from: `Dispatch <${fromEmail}>`,
+            to: [recipient],
+            ...(ccAddress ? { cc: [ccAddress] } : {}),
+            replyTo: ccAddress ? [ccAddress, fromEmail] : [fromEmail],
+            subject: `COI Request - ${brokerName}`,
+            text: emailBody,
+          });
+          const errorMessage = (response as any)?.error?.message || null;
+          return { recipient, ok: !errorMessage, error: errorMessage, response };
+        } catch (sendError: any) {
+          return { recipient, ok: false, error: sendError?.message || "Failed to send email", response: null };
+        }
+      }),
+    );
 
-    if ((emailResponse as any)?.error) {
-      console.error("Resend error:", (emailResponse as any).error);
+    const failed = sendResults.filter((r) => !r.ok);
+    if (failed.length > 0) {
+      console.error("Resend errors:", failed);
+      const failedRecipients = failed.map((f) => `${f.recipient} (${f.error})`).join("; ");
       return new Response(
-        JSON.stringify({ success: false, error: (emailResponse as any).error?.message || "Failed to send email" }),
+        JSON.stringify({ success: false, error: `Failed to send to: ${failedRecipients}` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    console.log("COI email sent:", emailResponse);
+    console.log("COI emails sent:", sendResults.map((r) => ({ recipient: r.recipient, response: r.response })));
 
     const confirmationMessage = `COI Request Sent
 
 From: ${fromEmail}
-To: ${to.join(", ")}${ccAddress ? `\nCC: ${ccAddress}` : ""}
+${sendResults.map((r) => `To: ${r.recipient}`).join("\n")}${ccAddress ? `\nCC: ${ccAddress}` : ""}
 Subject: COI Request - ${brokerName}
 
 ${emailBody}`;
