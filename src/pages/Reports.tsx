@@ -1083,6 +1083,14 @@ const Reports = () => {
   const [lumperConfirmation, setLumperConfirmation] = useState<string | null>(null);
   const [isSubmittingLumper, setIsSubmittingLumper] = useState(false);
 
+  // COI Request state
+  const [coiDialogOpen, setCoiDialogOpen] = useState(false);
+  const [coiBrokerName, setCoiBrokerName] = useState("");
+  const [coiBrokerEmail, setCoiBrokerEmail] = useState("");
+  const [coiBrokerAddress, setCoiBrokerAddress] = useState("");
+  const [coiConfirmation, setCoiConfirmation] = useState<string | null>(null);
+  const [isSubmittingCoi, setIsSubmittingCoi] = useState(false);
+
   // EFS Request dialog state (includes Cash Advance and Other tabs)
   const [efsRequestDialog, setEfsRequestDialog] = useState<{
     driverId: string;
@@ -1986,6 +1994,53 @@ const Reports = () => {
   };
 
   // Note: localStorage persistence for filters is handled by useReportsFilters hook
+  // COI request handler
+  const handleCoiRequest = async () => {
+    const brokerName = coiBrokerName.trim();
+    const brokerEmail = coiBrokerEmail.trim();
+    const brokerAddress = coiBrokerAddress.trim();
+
+    if (!brokerName || !brokerEmail || !brokerAddress) {
+      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(brokerEmail)) {
+      toast({ title: "Error", description: "Please enter a valid broker email", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmittingCoi(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-coi-request", {
+        body: {
+          brokerName,
+          brokerEmail,
+          brokerAddress,
+          bookedByCompanyName: zoomedLoad?.bookedByCompanyName ?? null,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success === false) {
+        toast({
+          title: "COI request failed",
+          description: data.error || "Request failed",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setCoiConfirmation(data.confirmationMessage);
+      toast({ title: "Success", description: "COI request sent" });
+    } catch (err) {
+      console.error("Error sending COI request:", err);
+      toast({ title: "Error", description: "Failed to send COI request", variant: "destructive" });
+    } finally {
+      setIsSubmittingCoi(false);
+    }
+  };
+
   // Removed: 30-second interval invalidation - it was causing UI blocking after every action
   // The real-time subscription already handles data updates
   const { toast } = useToast();
@@ -7717,6 +7772,20 @@ const Reports = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      setCoiBrokerName("");
+                      setCoiBrokerEmail("");
+                      setCoiBrokerAddress("");
+                      setCoiConfirmation(null);
+                      setCoiDialogOpen(true);
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    COI
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
                       setLumperAmount("");
                       setLumperConfirmation(null);
                       setLumperDialogOpen(true);
@@ -8348,6 +8417,103 @@ const Reports = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lumper Request Dialog */}
+      <Dialog
+        open={coiDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCoiDialogOpen(false);
+            setCoiConfirmation(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{coiConfirmation ? "COI Request Sent" : "COI Request"}</DialogTitle>
+            <DialogDescription className="sr-only">Request a certificate of insurance for a broker</DialogDescription>
+          </DialogHeader>
+
+          {coiConfirmation ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap font-mono text-sm">{coiConfirmation}</div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => {
+                    setCoiDialogOpen(false);
+                    setCoiConfirmation(null);
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="coi-broker-name">Broker Name</Label>
+                <Input
+                  id="coi-broker-name"
+                  value={coiBrokerName}
+                  onChange={(e) => setCoiBrokerName(e.target.value)}
+                  placeholder="Amerigo Logistics LLC"
+                  maxLength={200}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="coi-broker-email">Broker Email</Label>
+                <Input
+                  id="coi-broker-email"
+                  type="email"
+                  value={coiBrokerEmail}
+                  onChange={(e) => setCoiBrokerEmail(e.target.value)}
+                  placeholder="certs@brokerdomain.com"
+                  maxLength={255}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="coi-broker-address">Full Address</Label>
+                <Textarea
+                  id="coi-broker-address"
+                  value={coiBrokerAddress}
+                  onChange={(e) => setCoiBrokerAddress(e.target.value)}
+                  placeholder="31 Acevedo Ave, San Francisco, CA 94132"
+                  maxLength={500}
+                  rows={2}
+                />
+              </div>
+
+              {zoomedLoad?.bookedByCompanyName && (
+                <div className="text-sm text-muted-foreground">
+                  <p>
+                    <strong>Booked by:</strong> {zoomedLoad.bookedByCompanyName}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setCoiDialogOpen(false)} disabled={isSubmittingCoi}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCoiRequest}
+                  disabled={isSubmittingCoi || !coiBrokerName.trim() || !coiBrokerEmail.trim() || !coiBrokerAddress.trim()}
+                >
+                  {isSubmittingCoi ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send Request"
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
