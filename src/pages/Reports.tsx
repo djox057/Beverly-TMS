@@ -5895,12 +5895,24 @@ const Reports = () => {
                                                                 </span>
                                                               )}
                                                             </div>
-                                                            <div className="border-t pt-1 mt-1">
+                                                            <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton
                                                                 truckId={truck.id}
                                                                 truckNumber={truck.truckNumber}
                                                                 companyName={truck.companyName}
                                                               />
+                                                              <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="w-full justify-start h-7 px-2 text-xs rounded-sm"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  openCoiDialog(truck.companyName);
+                                                                }}
+                                                              >
+                                                                <FileText className="h-3.5 w-3.5 mr-2" />
+                                                                COI
+                                                              </Button>
                                                             </div>
                                                           </>
                                                         ) : (
@@ -6212,12 +6224,24 @@ const Reports = () => {
                                                                 </span>
                                                               )}
                                                             </div>
-                                                            <div className="border-t pt-1 mt-1">
+                                                            <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton
                                                                 truckId={truck.id}
                                                                 truckNumber={truck.truckNumber}
                                                                 companyName={truck.companyName}
                                                               />
+                                                              <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="w-full justify-start h-7 px-2 text-xs rounded-sm"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  openCoiDialog(truck.companyName);
+                                                                }}
+                                                              >
+                                                                <FileText className="h-3.5 w-3.5 mr-2" />
+                                                                COI
+                                                              </Button>
                                                             </div>
                                                           </>
                                                         )}
