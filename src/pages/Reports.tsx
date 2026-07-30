@@ -1085,12 +1085,7 @@ const Reports = () => {
 
   // COI Request state
   const [coiDialogOpen, setCoiDialogOpen] = useState(false);
-  const [coiBrokerName, setCoiBrokerName] = useState("");
-  const [coiBrokerEmail, setCoiBrokerEmail] = useState("");
-  const [coiBrokerAddress, setCoiBrokerAddress] = useState("");
-  const [coiCompanyName, setCoiCompanyName] = useState("");
-  const [coiConfirmation, setCoiConfirmation] = useState<string | null>(null);
-  const [isSubmittingCoi, setIsSubmittingCoi] = useState(false);
+  const [coiDefaultCompany, setCoiDefaultCompany] = useState<string | null>(null);
 
   // EFS Request dialog state (includes Cash Advance and Other tabs)
   const [efsRequestDialog, setEfsRequestDialog] = useState<{
