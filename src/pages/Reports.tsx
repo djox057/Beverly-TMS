@@ -1994,6 +1994,7 @@ const Reports = () => {
   };
 
   // Note: localStorage persistence for filters is handled by useReportsFilters hook
+  // COI request handler
   // Removed: 30-second interval invalidation - it was causing UI blocking after every action
   // The real-time subscription already handles data updates
   const { toast } = useToast();
