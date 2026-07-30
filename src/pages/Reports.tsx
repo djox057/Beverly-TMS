@@ -365,6 +365,14 @@ const MemoizedDispatcherGroup = React.memo<{
 );
 MemoizedDispatcherGroup.displayName = "MemoizedDispatcherGroup";
 
+const COI_COMPANY_OPTIONS = [
+  "BF Prime LLC",
+  "BG Prime INC",
+  "Beverly Freight INC",
+  "AP Silver Trans LLC",
+  "United Enterprise Solutions INC",
+];
+
 const LeaseAgreementButton = ({
   truckId,
   truckNumber,
