@@ -365,14 +365,6 @@ const MemoizedDispatcherGroup = React.memo<{
 );
 MemoizedDispatcherGroup.displayName = "MemoizedDispatcherGroup";
 
-const COI_COMPANY_OPTIONS = [
-  "BF Prime LLC",
-  "BG Prime INC",
-  "Beverly Freight INC",
-  "AP Silver Trans LLC",
-  "United Enterprise Solutions INC",
-];
-
 const LeaseAgreementButton = ({
   truckId,
   truckNumber,
@@ -1093,12 +1085,7 @@ const Reports = () => {
 
   // COI Request state
   const [coiDialogOpen, setCoiDialogOpen] = useState(false);
-  const [coiBrokerName, setCoiBrokerName] = useState("");
-  const [coiBrokerEmail, setCoiBrokerEmail] = useState("");
-  const [coiBrokerAddress, setCoiBrokerAddress] = useState("");
-  const [coiCompanyName, setCoiCompanyName] = useState("");
-  const [coiConfirmation, setCoiConfirmation] = useState<string | null>(null);
-  const [isSubmittingCoi, setIsSubmittingCoi] = useState(false);
+  const [coiDefaultCompany, setCoiDefaultCompany] = useState<string | null>(null);
 
   // EFS Request dialog state (includes Cash Advance and Other tabs)
   const [efsRequestDialog, setEfsRequestDialog] = useState<{
@@ -2005,66 +1992,8 @@ const Reports = () => {
   // Note: localStorage persistence for filters is handled by useReportsFilters hook
   // COI request handler
   const openCoiDialog = (defaultCompanyName?: string | null) => {
-    setCoiBrokerName("");
-    setCoiBrokerEmail("");
-    setCoiBrokerAddress("");
-    setCoiCompanyName(
-      COI_COMPANY_OPTIONS.find(
-        (c) => c.toUpperCase() === String(defaultCompanyName || "").trim().toUpperCase(),
-      ) || "",
-    );
-    setCoiConfirmation(null);
+    setCoiDefaultCompany(defaultCompanyName ?? null);
     setCoiDialogOpen(true);
-  };
-
-  const handleCoiRequest = async () => {
-    const brokerName = coiBrokerName.trim();
-    const brokerEmail = coiBrokerEmail.trim();
-    const brokerAddress = coiBrokerAddress.trim();
-
-    if (!brokerName || !brokerEmail || !brokerAddress) {
-      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
-      return;
-    }
-    if (!coiCompanyName) {
-      toast({ title: "Error", description: "Please select a booked by company", variant: "destructive" });
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(brokerEmail)) {
-      toast({ title: "Error", description: "Please enter a valid broker email", variant: "destructive" });
-      return;
-    }
-
-    setIsSubmittingCoi(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("send-coi-request", {
-        body: {
-          brokerName,
-          brokerEmail,
-          brokerAddress,
-          bookedByCompanyName: coiCompanyName,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.success === false) {
-        toast({
-          title: "COI request failed",
-          description: data.error || "Request failed",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setCoiConfirmation(data.confirmationMessage);
-      toast({ title: "Success", description: "COI request sent" });
-    } catch (err) {
-      console.error("Error sending COI request:", err);
-      toast({ title: "Error", description: "Failed to send COI request", variant: "destructive" });
-    } finally {
-      setIsSubmittingCoi(false);
-    }
   };
 
   // Removed: 30-second interval invalidation - it was causing UI blocking after every action
