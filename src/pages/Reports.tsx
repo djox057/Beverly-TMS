@@ -365,6 +365,14 @@ const MemoizedDispatcherGroup = React.memo<{
 );
 MemoizedDispatcherGroup.displayName = "MemoizedDispatcherGroup";
 
+const COI_COMPANY_OPTIONS = [
+  "BF Prime LLC",
+  "BG Prime INC",
+  "Beverly Freight INC",
+  "AP Silver Trans LLC",
+  "United Enterprise Solutions INC",
+];
+
 const LeaseAgreementButton = ({
   truckId,
   truckNumber,
@@ -1088,6 +1096,7 @@ const Reports = () => {
   const [coiBrokerName, setCoiBrokerName] = useState("");
   const [coiBrokerEmail, setCoiBrokerEmail] = useState("");
   const [coiBrokerAddress, setCoiBrokerAddress] = useState("");
+  const [coiCompanyName, setCoiCompanyName] = useState("");
   const [coiConfirmation, setCoiConfirmation] = useState<string | null>(null);
   const [isSubmittingCoi, setIsSubmittingCoi] = useState(false);
 
@@ -1995,6 +2004,19 @@ const Reports = () => {
 
   // Note: localStorage persistence for filters is handled by useReportsFilters hook
   // COI request handler
+  const openCoiDialog = (defaultCompanyName?: string | null) => {
+    setCoiBrokerName("");
+    setCoiBrokerEmail("");
+    setCoiBrokerAddress("");
+    setCoiCompanyName(
+      COI_COMPANY_OPTIONS.find(
+        (c) => c.toUpperCase() === String(defaultCompanyName || "").trim().toUpperCase(),
+      ) || "",
+    );
+    setCoiConfirmation(null);
+    setCoiDialogOpen(true);
+  };
+
   const handleCoiRequest = async () => {
     const brokerName = coiBrokerName.trim();
     const brokerEmail = coiBrokerEmail.trim();
@@ -2002,6 +2024,10 @@ const Reports = () => {
 
     if (!brokerName || !brokerEmail || !brokerAddress) {
       toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
+    if (!coiCompanyName) {
+      toast({ title: "Error", description: "Please select a booked by company", variant: "destructive" });
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(brokerEmail)) {
@@ -2016,7 +2042,7 @@ const Reports = () => {
           brokerName,
           brokerEmail,
           brokerAddress,
-          bookedByCompanyName: zoomedLoad?.bookedByCompanyName ?? null,
+          bookedByCompanyName: coiCompanyName,
         },
       });
 
@@ -5895,12 +5921,24 @@ const Reports = () => {
                                                                 </span>
                                                               )}
                                                             </div>
-                                                            <div className="border-t pt-1 mt-1">
+                                                            <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton
                                                                 truckId={truck.id}
                                                                 truckNumber={truck.truckNumber}
                                                                 companyName={truck.companyName}
                                                               />
+                                                              <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="w-full justify-start h-7 px-2 text-xs rounded-sm"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  openCoiDialog(truck.companyName);
+                                                                }}
+                                                              >
+                                                                <FileText className="h-3.5 w-3.5 mr-2" />
+                                                                COI
+                                                              </Button>
                                                             </div>
                                                           </>
                                                         ) : (
@@ -6212,12 +6250,24 @@ const Reports = () => {
                                                                 </span>
                                                               )}
                                                             </div>
-                                                            <div className="border-t pt-1 mt-1">
+                                                            <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton
                                                                 truckId={truck.id}
                                                                 truckNumber={truck.truckNumber}
                                                                 companyName={truck.companyName}
                                                               />
+                                                              <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="w-full justify-start h-7 px-2 text-xs rounded-sm"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  openCoiDialog(truck.companyName);
+                                                                }}
+                                                              >
+                                                                <FileText className="h-3.5 w-3.5 mr-2" />
+                                                                COI
+                                                              </Button>
                                                             </div>
                                                           </>
                                                         )}
@@ -7771,13 +7821,7 @@ const Reports = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      setCoiBrokerName("");
-                      setCoiBrokerEmail("");
-                      setCoiBrokerAddress("");
-                      setCoiConfirmation(null);
-                      setCoiDialogOpen(true);
-                    }}
+                    onClick={() => openCoiDialog(zoomedLoad?.bookedByCompanyName)}
                   >
                     <FileText className="h-4 w-4 mr-2" />
                     COI
@@ -8486,13 +8530,21 @@ const Reports = () => {
                 />
               </div>
 
-              {zoomedLoad?.bookedByCompanyName && (
-                <div className="text-sm text-muted-foreground">
-                  <p>
-                    <strong>Booked by:</strong> {zoomedLoad.bookedByCompanyName}
-                  </p>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="coi-company">Booked By Company</Label>
+                <Select value={coiCompanyName} onValueChange={setCoiCompanyName}>
+                  <SelectTrigger id="coi-company">
+                    <SelectValue placeholder="Select company" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COI_COMPANY_OPTIONS.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setCoiDialogOpen(false)} disabled={isSubmittingCoi}>
@@ -8500,7 +8552,13 @@ const Reports = () => {
                 </Button>
                 <Button
                   onClick={handleCoiRequest}
-                  disabled={isSubmittingCoi || !coiBrokerName.trim() || !coiBrokerEmail.trim() || !coiBrokerAddress.trim()}
+                  disabled={
+                    isSubmittingCoi ||
+                    !coiBrokerName.trim() ||
+                    !coiBrokerEmail.trim() ||
+                    !coiBrokerAddress.trim() ||
+                    !coiCompanyName
+                  }
                 >
                   {isSubmittingCoi ? (
                     <>
