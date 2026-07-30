@@ -1088,6 +1088,7 @@ const Reports = () => {
   const [coiBrokerName, setCoiBrokerName] = useState("");
   const [coiBrokerEmail, setCoiBrokerEmail] = useState("");
   const [coiBrokerAddress, setCoiBrokerAddress] = useState("");
+  const [coiCompanyName, setCoiCompanyName] = useState("");
   const [coiConfirmation, setCoiConfirmation] = useState<string | null>(null);
   const [isSubmittingCoi, setIsSubmittingCoi] = useState(false);
 
