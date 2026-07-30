@@ -1996,6 +1996,19 @@ const Reports = () => {
 
   // Note: localStorage persistence for filters is handled by useReportsFilters hook
   // COI request handler
+  const openCoiDialog = (defaultCompanyName?: string | null) => {
+    setCoiBrokerName("");
+    setCoiBrokerEmail("");
+    setCoiBrokerAddress("");
+    setCoiCompanyName(
+      COI_COMPANY_OPTIONS.find(
+        (c) => c.toUpperCase() === String(defaultCompanyName || "").trim().toUpperCase(),
+      ) || "",
+    );
+    setCoiConfirmation(null);
+    setCoiDialogOpen(true);
+  };
+
   const handleCoiRequest = async () => {
     const brokerName = coiBrokerName.trim();
     const brokerEmail = coiBrokerEmail.trim();
@@ -2003,6 +2016,10 @@ const Reports = () => {
 
     if (!brokerName || !brokerEmail || !brokerAddress) {
       toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
+    if (!coiCompanyName) {
+      toast({ title: "Error", description: "Please select a booked by company", variant: "destructive" });
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(brokerEmail)) {
@@ -2017,7 +2034,7 @@ const Reports = () => {
           brokerName,
           brokerEmail,
           brokerAddress,
-          bookedByCompanyName: zoomedLoad?.bookedByCompanyName ?? null,
+          bookedByCompanyName: coiCompanyName,
         },
       });
 
