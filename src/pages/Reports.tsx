@@ -7772,6 +7772,20 @@ const Reports = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      setCoiBrokerName("");
+                      setCoiBrokerEmail("");
+                      setCoiBrokerAddress("");
+                      setCoiConfirmation(null);
+                      setCoiDialogOpen(true);
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    COI
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
                       setLumperAmount("");
                       setLumperConfirmation(null);
                       setLumperDialogOpen(true);
