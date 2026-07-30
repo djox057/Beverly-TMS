@@ -1083,6 +1083,14 @@ const Reports = () => {
   const [lumperConfirmation, setLumperConfirmation] = useState<string | null>(null);
   const [isSubmittingLumper, setIsSubmittingLumper] = useState(false);
 
+  // COI Request state
+  const [coiDialogOpen, setCoiDialogOpen] = useState(false);
+  const [coiBrokerName, setCoiBrokerName] = useState("");
+  const [coiBrokerEmail, setCoiBrokerEmail] = useState("");
+  const [coiBrokerAddress, setCoiBrokerAddress] = useState("");
+  const [coiConfirmation, setCoiConfirmation] = useState<string | null>(null);
+  const [isSubmittingCoi, setIsSubmittingCoi] = useState(false);
+
   // EFS Request dialog state (includes Cash Advance and Other tabs)
   const [efsRequestDialog, setEfsRequestDialog] = useState<{
     driverId: string;
