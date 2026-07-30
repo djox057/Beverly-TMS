@@ -1995,6 +1995,52 @@ const Reports = () => {
 
   // Note: localStorage persistence for filters is handled by useReportsFilters hook
   // COI request handler
+  const handleCoiRequest = async () => {
+    const brokerName = coiBrokerName.trim();
+    const brokerEmail = coiBrokerEmail.trim();
+    const brokerAddress = coiBrokerAddress.trim();
+
+    if (!brokerName || !brokerEmail || !brokerAddress) {
+      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(brokerEmail)) {
+      toast({ title: "Error", description: "Please enter a valid broker email", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmittingCoi(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-coi-request", {
+        body: {
+          brokerName,
+          brokerEmail,
+          brokerAddress,
+          bookedByCompanyName: zoomedLoad?.bookedByCompanyName ?? null,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success === false) {
+        toast({
+          title: "COI request failed",
+          description: data.error || "Request failed",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setCoiConfirmation(data.confirmationMessage);
+      toast({ title: "Success", description: "COI request sent" });
+    } catch (err) {
+      console.error("Error sending COI request:", err);
+      toast({ title: "Error", description: "Failed to send COI request", variant: "destructive" });
+    } finally {
+      setIsSubmittingCoi(false);
+    }
+  };
+
   // Removed: 30-second interval invalidation - it was causing UI blocking after every action
   // The real-time subscription already handles data updates
   const { toast } = useToast();
