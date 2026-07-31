@@ -1,3 +1,4 @@
+import { CoiRequestDialog } from "@/components/reports/CoiRequestDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8393,116 +8394,11 @@ const Reports = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Lumper Request Dialog */}
-      <Dialog
+      <CoiRequestDialog
         open={coiDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCoiDialogOpen(false);
-            setCoiConfirmation(null);
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{coiConfirmation ? "COI Request Sent" : "COI Request"}</DialogTitle>
-            <DialogDescription className="sr-only">Request a certificate of insurance for a broker</DialogDescription>
-          </DialogHeader>
-
-          {coiConfirmation ? (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap font-mono text-sm">{coiConfirmation}</div>
-              <div className="flex justify-end">
-                <Button
-                  onClick={() => {
-                    setCoiDialogOpen(false);
-                    setCoiConfirmation(null);
-                  }}
-                >
-                  Done
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="coi-broker-name">Broker Name</Label>
-                <Input
-                  id="coi-broker-name"
-                  value={coiBrokerName}
-                  onChange={(e) => setCoiBrokerName(e.target.value)}
-                  placeholder="Amerigo Logistics LLC"
-                  maxLength={200}
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="coi-broker-email">Broker Email</Label>
-                <Input
-                  id="coi-broker-email"
-                  type="email"
-                  value={coiBrokerEmail}
-                  onChange={(e) => setCoiBrokerEmail(e.target.value)}
-                  placeholder="certs@brokerdomain.com"
-                  maxLength={255}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="coi-broker-address">Full Address</Label>
-                <Textarea
-                  id="coi-broker-address"
-                  value={coiBrokerAddress}
-                  onChange={(e) => setCoiBrokerAddress(e.target.value)}
-                  placeholder="31 Acevedo Ave, San Francisco, CA 94132"
-                  maxLength={500}
-                  rows={2}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="coi-company">Booked By Company</Label>
-                <Select value={coiCompanyName} onValueChange={setCoiCompanyName}>
-                  <SelectTrigger id="coi-company">
-                    <SelectValue placeholder="Select company" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COI_COMPANY_OPTIONS.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setCoiDialogOpen(false)} disabled={isSubmittingCoi}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCoiRequest}
-                  disabled={
-                    isSubmittingCoi ||
-                    !coiBrokerName.trim() ||
-                    !coiBrokerEmail.trim() ||
-                    !coiBrokerAddress.trim() ||
-                    !coiCompanyName
-                  }
-                >
-                  {isSubmittingCoi ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    "Send Request"
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setCoiDialogOpen}
+        defaultCompanyName={coiDefaultCompany}
+      />
 
       {/* Lumper Request Dialog */}
       <Dialog

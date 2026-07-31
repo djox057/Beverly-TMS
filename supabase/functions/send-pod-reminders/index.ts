@@ -37,6 +37,13 @@ function calcFineRange(freight: number, driverPay: number): { min: number; max: 
   return { min: positiveBase * 0.30, max: positiveBase * 0.50 };
 }
 
+const OFFICE_CC: Record<string, string> = {
+  "Čačak": "tommy@bfprime.net",
+  "BG 4th floor": "lucas@bfprime.net",
+  "BG 1st floor": "christopher@bfprime.net",
+  "KRAGUJEVAC": "guss@bfprime.net",
+};
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -101,26 +108,30 @@ const handler = async (req: Request): Promise<Response> => {
 
     // booked_by is the dispatcher's display name (text). Look up profiles by full_name.
     const bookerNames = Array.from(new Set(missing.map((o: any) => o.booked_by).filter(Boolean)));
-    const bookerMap = new Map<string, { full_name: string | null; email: string | null }>();
+    const bookerMap = new Map<string, { full_name: string | null; email: string | null; office: string | null }>();
     if (bookerNames.length) {
       const { data: profs } = await supabase
         .from("profiles")
-        .select("full_name, email")
+        .select("full_name, email, office")
         .in("full_name", bookerNames);
       for (const p of profs || []) {
-        bookerMap.set((p as any).full_name, { full_name: (p as any).full_name, email: (p as any).email });
+        bookerMap.set((p as any).full_name, {
+          full_name: (p as any).full_name,
+          email: (p as any).email,
+          office: (p as any).office ?? null,
+        });
       }
     }
 
     // Group by booker (the dispatcher who booked the load)
-    const byDispatcher = new Map<string, { name: string; email: string; orders: any[] }>();
+    const byDispatcher = new Map<string, { name: string; email: string; office: string | null; orders: any[] }>();
     for (const o of missing) {
       const t: any = o.trucks;
       const p = o.booked_by ? bookerMap.get(o.booked_by) : null;
       if (!p?.email) continue;
       const key = p.email;
       if (!byDispatcher.has(key)) {
-        byDispatcher.set(key, { name: p.full_name || "Dispatcher", email: p.email, orders: [] });
+        byDispatcher.set(key, { name: p.full_name || "Dispatcher", email: p.email, office: p.office ?? null, orders: [] });
       }
       byDispatcher.get(key)!.orders.push({
         load_number: o.load_number,
@@ -184,6 +195,8 @@ const handler = async (req: Request): Promise<Response> => {
 
       const subject = `🚨 POD Reminder: ${group.orders.length} load${group.orders.length > 1 ? "s" : ""} missing POD from yesterday`;
 
+      const cc = group.office ? OFFICE_CC[group.office] : undefined;
+
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -193,13 +206,14 @@ const handler = async (req: Request): Promise<Response> => {
         body: JSON.stringify({
           from: "Dispatch Alerts <jon@bfprime.net>",
           to: [group.email],
+          ...(cc ? { cc: [cc] } : {}),
           subject,
           html,
         }),
       });
       const body = await res.json();
       console.log(`Sent to ${group.email}:`, res.status, body?.id || body);
-      sent.push({ dispatcher: group.email, count: group.orders.length, ok: res.ok, id: body?.id });
+      sent.push({ dispatcher: group.email, cc: cc || null, count: group.orders.length, ok: res.ok, id: body?.id });
     }
 
     return new Response(
