@@ -1,4 +1,5 @@
 import { SignJWT, importPKCS8 } from "npm:jose@5.2.2";
+import * as XLSX from "npm:xlsx@0.18.5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,7 +8,7 @@ const corsHeaders = {
 };
 
 const SPREADSHEET_ID = "1J7TtJz0HrBoqSI2QuMyAJkR6ltgOA6a8";
-const RANGE = "ALL!A1:L2000";
+const RANGE = "ALL!A1:L5000";
 
 async function getGoogleAccessToken(): Promise<string> {
   const raw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
@@ -17,7 +18,8 @@ async function getGoogleAccessToken(): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const jwt = await new SignJWT({
     iss: sa.client_email,
-    scope: "https://www.googleapis.com/auth/spreadsheets.readonly",
+    scope:
+      "https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/drive.readonly",
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600,
@@ -58,19 +60,7 @@ Deno.serve(async (req) => {
     }
 
     const token = await getGoogleAccessToken();
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?valueRenderOption=FORMATTED_VALUE`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) {
-      const body = await res.text();
-      console.error(`Sheets read failed [${res.status}]: ${body}`);
-      return new Response(
-        JSON.stringify({ error: "Google Sheets request failed", status: res.status, details: body }),
-        { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const data = await res.json();
-    const values: string[][] = data.values || [];
+    const values = await readRows(token);
     const [header, ...rows] = values;
     const target = normalize(driverName);
 
