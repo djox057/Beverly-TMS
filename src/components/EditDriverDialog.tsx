@@ -25,6 +25,7 @@ import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
 import { Combobox } from "@/components/ui/combobox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DriverFilesManager } from "@/components/DriverFilesManager";
+import DriverInspectionsTab from "@/components/DriverInspectionsTab";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
