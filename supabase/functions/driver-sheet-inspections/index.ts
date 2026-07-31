@@ -47,6 +47,31 @@ const normalize = (s: string) =>
     .sort()
     .join(" ");
 
+// The linked document may be a native Google Sheet or an uploaded .xlsx stored in
+// Drive. Try the Sheets API first, then fall back to downloading + parsing the file.
+async function readRows(token: string): Promise<string[][]> {
+  const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?valueRenderOption=FORMATTED_VALUE`;
+  const res = await fetch(sheetsUrl, { headers: { Authorization: `Bearer ${token}` } });
+  if (res.ok) {
+    const data = await res.json();
+    return (data.values || []) as string[][];
+  }
+  const sheetsErr = await res.text();
+  console.log(`Sheets API read failed [${res.status}], falling back to Drive download: ${sheetsErr}`);
+
+  const driveUrl = `https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}?alt=media&supportsAllDrives=true`;
+  const fileRes = await fetch(driveUrl, { headers: { Authorization: `Bearer ${token}` } });
+  if (!fileRes.ok) {
+    const body = await fileRes.text();
+    throw new Error(`Drive download failed [${fileRes.status}]: ${body}`);
+  }
+  const buf = new Uint8Array(await fileRes.arrayBuffer());
+  const wb = XLSX.read(buf, { type: "array", cellDates: false });
+  const ws = wb.Sheets["ALL"] || wb.Sheets[wb.SheetNames[0]];
+  if (!ws) return [];
+  return XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
