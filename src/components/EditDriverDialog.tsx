@@ -850,16 +850,17 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Driver</DialogTitle>
             <DialogDescription className="sr-only">Edit driver information and details</DialogDescription>
           </DialogHeader>
 
           <Tabs defaultValue="info" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="info">Driver Info</TabsTrigger>
               <TabsTrigger value="files">Driver Files</TabsTrigger>
+              <TabsTrigger value="inspections">Inspections</TabsTrigger>
             </TabsList>
 
             <TabsContent value="info">
@@ -1294,6 +1295,10 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
             <TabsContent value="files">
               {editingDriver && <DriverFilesManager driverId={editingDriver.id} driverName={editingDriver.name} />}
+            </TabsContent>
+
+            <TabsContent value="inspections">
+              {editingDriver && <DriverInspectionsTab driverName={editingDriver.name} />}
             </TabsContent>
           </Tabs>
 
