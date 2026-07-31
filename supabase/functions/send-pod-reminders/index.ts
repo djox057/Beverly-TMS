@@ -195,6 +195,8 @@ const handler = async (req: Request): Promise<Response> => {
 
       const subject = `🚨 POD Reminder: ${group.orders.length} load${group.orders.length > 1 ? "s" : ""} missing POD from yesterday`;
 
+      const cc = group.office ? OFFICE_CC[group.office] : undefined;
+
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -204,13 +206,14 @@ const handler = async (req: Request): Promise<Response> => {
         body: JSON.stringify({
           from: "Dispatch Alerts <jon@bfprime.net>",
           to: [group.email],
+          ...(cc ? { cc: [cc] } : {}),
           subject,
           html,
         }),
       });
       const body = await res.json();
       console.log(`Sent to ${group.email}:`, res.status, body?.id || body);
-      sent.push({ dispatcher: group.email, count: group.orders.length, ok: res.ok, id: body?.id });
+      sent.push({ dispatcher: group.email, cc: cc || null, count: group.orders.length, ok: res.ok, id: body?.id });
     }
 
     return new Response(
