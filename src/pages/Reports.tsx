@@ -4233,6 +4233,14 @@ const Reports = () => {
           <div className="px-4 pt-2 sticky top-0 bg-background z-[101] border-b border-border">
             {/* Filters Section */}
             <div className="flex flex-wrap gap-2 mb-2 items-center">
+              {individualMode && getPrimaryRole() === "dispatch" && (
+                <div className="w-full flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-3 py-1.5 rounded-md">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>
+                    You are in <span className="font-semibold">Individual Mode</span>. Search filters will not work — turn it off to search across all offices.
+                  </span>
+                </div>
+              )}
               <div className="relative">
                 <Input
                   placeholder="Truck # / Driver name"
