@@ -505,6 +505,72 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     return "";
   };
 
+  // ---- Extra days / Lost days lists for the selected month ----
+  const monthBase = selectedDate || new Date();
+  const monthStartStr = format(startOfMonth(monthBase), "yyyy-MM-dd");
+  const monthEndStr = format(endOfMonth(monthBase), "yyyy-MM-dd");
+
+  const extraDaysList = React.useMemo(() => {
+    const workCounts = getMonthlyWorkCounts(monthBase);
+    return Object.values(workCounts)
+      .filter((entry) => entry.count > 1)
+      .sort((a, b) => b.count - a.count)
+      .map(({ user, count }) => {
+        const dates = existingSchedules
+          .filter((s) => {
+            if (s.user_id !== user.id) return false;
+            if (s.scheduled_date < monthStartStr || s.scheduled_date > monthEndStr) return false;
+            return isWeekend(new Date(s.scheduled_date + "T12:00:00"));
+          })
+          .map((s) => s.scheduled_date)
+          .sort();
+        return { user, count, extraDays: dates.slice(1) };
+      });
+  }, [existingSchedules, scheduleUsers, monthStartStr, monthEndStr]);
+
+  const lostDaysList = React.useMemo(() => {
+    const byUser = new Map<string, string[]>();
+    lostDays.forEach((l) => {
+      if (!byUser.has(l.dispatcher_id)) byUser.set(l.dispatcher_id, []);
+      byUser.get(l.dispatcher_id)!.push(l.off_duty_date);
+    });
+    const usersById = new Map(scheduleUsers.map((u) => [u.id, u]));
+    return [...byUser.entries()]
+      .map(([id, dates]) => {
+        const user = usersById.get(id);
+        return {
+          id,
+          name: user?.full_name || user?.email || null,
+          dates: dates.sort(),
+        };
+      })
+      .filter((e) => !!e.name)
+      .sort((a, b) => b.dates.length - a.dates.length);
+  }, [lostDays, scheduleUsers]);
+
+  const copyBothLists = async () => {
+    const monthLabel = format(monthBase, "MMMM yyyy");
+    const fmtDate = (d: string) => format(new Date(d + "T12:00:00"), "MMM d");
+    const lines: string[] = [`EXTRA DAYS — ${monthLabel}`];
+    const withExtra = extraDaysList.filter((e) => e.extraDays.length > 0);
+    if (withExtra.length === 0) lines.push("None");
+    withExtra.forEach(({ user, extraDays }) => {
+      lines.push(`${user.full_name || user.email}: ${extraDays.length}x (${extraDays.map(fmtDate).join(", ")})`);
+    });
+    lines.push("", `LOST DAYS — ${monthLabel}`);
+    if (lostDaysList.length === 0) lines.push("None");
+    lostDaysList.forEach((e) => {
+      lines.push(`${e.name}: ${e.dates.length}x (${e.dates.map(fmtDate).join(", ")})`);
+    });
+    const text = lines.join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Extra days & lost days copied");
+    } catch {
+      toast.error("Failed to copy");
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
