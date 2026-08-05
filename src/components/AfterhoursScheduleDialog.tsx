@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus, Copy } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -76,6 +76,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   const [existingSchedules, setExistingSchedules] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [lostDays, setLostDays] = useState<{ dispatcher_id: string; off_duty_date: string }[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -83,6 +84,26 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
       fetchExistingSchedules();
     }
   }, [open]);
+
+  // Lost days for the month of the selected date (or current month)
+  useEffect(() => {
+    if (!open) return;
+    const base = selectedDate || new Date();
+    const from = format(startOfMonth(base), "yyyy-MM-dd");
+    const to = format(endOfMonth(base), "yyyy-MM-dd");
+    (async () => {
+      const { data, error } = await supabase
+        .from("dispatcher_off_duty_days")
+        .select("dispatcher_id, off_duty_date")
+        .gte("off_duty_date", from)
+        .lte("off_duty_date", to);
+      if (error) {
+        console.error("Error fetching lost days:", error);
+        return;
+      }
+      setLostDays((data || []) as { dispatcher_id: string; off_duty_date: string }[]);
+    })();
+  }, [open, selectedDate ? format(startOfMonth(selectedDate), "yyyy-MM") : "current"]);
 
   const fetchScheduleUsers = async () => {
     setLoading(true);
@@ -484,14 +505,86 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     return "";
   };
 
+  // ---- Extra days / Lost days lists for the selected month ----
+  const monthBase = selectedDate || new Date();
+  const monthStartStr = format(startOfMonth(monthBase), "yyyy-MM-dd");
+  const monthEndStr = format(endOfMonth(monthBase), "yyyy-MM-dd");
+
+  const extraDaysList = React.useMemo(() => {
+    const workCounts = getMonthlyWorkCounts(monthBase);
+    return Object.values(workCounts)
+      .filter((entry) => entry.count > 1)
+      .sort((a, b) => b.count - a.count)
+      .map(({ user, count }) => {
+        const dates = existingSchedules
+          .filter((s) => {
+            if (s.user_id !== user.id) return false;
+            if (s.scheduled_date < monthStartStr || s.scheduled_date > monthEndStr) return false;
+            return isWeekend(new Date(s.scheduled_date + "T12:00:00"));
+          })
+          .map((s) => s.scheduled_date)
+          .sort();
+        return { user, count, extraDays: dates.slice(1) };
+      });
+  }, [existingSchedules, scheduleUsers, monthStartStr, monthEndStr]);
+
+  const lostDaysList = React.useMemo(() => {
+    const byUser = new Map<string, string[]>();
+    lostDays.forEach((l) => {
+      if (!byUser.has(l.dispatcher_id)) byUser.set(l.dispatcher_id, []);
+      byUser.get(l.dispatcher_id)!.push(l.off_duty_date);
+    });
+    const usersById = new Map(scheduleUsers.map((u) => [u.id, u]));
+    return [...byUser.entries()]
+      .map(([id, dates]) => {
+        const user = usersById.get(id);
+        return {
+          id,
+          name: user?.full_name || user?.email || null,
+          dates: dates.sort(),
+        };
+      })
+      .filter((e) => !!e.name)
+      .sort((a, b) => b.dates.length - a.dates.length);
+  }, [lostDays, scheduleUsers]);
+
+  const copyBothLists = async () => {
+    const monthLabel = format(monthBase, "MMMM yyyy");
+    const fmtDate = (d: string) => format(new Date(d + "T12:00:00"), "MMM d");
+    const lines: string[] = [`EXTRA DAYS — ${monthLabel}`];
+    const withExtra = extraDaysList.filter((e) => e.extraDays.length > 0);
+    if (withExtra.length === 0) lines.push("None");
+    withExtra.forEach(({ user, extraDays }) => {
+      lines.push(`${user.full_name || user.email}: ${extraDays.length}x (${extraDays.map(fmtDate).join(", ")})`);
+    });
+    lines.push("", `LOST DAYS — ${monthLabel}`);
+    if (lostDaysList.length === 0) lines.push("None");
+    lostDaysList.forEach((e) => {
+      lines.push(`${e.name}: ${e.dates.length}x (${e.dates.map(fmtDate).join(", ")})`);
+    });
+    const text = lines.join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Extra days & lost days copied");
+    } catch {
+      toast.error("Failed to copy");
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
         <DialogHeader className="space-y-1 sm:space-y-2">
-          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
-            Weekend Schedule
-          </DialogTitle>
+          <div className="flex items-center justify-between gap-2 pr-8">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
+              Weekend Schedule
+            </DialogTitle>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={copyBothLists}>
+              <Copy className="h-3 w-3" />
+              Copy extra & lost days
+            </Button>
+          </div>
           <DialogDescription className="text-xs sm:text-sm">
             Schedule users by office: 3x KG, 2x CA, 2x BG + Maintenance for weekends and holidays. Role changes: 6am →
             afterhours, 5pm → dispatch (Chicago time)
@@ -612,6 +705,54 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   </div>
                 );
               })()}
+
+            {/* Lost days list */}
+            {lostDaysList.length > 0 && (
+              <div className="border rounded-md p-2 sm:p-3 bg-muted/30">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                    Lost days in {format(monthBase, "MMMM")}
+                  </h4>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-5 w-5">
+                        <Info className="h-3 w-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 max-h-96 overflow-y-auto" align="end">
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm">Lost Days in {format(monthBase, "MMMM")}</h4>
+                        <p className="text-xs text-muted-foreground">Days recorded as off duty for dispatchers.</p>
+                        <div className="space-y-3">
+                          {lostDaysList.map((entry) => (
+                            <div key={entry.id} className="border-b pb-2 last:border-0">
+                              <div className="font-medium text-sm">{entry.name}</div>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {entry.dates.map((date) => (
+                                  <Badge key={date} variant="outline" className="text-xs text-red-500 border-red-500">
+                                    {format(new Date(date + "T12:00:00"), "MMM d")}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
+                  {lostDaysList.map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="truncate">{entry.name}</span>
+                      <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
+                        {entry.dates.length}x
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right side - Schedule for selected date */}
