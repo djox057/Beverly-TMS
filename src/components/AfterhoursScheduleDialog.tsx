@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus, Copy } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -76,6 +76,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   const [existingSchedules, setExistingSchedules] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [lostDays, setLostDays] = useState<{ dispatcher_id: string; off_duty_date: string }[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -83,6 +84,26 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
       fetchExistingSchedules();
     }
   }, [open]);
+
+  // Lost days for the month of the selected date (or current month)
+  useEffect(() => {
+    if (!open) return;
+    const base = selectedDate || new Date();
+    const from = format(startOfMonth(base), "yyyy-MM-dd");
+    const to = format(endOfMonth(base), "yyyy-MM-dd");
+    (async () => {
+      const { data, error } = await supabase
+        .from("dispatcher_off_duty_days")
+        .select("dispatcher_id, off_duty_date")
+        .gte("off_duty_date", from)
+        .lte("off_duty_date", to);
+      if (error) {
+        console.error("Error fetching lost days:", error);
+        return;
+      }
+      setLostDays((data || []) as { dispatcher_id: string; off_duty_date: string }[]);
+    })();
+  }, [open, selectedDate ? format(startOfMonth(selectedDate), "yyyy-MM") : "current"]);
 
   const fetchScheduleUsers = async () => {
     setLoading(true);
