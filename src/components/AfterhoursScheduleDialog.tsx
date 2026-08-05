@@ -575,10 +575,16 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
         <DialogHeader className="space-y-1 sm:space-y-2">
-          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
-            Weekend Schedule
-          </DialogTitle>
+          <div className="flex items-center justify-between gap-2 pr-8">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
+              Weekend Schedule
+            </DialogTitle>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={copyBothLists}>
+              <Copy className="h-3 w-3" />
+              Copy extra & lost days
+            </Button>
+          </div>
           <DialogDescription className="text-xs sm:text-sm">
             Schedule users by office: 3x KG, 2x CA, 2x BG + Maintenance for weekends and holidays. Role changes: 6am →
             afterhours, 5pm → dispatch (Chicago time)
