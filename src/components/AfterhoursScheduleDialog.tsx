@@ -705,6 +705,54 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   </div>
                 );
               })()}
+
+            {/* Lost days list */}
+            {lostDaysList.length > 0 && (
+              <div className="border rounded-md p-2 sm:p-3 bg-muted/30">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                    Lost days in {format(monthBase, "MMMM")}
+                  </h4>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-5 w-5">
+                        <Info className="h-3 w-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 max-h-96 overflow-y-auto" align="end">
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm">Lost Days in {format(monthBase, "MMMM")}</h4>
+                        <p className="text-xs text-muted-foreground">Days recorded as off duty for dispatchers.</p>
+                        <div className="space-y-3">
+                          {lostDaysList.map((entry) => (
+                            <div key={entry.id} className="border-b pb-2 last:border-0">
+                              <div className="font-medium text-sm">{entry.name}</div>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {entry.dates.map((date) => (
+                                  <Badge key={date} variant="outline" className="text-xs text-red-500 border-red-500">
+                                    {format(new Date(date + "T12:00:00"), "MMM d")}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
+                  {lostDaysList.map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="truncate">{entry.name}</span>
+                      <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
+                        {entry.dates.length}x
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right side - Schedule for selected date */}
