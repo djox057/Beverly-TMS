@@ -832,6 +832,28 @@ export default function Alerts() {
             </TabsList>
 
             <TabsContent value="trucks" className="mt-6">
+              <div className="mb-4 inline-flex h-10 w-full items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto">
+                {truckColumnTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const count = tab.value === "all"
+                    ? truckBaseFiltered.length
+                    : truckBaseFiltered.filter((t) => matchesTruckColumn(t, tab.value)).length;
+                  const isActive = truckColumnFilter === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => { setTruckColumnFilter(tab.value); setTrucksPage(1); }}
+                      className={`inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
+                        isActive ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
               {trucksLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((i) => (
