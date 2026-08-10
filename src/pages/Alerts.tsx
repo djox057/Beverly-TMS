@@ -11,7 +11,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis
 } from "@/components/ui/pagination";
-import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, CreditCard, ShieldCheck, CircleDot, Wrench } from "lucide-react";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -296,15 +296,8 @@ export default function Alerts() {
   }
 
   // Filter data based on search and column filter
-  const filteredTrucks = trucks.filter((truck) => {
-    if (isAssignedFilter && !assignedTruckIds.has(truck.id)) return false;
-    const matchesSearch = truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
-      truck.company?.name?.toLowerCase().includes(trucksSearch.toLowerCase());
-    
-    if (!matchesSearch) return false;
-    if (truckColumnFilter === "all") return true;
-    
-    switch (truckColumnFilter) {
+  const matchesTruckColumn = (truck: any, filter: TruckColumnFilter) => {
+    switch (filter) {
       case "dot": return isExpiring(truck.dot_inspection_date);
       case "plate": return isExpiring(truck.plate_expiration_date);
       case "insurance": return isExpiring(truck.insurance_expiration_date);
@@ -312,7 +305,26 @@ export default function Alerts() {
       case "maintenance_check": return needsMaintenanceAttention(truck.maintenance_check_date);
       default: return true;
     }
+  };
+
+  const truckBaseFiltered = trucks.filter((truck) => {
+    if (isAssignedFilter && !assignedTruckIds.has(truck.id)) return false;
+    return (
+      truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
+      truck.company?.name?.toLowerCase().includes(trucksSearch.toLowerCase())
+    );
   });
+
+  const filteredTrucks = truckBaseFiltered.filter((truck) => matchesTruckColumn(truck, truckColumnFilter));
+
+  const truckColumnTabs: { value: TruckColumnFilter; label: string; icon: typeof Truck }[] = [
+    { value: "all", label: "All Trucks", icon: Truck },
+    { value: "dot", label: "DOT Inspection", icon: ClipboardCheck },
+    { value: "plate", label: "Plate Expiration", icon: CreditCard },
+    { value: "insurance", label: "Insurance", icon: ShieldCheck },
+    { value: "tires_swap", label: "Tires Swap", icon: CircleDot },
+    { value: "maintenance_check", label: "Maintenance Check", icon: Wrench },
+  ];
 
   const filteredTrailers = trailers.filter((trailer) => {
     if (isAssignedFilter && !assignedTrailerIds.has(trailer.id)) return false;
@@ -820,6 +832,28 @@ export default function Alerts() {
             </TabsList>
 
             <TabsContent value="trucks" className="mt-6">
+              <div className="mb-4 inline-flex h-10 w-full items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto">
+                {truckColumnTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const count = tab.value === "all"
+                    ? truckBaseFiltered.length
+                    : truckBaseFiltered.filter((t) => matchesTruckColumn(t, tab.value)).length;
+                  const isActive = truckColumnFilter === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => { setTruckColumnFilter(tab.value); setTrucksPage(1); }}
+                      className={`inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
+                        isActive ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
               {trucksLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((i) => (
