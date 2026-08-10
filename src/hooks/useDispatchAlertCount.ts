@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
