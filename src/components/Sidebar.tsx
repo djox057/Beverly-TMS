@@ -129,6 +129,7 @@ export const Sidebar = () => {
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
+  const { data: dispatchAlertCount = 0 } = useDispatchAlertCount();
   const { canView: canViewDailyReport } = useDailyReportPermissions();
   const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
   const [scheduledDates, setScheduledDates] = useState<string[]>([]);
