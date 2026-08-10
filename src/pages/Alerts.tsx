@@ -884,12 +884,14 @@ export default function Alerts() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[90px]">Truck #</TableHead>
+                      <TableHead className="w-[150px]">Dispatcher</TableHead>
                       <TableHead className="w-[130px]">
                         <div className="flex items-center gap-1">
                           <span>Company</span>
                           {renderSortButton(truckSort, "company", () => { setTruckSort(prev => cycleSort(prev, "company")); setTrucksPage(1); }, "company")}
                         </div>
                       </TableHead>
+                      {showTruckCol("dot") && (
                       <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "dot" ? "all" : "dot")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
@@ -899,6 +901,8 @@ export default function Alerts() {
                           {renderSortButton(truckSort, "dot", () => { setTruckSort(prev => cycleSort(prev, "dot")); setTrucksPage(1); }, "DOT inspection date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showTruckCol("plate") && (
                       <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "plate" ? "all" : "plate")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
@@ -908,6 +912,8 @@ export default function Alerts() {
                           {renderSortButton(truckSort, "plate", () => { setTruckSort(prev => cycleSort(prev, "plate")); setTrucksPage(1); }, "plate expiration date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showTruckCol("insurance") && (
                       <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "insurance" ? "all" : "insurance")}
                         className={`w-[210px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
@@ -917,6 +923,8 @@ export default function Alerts() {
                           {renderSortButton(truckSort, "insurance", () => { setTruckSort(prev => cycleSort(prev, "insurance")); setTrucksPage(1); }, "insurance expiration date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showTruckCol("tires_swap") && (
                       <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "tires_swap" ? "all" : "tires_swap")}
                         className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "tires_swap" ? "bg-primary/10 text-primary" : ""}`}
@@ -926,6 +934,8 @@ export default function Alerts() {
                           {renderSortButton(truckSort, "tires_swap", () => { setTruckSort(prev => cycleSort(prev, "tires_swap")); setTrucksPage(1); }, "tires swap date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showTruckCol("maintenance_check") && (
                       <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "maintenance_check" ? "all" : "maintenance_check")}
                         className={`w-[160px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "maintenance_check" ? "bg-primary/10 text-primary" : ""}`}
@@ -935,6 +945,7 @@ export default function Alerts() {
                           {renderSortButton(truckSort, "maintenance_check", () => { setTruckSort(prev => cycleSort(prev, "maintenance_check")); setTrucksPage(1); }, "maintenance check date")}
                         </div>
                       </TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                    <TableBody>
