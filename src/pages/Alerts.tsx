@@ -959,7 +959,9 @@ export default function Alerts() {
                              {truck.truck_number}
                            </button>
                          </TableCell>
+                        <TableCell>{dispatcherNameByTruckId.get(truck.id) || "N/A"}</TableCell>
                          <TableCell>{truck.company?.name || "N/A"}</TableCell>
+                         {showTruckCol("dot") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              <span className={getExpirationStatus(truck.dot_inspection_date).className}>
@@ -972,6 +974,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showTruckCol("plate") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              <span className={getExpirationStatus(truck.plate_expiration_date).className}>
@@ -984,6 +988,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showTruckCol("insurance") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              <span className={getExpirationStatus(truck.insurance_expiration_date).className}>
@@ -996,16 +1002,21 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showTruckCol("tires_swap") && (
                          <TableCell>
                            <span className={getMaintenanceStatus(truck.tires_swap_date).color}>
                              {getMaintenanceStatus(truck.tires_swap_date).label}
                            </span>
                          </TableCell>
+                         )}
+                         {showTruckCol("maintenance_check") && (
                          <TableCell>
                            <span className={getMaintenanceStatus(truck.maintenance_check_date).color}>
                              {getMaintenanceStatus(truck.maintenance_check_date).label}
                            </span>
                          </TableCell>
+                         )}
                        </TableRow>
                      ))}
                    </TableBody>
