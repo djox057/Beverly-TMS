@@ -326,7 +326,15 @@ export default function Alerts() {
       case "insurance": return isExpiring(truck.insurance_expiration_date);
       case "tires_swap": return needsMaintenanceAttention(truck.tires_swap_date);
       case "maintenance_check": return needsMaintenanceAttention(truck.maintenance_check_date);
-      default: return true;
+      default:
+        // "All Trucks" shows only trucks that have at least one alert
+        return (
+          isExpiring(truck.dot_inspection_date) ||
+          isExpiring(truck.plate_expiration_date) ||
+          isExpiring(truck.insurance_expiration_date) ||
+          needsMaintenanceAttention(truck.tires_swap_date) ||
+          needsMaintenanceAttention(truck.maintenance_check_date)
+        );
     }
   };
 
@@ -920,9 +928,7 @@ export default function Alerts() {
               <div className="mb-4 inline-flex h-10 w-full items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto">
                 {truckColumnTabs.map((tab) => {
                   const Icon = tab.icon;
-                  const count = tab.value === "all"
-                    ? truckBaseFiltered.length
-                    : truckBaseFiltered.filter((t) => matchesTruckColumn(t, tab.value)).length;
+                  const count = truckBaseFiltered.filter((t) => matchesTruckColumn(t, tab.value)).length;
                   const isActive = truckColumnFilter === tab.value;
                   return (
                     <button

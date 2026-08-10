@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
@@ -62,24 +61,15 @@ export const useDispatchAlertCount = () => {
         if (t.driver2_id) myDriverIds.add(t.driver2_id);
       }
 
-      // Count trucks with alerts
-      const trucksWithAlert = myTrucks.filter((truck) => {
-        const hasMaintenanceDate = truck.tires_swap_date || truck.maintenance_check_date;
-        const milesSinceOil =
-          truck.miles != null && truck.last_oil_change_miles != null
-            ? truck.miles - truck.last_oil_change_miles
-            : null;
-        const { yellow: oilYellow } = getOilChangeThresholds(truck.source);
-        const oilMilesTriggered = milesSinceOil != null && milesSinceOil > oilYellow;
-
-        return (
-          hasMaintenanceDate ||
-          oilMilesTriggered ||
+      // Count trucks with alerts (same rules as the Alerts page)
+      const trucksWithAlert = myTrucks.filter(
+        (truck) =>
           isExpiring(truck.dot_inspection_date, now) ||
           isExpiring(truck.plate_expiration_date, now) ||
-          isExpiring(truck.insurance_expiration_date, now)
-        );
-      }).length;
+          isExpiring(truck.insurance_expiration_date, now) ||
+          needsAttention(truck.tires_swap_date, now) ||
+          needsAttention(truck.maintenance_check_date, now),
+      ).length;
 
       // Count trailers with alerts
       let trailersWithAlert = 0;
