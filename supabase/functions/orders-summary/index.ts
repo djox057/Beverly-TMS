@@ -101,6 +101,7 @@ Deno.serve(async (req) => {
       "admin",
       "manager",
       "accounting",
+      "claims",
       "safety",
       "supervisor",
       "dispatch",

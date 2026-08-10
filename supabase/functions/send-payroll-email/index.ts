@@ -49,7 +49,7 @@ const handler = async (req: Request): Promise<Response> => {
       .from('user_roles')
       .select('role')
       .eq('user_id', userData.user.id);
-    const allowedRoles = new Set(['admin', 'manager', 'accounting']);
+    const allowedRoles = new Set(['admin', 'manager', 'accounting', 'claims']);
     const hasAllowed = (roles ?? []).some((r: any) => allowedRoles.has(r.role));
     if (!hasAllowed) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
