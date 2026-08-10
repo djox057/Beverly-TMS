@@ -45,6 +45,7 @@ serve(async (req) => {
       return json({
         error: "missing_permission",
         missingPermissions: missing,
+        grantedPermissions: token.scopes,
         action: "Enable these Application Permissions in the RingCentral Developer Console for this app, then re-authorize the JWT.",
       }, 424);
     }
