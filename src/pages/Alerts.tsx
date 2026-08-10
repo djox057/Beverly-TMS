@@ -11,7 +11,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis
 } from "@/components/ui/pagination";
-import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, CreditCard, ShieldCheck, CircleDot, Wrench } from "lucide-react";
+import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, CreditCard, ShieldCheck, CircleDot, Wrench, IdCard, FileSearch, ScrollText, HeartPulse, FlaskConical } from "lucide-react";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -337,39 +337,62 @@ export default function Alerts() {
     { value: "maintenance_check", label: "Maintenance Check", icon: Wrench },
   ];
 
-  const filteredTrailers = trailers.filter((trailer) => {
-    if (isAssignedFilter && !assignedTrailerIds.has(trailer.id)) return false;
-    const searchLower = trailersSearch.toLowerCase();
-    const truckNum = truckByTrailerId.get(trailer.id) || "";
-    const matchesSearch = trailer.trailer_number?.toLowerCase().includes(searchLower) ||
-      truckNum.toLowerCase().includes(searchLower);
-    
-    if (!matchesSearch) return false;
-    if (trailerColumnFilter === "all") return true;
-    
-    switch (trailerColumnFilter) {
+  // Dispatcher name per trailer / driver (resolved through the truck they are connected to)
+  const trailerIdToTruckId = new Map<string, string>();
+  const driverIdToTruckId = new Map<string, string>();
+  if (allTrucks) {
+    for (const t of allTrucks as any[]) {
+      if (t.trailer_id) trailerIdToTruckId.set(t.trailer_id, t.id);
+      if (t.driver1_id) driverIdToTruckId.set(t.driver1_id, t.id);
+      if (t.driver2_id) driverIdToTruckId.set(t.driver2_id, t.id);
+    }
+  }
+  const dispatcherNameByTrailerId = new Map<string, string>();
+  for (const [trailerId, truckId] of trailerIdToTruckId) {
+    const name = dispatcherNameByTruckId.get(truckId);
+    if (name) dispatcherNameByTrailerId.set(trailerId, name);
+  }
+  const dispatcherNameByDriverId = new Map<string, string>();
+  if (allDrivers) {
+    for (const d of allDrivers as any[]) {
+      const name = d.dispatcher_info?.full_name || (driverIdToTruckId.get(d.id) ? dispatcherNameByTruckId.get(driverIdToTruckId.get(d.id)!) : undefined);
+      if (name) dispatcherNameByDriverId.set(d.id, name);
+    }
+  }
+
+  const matchesTrailerColumn = (trailer: any, filter: TrailerColumnFilter) => {
+    switch (filter) {
       case "dot": return isExpiring(trailer.dot_inspection_date);
       case "plate": return isExpiring(trailer.plate_expiration_date);
       case "insurance": return isExpiring(trailer.insurance_expiration_date);
       default: return true;
     }
+  };
+
+  const trailerBaseFiltered = trailers.filter((trailer) => {
+    if (isAssignedFilter && !assignedTrailerIds.has(trailer.id)) return false;
+    const searchLower = trailersSearch.toLowerCase();
+    const truckNum = truckByTrailerId.get(trailer.id) || "";
+    return (
+      trailer.trailer_number?.toLowerCase().includes(searchLower) ||
+      truckNum.toLowerCase().includes(searchLower)
+    );
   });
 
-  const filteredDrivers = drivers.filter((driver) => {
-    if (isAssignedFilter && !assignedDriverIds.has(driver.id)) return false;
-    // First apply search filter
-    const searchLower = driversSearch.toLowerCase();
-    const truckNum = truckByDriverId.get(driver.id) || "";
-    const matchesSearch = driver.name?.toLowerCase().includes(searchLower) ||
-      driver.company_name?.toLowerCase().includes(searchLower) ||
-      truckNum.toLowerCase().includes(searchLower);
-    
-    if (!matchesSearch) return false;
-    
-    // Then apply column filter
-    if (driverColumnFilter === "all") return true;
-    
-    switch (driverColumnFilter) {
+  const filteredTrailers = trailerBaseFiltered.filter((trailer) => matchesTrailerColumn(trailer, trailerColumnFilter));
+
+  const showTrailerCol = (col: Exclude<TrailerColumnFilter, "all">) =>
+    trailerColumnFilter === "all" || trailerColumnFilter === col;
+
+  const trailerColumnTabs: { value: TrailerColumnFilter; label: string; icon: typeof Truck }[] = [
+    { value: "all", label: "All Trailers", icon: Package },
+    { value: "dot", label: "DOT Inspection", icon: ClipboardCheck },
+    { value: "plate", label: "Plate Expiration", icon: CreditCard },
+    { value: "insurance", label: "Insurance", icon: ShieldCheck },
+  ];
+
+  const matchesDriverColumn = (driver: any, filter: DriverColumnFilter) => {
+    switch (filter) {
       case "cdl": return isExpiring(driver.cdl_expiration_date);
       case "mvr": return isExpiring(driver.mvr_date);
       case "clearing_house": return isExpiring(driver.clearing_house);
@@ -377,7 +400,32 @@ export default function Alerts() {
       case "drug_test": return isExpiring(driver.random_drug_test_date);
       default: return true;
     }
+  };
+
+  const driverBaseFiltered = drivers.filter((driver) => {
+    if (isAssignedFilter && !assignedDriverIds.has(driver.id)) return false;
+    const searchLower = driversSearch.toLowerCase();
+    const truckNum = truckByDriverId.get(driver.id) || "";
+    return (
+      driver.name?.toLowerCase().includes(searchLower) ||
+      (driver as any).company_name?.toLowerCase().includes(searchLower) ||
+      truckNum.toLowerCase().includes(searchLower)
+    );
   });
+
+  const filteredDrivers = driverBaseFiltered.filter((driver) => matchesDriverColumn(driver, driverColumnFilter));
+
+  const showDriverCol = (col: Exclude<DriverColumnFilter, "all">) =>
+    driverColumnFilter === "all" || driverColumnFilter === col;
+
+  const driverColumnTabs: { value: DriverColumnFilter; label: string; icon: typeof Truck }[] = [
+    { value: "all", label: "All Drivers", icon: User },
+    { value: "cdl", label: "CDL Expiration", icon: IdCard },
+    { value: "mvr", label: "MVR Date", icon: FileSearch },
+    { value: "clearing_house", label: "Clearing House", icon: ScrollText },
+    { value: "medical", label: "Medical Card", icon: HeartPulse },
+    { value: "drug_test", label: "Random Drug Test", icon: FlaskConical },
+  ];
 
   // Edit dialog states
   const [isEditTruckDialogOpen, setIsEditTruckDialogOpen] = useState(false);
@@ -1047,6 +1095,28 @@ export default function Alerts() {
             </TabsContent>
 
             <TabsContent value="trailers" className="mt-6">
+              <div className="mb-4 inline-flex h-10 w-full items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto">
+                {trailerColumnTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const count = tab.value === "all"
+                    ? trailerBaseFiltered.length
+                    : trailerBaseFiltered.filter((t) => matchesTrailerColumn(t, tab.value)).length;
+                  const isActive = trailerColumnFilter === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => { setTrailerColumnFilter(tab.value); setTrailersPage(1); }}
+                      className={`inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
+                        isActive ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
               {trailersLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((i) => (
@@ -1067,7 +1137,9 @@ export default function Alerts() {
                     <TableRow>
                       <TableHead className="w-[100px]">Trailer #</TableHead>
                       <TableHead className="w-[90px]">Truck #</TableHead>
+                      <TableHead className="w-[150px]">Dispatcher</TableHead>
                       <TableHead className="w-[100px]">Type</TableHead>
+                      {showTrailerCol("dot") && (
                       <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "dot" ? "all" : "dot")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
@@ -1077,6 +1149,8 @@ export default function Alerts() {
                           {renderSortButton(trailerSort, "dot", () => { setTrailerSort(prev => cycleSort(prev, "dot")); setTrailersPage(1); }, "DOT inspection date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showTrailerCol("plate") && (
                       <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "plate" ? "all" : "plate")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
@@ -1086,6 +1160,8 @@ export default function Alerts() {
                           {renderSortButton(trailerSort, "plate", () => { setTrailerSort(prev => cycleSort(prev, "plate")); setTrailersPage(1); }, "plate expiration date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showTrailerCol("insurance") && (
                       <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "insurance" ? "all" : "insurance")}
                         className={`w-[210px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
@@ -1095,6 +1171,7 @@ export default function Alerts() {
                           {renderSortButton(trailerSort, "insurance", () => { setTrailerSort(prev => cycleSort(prev, "insurance")); setTrailersPage(1); }, "insurance expiration date")}
                         </div>
                       </TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                    <TableBody>
@@ -1109,7 +1186,9 @@ export default function Alerts() {
                            </button>
                          </TableCell>
                          <TableCell>{truckByTrailerId.get(trailer.id) || "—"}</TableCell>
+                         <TableCell>{dispatcherNameByTrailerId.get(trailer.id) || "N/A"}</TableCell>
                          <TableCell>{trailer.trailer_type || "N/A"}</TableCell>
+                         {showTrailerCol("dot") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              <span className={getExpirationStatus(trailer.dot_inspection_date).className}>
@@ -1122,6 +1201,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showTrailerCol("plate") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              <span className={getExpirationStatus(trailer.plate_expiration_date).className}>
@@ -1134,6 +1215,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showTrailerCol("insurance") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              <span className={getExpirationStatus(trailer.insurance_expiration_date).className}>
@@ -1146,6 +1229,7 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
                        </TableRow>
                      ))}
                    </TableBody>
@@ -1176,6 +1260,28 @@ export default function Alerts() {
             </TabsContent>
 
             <TabsContent value="drivers" className="mt-6">
+              <div className="mb-4 inline-flex h-10 w-full items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto">
+                {driverColumnTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const count = tab.value === "all"
+                    ? driverBaseFiltered.length
+                    : driverBaseFiltered.filter((d) => matchesDriverColumn(d, tab.value)).length;
+                  const isActive = driverColumnFilter === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => { setDriverColumnFilter(tab.value); setDriversPage(1); }}
+                      className={`inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
+                        isActive ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
               {driversLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((i) => (
@@ -1196,6 +1302,8 @@ export default function Alerts() {
                     <TableRow>
                       <TableHead className="w-[160px]">Driver Name</TableHead>
                       <TableHead className="w-[90px]">Truck #</TableHead>
+                      <TableHead className="w-[150px]">Dispatcher</TableHead>
+                      {showDriverCol("cdl") && (
                       <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "cdl" ? "all" : "cdl")}
                         className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "cdl" ? "bg-primary/10 text-primary" : ""}`}
@@ -1205,6 +1313,8 @@ export default function Alerts() {
                           {renderSortButton(driverSort, "cdl", () => { setDriverSort(prev => cycleSort(prev, "cdl")); setDriversPage(1); }, "CDL expiration date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showDriverCol("mvr") && (
                       <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "mvr" ? "all" : "mvr")}
                         className={`w-[170px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "mvr" ? "bg-primary/10 text-primary" : ""}`}
@@ -1214,6 +1324,8 @@ export default function Alerts() {
                           {renderSortButton(driverSort, "mvr", () => { setDriverSort(prev => cycleSort(prev, "mvr")); setDriversPage(1); }, "MVR date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showDriverCol("clearing_house") && (
                       <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "clearing_house" ? "all" : "clearing_house")}
                         className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "clearing_house" ? "bg-primary/10 text-primary" : ""}`}
@@ -1223,6 +1335,8 @@ export default function Alerts() {
                           {renderSortButton(driverSort, "clearing_house", () => { setDriverSort(prev => cycleSort(prev, "clearing_house")); setDriversPage(1); }, "clearing house date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showDriverCol("medical") && (
                       <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "medical" ? "all" : "medical")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "medical" ? "bg-primary/10 text-primary" : ""}`}
@@ -1232,6 +1346,8 @@ export default function Alerts() {
                           {renderSortButton(driverSort, "medical", () => { setDriverSort(prev => cycleSort(prev, "medical")); setDriversPage(1); }, "medical card expiration date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showDriverCol("drug_test") && (
                       <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "drug_test" ? "all" : "drug_test")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "drug_test" ? "bg-primary/10 text-primary" : ""}`}
@@ -1241,6 +1357,7 @@ export default function Alerts() {
                           {renderSortButton(driverSort, "drug_test", () => { setDriverSort(prev => cycleSort(prev, "drug_test")); setDriversPage(1); }, "random drug test date")}
                         </div>
                       </TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                    <TableBody>
@@ -1255,6 +1372,8 @@ export default function Alerts() {
                             </button>
                           </TableCell>
                           <TableCell>{truckByDriverId.get(driver.id) || "—"}</TableCell>
+                          <TableCell>{dispatcherNameByDriverId.get(driver.id) || "N/A"}</TableCell>
+                          {showDriverCol("cdl") && (
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {formatDate(driver.cdl_expiration_date)}
@@ -1265,6 +1384,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                          )}
+                         {showDriverCol("mvr") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              {formatDate(driver.mvr_date)}
@@ -1275,6 +1396,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showDriverCol("clearing_house") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              {formatDate(driver.clearing_house)}
@@ -1285,6 +1408,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showDriverCol("medical") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              {formatDate(driver.medical_card_expiration_date)}
@@ -1295,6 +1420,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showDriverCol("drug_test") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              {formatDate(driver.random_drug_test_date)}
@@ -1305,6 +1432,7 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
                        </TableRow>
                      ))}
                    </TableBody>
