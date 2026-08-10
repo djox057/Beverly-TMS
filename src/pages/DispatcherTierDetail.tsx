@@ -445,6 +445,13 @@ const DispatcherTierDetail = () => {
         />
       )}
 
+      {id && !loading && (
+        <RingCentralActivityPanel
+          userId={id}
+          title={`Phone Activity — ${dispatcher?.full_name || dispatcher?.email || "Dispatcher"}`}
+        />
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
