@@ -317,6 +317,17 @@ export default function Alerts() {
 
   const filteredTrucks = truckBaseFiltered.filter((truck) => matchesTruckColumn(truck, truckColumnFilter));
 
+  const showTruckCol = (col: Exclude<TruckColumnFilter, "all">) =>
+    truckColumnFilter === "all" || truckColumnFilter === col;
+
+  // Dispatcher name per truck (from the full trucks dataset, which resolves dispatcher via driver1)
+  const dispatcherNameByTruckId = new Map<string, string>();
+  if (allTrucks) {
+    for (const t of allTrucks as any[]) {
+      if (t.dispatcher?.full_name) dispatcherNameByTruckId.set(t.id, t.dispatcher.full_name);
+    }
+  }
+
   const truckColumnTabs: { value: TruckColumnFilter; label: string; icon: typeof Truck }[] = [
     { value: "all", label: "All Trucks", icon: Truck },
     { value: "dot", label: "DOT Inspection", icon: ClipboardCheck },
