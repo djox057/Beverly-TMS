@@ -123,7 +123,7 @@ export default function Alerts() {
   const { data: trucks = [], isLoading: trucksLoading } = useExpiringTrucks();
   const { data: trailers = [], isLoading: trailersLoading } = useExpiringTrailers();
   const { data: drivers = [], isLoading: driversLoading } = useExpiringDrivers();
-  const { hasRole } = useAuthContext();
+  const { hasRole, getPrimaryRole, user } = useAuthContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
