@@ -298,14 +298,6 @@ export default function Alerts() {
     }
   }
 
-  const unusedIsExpiring = (date: string | null) => {
-    if (!date) return false;
-    const expirationDate = new Date(date);
-    const now = new Date();
-    const sixtyDaysFromNow = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
-    return expirationDate <= sixtyDaysFromNow;
-  };
-
   // Helper to check if a maintenance date needs attention (within 30 days - yellow or red)
   const needsMaintenanceAttention = (date: string | null) => {
     if (!date) return false;
