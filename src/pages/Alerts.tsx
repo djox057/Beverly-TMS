@@ -123,7 +123,7 @@ export default function Alerts() {
   const { data: trucks = [], isLoading: trucksLoading } = useExpiringTrucks();
   const { data: trailers = [], isLoading: trailersLoading } = useExpiringTrailers();
   const { data: drivers = [], isLoading: driversLoading } = useExpiringDrivers();
-  const { hasRole } = useAuthContext();
+  const { hasRole, getPrimaryRole, user } = useAuthContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -275,6 +275,29 @@ export default function Alerts() {
     return expirationDate <= sixtyDaysFromNow;
   };
 
+  // Dispatch role: view-only access, scoped to their own trucks/trailers/drivers
+  const isDispatchOnly =
+    !hasRole('admin') && !hasRole('safety') && !hasRole('maintenance') &&
+    (getPrimaryRole() === 'dispatch' || getPrimaryRole() === 'afterhours');
+  const canEdit = !isDispatchOnly;
+
+  const myTruckIds = new Set<string>();
+  const myTrailerIds = new Set<string>();
+  const myDriverIds = new Set<string>();
+  if (isDispatchOnly && user?.id) {
+    for (const t of (allTrucks || []) as any[]) {
+      if (t.dispatcher?.id === user.id) {
+        myTruckIds.add(t.id);
+        if (t.trailer_id) myTrailerIds.add(t.trailer_id);
+        if (t.driver1_id) myDriverIds.add(t.driver1_id);
+        if (t.driver2_id) myDriverIds.add(t.driver2_id);
+      }
+    }
+    for (const d of (allDrivers || []) as any[]) {
+      if (d.dispatcher_id === user.id) myDriverIds.add(d.id);
+    }
+  }
+
   // Helper to check if a maintenance date needs attention (within 30 days - yellow or red)
   const needsMaintenanceAttention = (date: string | null) => {
     if (!date) return false;
@@ -308,6 +331,7 @@ export default function Alerts() {
   };
 
   const truckBaseFiltered = trucks.filter((truck) => {
+    if (isDispatchOnly && !myTruckIds.has(truck.id)) return false;
     if (isAssignedFilter && !assignedTruckIds.has(truck.id)) return false;
     return (
       truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
@@ -370,6 +394,7 @@ export default function Alerts() {
   };
 
   const trailerBaseFiltered = trailers.filter((trailer) => {
+    if (isDispatchOnly && !myTrailerIds.has(trailer.id)) return false;
     if (isAssignedFilter && !assignedTrailerIds.has(trailer.id)) return false;
     const searchLower = trailersSearch.toLowerCase();
     const truckNum = truckByTrailerId.get(trailer.id) || "";
@@ -403,6 +428,7 @@ export default function Alerts() {
   };
 
   const driverBaseFiltered = drivers.filter((driver) => {
+    if (isDispatchOnly && !myDriverIds.has(driver.id)) return false;
     if (isAssignedFilter && !assignedDriverIds.has(driver.id)) return false;
     const searchLower = driversSearch.toLowerCase();
     const truckNum = truckByDriverId.get(driver.id) || "";
@@ -821,14 +847,14 @@ export default function Alerts() {
     return items;
   };
 
-  // Check if user has admin, safety or maintenance role
-  if (!hasRole('admin') && !hasRole('safety') && !hasRole('maintenance')) {
+  // Check if user has admin, safety, maintenance role — dispatch gets view-only, scoped access
+  if (!hasRole('admin') && !hasRole('safety') && !hasRole('maintenance') && !isDispatchOnly) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-foreground mb-2">Access Denied</h2>
-            <p className="text-muted-foreground">This page is only accessible to Admin, Safety and Maintenance roles.</p>
+            <p className="text-muted-foreground">This page is only accessible to Admin, Safety, Maintenance and Dispatch roles.</p>
           </div>
         </div>
       </div>
@@ -1000,12 +1026,16 @@ export default function Alerts() {
                      {paginatedTrucks.map((truck) => (
                        <TableRow key={truck.id}>
                          <TableCell className="font-medium">
-                           <button 
-                             onClick={() => openEditTruckDialog(truck.id)}
-                             className="text-primary hover:underline cursor-pointer"
-                           >
-                             {truck.truck_number}
-                           </button>
+                           {canEdit ? (
+                             <button
+                               onClick={() => openEditTruckDialog(truck.id)}
+                               className="text-primary hover:underline cursor-pointer"
+                             >
+                               {truck.truck_number}
+                             </button>
+                           ) : (
+                             <span>{truck.truck_number}</span>
+                           )}
                          </TableCell>
                         <TableCell>{dispatcherNameByTruckId.get(truck.id) || "N/A"}</TableCell>
                          <TableCell>{truck.company?.name || "N/A"}</TableCell>
@@ -1178,12 +1208,16 @@ export default function Alerts() {
                      {paginatedTrailers.map((trailer) => (
                        <TableRow key={trailer.id}>
                          <TableCell className="font-medium">
-                           <button 
-                             onClick={() => openEditTrailerDialog(trailer.id)}
-                             className="text-primary hover:underline cursor-pointer"
-                           >
-                             {trailer.trailer_number}
-                           </button>
+                           {canEdit ? (
+                             <button
+                               onClick={() => openEditTrailerDialog(trailer.id)}
+                               className="text-primary hover:underline cursor-pointer"
+                             >
+                               {trailer.trailer_number}
+                             </button>
+                           ) : (
+                             <span>{trailer.trailer_number}</span>
+                           )}
                          </TableCell>
                          <TableCell>{truckByTrailerId.get(trailer.id) || "—"}</TableCell>
                          <TableCell>{dispatcherNameByTrailerId.get(trailer.id) || "N/A"}</TableCell>
@@ -1364,12 +1398,16 @@ export default function Alerts() {
                      {paginatedDrivers.map((driver) => (
                        <TableRow key={driver.id}>
                          <TableCell className="font-medium">
-                           <button 
-                             onClick={() => openEditDriverDialog(driver.id)}
-                             className="text-primary hover:underline cursor-pointer"
-                           >
-                            {driver.name}
-                            </button>
+                           {canEdit ? (
+                             <button
+                               onClick={() => openEditDriverDialog(driver.id)}
+                               className="text-primary hover:underline cursor-pointer"
+                             >
+                               {driver.name}
+                             </button>
+                           ) : (
+                             <span>{driver.name}</span>
+                           )}
                           </TableCell>
                           <TableCell>{truckByDriverId.get(driver.id) || "—"}</TableCell>
                           <TableCell>{dispatcherNameByDriverId.get(driver.id) || "N/A"}</TableCell>
@@ -1463,12 +1501,14 @@ export default function Alerts() {
             </TabsContent>
 
             <TabsContent value="temp_plates" className="mt-6">
-              <div className="flex justify-end mb-4">
-                <Button onClick={() => setIsAddTempPlateDialogOpen(true)} size="sm">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add
-                </Button>
-              </div>
+              {canEdit && (
+                <div className="flex justify-end mb-4">
+                  <Button onClick={() => setIsAddTempPlateDialogOpen(true)} size="sm">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+              )}
               {tempPlatesLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3].map((i) => (
@@ -1484,14 +1524,17 @@ export default function Alerts() {
               ) : (
                 (() => {
                   const tpSearch = tempPlatesSearch.trim().toLowerCase();
+                  const scopedTempPlates = isDispatchOnly
+                    ? temporaryPlates.filter((plate) => myTruckIds.has(plate.truck_id))
+                    : temporaryPlates;
                   const filteredTempPlates = tpSearch
-                    ? temporaryPlates.filter((plate) => {
+                    ? scopedTempPlates.filter((plate) => {
                         const truck = tempPlateTruckMap.get(plate.truck_id);
                         const truckNum = (truck?.truck_number || "").toLowerCase();
                         const driverName = (truck?.driver1?.name || "").toLowerCase();
                         return truckNum.includes(tpSearch) || driverName.includes(tpSearch);
                       })
-                    : temporaryPlates;
+                    : scopedTempPlates;
                   return (
                 <Table className="table-fixed">
                   <TableHeader>
@@ -1523,14 +1566,17 @@ export default function Alerts() {
                               {(tempPlateFileMap[plate.id] || []).map((fileName) => (
                                 <div key={fileName} className="flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded">
                                   <span className="truncate max-w-[120px]">{fileName}</span>
+                                  {canEdit && (
                                   <button
                                     onClick={() => handleDeleteTempPlateFile(plate.id, fileName)}
                                     className="text-destructive hover:text-destructive/80"
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </button>
+                                  )}
                                 </div>
                               ))}
+                              {canEdit && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1549,6 +1595,7 @@ export default function Alerts() {
                                 <Plus className="h-3 w-3 mr-1" />
                                 Upload
                               </Button>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
