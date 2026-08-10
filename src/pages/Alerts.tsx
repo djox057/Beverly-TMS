@@ -1260,6 +1260,28 @@ export default function Alerts() {
             </TabsContent>
 
             <TabsContent value="drivers" className="mt-6">
+              <div className="mb-4 inline-flex h-10 w-full items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto">
+                {driverColumnTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const count = tab.value === "all"
+                    ? driverBaseFiltered.length
+                    : driverBaseFiltered.filter((d) => matchesDriverColumn(d, tab.value)).length;
+                  const isActive = driverColumnFilter === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => { setDriverColumnFilter(tab.value); setDriversPage(1); }}
+                      className={`inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
+                        isActive ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
               {driversLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((i) => (
@@ -1280,6 +1302,8 @@ export default function Alerts() {
                     <TableRow>
                       <TableHead className="w-[160px]">Driver Name</TableHead>
                       <TableHead className="w-[90px]">Truck #</TableHead>
+                      <TableHead className="w-[150px]">Dispatcher</TableHead>
+                      {showDriverCol("cdl") && (
                       <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "cdl" ? "all" : "cdl")}
                         className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "cdl" ? "bg-primary/10 text-primary" : ""}`}
@@ -1289,6 +1313,8 @@ export default function Alerts() {
                           {renderSortButton(driverSort, "cdl", () => { setDriverSort(prev => cycleSort(prev, "cdl")); setDriversPage(1); }, "CDL expiration date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showDriverCol("mvr") && (
                       <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "mvr" ? "all" : "mvr")}
                         className={`w-[170px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "mvr" ? "bg-primary/10 text-primary" : ""}`}
@@ -1298,6 +1324,8 @@ export default function Alerts() {
                           {renderSortButton(driverSort, "mvr", () => { setDriverSort(prev => cycleSort(prev, "mvr")); setDriversPage(1); }, "MVR date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showDriverCol("clearing_house") && (
                       <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "clearing_house" ? "all" : "clearing_house")}
                         className={`w-[190px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "clearing_house" ? "bg-primary/10 text-primary" : ""}`}
@@ -1307,6 +1335,8 @@ export default function Alerts() {
                           {renderSortButton(driverSort, "clearing_house", () => { setDriverSort(prev => cycleSort(prev, "clearing_house")); setDriversPage(1); }, "clearing house date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showDriverCol("medical") && (
                       <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "medical" ? "all" : "medical")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "medical" ? "bg-primary/10 text-primary" : ""}`}
@@ -1316,6 +1346,8 @@ export default function Alerts() {
                           {renderSortButton(driverSort, "medical", () => { setDriverSort(prev => cycleSort(prev, "medical")); setDriversPage(1); }, "medical card expiration date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showDriverCol("drug_test") && (
                       <TableHead
                         onClick={() => setDriverColumnFilter(driverColumnFilter === "drug_test" ? "all" : "drug_test")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "drug_test" ? "bg-primary/10 text-primary" : ""}`}
@@ -1325,6 +1357,7 @@ export default function Alerts() {
                           {renderSortButton(driverSort, "drug_test", () => { setDriverSort(prev => cycleSort(prev, "drug_test")); setDriversPage(1); }, "random drug test date")}
                         </div>
                       </TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                    <TableBody>
@@ -1339,6 +1372,8 @@ export default function Alerts() {
                             </button>
                           </TableCell>
                           <TableCell>{truckByDriverId.get(driver.id) || "—"}</TableCell>
+                          <TableCell>{dispatcherNameByDriverId.get(driver.id) || "N/A"}</TableCell>
+                          {showDriverCol("cdl") && (
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {formatDate(driver.cdl_expiration_date)}
@@ -1349,6 +1384,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                          )}
+                         {showDriverCol("mvr") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              {formatDate(driver.mvr_date)}
@@ -1359,6 +1396,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showDriverCol("clearing_house") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              {formatDate(driver.clearing_house)}
@@ -1369,6 +1408,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showDriverCol("medical") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              {formatDate(driver.medical_card_expiration_date)}
@@ -1379,6 +1420,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showDriverCol("drug_test") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              {formatDate(driver.random_drug_test_date)}
@@ -1389,6 +1432,7 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
                        </TableRow>
                      ))}
                    </TableBody>
