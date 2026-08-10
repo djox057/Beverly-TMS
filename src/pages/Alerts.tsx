@@ -337,39 +337,62 @@ export default function Alerts() {
     { value: "maintenance_check", label: "Maintenance Check", icon: Wrench },
   ];
 
-  const filteredTrailers = trailers.filter((trailer) => {
-    if (isAssignedFilter && !assignedTrailerIds.has(trailer.id)) return false;
-    const searchLower = trailersSearch.toLowerCase();
-    const truckNum = truckByTrailerId.get(trailer.id) || "";
-    const matchesSearch = trailer.trailer_number?.toLowerCase().includes(searchLower) ||
-      truckNum.toLowerCase().includes(searchLower);
-    
-    if (!matchesSearch) return false;
-    if (trailerColumnFilter === "all") return true;
-    
-    switch (trailerColumnFilter) {
+  // Dispatcher name per trailer / driver (resolved through the truck they are connected to)
+  const trailerIdToTruckId = new Map<string, string>();
+  const driverIdToTruckId = new Map<string, string>();
+  if (allTrucks) {
+    for (const t of allTrucks as any[]) {
+      if (t.trailer_id) trailerIdToTruckId.set(t.trailer_id, t.id);
+      if (t.driver1_id) driverIdToTruckId.set(t.driver1_id, t.id);
+      if (t.driver2_id) driverIdToTruckId.set(t.driver2_id, t.id);
+    }
+  }
+  const dispatcherNameByTrailerId = new Map<string, string>();
+  for (const [trailerId, truckId] of trailerIdToTruckId) {
+    const name = dispatcherNameByTruckId.get(truckId);
+    if (name) dispatcherNameByTrailerId.set(trailerId, name);
+  }
+  const dispatcherNameByDriverId = new Map<string, string>();
+  if (allDrivers) {
+    for (const d of allDrivers as any[]) {
+      const name = d.dispatcher_info?.full_name || (driverIdToTruckId.get(d.id) ? dispatcherNameByTruckId.get(driverIdToTruckId.get(d.id)!) : undefined);
+      if (name) dispatcherNameByDriverId.set(d.id, name);
+    }
+  }
+
+  const matchesTrailerColumn = (trailer: any, filter: TrailerColumnFilter) => {
+    switch (filter) {
       case "dot": return isExpiring(trailer.dot_inspection_date);
       case "plate": return isExpiring(trailer.plate_expiration_date);
       case "insurance": return isExpiring(trailer.insurance_expiration_date);
       default: return true;
     }
+  };
+
+  const trailerBaseFiltered = trailers.filter((trailer) => {
+    if (isAssignedFilter && !assignedTrailerIds.has(trailer.id)) return false;
+    const searchLower = trailersSearch.toLowerCase();
+    const truckNum = truckByTrailerId.get(trailer.id) || "";
+    return (
+      trailer.trailer_number?.toLowerCase().includes(searchLower) ||
+      truckNum.toLowerCase().includes(searchLower)
+    );
   });
 
-  const filteredDrivers = drivers.filter((driver) => {
-    if (isAssignedFilter && !assignedDriverIds.has(driver.id)) return false;
-    // First apply search filter
-    const searchLower = driversSearch.toLowerCase();
-    const truckNum = truckByDriverId.get(driver.id) || "";
-    const matchesSearch = driver.name?.toLowerCase().includes(searchLower) ||
-      driver.company_name?.toLowerCase().includes(searchLower) ||
-      truckNum.toLowerCase().includes(searchLower);
-    
-    if (!matchesSearch) return false;
-    
-    // Then apply column filter
-    if (driverColumnFilter === "all") return true;
-    
-    switch (driverColumnFilter) {
+  const filteredTrailers = trailerBaseFiltered.filter((trailer) => matchesTrailerColumn(trailer, trailerColumnFilter));
+
+  const showTrailerCol = (col: Exclude<TrailerColumnFilter, "all">) =>
+    trailerColumnFilter === "all" || trailerColumnFilter === col;
+
+  const trailerColumnTabs: { value: TrailerColumnFilter; label: string; icon: typeof Truck }[] = [
+    { value: "all", label: "All Trailers", icon: Package },
+    { value: "dot", label: "DOT Inspection", icon: ClipboardCheck },
+    { value: "plate", label: "Plate Expiration", icon: CreditCard },
+    { value: "insurance", label: "Insurance", icon: ShieldCheck },
+  ];
+
+  const matchesDriverColumn = (driver: any, filter: DriverColumnFilter) => {
+    switch (filter) {
       case "cdl": return isExpiring(driver.cdl_expiration_date);
       case "mvr": return isExpiring(driver.mvr_date);
       case "clearing_house": return isExpiring(driver.clearing_house);
@@ -377,7 +400,32 @@ export default function Alerts() {
       case "drug_test": return isExpiring(driver.random_drug_test_date);
       default: return true;
     }
+  };
+
+  const driverBaseFiltered = drivers.filter((driver) => {
+    if (isAssignedFilter && !assignedDriverIds.has(driver.id)) return false;
+    const searchLower = driversSearch.toLowerCase();
+    const truckNum = truckByDriverId.get(driver.id) || "";
+    return (
+      driver.name?.toLowerCase().includes(searchLower) ||
+      (driver as any).company_name?.toLowerCase().includes(searchLower) ||
+      truckNum.toLowerCase().includes(searchLower)
+    );
   });
+
+  const filteredDrivers = driverBaseFiltered.filter((driver) => matchesDriverColumn(driver, driverColumnFilter));
+
+  const showDriverCol = (col: Exclude<DriverColumnFilter, "all">) =>
+    driverColumnFilter === "all" || driverColumnFilter === col;
+
+  const driverColumnTabs: { value: DriverColumnFilter; label: string; icon: typeof Truck }[] = [
+    { value: "all", label: "All Drivers", icon: User },
+    { value: "cdl", label: "CDL Expiration", icon: IdCard },
+    { value: "mvr", label: "MVR Date", icon: FileSearch },
+    { value: "clearing_house", label: "Clearing House", icon: ScrollText },
+    { value: "medical", label: "Medical Card", icon: HeartPulse },
+    { value: "drug_test", label: "Random Drug Test", icon: FlaskConical },
+  ];
 
   // Edit dialog states
   const [isEditTruckDialogOpen, setIsEditTruckDialogOpen] = useState(false);
