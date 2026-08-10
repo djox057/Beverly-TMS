@@ -401,6 +401,22 @@ const DispatcherTier = () => {
                       Overall {Number.isFinite(r.overall) ? `${(r.overall * 100).toFixed(0)}%` : "NaN"}
                     </Badge>
                   </div>
+                  {canViewPhone && phoneByUser.has(r.id) && (
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <Badge variant="outline">
+                        <Phone className="h-3 w-3 mr-1" />
+                        {phoneByUser.get(r.id)!.calls.total} calls MTD
+                      </Badge>
+                      <Badge variant="outline">
+                        <PhoneMissed className="h-3 w-3 mr-1" />
+                        {phoneByUser.get(r.id)!.calls.missed} missed
+                      </Badge>
+                      <Badge variant="outline">
+                        <Timer className="h-3 w-3 mr-1" />
+                        {formatDurationShort(phoneByUser.get(r.id)!.calls.liveTalkSeconds)} talk
+                      </Badge>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
