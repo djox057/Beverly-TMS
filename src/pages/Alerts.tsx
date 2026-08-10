@@ -1095,6 +1095,28 @@ export default function Alerts() {
             </TabsContent>
 
             <TabsContent value="trailers" className="mt-6">
+              <div className="mb-4 inline-flex h-10 w-full items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto">
+                {trailerColumnTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const count = tab.value === "all"
+                    ? trailerBaseFiltered.length
+                    : trailerBaseFiltered.filter((t) => matchesTrailerColumn(t, tab.value)).length;
+                  const isActive = trailerColumnFilter === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => { setTrailerColumnFilter(tab.value); setTrailersPage(1); }}
+                      className={`inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
+                        isActive ? "bg-background text-foreground shadow-sm" : "hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
               {trailersLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((i) => (
@@ -1115,7 +1137,9 @@ export default function Alerts() {
                     <TableRow>
                       <TableHead className="w-[100px]">Trailer #</TableHead>
                       <TableHead className="w-[90px]">Truck #</TableHead>
+                      <TableHead className="w-[150px]">Dispatcher</TableHead>
                       <TableHead className="w-[100px]">Type</TableHead>
+                      {showTrailerCol("dot") && (
                       <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "dot" ? "all" : "dot")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
@@ -1125,6 +1149,8 @@ export default function Alerts() {
                           {renderSortButton(trailerSort, "dot", () => { setTrailerSort(prev => cycleSort(prev, "dot")); setTrailersPage(1); }, "DOT inspection date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showTrailerCol("plate") && (
                       <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "plate" ? "all" : "plate")}
                         className={`w-[200px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
@@ -1134,6 +1160,8 @@ export default function Alerts() {
                           {renderSortButton(trailerSort, "plate", () => { setTrailerSort(prev => cycleSort(prev, "plate")); setTrailersPage(1); }, "plate expiration date")}
                         </div>
                       </TableHead>
+                      )}
+                      {showTrailerCol("insurance") && (
                       <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "insurance" ? "all" : "insurance")}
                         className={`w-[210px] cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
@@ -1143,6 +1171,7 @@ export default function Alerts() {
                           {renderSortButton(trailerSort, "insurance", () => { setTrailerSort(prev => cycleSort(prev, "insurance")); setTrailersPage(1); }, "insurance expiration date")}
                         </div>
                       </TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                    <TableBody>
@@ -1157,7 +1186,9 @@ export default function Alerts() {
                            </button>
                          </TableCell>
                          <TableCell>{truckByTrailerId.get(trailer.id) || "—"}</TableCell>
+                         <TableCell>{dispatcherNameByTrailerId.get(trailer.id) || "N/A"}</TableCell>
                          <TableCell>{trailer.trailer_type || "N/A"}</TableCell>
+                         {showTrailerCol("dot") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              <span className={getExpirationStatus(trailer.dot_inspection_date).className}>
@@ -1170,6 +1201,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showTrailerCol("plate") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              <span className={getExpirationStatus(trailer.plate_expiration_date).className}>
@@ -1182,6 +1215,8 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
+                         {showTrailerCol("insurance") && (
                          <TableCell>
                            <div className="flex items-center gap-2">
                              <span className={getExpirationStatus(trailer.insurance_expiration_date).className}>
@@ -1194,6 +1229,7 @@ export default function Alerts() {
                              )}
                            </div>
                          </TableCell>
+                         )}
                        </TableRow>
                      ))}
                    </TableBody>
