@@ -339,10 +339,30 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
               <div className="text-sm text-muted-foreground">
                 No phone activity recorded for this period.
                 {sync && !sync.lastSuccessfulSync && " RingCentral activity has not been synced yet."}
-                {sync?.errorCategory === "permission" &&
-                  " RingCentral is missing the ReadCallLog / ReadMessages application permissions."}
               </div>
             )}
+
+            <div className="text-xs text-muted-foreground">
+              {scopedExtensions.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>
+                    {scopedExtensions.length} RingCentral extension{scopedExtensions.length === 1 ? "" : "s"} linked:
+                  </span>
+                  {scopedExtensions.map((e) => (
+                    <Badge key={e.rc_extension_id} variant="secondary">
+                      {e.rc_name || e.extension_number || e.rc_extension_id}
+                      {e.extension_number ? ` · ext ${e.extension_number}` : ""}
+                      {e.primary_phone_number ? ` · ${e.primary_phone_number}` : ""}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <span>
+                  No RingCentral extensions linked yet — the extension roster has not been synced, so any additional
+                  numbers on this name are unknown.
+                </span>
+              )}
+            </div>
           </>
         )}
       </CardContent>
