@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     
     console.log(`✓ User roles:`, roles.map(r => r.role).join(', '));
 
-    const hasAdminAccess = roles.some(r => r.role === 'admin' || r.role === 'accounting');
+    const hasAdminAccess = roles.some(r => r.role === 'admin' || r.role === 'accounting' || r.role === 'claims');
     if (!hasAdminAccess) {
       throw new Error('Insufficient permissions - requires admin or accounting role');
     }

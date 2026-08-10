@@ -291,8 +291,8 @@ export const Sidebar = () => {
       ];
     }
 
-    // Accounting role: all pages except Analytics + Maintenance and Repairs + Fuel Reports + EFS Requests (financial + operational oversight)
-    if (primaryRole === "accounting") {
+    // Accounting role (and Claims, which inherits accounting permissions): all pages except Analytics + Maintenance and Repairs + Fuel Reports + EFS Requests (financial + operational oversight)
+    if (primaryRole === "accounting" || primaryRole === "claims") {
       return [
         ...filteredNav.filter(
           (item) =>
@@ -386,12 +386,6 @@ export const Sidebar = () => {
         "/live-oil-change",
       ];
       return filteredNav.filter((item) => recruitingPages.includes(item.href));
-    }
-
-    // Claims: Loads, BG Loads, Trucks, Trailers, Drivers only
-    if (primaryRole === "claims") {
-      const claimsPages = ["/orders", "/bg-loads", "/trucks", "/trailers", "/drivers", "/live-oil-change"];
-      return filteredNav.filter((item) => claimsPages.includes(item.href));
     }
 
     return filteredNav;

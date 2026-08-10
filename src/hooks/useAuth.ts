@@ -115,10 +115,11 @@ export const useAuth = () => {
 
       if (error) throw error;
       const raw = (data?.map(r => r.role as UserRole) || []);
-      // Safety role inherits ALL permissions of Accounting. Inject 'accounting'
-      // into the effective roles array so every `roles.includes('accounting')`
-      // and `hasRole('accounting')` check across the app passes for Safety users.
-      const effective = raw.includes('safety') && !raw.includes('accounting')
+      // Safety and Claims roles inherit ALL permissions of Accounting. Inject
+      // 'accounting' into the effective roles array so every
+      // `roles.includes('accounting')` and `hasRole('accounting')` check across
+      // the app passes for Safety/Claims users.
+      const effective = (raw.includes('safety') || raw.includes('claims')) && !raw.includes('accounting')
         ? [...raw, 'accounting' as UserRole]
         : raw;
       setRoles(effective);
@@ -295,6 +296,8 @@ export const useAuth = () => {
     if (roles.includes('admin')) return 'admin';
     // Safety is displayed as 'safety' even though it inherits accounting permissions.
     if (roles.includes('safety')) return 'safety';
+    // Claims is displayed as 'claims' even though it inherits accounting permissions.
+    if (roles.includes('claims')) return 'claims';
     if (roles.includes('accounting')) return 'accounting';
     if (roles.includes('manager')) return 'manager';
     if (roles.includes('supervisor')) return 'supervisor';

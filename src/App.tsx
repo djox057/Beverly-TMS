@@ -181,7 +181,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/analytics" element={
-          <ProtectedRoute excludedRoles={['accounting']}>
+          <ProtectedRoute excludedRoles={['accounting', 'claims']}>
             <Layout><Analytics /></Layout>
           </ProtectedRoute>
         } />
@@ -271,7 +271,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/live-oil-change" element={
-          <ProtectedRoute excludedRoles={['afterhours', 'accounting', 'safety']}>
+          <ProtectedRoute excludedRoles={['afterhours', 'accounting', 'safety', 'claims']}>
             <Layout><LiveOilChange /></Layout>
           </ProtectedRoute>
         } />
