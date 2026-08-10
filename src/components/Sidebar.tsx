@@ -459,6 +459,11 @@ export const Sidebar = () => {
                                   {yardLoadsCount}
                                 </Badge>
                               )}
+                              {item.href === "/alerts" && dispatchAlertCount > 0 && (
+                                <Badge variant="destructive" className="ml-auto">
+                                  {dispatchAlertCount}
+                                </Badge>
+                              )}
                               {item.href === "/fleets" && isScheduledThisWeekend && !hasAcknowledgedToday && (
                                 <Bell
                                   className="h-4 w-4 ml-auto text-amber-500 animate-pulse cursor-pointer hover:text-amber-400"
