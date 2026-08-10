@@ -39,16 +39,9 @@ serve(async (req) => {
   try {
     const config = readConfig();
     const token = await getAccessToken(config);
+    // The roster read only needs ReadAccounts. Missing ReadCallLog/ReadMessages
+    // blocks the activity sync, not the roster, so report it without aborting.
     const missing = missingScopes(token);
-    if (missing.length) {
-      await recordFailure(admin, "permission", `Missing RingCentral permissions: ${missing.join(", ")}`);
-      return json({
-        error: "missing_permission",
-        missingPermissions: missing,
-        grantedPermissions: token.scopes,
-        action: "Enable these Application Permissions in the RingCentral Developer Console for this app, then re-authorize the JWT.",
-      }, 424);
-    }
 
     const client = new RingCentralClient(config);
 
@@ -159,6 +152,8 @@ serve(async (req) => {
       unmatched: rows.length - matched,
       byPhone: rows.filter((r) => r.match_method === "phone").length,
       byExt: rows.filter((r) => r.match_method === "ext").length,
+      grantedPermissions: token.scopes,
+      missingActivityPermissions: missing,
     });
   } catch (err) {
     return await handleError(admin, err);
