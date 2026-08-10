@@ -296,15 +296,8 @@ export default function Alerts() {
   }
 
   // Filter data based on search and column filter
-  const filteredTrucks = trucks.filter((truck) => {
-    if (isAssignedFilter && !assignedTruckIds.has(truck.id)) return false;
-    const matchesSearch = truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
-      truck.company?.name?.toLowerCase().includes(trucksSearch.toLowerCase());
-    
-    if (!matchesSearch) return false;
-    if (truckColumnFilter === "all") return true;
-    
-    switch (truckColumnFilter) {
+  const matchesTruckColumn = (truck: any, filter: TruckColumnFilter) => {
+    switch (filter) {
       case "dot": return isExpiring(truck.dot_inspection_date);
       case "plate": return isExpiring(truck.plate_expiration_date);
       case "insurance": return isExpiring(truck.insurance_expiration_date);
@@ -312,7 +305,26 @@ export default function Alerts() {
       case "maintenance_check": return needsMaintenanceAttention(truck.maintenance_check_date);
       default: return true;
     }
+  };
+
+  const truckBaseFiltered = trucks.filter((truck) => {
+    if (isAssignedFilter && !assignedTruckIds.has(truck.id)) return false;
+    return (
+      truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
+      truck.company?.name?.toLowerCase().includes(trucksSearch.toLowerCase())
+    );
   });
+
+  const filteredTrucks = truckBaseFiltered.filter((truck) => matchesTruckColumn(truck, truckColumnFilter));
+
+  const truckColumnTabs: { value: TruckColumnFilter; label: string; icon: typeof Truck }[] = [
+    { value: "all", label: "All Trucks", icon: Truck },
+    { value: "dot", label: "DOT Inspection", icon: ClipboardCheck },
+    { value: "plate", label: "Plate Expiration", icon: CreditCard },
+    { value: "insurance", label: "Insurance", icon: ShieldCheck },
+    { value: "tires_swap", label: "Tires Swap", icon: CircleDot },
+    { value: "maintenance_check", label: "Maintenance Check", icon: Wrench },
+  ];
 
   const filteredTrailers = trailers.filter((trailer) => {
     if (isAssignedFilter && !assignedTrailerIds.has(trailer.id)) return false;
