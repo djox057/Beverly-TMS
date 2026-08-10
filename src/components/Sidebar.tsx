@@ -40,6 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useYardLoadsCount } from "@/hooks/useYardLoadsCount";
+import { useDispatchAlertCount } from "@/hooks/useDispatchAlertCount";
 import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
 import { supabase } from "@/integrations/supabase/client";
 import {
