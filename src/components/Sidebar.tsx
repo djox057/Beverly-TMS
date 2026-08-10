@@ -40,6 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useYardLoadsCount } from "@/hooks/useYardLoadsCount";
+import { useDispatchAlertCount } from "@/hooks/useDispatchAlertCount";
 import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -128,6 +129,7 @@ export const Sidebar = () => {
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
+  const { data: dispatchAlertCount = 0 } = useDispatchAlertCount();
   const { canView: canViewDailyReport } = useDailyReportPermissions();
   const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
   const [scheduledDates, setScheduledDates] = useState<string[]>([]);
@@ -455,6 +457,11 @@ export const Sidebar = () => {
                               {item.href === "/yard-loads" && yardLoadsCount > 0 && (
                                 <Badge variant="secondary" className="ml-auto">
                                   {yardLoadsCount}
+                                </Badge>
+                              )}
+                              {item.href === "/alerts" && dispatchAlertCount > 0 && (
+                                <Badge variant="destructive" className="ml-auto">
+                                  {dispatchAlertCount}
                                 </Badge>
                               )}
                               {item.href === "/fleets" && isScheduledThisWeekend && !hasAcknowledgedToday && (
