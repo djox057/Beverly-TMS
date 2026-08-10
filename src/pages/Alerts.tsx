@@ -928,9 +928,7 @@ export default function Alerts() {
               <div className="mb-4 inline-flex h-10 w-full items-center justify-start gap-1 rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto">
                 {truckColumnTabs.map((tab) => {
                   const Icon = tab.icon;
-                  const count = tab.value === "all"
-                    ? truckBaseFiltered.length
-                    : truckBaseFiltered.filter((t) => matchesTruckColumn(t, tab.value)).length;
+                  const count = truckBaseFiltered.filter((t) => matchesTruckColumn(t, tab.value)).length;
                   const isActive = truckColumnFilter === tab.value;
                   return (
                     <button
