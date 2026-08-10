@@ -367,6 +367,7 @@ export const Sidebar = () => {
     if (primaryRole === "dispatch" || primaryRole === "afterhours") {
       return [
         ...filteredNav.filter((item) => !(primaryRole === "afterhours" && item.href === "/live-oil-change")),
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
       ];
     }
