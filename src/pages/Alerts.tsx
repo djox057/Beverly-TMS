@@ -275,6 +275,37 @@ export default function Alerts() {
     return expirationDate <= sixtyDaysFromNow;
   };
 
+  // Dispatch role: view-only access, scoped to their own trucks/trailers/drivers
+  const isDispatchOnly =
+    !hasRole('admin') && !hasRole('safety') && !hasRole('maintenance') &&
+    (getPrimaryRole() === 'dispatch' || getPrimaryRole() === 'afterhours');
+  const canEdit = !isDispatchOnly;
+
+  const myTruckIds = new Set<string>();
+  const myTrailerIds = new Set<string>();
+  const myDriverIds = new Set<string>();
+  if (isDispatchOnly && user?.id) {
+    for (const t of (allTrucks || []) as any[]) {
+      if (t.dispatcher?.id === user.id) {
+        myTruckIds.add(t.id);
+        if (t.trailer_id) myTrailerIds.add(t.trailer_id);
+        if (t.driver1_id) myDriverIds.add(t.driver1_id);
+        if (t.driver2_id) myDriverIds.add(t.driver2_id);
+      }
+    }
+    for (const d of (allDrivers || []) as any[]) {
+      if (d.dispatcher_id === user.id) myDriverIds.add(d.id);
+    }
+  }
+
+  const unusedIsExpiring = (date: string | null) => {
+    if (!date) return false;
+    const expirationDate = new Date(date);
+    const now = new Date();
+    const sixtyDaysFromNow = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+    return expirationDate <= sixtyDaysFromNow;
+  };
+
   // Helper to check if a maintenance date needs attention (within 30 days - yellow or red)
   const needsMaintenanceAttention = (date: string | null) => {
     if (!date) return false;
@@ -308,6 +339,7 @@ export default function Alerts() {
   };
 
   const truckBaseFiltered = trucks.filter((truck) => {
+    if (isDispatchOnly && !myTruckIds.has(truck.id)) return false;
     if (isAssignedFilter && !assignedTruckIds.has(truck.id)) return false;
     return (
       truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
@@ -370,6 +402,7 @@ export default function Alerts() {
   };
 
   const trailerBaseFiltered = trailers.filter((trailer) => {
+    if (isDispatchOnly && !myTrailerIds.has(trailer.id)) return false;
     if (isAssignedFilter && !assignedTrailerIds.has(trailer.id)) return false;
     const searchLower = trailersSearch.toLowerCase();
     const truckNum = truckByTrailerId.get(trailer.id) || "";
@@ -403,6 +436,7 @@ export default function Alerts() {
   };
 
   const driverBaseFiltered = drivers.filter((driver) => {
+    if (isDispatchOnly && !myDriverIds.has(driver.id)) return false;
     if (isAssignedFilter && !assignedDriverIds.has(driver.id)) return false;
     const searchLower = driversSearch.toLowerCase();
     const truckNum = truckByDriverId.get(driver.id) || "";
