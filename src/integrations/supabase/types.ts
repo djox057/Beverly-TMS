@@ -4037,6 +4037,270 @@ export type Database = {
           },
         ]
       }
+      ringcentral_call_records: {
+        Row: {
+          action: string | null
+          created_at: string
+          direction: string | null
+          duration_seconds: number
+          from_number: string | null
+          hold_seconds: number
+          id: string
+          live_talk_seconds: number
+          metric_date: string | null
+          rc_extension_id: string | null
+          rc_record_id: string
+          result: string | null
+          ring_seconds: number
+          session_id: string | null
+          started_at: string | null
+          to_number: string | null
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string
+          direction?: string | null
+          duration_seconds?: number
+          from_number?: string | null
+          hold_seconds?: number
+          id?: string
+          live_talk_seconds?: number
+          metric_date?: string | null
+          rc_extension_id?: string | null
+          rc_record_id: string
+          result?: string | null
+          ring_seconds?: number
+          session_id?: string | null
+          started_at?: string | null
+          to_number?: string | null
+        }
+        Update: {
+          action?: string | null
+          created_at?: string
+          direction?: string | null
+          duration_seconds?: number
+          from_number?: string | null
+          hold_seconds?: number
+          id?: string
+          live_talk_seconds?: number
+          metric_date?: string | null
+          rc_extension_id?: string | null
+          rc_record_id?: string
+          result?: string | null
+          ring_seconds?: number
+          session_id?: string | null
+          started_at?: string | null
+          to_number?: string | null
+        }
+        Relationships: []
+      }
+      ringcentral_extensions: {
+        Row: {
+          created_at: string
+          extension_number: string | null
+          id: string
+          is_active: boolean
+          last_synced_at: string | null
+          match_method: string
+          phone_numbers: string[]
+          primary_phone_number: string | null
+          rc_extension_id: string
+          rc_name: string | null
+          rc_type: string | null
+          timezone: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          extension_number?: string | null
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          match_method?: string
+          phone_numbers?: string[]
+          primary_phone_number?: string | null
+          rc_extension_id: string
+          rc_name?: string | null
+          rc_type?: string | null
+          timezone?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          extension_number?: string | null
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          match_method?: string
+          phone_numbers?: string[]
+          primary_phone_number?: string | null
+          rc_extension_id?: string
+          rc_name?: string | null
+          rc_type?: string | null
+          timezone?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ringcentral_message_records: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          creation_time: string | null
+          direction: string | null
+          from_number: string | null
+          id: string
+          message_status: string | null
+          message_type: string | null
+          metric_date: string | null
+          rc_extension_id: string | null
+          rc_message_id: string
+          to_numbers: string[]
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          creation_time?: string | null
+          direction?: string | null
+          from_number?: string | null
+          id?: string
+          message_status?: string | null
+          message_type?: string | null
+          metric_date?: string | null
+          rc_extension_id?: string | null
+          rc_message_id: string
+          to_numbers?: string[]
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          creation_time?: string | null
+          direction?: string | null
+          from_number?: string | null
+          id?: string
+          message_status?: string | null
+          message_type?: string | null
+          metric_date?: string | null
+          rc_extension_id?: string | null
+          rc_message_id?: string
+          to_numbers?: string[]
+        }
+        Relationships: []
+      }
+      ringcentral_phone_metrics: {
+        Row: {
+          answered_calls: number
+          average_answered_call_seconds: number
+          created_at: string
+          failed_sms: number
+          id: string
+          inbound_calls: number
+          inbound_sms: number
+          last_synced_at: string
+          live_talk_seconds: number
+          metric_date: string
+          missed_calls: number
+          outbound_calls: number
+          outbound_sms: number
+          rc_extension_id: string
+          ringcentral_phone_number: string
+          timezone: string
+          total_call_seconds: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          answered_calls?: number
+          average_answered_call_seconds?: number
+          created_at?: string
+          failed_sms?: number
+          id?: string
+          inbound_calls?: number
+          inbound_sms?: number
+          last_synced_at?: string
+          live_talk_seconds?: number
+          metric_date: string
+          missed_calls?: number
+          outbound_calls?: number
+          outbound_sms?: number
+          rc_extension_id: string
+          ringcentral_phone_number?: string
+          timezone?: string
+          total_call_seconds?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          answered_calls?: number
+          average_answered_call_seconds?: number
+          created_at?: string
+          failed_sms?: number
+          id?: string
+          inbound_calls?: number
+          inbound_sms?: number
+          last_synced_at?: string
+          live_talk_seconds?: number
+          metric_date?: string
+          missed_calls?: number
+          outbound_calls?: number
+          outbound_sms?: number
+          rc_extension_id?: string
+          ringcentral_phone_number?: string
+          timezone?: string
+          total_call_seconds?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ringcentral_sync_state: {
+        Row: {
+          created_at: string
+          cursor_date: string | null
+          cursor_page: number | null
+          error_category: string | null
+          error_count: number
+          error_message: string | null
+          id: string
+          last_attempted_sync_at: string | null
+          last_successful_sync_at: string | null
+          scope: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cursor_date?: string | null
+          cursor_page?: number | null
+          error_category?: string | null
+          error_count?: number
+          error_message?: string | null
+          id?: string
+          last_attempted_sync_at?: string | null
+          last_successful_sync_at?: string | null
+          scope: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cursor_date?: string | null
+          cursor_page?: number | null
+          error_category?: string | null
+          error_count?: number
+          error_message?: string | null
+          id?: string
+          last_attempted_sync_at?: string | null
+          last_successful_sync_at?: string | null
+          scope?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       roadside_inspections: {
         Row: {
           created_at: string

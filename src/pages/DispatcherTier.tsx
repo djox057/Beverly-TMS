@@ -4,12 +4,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, User, Truck, Building2, MessageSquare } from "lucide-react";
+import { Search, User, Truck, Building2, MessageSquare, Phone, PhoneMissed, Timer } from "lucide-react";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import DispatcherTierCommentsDialog from "@/components/DispatcherTierCommentsDialog";
+import { useRingCentralActivityByUser, useCanViewPhoneActivity } from "@/hooks/useRingCentralActivity";
+import { formatDurationShort } from "@/utils/formatDuration";
+
+const monthToDateRange = () => {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const to = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const from = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+  return { from, to };
+};
 
 type SortKey = "name" | "currentTrucks" | "avgTrucks" | "rpm" | "gross" | "cut" | "overall";
 type SortDir = "asc" | "desc";
@@ -26,6 +36,9 @@ const DispatcherTier = () => {
   const [dispMetrics, setDispMetrics] = useState<Record<string, { freight: number; pay: number; miles: number }>>({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [commentsOpen, setCommentsOpen] = useState<{ id: string; name: string } | null>(null);
+  const canViewPhone = useCanViewPhoneActivity();
+  const phoneRange = useMemo(() => monthToDateRange(), []);
+  const { byUser: phoneByUser } = useRingCentralActivityByUser(phoneRange.from, phoneRange.to);
 
   const reloadCommentCounts = async () => {
     const { data } = await supabase.from("dispatcher_tier_comments").select("dispatcher_id");
@@ -388,6 +401,22 @@ const DispatcherTier = () => {
                       Overall {Number.isFinite(r.overall) ? `${(r.overall * 100).toFixed(0)}%` : "NaN"}
                     </Badge>
                   </div>
+                  {canViewPhone && phoneByUser.has(r.id) && (
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <Badge variant="outline">
+                        <Phone className="h-3 w-3 mr-1" />
+                        {phoneByUser.get(r.id)!.calls.total} calls MTD
+                      </Badge>
+                      <Badge variant="outline">
+                        <PhoneMissed className="h-3 w-3 mr-1" />
+                        {phoneByUser.get(r.id)!.calls.missed} missed
+                      </Badge>
+                      <Badge variant="outline">
+                        <Timer className="h-3 w-3 mr-1" />
+                        {formatDurationShort(phoneByUser.get(r.id)!.calls.liveTalkSeconds)} talk
+                      </Badge>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

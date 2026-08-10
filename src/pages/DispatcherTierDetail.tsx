@@ -8,6 +8,7 @@ import { ArrowLeft, Truck, DollarSign, Gauge, MessageSquare } from "lucide-react
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import DispatcherTierCommentsDialog from "@/components/DispatcherTierCommentsDialog";
+import RingCentralActivityPanel from "@/components/dispatcher/RingCentralActivityPanel";
 import {
   Table,
   TableBody,
@@ -441,6 +442,13 @@ const DispatcherTierDetail = () => {
           onOpenChange={setCommentsOpen}
           dispatcherId={id}
           dispatcherName={dispatcher?.full_name || dispatcher?.email || "Dispatcher"}
+        />
+      )}
+
+      {id && !loading && (
+        <RingCentralActivityPanel
+          userId={id}
+          title={`Phone Activity — ${dispatcher?.full_name || dispatcher?.email || "Dispatcher"}`}
         />
       )}
 

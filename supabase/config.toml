@@ -110,3 +110,12 @@ verify_jwt = false
 
 [functions.send-coi-request]
 verify_jwt = false
+
+[functions.ringcentral-sync]
+verify_jwt = false
+
+[functions.ringcentral-extensions-sync]
+verify_jwt = false
+
+[functions.ringcentral-activity]
+verify_jwt = false
