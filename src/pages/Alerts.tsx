@@ -1524,14 +1524,17 @@ export default function Alerts() {
               ) : (
                 (() => {
                   const tpSearch = tempPlatesSearch.trim().toLowerCase();
+                  const scopedTempPlates = isDispatchOnly
+                    ? temporaryPlates.filter((plate) => myTruckIds.has(plate.truck_id))
+                    : temporaryPlates;
                   const filteredTempPlates = tpSearch
-                    ? temporaryPlates.filter((plate) => {
+                    ? scopedTempPlates.filter((plate) => {
                         const truck = tempPlateTruckMap.get(plate.truck_id);
                         const truckNum = (truck?.truck_number || "").toLowerCase();
                         const driverName = (truck?.driver1?.name || "").toLowerCase();
                         return truckNum.includes(tpSearch) || driverName.includes(tpSearch);
                       })
-                    : temporaryPlates;
+                    : scopedTempPlates;
                   return (
                 <Table className="table-fixed">
                   <TableHeader>
@@ -1563,14 +1566,17 @@ export default function Alerts() {
                               {(tempPlateFileMap[plate.id] || []).map((fileName) => (
                                 <div key={fileName} className="flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded">
                                   <span className="truncate max-w-[120px]">{fileName}</span>
+                                  {canEdit && (
                                   <button
                                     onClick={() => handleDeleteTempPlateFile(plate.id, fileName)}
                                     className="text-destructive hover:text-destructive/80"
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </button>
+                                  )}
                                 </div>
                               ))}
+                              {canEdit && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1589,6 +1595,7 @@ export default function Alerts() {
                                 <Plus className="h-3 w-3 mr-1" />
                                 Upload
                               </Button>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className={hasFiles ? 'bg-green-100 dark:bg-green-900/30' : ''}>
