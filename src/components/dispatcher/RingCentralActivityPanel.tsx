@@ -95,6 +95,7 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
   const messages = data?.messages;
   const sync = data?.sync;
   const syncBlocked = sync?.errorCategory === "permission";
+  const syncPartial = sync?.errorCategory === "partial";
 
   const selectDriver = (value: string) => {
     setDriverId(value);
@@ -128,7 +129,9 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
               className="text-xs"
             >
               {syncBlocked
-                ? "Sync blocked — RingCentral permissions"
+                ? "Sync blocked — RingCentral role permission"
+                : syncPartial
+                  ? "Partial sync — RingCentral role permission"
                 : sync.lastSuccessfulSync
                   ? `Synced ${new Date(sync.lastSuccessfulSync).toLocaleString("en-US", { timeZone: "America/Chicago" })}`
                   : "Never synced"}
@@ -233,14 +236,13 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
           </div>
         </div>
 
-        {syncBlocked && (
+        {(syncBlocked || syncPartial) && (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
-            RingCentral sync is blocked: the connected RingCentral app is missing the
-            {" "}<span className="font-medium">ReadAccounts</span>,{" "}
-            <span className="font-medium">ReadCallLog</span> and{" "}
-            <span className="font-medium">ReadMessages</span> application permissions. Enable them in the
-            RingCentral Developer Console and re-authorize, then run a sync — no call or message data can be
-            pulled until then.
+            App scopes are granted, but RingCentral only returns data for the single user who authorized
+            the connection. To pull company-wide call and message activity, open the RingCentral admin
+            portal, edit that user's role and enable{" "}
+            <span className="font-medium">Company Call Log</span> (and company message access), then run a
+            sync again.
           </div>
         )}
 

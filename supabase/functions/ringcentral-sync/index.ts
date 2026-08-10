@@ -88,7 +88,7 @@ serve(async (req) => {
     // Extension roster (must be synced first).
     const { data: roster, error: rosterError } = await admin
       .from("ringcentral_extensions")
-      .select("rc_extension_id, extension_number, primary_phone_number, is_active");
+      .select("rc_extension_id, extension_number, primary_phone_number, is_active, user_id");
     if (rosterError) throw rosterError;
     if (!roster?.length) {
       await recordFailure(admin, scope, "unknown", "Extension roster is empty; run ringcentral-extensions-sync first");
@@ -99,8 +99,11 @@ serve(async (req) => {
       ? body.extensionIds.map(String)
       : null;
 
+    // Only extensions matched to a Beverly user are worth syncing: the dashboard
+    // is per-dispatcher, and iterating the full 500+ roster would time out.
     const targets = roster.filter((r) =>
-      r.is_active && (!requestedIds || requestedIds.includes(r.rc_extension_id))
+      r.is_active &&
+      (requestedIds ? requestedIds.includes(r.rc_extension_id) : !!r.user_id)
     );
 
     const phoneByExtension = new Map<string, string>();
@@ -115,14 +118,60 @@ serve(async (req) => {
     // ---- Calls: account-wide detailed call log ----
     const rawCalls: RawCallRecord[] = [];
     let callPages = 0;
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      const res = await client.request<{ records: RawCallRecord[]; paging?: { totalPages?: number } }>(
-        `/restapi/v1.0/account/~/call-log?view=Detailed&perPage=1000&page=${page}` +
-          `&dateFrom=${encodeURIComponent(utcFrom)}&dateTo=${encodeURIComponent(utcTo)}`,
-      );
-      rawCalls.push(...(res.records ?? []));
-      callPages = page;
-      if (!res.paging?.totalPages || page >= res.paging.totalPages) break;
+    const callErrors: Array<{ extensionId: string; category: string }> = [];
+    let callSource = "account";
+
+    const fetchCallLog = async (basePath: string) => {
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const res = await client.request<{ records: RawCallRecord[]; paging?: { totalPages?: number } }>(
+          `${basePath}?view=Detailed&perPage=1000&page=${page}` +
+            `&dateFrom=${encodeURIComponent(utcFrom)}&dateTo=${encodeURIComponent(utcTo)}`,
+        );
+        rawCalls.push(...(res.records ?? []));
+        callPages = Math.max(callPages, page);
+        if (!res.paging?.totalPages || page >= res.paging.totalPages) break;
+      }
+    };
+
+    try {
+      await fetchCallLog("/restapi/v1.0/account/~/call-log");
+    } catch (err) {
+      // The company call log needs the "Company Call Log" RingCentral *user role*
+      // permission. Without it, fall back to per-extension call logs so the sync
+      // still returns whatever the authorized user may read.
+      const isPermission = err instanceof RingCentralApiError && err.category === "permission";
+      if (!isPermission) throw err;
+      callSource = "per_extension_fallback";
+      console.warn("[rc-sync] company call log denied; falling back to per-extension call logs");
+      let consecutiveDenials = 0;
+      for (const target of targets) {
+        try {
+          await fetchCallLog(`/restapi/v1.0/account/~/extension/${target.rc_extension_id}/call-log`);
+          consecutiveDenials = 0;
+        } catch (innerErr) {
+          const category = innerErr instanceof RingCentralApiError ? innerErr.category : "unknown";
+          callErrors.push({ extensionId: target.rc_extension_id, category });
+          if (category === "permission") consecutiveDenials++;
+          // The authorized user cannot read other extensions' logs: stop early
+          // instead of burning the whole function timeout on 403s.
+          if (consecutiveDenials >= 5) break;
+        }
+      }
+      if (!rawCalls.length) {
+        await recordFailure(
+          admin,
+          scope,
+          "permission",
+          'RingCentral denied both the company call log and every per-extension call log. Grant the "Company Call Log" permission to the JWT user\'s RingCentral role.',
+        );
+        return json({
+          error: "permission",
+          detail: "Company call log and per-extension call logs are all denied.",
+          missingPermission: "ReadCompanyCallLog (user role permission)",
+          action:
+            'In the RingCentral admin portal, edit the role of the user who authorized the JWT and enable "Company Call Log" (Reports/Call Log permissions), then re-run the sync.',
+        }, 424);
+      }
     }
 
     const calls = dedupeCalls(rawCalls).map((c) => {
@@ -231,7 +280,8 @@ serve(async (req) => {
       if (error) throw error;
     }
 
-    const status = messageErrors.length ? "degraded" : "healthy";
+    const partialCount = messageErrors.length + callErrors.length;
+    const status = partialCount ? "degraded" : "healthy";
     await admin.from("ringcentral_sync_state").upsert({
       scope,
       status,
@@ -239,11 +289,14 @@ serve(async (req) => {
       last_attempted_sync_at: new Date().toISOString(),
       cursor_date: dateTo,
       cursor_page: callPages,
-      error_category: messageErrors.length ? "partial" : null,
-      error_message: messageErrors.length
-        ? `Message store unavailable for ${messageErrors.length} extension(s)`
+      error_category: partialCount ? "partial" : null,
+      error_message: partialCount
+        ? [
+          messageErrors.length ? `Message store unavailable for ${messageErrors.length} extension(s)` : null,
+          callErrors.length ? `Call log unavailable for ${callErrors.length} extension(s)` : null,
+        ].filter(Boolean).join("; ")
         : null,
-      error_count: messageErrors.length,
+      error_count: partialCount,
     }, { onConflict: "scope" });
 
     console.log(
@@ -254,11 +307,11 @@ serve(async (req) => {
     return json({
       scope,
       period: { from: dateFrom, to: dateTo, timezone },
-      calls: { legs: rawCalls.length, unique: calls.length, pages: callPages },
+      calls: { legs: rawCalls.length, unique: calls.length, pages: callPages, source: callSource },
       messages: { records: dedupedMessages.length },
       dailyRows: metricRows.length,
       extensionsProcessed: targets.length,
-      partialFailures: messageErrors.length,
+      partialFailures: partialCount,
       status,
     });
   } catch (err) {
