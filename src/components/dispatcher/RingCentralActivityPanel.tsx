@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -49,6 +51,7 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
   const [phoneNumber, setPhoneNumber] = useState<string>("all");
   const [externalInput, setExternalInput] = useState("");
   const [externalNumber, setExternalNumber] = useState<string | null>(null);
+  const [driverId, setDriverId] = useState<string>("all");
 
   const dateTo = useMemo(() => shiftDays(0), []);
   const dateFrom = useMemo(() => shiftDays(-(Number(range) - 1)), [range]);
@@ -62,6 +65,24 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
     externalNumber,
   });
 
+  // Drivers with a phone number, so activity can be filtered to one driver.
+  const { data: drivers } = useQuery({
+    queryKey: ["rc-activity-drivers", userId],
+    enabled: canView,
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      let query = supabase
+        .from("drivers")
+        .select("id, name, phone, dispatcher_id, is_active")
+        .not("phone", "is", null)
+        .order("name", { ascending: true });
+      if (userId) query = query.eq("dispatcher_id", userId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []).filter((d) => (d.phone ?? "").trim().length >= 10);
+    },
+  });
+
   if (!canView) return null;
 
   const extensions = data?.extensions ?? [];
@@ -73,6 +94,20 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
   const calls = data?.calls;
   const messages = data?.messages;
   const sync = data?.sync;
+  const syncBlocked = sync?.errorCategory === "permission";
+
+  const selectDriver = (value: string) => {
+    setDriverId(value);
+    if (value === "all") {
+      setExternalNumber(null);
+      setExternalInput("");
+      return;
+    }
+    const driver = (drivers ?? []).find((d) => d.id === value);
+    const phone = (driver?.phone ?? "").trim();
+    setExternalInput(phone);
+    setExternalNumber(phone || null);
+  };
 
   const chartData = (data?.daily ?? []).map((d) => ({
     date: d.date.slice(5),
@@ -88,10 +123,15 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
           <Phone className="h-4 w-4" />
           <span>{title}</span>
           {sync && (
-            <Badge variant={sync.status === "healthy" ? "secondary" : "destructive"} className="text-xs">
-              {sync.lastSuccessfulSync
-                ? `Synced ${new Date(sync.lastSuccessfulSync).toLocaleString("en-US", { timeZone: "America/Chicago" })}`
-                : "Never synced"}
+            <Badge
+              variant={sync.lastSuccessfulSync && !syncBlocked ? "secondary" : "destructive"}
+              className="text-xs"
+            >
+              {syncBlocked
+                ? "Sync blocked — RingCentral permissions"
+                : sync.lastSuccessfulSync
+                  ? `Synced ${new Date(sync.lastSuccessfulSync).toLocaleString("en-US", { timeZone: "America/Chicago" })}`
+                  : "Never synced"}
             </Badge>
           )}
           <Button
@@ -146,6 +186,19 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
           </Select>
 
           <div className="flex items-center gap-1">
+            <Select value={driverId} onValueChange={selectDriver}>
+              <SelectTrigger className="w-[230px] h-9">
+                <SelectValue placeholder="Activity with driver" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <SelectItem value="all">Activity with driver…</SelectItem>
+                {(drivers ?? []).map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}{d.is_active === false ? " (inactive)" : ""} · {d.phone}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               value={externalInput}
               onChange={(e) => setExternalInput(e.target.value)}
@@ -171,6 +224,7 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
                 onClick={() => {
                   setExternalNumber(null);
                   setExternalInput("");
+                  setDriverId("all");
                 }}
               >
                 Clear
@@ -178,6 +232,17 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
             )}
           </div>
         </div>
+
+        {syncBlocked && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+            RingCentral sync is blocked: the connected RingCentral app is missing the
+            {" "}<span className="font-medium">ReadAccounts</span>,{" "}
+            <span className="font-medium">ReadCallLog</span> and{" "}
+            <span className="font-medium">ReadMessages</span> application permissions. Enable them in the
+            RingCentral Developer Console and re-authorize, then run a sync — no call or message data can be
+            pulled until then.
+          </div>
+        )}
 
         {isError && (
           <div className="text-sm text-destructive">
@@ -274,10 +339,30 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
               <div className="text-sm text-muted-foreground">
                 No phone activity recorded for this period.
                 {sync && !sync.lastSuccessfulSync && " RingCentral activity has not been synced yet."}
-                {sync?.errorCategory === "permission" &&
-                  " RingCentral is missing the ReadCallLog / ReadMessages application permissions."}
               </div>
             )}
+
+            <div className="text-xs text-muted-foreground">
+              {scopedExtensions.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>
+                    {scopedExtensions.length} RingCentral extension{scopedExtensions.length === 1 ? "" : "s"} linked:
+                  </span>
+                  {scopedExtensions.map((e) => (
+                    <Badge key={e.rc_extension_id} variant="secondary">
+                      {e.rc_name || e.extension_number || e.rc_extension_id}
+                      {e.extension_number ? ` · ext ${e.extension_number}` : ""}
+                      {e.primary_phone_number ? ` · ${e.primary_phone_number}` : ""}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <span>
+                  No RingCentral extensions linked yet — the extension roster has not been synced, so any additional
+                  numbers on this name are unknown.
+                </span>
+              )}
+            </div>
           </>
         )}
       </CardContent>
