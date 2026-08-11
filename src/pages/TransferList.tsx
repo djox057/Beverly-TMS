@@ -110,55 +110,19 @@ function LockedCell({ group, children }: { group: ColumnGroup; children: React.R
 }
 
 // ─── UES insurance flag cell ───
-function UesInsuranceBadge({
-  rowId,
-  value,
-  canEdit,
-}: {
-  rowId: string;
-  value: boolean;
-  canEdit: boolean;
-}) {
-  const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: async (next: boolean) => {
-      const { error } = await supabase
-        .from("transfer_list" as any)
-        .update({ ues_insurance: next } as any)
-        .eq("id", rowId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
-    },
-    onError: (e: any) => {
-      toast({ title: "Update failed", description: e.message, variant: "destructive" });
-    },
-  });
-
-  if (!value && !canEdit) return null;
+function UesInsuranceBadge({ value }: { value: boolean }) {
+  if (!value) return null;
 
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            type="button"
-            disabled={!canEdit || mutation.isPending}
-            onClick={() => canEdit && mutation.mutate(!value)}
-            className={cn(
-              "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none border shrink-0",
-              value
-                ? "bg-amber-500 text-black border-amber-600"
-                : "bg-transparent text-muted-foreground border-dashed border-muted-foreground/50",
-              canEdit ? "cursor-pointer" : "cursor-default"
-            )}
-          >
-            {value ? "UES INS" : "+ INS"}
-          </button>
+          <span className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none border shrink-0 bg-amber-500 text-black border-amber-600 cursor-default">
+            UES INS
+          </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
-          {value ? "Marked as UES insurance" : "Mark as UES insurance"}
+          Marked as UES insurance (database-only)
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
