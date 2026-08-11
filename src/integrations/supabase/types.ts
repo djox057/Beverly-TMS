@@ -4110,6 +4110,7 @@ export type Database = {
           timezone: string
           updated_at: string
           user_id: string | null
+          user_id_locked: boolean
         }
         Insert: {
           created_at?: string
@@ -4126,6 +4127,7 @@ export type Database = {
           timezone?: string
           updated_at?: string
           user_id?: string | null
+          user_id_locked?: boolean
         }
         Update: {
           created_at?: string
@@ -4142,6 +4144,7 @@ export type Database = {
           timezone?: string
           updated_at?: string
           user_id?: string | null
+          user_id_locked?: boolean
         }
         Relationships: []
       }

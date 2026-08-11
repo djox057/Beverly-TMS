@@ -1,0 +1,1 @@
+ALTER TABLE public.ringcentral_extensions ADD COLUMN IF NOT EXISTS user_id_locked boolean NOT NULL DEFAULT false;
