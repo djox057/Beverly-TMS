@@ -2694,7 +2694,9 @@ const EditOrder = () => {
         escort_fee: escortFee ? parseFloat(escortFee) : null,
         escort_fee_broker_paid: escortFeeBrokerPaid,
         date_change_notes: updatedDateChangeNotes || null,
-        canceled: Boolean(tonu && parseFloat(tonu) > 0),
+        // Never un-cancel a load from this screen: a canceled load stays canceled
+        // even when TONU is 0. Un-canceling is done through the explicit revert action.
+        canceled: isCanceledOrder || Boolean(tonu && parseFloat(tonu) > 0),
         locked: isLocked,
       };
 
