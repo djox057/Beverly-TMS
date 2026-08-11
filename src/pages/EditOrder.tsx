@@ -3785,6 +3785,62 @@ const EditOrder = () => {
               </div>
             </div>
 
+            {/* Cancellation block — canceled loads get their own clearly labelled
+                TONU / Driver Rate / DH Miles inputs so these values are never typed
+                into the Additional Charges form. */}
+            {isCanceledOrder && (
+              <div className="space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+                <Label className="text-base font-medium text-destructive">Cancellation (TONU)</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cancel-tonu">Company TONU</Label>
+                    <Input
+                      id="cancel-tonu"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={tonu}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setTonu)}
+                      disabled={isLocked}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cancel-tonu-driver">Driver Rate</Label>
+                    <Input
+                      id="cancel-tonu-driver"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={tonuDriver}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setTonuDriver)}
+                      disabled={isLocked}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cancel-dh-miles">DH Miles</Label>
+                    <Input
+                      id="cancel-dh-miles"
+                      type="number"
+                      step="1"
+                      min="0"
+                      placeholder="0"
+                      value={dhMiles}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setDhMiles)}
+                      disabled={isLocked}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This load is canceled. Enter TONU, driver rate and DH miles here — not under Additional Charges.
+                </p>
+              </div>
+            )}
+
             {/* Additional Button */}
             {!showAdditionalFields && !isLocked && (
               <div className="flex justify-center">
