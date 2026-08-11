@@ -3915,6 +3915,7 @@ const EditOrder = () => {
                     }
                   }}
                   isLocked={isLocked}
+                  isCanceledLoad={isCanceledOrder}
                 />
 
                 {/* Escort Fee and Additional Miles Section - kept separate */}
