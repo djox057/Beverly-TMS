@@ -997,11 +997,7 @@ const TransferList = () => {
                               <div className="flex items-center gap-1.5">
                                 <span>{row.truck_number}</span>
                                 {activeTab === "ues" && (
-                                  <UesInsuranceBadge
-                                    rowId={row.id}
-                                    value={!!row.ues_insurance}
-                                    canEdit={canEdit}
-                                  />
+                                  <UesInsuranceBadge value={!!row.ues_insurance} />
                                 )}
                               </div>
                             </TableCell>
