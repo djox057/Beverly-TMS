@@ -241,11 +241,16 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
 
         {syncBlocked && (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
-            App scopes are granted, but RingCentral only returns data for the single user who authorized
-            the connection. To pull company-wide call and message activity, open the RingCentral admin
-            portal, edit that user's role and enable{" "}
-            <span className="font-medium">Company Call Log</span> (and company message access), then run a
-            sync again.
+            The app permissions (ReadCallLog, ReadMessages, Analytics) <span className="font-medium">are</span>{" "}
+            granted — RingCentral is rejecting the request at the <span className="font-medium">user role</span>{" "}
+            level: <span className="font-mono text-xs">CMN-408 / ReadCompanyCallLog</span>. In the RingCentral{" "}
+            <span className="font-medium">admin portal</span> (not the Developer Console) open Users &gt; Roles,
+            edit the role of the user who authorized this integration and enable{" "}
+            <span className="font-medium">Company Call Log</span> plus{" "}
+            <span className="font-medium">Company Call Log — View others' calls</span>, then run a sync again.
+            {sync?.errorMessage ? (
+              <div className="mt-2 text-xs text-muted-foreground break-all">{sync.errorMessage}</div>
+            ) : null}
           </div>
         )}
 
