@@ -1,5 +1,4 @@
 import { useRef, useState, useMemo, useImperativeHandle, forwardRef } from "react";
-import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
