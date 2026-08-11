@@ -66,10 +66,18 @@ export interface AdditionalItem {
 
 export interface OrderAdditionalsManagerRef {
   /**
-   * Attempts to add the currently-entered (but not yet added) additional.
-   * Returns true if an additional was actually added.
+   * Returns the currently-entered (but not yet added) additional, if any.
+   * The parent uses this to block saving instead of silently committing it,
+   * which used to route typed values into whatever type happened to be selected.
    */
-  commitPendingAdditional: () => boolean;
+  getPendingAdditional: () => {
+    type: string;
+    label: string;
+    companyAmount: string;
+    driverAmount: string;
+  } | null;
+  /** Clears the add-form (type + amounts + reason). */
+  clearPending: () => void;
 }
 
 interface OrderAdditionalsManagerProps {
@@ -115,6 +123,8 @@ interface OrderAdditionalsManagerProps {
   // Special handlers for TONU
   onTonuChange?: (value: string) => void;
   isLocked: boolean;
+  /** When true, adding a non-TONU charge shows a warning (canceled loads). */
+  isCanceledLoad?: boolean;
 }
 
 export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, OrderAdditionalsManagerProps>(({
@@ -156,6 +166,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   setOtherAdditionalsItems,
   onTonuChange,
   isLocked,
+  isCanceledLoad = false,
 }, ref) => {
   const [typeOpen, setTypeOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<AdditionalType | "">("");
