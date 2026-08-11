@@ -129,7 +129,7 @@ function UesInsuranceBadge({
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transfer-list"] });
+      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
     },
     onError: (e: any) => {
       toast({ title: "Update failed", description: e.message, variant: "destructive" });
@@ -1029,7 +1029,18 @@ const TransferList = () => {
                         const companyStyle = getCompanyBackgroundColor(row.going_to_company);
                         return (
                           <TableRow key={row.id} className="hover:bg-transparent">
-                            <TableCell>{row.truck_number}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5">
+                                <span>{row.truck_number}</span>
+                                {activeTab === "ues" && (
+                                  <UesInsuranceBadge
+                                    rowId={row.id}
+                                    value={!!row.ues_insurance}
+                                    canEdit={canEdit}
+                                  />
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="font-medium">{row.driver_name}</TableCell>
                             <TableCell>{row.dispatcher_name || "-"}</TableCell>
                             <TableCell>
