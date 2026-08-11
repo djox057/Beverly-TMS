@@ -341,24 +341,27 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
     return true;
   };
 
-  // Expose commitPendingAdditional to parent via ref
+  // Expose the pending (typed but not added) additional so the parent can block
+  // the save instead of silently committing it into the selected type.
   useImperativeHandle(ref, () => ({
-    commitPendingAdditional: () => {
-      if (!selectedType) return false;
-      if (!newCompanyAmount && !newDriverAmount) return false;
-      if (
-        MULTI_ENTRY_TYPES.includes(selectedType) &&
-        selectedType !== "lumper" &&
-        !newReason.trim()
-      ) {
-        return false;
-      }
-
-      let didAdd = false;
-      flushSync(() => {
-        didAdd = handleAddAdditional();
-      });
-      return didAdd;
+    getPendingAdditional: () => {
+      if (!selectedType) return null;
+      const hasAmount =
+        (parseFloat(newCompanyAmount) || 0) > 0 || (parseFloat(newDriverAmount) || 0) > 0;
+      if (!hasAmount) return null;
+      return {
+        type: selectedType,
+        label: getTypeLabel(selectedType),
+        companyAmount: newCompanyAmount,
+        driverAmount: newDriverAmount,
+      };
+    },
+    clearPending: () => {
+      setSelectedType("");
+      setNewCompanyAmount("");
+      setNewDriverAmount("");
+      setNewReason("");
+      setTypeOpen(false);
     },
   }));
 
