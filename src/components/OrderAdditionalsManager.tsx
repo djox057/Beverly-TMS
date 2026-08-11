@@ -613,6 +613,13 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
         </div>
       )}
 
+      {isCanceledLoad && selectedType && selectedType !== "tonu" && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          This load is canceled — canceled loads normally only carry TONU. Make sure "{getTypeLabel(selectedType)}"
+          is really the charge you want (DH miles belong in the Cancellation block above).
+        </p>
+      )}
+
       {/* List of active additionals - now BELOW the form */}
       {activeAdditionals.length > 0 ? (
         <div className="space-y-2">
