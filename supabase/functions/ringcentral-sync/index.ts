@@ -120,6 +120,8 @@ serve(async (req) => {
     let callPages = 0;
     const callErrors: Array<{ extensionId: string; category: string }> = [];
     let callSource = "account";
+    let companyCallLogError: string | null = null;
+    let firstExtensionCallLogError: string | null = null;
 
     const fetchCallLog = async (basePath: string) => {
       for (let page = 1; page <= MAX_PAGES; page++) {
@@ -141,8 +143,9 @@ serve(async (req) => {
       // still returns whatever the authorized user may read.
       const isPermission = err instanceof RingCentralApiError && err.category === "permission";
       if (!isPermission) throw err;
+      companyCallLogError = err instanceof Error ? err.message : String(err);
       callSource = "per_extension_fallback";
-      console.warn("[rc-sync] company call log denied; falling back to per-extension call logs");
+      console.warn(`[rc-sync] company call log denied: ${companyCallLogError}`);
       let consecutiveDenials = 0;
       for (const target of targets) {
         try {
@@ -151,6 +154,10 @@ serve(async (req) => {
         } catch (innerErr) {
           const category = innerErr instanceof RingCentralApiError ? innerErr.category : "unknown";
           callErrors.push({ extensionId: target.rc_extension_id, category });
+          if (!firstExtensionCallLogError) {
+            firstExtensionCallLogError = innerErr instanceof Error ? innerErr.message : String(innerErr);
+            console.warn(`[rc-sync] per-extension call log denied: ${firstExtensionCallLogError}`);
+          }
           if (category === "permission") consecutiveDenials++;
           // The authorized user cannot read other extensions' logs: stop early
           // instead of burning the whole function timeout on 403s.
@@ -167,6 +174,9 @@ serve(async (req) => {
         return json({
           error: "permission",
           detail: "Company call log and per-extension call logs are all denied.",
+          ringcentralCompanyCallLogError: companyCallLogError,
+          ringcentralExtensionCallLogError: firstExtensionCallLogError,
+          grantedAppScopes: token.scopes,
           missingPermission: "ReadCompanyCallLog (user role permission)",
           action:
             'In the RingCentral admin portal, edit the role of the user who authorized the JWT and enable "Company Call Log" (Reports/Call Log permissions), then re-run the sync.',
