@@ -418,6 +418,7 @@ const EditOrder = () => {
   const [originalCompanyId, setOriginalCompanyId] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [isCanceledOrder, setIsCanceledOrder] = useState(false);
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
   const [yardDialogOpen, setYardDialogOpen] = useState(false);
   const [yardOriginalMiles, setYardOriginalMiles] = useState("");
