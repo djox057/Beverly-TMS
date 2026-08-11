@@ -3062,15 +3062,9 @@ const EditOrder = () => {
       return;
     }
 
-    // Auto-add pending additional charges if user filled in values but didn't click Add
-    const didAutoAddAdditional = additionalsManagerRef.current?.commitPendingAdditional?.() ?? false;
-
-    if (didAutoAddAdditional) {
-      // If we auto-added an additional, queue the submit for the next render
-      // so that performSave reads the updated state values
-      setQueuedSubmit({ changeNote: undefined });
-      return;
-    }
+    // Never silently commit a half-filled additional charge — it used to route the
+    // typed number into whatever type happened to be selected (e.g. Lumper).
+    if (blockOnPendingAdditional()) return;
 
     // No auto-add happened, continue with immediate submit
     // Check if revised RC is required (additionals added except lumper)
@@ -3123,15 +3117,7 @@ const EditOrder = () => {
   const handleChangeNoteConfirm = async (note: string) => {
     setShowChangeNoteDialog(false);
 
-    // Auto-add pending additional charges if user filled in values but didn't click Add
-    const didAutoAddAdditional = additionalsManagerRef.current?.commitPendingAdditional?.() ?? false;
-
-    if (didAutoAddAdditional) {
-      // If we auto-added an additional, queue the submit for the next render
-      // so that performSave reads the updated state values
-      setQueuedSubmit({ changeNote: note });
-      return;
-    }
+    if (blockOnPendingAdditional()) return;
 
     // No auto-add happened, continue with immediate save
     setIsSubmitting(true);
