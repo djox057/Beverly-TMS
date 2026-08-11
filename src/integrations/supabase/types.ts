@@ -4724,6 +4724,7 @@ export type Database = {
           sign: boolean
           transfer_type: string
           truck_id: string | null
+          ues_insurance: boolean
           updated_at: string | null
         }
         Insert: {
@@ -4742,6 +4743,7 @@ export type Database = {
           sign?: boolean
           transfer_type?: string
           truck_id?: string | null
+          ues_insurance?: boolean
           updated_at?: string | null
         }
         Update: {
@@ -4760,6 +4762,7 @@ export type Database = {
           sign?: boolean
           transfer_type?: string
           truck_id?: string | null
+          ues_insurance?: boolean
           updated_at?: string | null
         }
         Relationships: [

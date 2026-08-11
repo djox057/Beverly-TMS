@@ -1,0 +1,1 @@
+ALTER TABLE public.transfer_list ADD COLUMN IF NOT EXISTS ues_insurance boolean NOT NULL DEFAULT false;
