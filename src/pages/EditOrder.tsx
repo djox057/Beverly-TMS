@@ -418,6 +418,7 @@ const EditOrder = () => {
   const [originalCompanyId, setOriginalCompanyId] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [isCanceledOrder, setIsCanceledOrder] = useState(false);
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
   const [yardDialogOpen, setYardDialogOpen] = useState(false);
   const [yardOriginalMiles, setYardOriginalMiles] = useState("");
@@ -770,6 +771,7 @@ const EditOrder = () => {
 
         // Set locked status
         setIsLocked(orderData.locked || false);
+        setIsCanceledOrder(Boolean((orderData as any).canceled));
         setBookedByCompany(orderData.booked_by_company_id || "");
         setOriginalCompanyId(orderData.company_id || null);
         setBroker(orderData.broker_id || "");
@@ -2692,7 +2694,9 @@ const EditOrder = () => {
         escort_fee: escortFee ? parseFloat(escortFee) : null,
         escort_fee_broker_paid: escortFeeBrokerPaid,
         date_change_notes: updatedDateChangeNotes || null,
-        canceled: Boolean(tonu && parseFloat(tonu) > 0),
+        // Never un-cancel a load from this screen: a canceled load stays canceled
+        // even when TONU is 0. Un-canceling is done through the explicit revert action.
+        canceled: isCanceledOrder || Boolean(tonu && parseFloat(tonu) > 0),
         locked: isLocked,
       };
 
@@ -3053,8 +3057,28 @@ const EditOrder = () => {
     escortFee,
   ]);
 
+  /**
+   * If the "Additional Charges" add-form has an amount typed but was never added,
+   * block the save and tell the user. Previously this was auto-committed on save,
+   * which silently wrote values (e.g. DH miles typed in the wrong box) into
+   * whatever charge type happened to be selected.
+   */
+  const blockOnPendingAdditional = (): boolean => {
+    const pending = additionalsManagerRef.current?.getPendingAdditional?.();
+    if (!pending) return false;
+
+    console.warn("[EditOrder] Blocked save — unadded additional charge:", pending);
+    toast({
+      title: "Unadded charge",
+      description: `You have an unadded charge (${pending.label} $${pending.companyAmount || pending.driverAmount}). Click "Add" to keep it, or clear the amount before saving.`,
+      variant: "destructive",
+    });
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
 
     // Prevent duplicate submissions
     if (isSubmitting) {
@@ -3062,15 +3086,9 @@ const EditOrder = () => {
       return;
     }
 
-    // Auto-add pending additional charges if user filled in values but didn't click Add
-    const didAutoAddAdditional = additionalsManagerRef.current?.commitPendingAdditional?.() ?? false;
-
-    if (didAutoAddAdditional) {
-      // If we auto-added an additional, queue the submit for the next render
-      // so that performSave reads the updated state values
-      setQueuedSubmit({ changeNote: undefined });
-      return;
-    }
+    // Never silently commit a half-filled additional charge — it used to route the
+    // typed number into whatever type happened to be selected (e.g. Lumper).
+    if (blockOnPendingAdditional()) return;
 
     // No auto-add happened, continue with immediate submit
     // Check if revised RC is required (additionals added except lumper)
@@ -3123,15 +3141,7 @@ const EditOrder = () => {
   const handleChangeNoteConfirm = async (note: string) => {
     setShowChangeNoteDialog(false);
 
-    // Auto-add pending additional charges if user filled in values but didn't click Add
-    const didAutoAddAdditional = additionalsManagerRef.current?.commitPendingAdditional?.() ?? false;
-
-    if (didAutoAddAdditional) {
-      // If we auto-added an additional, queue the submit for the next render
-      // so that performSave reads the updated state values
-      setQueuedSubmit({ changeNote: note });
-      return;
-    }
+    if (blockOnPendingAdditional()) return;
 
     // No auto-add happened, continue with immediate save
     setIsSubmitting(true);
@@ -3775,6 +3785,62 @@ const EditOrder = () => {
               </div>
             </div>
 
+            {/* Cancellation block — canceled loads get their own clearly labelled
+                TONU / Driver Rate / DH Miles inputs so these values are never typed
+                into the Additional Charges form. */}
+            {isCanceledOrder && (
+              <div className="space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+                <Label className="text-base font-medium text-destructive">Cancellation (TONU)</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cancel-tonu">Company TONU</Label>
+                    <Input
+                      id="cancel-tonu"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={tonu}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setTonu)}
+                      disabled={isLocked}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cancel-tonu-driver">Driver Rate</Label>
+                    <Input
+                      id="cancel-tonu-driver"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={tonuDriver}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setTonuDriver)}
+                      disabled={isLocked}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cancel-dh-miles">DH Miles</Label>
+                    <Input
+                      id="cancel-dh-miles"
+                      type="number"
+                      step="1"
+                      min="0"
+                      placeholder="0"
+                      value={dhMiles}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setDhMiles)}
+                      disabled={isLocked}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This load is canceled. Enter TONU, driver rate and DH miles here — not under Additional Charges.
+                </p>
+              </div>
+            )}
+
             {/* Additional Button */}
             {!showAdditionalFields && !isLocked && (
               <div className="flex justify-center">
@@ -3849,6 +3915,7 @@ const EditOrder = () => {
                     }
                   }}
                   isLocked={isLocked}
+                  isCanceledLoad={isCanceledOrder}
                 />
 
                 {/* Escort Fee and Additional Miles Section - kept separate */}

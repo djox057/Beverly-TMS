@@ -1,5 +1,4 @@
 import { useRef, useState, useMemo, useImperativeHandle, forwardRef } from "react";
-import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,10 +65,18 @@ export interface AdditionalItem {
 
 export interface OrderAdditionalsManagerRef {
   /**
-   * Attempts to add the currently-entered (but not yet added) additional.
-   * Returns true if an additional was actually added.
+   * Returns the currently-entered (but not yet added) additional, if any.
+   * The parent uses this to block saving instead of silently committing it,
+   * which used to route typed values into whatever type happened to be selected.
    */
-  commitPendingAdditional: () => boolean;
+  getPendingAdditional: () => {
+    type: string;
+    label: string;
+    companyAmount: string;
+    driverAmount: string;
+  } | null;
+  /** Clears the add-form (type + amounts + reason). */
+  clearPending: () => void;
 }
 
 interface OrderAdditionalsManagerProps {
@@ -115,6 +122,8 @@ interface OrderAdditionalsManagerProps {
   // Special handlers for TONU
   onTonuChange?: (value: string) => void;
   isLocked: boolean;
+  /** When true, adding a non-TONU charge shows a warning (canceled loads). */
+  isCanceledLoad?: boolean;
 }
 
 export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, OrderAdditionalsManagerProps>(({
@@ -156,6 +165,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   setOtherAdditionalsItems,
   onTonuChange,
   isLocked,
+  isCanceledLoad = false,
 }, ref) => {
   const [typeOpen, setTypeOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<AdditionalType | "">("");
@@ -330,24 +340,27 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
     return true;
   };
 
-  // Expose commitPendingAdditional to parent via ref
+  // Expose the pending (typed but not added) additional so the parent can block
+  // the save instead of silently committing it into the selected type.
   useImperativeHandle(ref, () => ({
-    commitPendingAdditional: () => {
-      if (!selectedType) return false;
-      if (!newCompanyAmount && !newDriverAmount) return false;
-      if (
-        MULTI_ENTRY_TYPES.includes(selectedType) &&
-        selectedType !== "lumper" &&
-        !newReason.trim()
-      ) {
-        return false;
-      }
-
-      let didAdd = false;
-      flushSync(() => {
-        didAdd = handleAddAdditional();
-      });
-      return didAdd;
+    getPendingAdditional: () => {
+      if (!selectedType) return null;
+      const hasAmount =
+        (parseFloat(newCompanyAmount) || 0) > 0 || (parseFloat(newDriverAmount) || 0) > 0;
+      if (!hasAmount) return null;
+      return {
+        type: selectedType,
+        label: getTypeLabel(selectedType),
+        companyAmount: newCompanyAmount,
+        driverAmount: newDriverAmount,
+      };
+    },
+    clearPending: () => {
+      setSelectedType("");
+      setNewCompanyAmount("");
+      setNewDriverAmount("");
+      setNewReason("");
+      setTypeOpen(false);
     },
   }));
 
@@ -598,6 +611,13 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
             Add
           </Button>
         </div>
+      )}
+
+      {isCanceledLoad && selectedType && selectedType !== "tonu" && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          This load is canceled — canceled loads normally only carry TONU. Make sure "{getTypeLabel(selectedType)}"
+          is really the charge you want (DH miles belong in the Cancellation block above).
+        </p>
       )}
 
       {/* List of active additionals - now BELOW the form */}
