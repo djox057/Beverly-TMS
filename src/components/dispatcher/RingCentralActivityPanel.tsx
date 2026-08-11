@@ -132,7 +132,9 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
               {syncBlocked
                 ? "Sync blocked — RingCentral role permission"
                 : syncPartial
-                  ? "Partial sync — RingCentral role permission"
+                  ? "Partial sync — some extensions incomplete"
+                : syncRateLimited
+                  ? "Sync throttled by RingCentral — retrying"
                 : sync.lastSuccessfulSync
                   ? `Synced ${new Date(sync.lastSuccessfulSync).toLocaleString("en-US", { timeZone: "America/Chicago" })}`
                   : "Never synced"}
@@ -237,13 +239,22 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
           </div>
         </div>
 
-        {(syncBlocked || syncPartial) && (
+        {syncBlocked && (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
             App scopes are granted, but RingCentral only returns data for the single user who authorized
             the connection. To pull company-wide call and message activity, open the RingCentral admin
             portal, edit that user's role and enable{" "}
             <span className="font-medium">Company Call Log</span> (and company message access), then run a
             sync again.
+          </div>
+        )}
+
+        {!syncBlocked && (syncPartial || syncRateLimited) && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            Permissions are fine. The last sync could not finish for every extension
+            {syncRateLimited ? " because RingCentral throttled the requests (rate limit)" : ""}
+            {sync?.errorMessage ? `: ${sync.errorMessage}` : "."} Totals below may be incomplete until the
+            next sync completes.
           </div>
         )}
 
