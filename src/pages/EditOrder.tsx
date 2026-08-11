@@ -3053,6 +3053,25 @@ const EditOrder = () => {
     escortFee,
   ]);
 
+  /**
+   * If the "Additional Charges" add-form has an amount typed but was never added,
+   * block the save and tell the user. Previously this was auto-committed on save,
+   * which silently wrote values (e.g. DH miles typed in the wrong box) into
+   * whatever charge type happened to be selected.
+   */
+  const blockOnPendingAdditional = (): boolean => {
+    const pending = additionalsManagerRef.current?.getPendingAdditional?.();
+    if (!pending) return false;
+
+    console.warn("[EditOrder] Blocked save — unadded additional charge:", pending);
+    toast({
+      title: "Unadded charge",
+      description: `You have an unadded charge (${pending.label} $${pending.companyAmount || pending.driverAmount}). Click "Add" to keep it, or clear the amount before saving.`,
+      variant: "destructive",
+    });
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
