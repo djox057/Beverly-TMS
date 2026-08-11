@@ -96,6 +96,7 @@ const RingCentralActivityPanel = ({ userId = null, title = "Phone Activity" }: P
   const sync = data?.sync;
   const syncBlocked = sync?.errorCategory === "permission";
   const syncPartial = sync?.errorCategory === "partial";
+  const syncRateLimited = sync?.errorCategory === "rate_limit";
 
   const selectDriver = (value: string) => {
     setDriverId(value);

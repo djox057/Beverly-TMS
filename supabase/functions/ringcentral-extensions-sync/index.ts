@@ -79,6 +79,17 @@ serve(async (req) => {
       .select("user_id, phone_number, ext");
     if (profilesError) throw profilesError;
 
+    // Manually linked extensions (user_id_locked) keep their existing user_id —
+    // e.g. a user who owns a second extension whose number isn't on their profile.
+    const { data: lockedRows, error: lockedError } = await admin
+      .from("ringcentral_extensions")
+      .select("rc_extension_id, user_id, match_method")
+      .eq("user_id_locked", true);
+    if (lockedError) throw lockedError;
+    const lockedByExtension = new Map<string, { user_id: string | null; match_method: string }>(
+      (lockedRows ?? []).map((r: any) => [String(r.rc_extension_id), { user_id: r.user_id, match_method: r.match_method }]),
+    );
+
     const byPhone = new Map<string, string>();
     const byExt = new Map<string, string>();
     for (const p of profiles ?? []) {
@@ -111,6 +122,12 @@ serve(async (req) => {
         }
       }
 
+      const locked = lockedByExtension.get(rcExtensionId);
+      if (locked) {
+        userId = locked.user_id;
+        matchMethod = locked.match_method || "manual";
+      }
+
       return {
         rc_extension_id: rcExtensionId,
         extension_number: ext.extensionNumber ?? null,
@@ -120,6 +137,7 @@ serve(async (req) => {
         primary_phone_number: phoneNumbers[0] ?? null,
         user_id: userId,
         match_method: matchMethod,
+        user_id_locked: !!locked,
         timezone: ext.regionalSettings?.timezone?.name || "America/Chicago",
         is_active: ext.status !== "Disabled",
         last_synced_at: new Date().toISOString(),
