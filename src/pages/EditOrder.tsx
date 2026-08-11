@@ -771,6 +771,7 @@ const EditOrder = () => {
 
         // Set locked status
         setIsLocked(orderData.locked || false);
+        setIsCanceledOrder(Boolean((orderData as any).canceled));
         setBookedByCompany(orderData.booked_by_company_id || "");
         setOriginalCompanyId(orderData.company_id || null);
         setBroker(orderData.broker_id || "");
