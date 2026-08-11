@@ -63,6 +63,7 @@ interface TransferRow {
   safety_name?: string;
   drug_test_result?: string | null;
   two_week_notice?: boolean;
+  ues_insurance?: boolean;
 }
 
 // ─── Role permission helpers ───
@@ -102,6 +103,62 @@ function LockedCell({ group, children }: { group: ColumnGroup; children: React.R
         </TooltipTrigger>
         <TooltipContent side="top" className="text-xs">
           Only <span className="font-semibold">{label}</span> can edit this
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+// ─── UES insurance flag cell ───
+function UesInsuranceBadge({
+  rowId,
+  value,
+  canEdit,
+}: {
+  rowId: string;
+  value: boolean;
+  canEdit: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: async (next: boolean) => {
+      const { error } = await supabase
+        .from("transfer_list" as any)
+        .update({ ues_insurance: next } as any)
+        .eq("id", rowId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+    },
+    onError: (e: any) => {
+      toast({ title: "Update failed", description: e.message, variant: "destructive" });
+    },
+  });
+
+  if (!value && !canEdit) return null;
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            disabled={!canEdit || mutation.isPending}
+            onClick={() => canEdit && mutation.mutate(!value)}
+            className={cn(
+              "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none border shrink-0",
+              value
+                ? "bg-amber-500 text-black border-amber-600"
+                : "bg-transparent text-muted-foreground border-dashed border-muted-foreground/50",
+              canEdit ? "cursor-pointer" : "cursor-default"
+            )}
+          >
+            {value ? "UES INS" : "+ INS"}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {value ? "Marked as UES insurance" : "Mark as UES insurance"}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -972,7 +1029,18 @@ const TransferList = () => {
                         const companyStyle = getCompanyBackgroundColor(row.going_to_company);
                         return (
                           <TableRow key={row.id} className="hover:bg-transparent">
-                            <TableCell>{row.truck_number}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5">
+                                <span>{row.truck_number}</span>
+                                {activeTab === "ues" && (
+                                  <UesInsuranceBadge
+                                    rowId={row.id}
+                                    value={!!row.ues_insurance}
+                                    canEdit={canEdit}
+                                  />
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="font-medium">{row.driver_name}</TableCell>
                             <TableCell>{row.dispatcher_name || "-"}</TableCell>
                             <TableCell>
