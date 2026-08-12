@@ -22,7 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { EfsRequestDialog } from "@/components/EfsRequestDialog";
 import { HosRequestDialog } from "@/components/HosRequestDialog";
-import { DriverProblemDialog } from "@/components/DriverProblemDialog";
+import { DriverComplaintDialog } from "@/components/complaints/DriverComplaintDialog";
 import { AllProblemsDialog } from "@/components/AllProblemsDialog";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
 import { AddOrderSalaryChargeDialog } from "@/components/AddOrderSalaryChargeDialog";
@@ -5614,13 +5614,14 @@ const Reports = () => {
                                                                   >
                                                                     <Share2 className="h-3 w-3" />
                                                                   </Button>
-                                                                  {(hasRole("manager") ||
-                                                                    hasRole("supervisor") ||
-                                                                    hasRole("admin")) && (
+                                                                   {(hasRole("manager") ||
+                                                                     hasRole("admin") ||
+                                                                     hasRole("dispatch")) && (
                                                                     <Button
                                                                       variant="ghost"
                                                                       size="sm"
                                                                       className="h-6 w-6 p-0"
+                                                                      title="Add driver complaint"
                                                                       onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         setProblemDialog({
@@ -5631,7 +5632,7 @@ const Reports = () => {
                                                                         });
                                                                       }}
                                                                     >
-                                                                      <AlertCircle className="h-3 w-3 text-destructive" />
+                                                                      <MessageSquareWarning className="h-3 w-3 text-destructive" />
                                                                     </Button>
                                                                   )}
                                                                 </div>
@@ -6000,12 +6001,13 @@ const Reports = () => {
                                                                       <Share2 className="h-3 w-3" />
                                                                     </Button>
                                                                     {(hasRole("manager") ||
-                                                                      hasRole("supervisor") ||
-                                                                      hasRole("admin")) && (
+                                                                      hasRole("admin") ||
+                                                                      hasRole("dispatch")) && (
                                                                       <Button
                                                                         variant="ghost"
                                                                         size="sm"
                                                                         className="h-6 w-6 p-0"
+                                                                        title="Add driver complaint"
                                                                         onClick={(e) => {
                                                                           e.stopPropagation();
                                                                           setProblemDialog({
@@ -6016,7 +6018,7 @@ const Reports = () => {
                                                                           });
                                                                         }}
                                                                       >
-                                                                        <AlertCircle className="h-3 w-3 text-destructive" />
+                                                                        <MessageSquareWarning className="h-3 w-3 text-destructive" />
                                                                       </Button>
                                                                     )}
                                                                   </>
@@ -8555,13 +8557,12 @@ const Reports = () => {
         temporaryPlateId={tempPlateDialog?.temporaryPlateId || ""}
       />
 
-      <DriverProblemDialog
+      <DriverComplaintDialog
         open={!!problemDialog}
         onOpenChange={(open) => !open && setProblemDialog(null)}
         driverId={problemDialog?.driverId || ""}
         driverName={problemDialog?.driverName || ""}
         truckNumber={problemDialog?.truckNumber || ""}
-        dispatcherName={problemDialog?.dispatcherName || ""}
       />
 
       {/* All Problems Dialog */}
