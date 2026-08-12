@@ -233,17 +233,6 @@ const DriversComplaints = () => {
         </div>
       ) : (
       <div className="flex items-start gap-3">
-        {groupIndex > 0 && (
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-12 w-9 shrink-0 mt-4"
-            onClick={() => goGroup(-1)}
-            title="Previous group"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-        )}
         <div className="flex-1 overflow-hidden">
           <div
             key={groupIndex}
@@ -256,17 +245,6 @@ const DriversComplaints = () => {
             ))}
           </div>
         </div>
-        {groupIndex < COMPLAINT_GROUPS.length - 1 && (
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-12 w-9 shrink-0 mt-4"
-            onClick={() => goGroup(1)}
-            title="Next group"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-        )}
       </div>
       )}
     </div>
