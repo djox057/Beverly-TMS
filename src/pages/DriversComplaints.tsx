@@ -78,6 +78,16 @@ const DriversComplaints = () => {
   const [direction, setDirection] = useState<"left" | "right">("right");
   const currentWeek = weekStartKey(chicagoDateKey(new Date()));
   const [weekStart, setWeekStart] = useState(currentWeek);
+  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const rangeStart = customRange ? customRange.from : weekStart;
+  const rangeEnd = customRange ? customRange.to : addDaysKey(weekStart, 6);
+
+  const shiftWeek = (delta: number) => {
+    setCustomRange(null);
+    setWeekStart((w) => addDaysKey(customRange ? weekStartKey(customRange.from) : w, delta));
+  };
 
   const goGroup = (delta: number) => {
     setDirection(delta > 0 ? "right" : "left");
@@ -116,10 +126,9 @@ const DriversComplaints = () => {
 
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    const weekEnd = addDaysKey(weekStart, 6);
     return complaints.filter((c) => {
       const key = chicagoDateKey(new Date(c.created_at));
-      if (key < weekStart || key > weekEnd) return false;
+      if (key < rangeStart || key > rangeEnd) return false;
       if (!q) return true;
       return (
         c.subject_text.toLowerCase().includes(q) ||
@@ -127,7 +136,7 @@ const DriversComplaints = () => {
         (c.created_by_name || "").toLowerCase().includes(q)
       );
     });
-  }, [complaints, searchQuery, weekStart]);
+  }, [complaints, searchQuery, rangeStart, rangeEnd]);
 
   const isSearching = searchQuery.trim().length > 0;
 
