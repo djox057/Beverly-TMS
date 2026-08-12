@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Search, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { ComplaintCard } from "@/components/complaints/ComplaintCard";
 import {
+  ASSIGNABLE_TYPES,
   COMPLAINT_GROUPS,
   COMPLAINT_TYPE_LABELS,
   DISPATCHER_REPORTING,
@@ -82,7 +83,7 @@ const DriversComplaints = () => {
   const [customRange, setCustomRange] = useState<{ from: string; to: string | null } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [companyFilter, setCompanyFilter] = useState("");
-  const [dispatcherFilter, setDispatcherFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [officeFilter, setOfficeFilter] = useState("");
   const hasFilterRef = useRef(false);
   const groupCountsRef = useRef<number[]>([]);
@@ -187,7 +188,7 @@ const DriversComplaints = () => {
   }, [complaints]);
 
   const matchesMetaFilters = (c: DriverComplaint) => {
-    if (!companyFilter && !dispatcherFilter && !officeFilter) return true;
+    if (!companyFilter && !typeFilter && !officeFilter) return true;
     // Assigned copies keep the original reporting's creator for filtering purposes
     const origin =
       (c.source_complaint_id ? complaintsById.get(c.source_complaint_id) : undefined) || c;
@@ -196,9 +197,8 @@ const DriversComplaints = () => {
       const meta = driverId ? driverMeta?.byDriver.get(driverId) : undefined;
       if (meta?.company !== companyFilter) return false;
     }
+    if (typeFilter && c.complaint_type !== typeFilter) return false;
     const prof = origin.created_by ? driverMeta?.byUser.get(origin.created_by) : undefined;
-    if (dispatcherFilter && (prof?.name || origin.created_by_name || "") !== dispatcherFilter)
-      return false;
     if (officeFilter && (prof?.office || "") !== officeFilter) return false;
     return true;
   };
@@ -227,7 +227,7 @@ const DriversComplaints = () => {
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [complaints, searchQuery, rangeStart, rangeEnd, companyFilter, dispatcherFilter, officeFilter, driverMeta]);
+  }, [complaints, searchQuery, rangeStart, rangeEnd, companyFilter, typeFilter, officeFilter, driverMeta]);
 
   const isSearching = searchQuery.trim().length > 0;
 
@@ -256,7 +256,7 @@ const DriversComplaints = () => {
     }
     return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [complaints, searchQuery, canManage, assignedSourceIds, companyFilter, dispatcherFilter, officeFilter, driverMeta]);
+  }, [complaints, searchQuery, canManage, assignedSourceIds, companyFilter, typeFilter, officeFilter, driverMeta]);
 
   const byType = useMemo(() => {
     const map = new Map<string, DriverComplaint[]>();
@@ -268,7 +268,7 @@ const DriversComplaints = () => {
   }, [filtered]);
 
   const hasFilter =
-    !!searchQuery.trim() || !!companyFilter || !!dispatcherFilter || !!officeFilter;
+    !!searchQuery.trim() || !!companyFilter || !!typeFilter || !!officeFilter;
 
   const groupCounts = useMemo(
     () => groups.map((g) => g.types.reduce((sum, t) => sum + (byType.get(t)?.length || 0), 0)),
@@ -436,13 +436,13 @@ const DriversComplaints = () => {
           <Combobox
             className="h-[34px] w-[190px] text-xs"
             options={[
-              { value: "", label: "All dispatchers" },
-              ...creatorOptions.dispatchers.map((d) => ({ value: d, label: d })),
+              { value: "", label: "All types" },
+              ...ASSIGNABLE_TYPES.map((t) => ({ value: t, label: COMPLAINT_TYPE_LABELS[t] })),
             ]}
-            value={dispatcherFilter}
-            onValueChange={setDispatcherFilter}
-            placeholder="All dispatchers"
-            searchPlaceholder="Search dispatcher..."
+            value={typeFilter}
+            onValueChange={setTypeFilter}
+            placeholder="All types"
+            searchPlaceholder="Search type..."
           />
           <Combobox
             className="h-[34px] w-[157px] text-xs"
@@ -457,14 +457,14 @@ const DriversComplaints = () => {
           />
           </div>
           <div className="flex items-center lg:absolute lg:top-full lg:right-0 lg:h-6">
-          {(companyFilter || dispatcherFilter || officeFilter) && (
+          {(companyFilter || typeFilter || officeFilter) && (
             <Button
               variant="ghost"
               size="sm"
               className="h-6 px-2 text-[11px]"
               onClick={() => {
                 setCompanyFilter("");
-                setDispatcherFilter("");
+                setTypeFilter("");
                 setOfficeFilter("");
               }}
             >
