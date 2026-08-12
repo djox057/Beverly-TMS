@@ -118,6 +118,59 @@ const DriversComplaints = () => {
   });
 
   // Reportings that already have a manager-side copy
+  // Driver -> company / dispatcher / office lookup for filtering
+  const { data: driverMeta } = useQuery({
+    queryKey: ["complaints-driver-meta"],
+    queryFn: async () => {
+      const [driversRes, companiesRes, profilesRes] = await Promise.all([
+        supabase.from("drivers").select("id, company_id, dispatcher_id"),
+        supabase.from("companies").select("id, name"),
+        supabase.from("profiles").select("id, full_name, office"),
+      ]);
+      if (driversRes.error) throw driversRes.error;
+      const companies = new Map(
+        (companiesRes.data || []).map((c: any) => [c.id as string, c.name as string]),
+      );
+      const profiles = new Map(
+        (profilesRes.data || []).map((p: any) => [
+          p.id as string,
+          { name: (p.full_name as string) || "", office: (p.office as string) || "" },
+        ]),
+      );
+      const byDriver = new Map<
+        string,
+        { company: string; dispatcher: string; office: string }
+      >();
+      for (const d of (driversRes.data || []) as any[]) {
+        const prof = d.dispatcher_id ? profiles.get(d.dispatcher_id) : undefined;
+        byDriver.set(d.id, {
+          company: (d.company_id && companies.get(d.company_id)) || "",
+          dispatcher: prof?.name || "",
+          office: prof?.office || "",
+        });
+      }
+      return {
+        byDriver,
+        companies: Array.from(new Set(Array.from(companies.values()))).sort(),
+        dispatchers: Array.from(
+          new Set(Array.from(byDriver.values()).map((v) => v.dispatcher).filter(Boolean)),
+        ).sort(),
+        offices: Array.from(
+          new Set(Array.from(byDriver.values()).map((v) => v.office).filter(Boolean)),
+        ).sort(),
+      };
+    },
+  });
+
+  const matchesMetaFilters = (c: DriverComplaint) => {
+    if (!companyFilter && !dispatcherFilter && !officeFilter) return true;
+    const meta = c.driver_id ? driverMeta?.byDriver.get(c.driver_id) : undefined;
+    if (companyFilter && meta?.company !== companyFilter) return false;
+    if (dispatcherFilter && meta?.dispatcher !== dispatcherFilter) return false;
+    if (officeFilter && meta?.office !== officeFilter) return false;
+    return true;
+  };
+
   const assignedSourceIds = useMemo(
     () =>
       new Set(
@@ -133,6 +186,7 @@ const DriversComplaints = () => {
     return complaints.filter((c) => {
       const key = chicagoDateKey(new Date(c.created_at));
       if (key < rangeStart || key > rangeEnd) return false;
+      if (!matchesMetaFilters(c)) return false;
       if (!q) return true;
       return (
         c.subject_text.toLowerCase().includes(q) ||
@@ -140,7 +194,8 @@ const DriversComplaints = () => {
         (c.created_by_name || "").toLowerCase().includes(q)
       );
     });
-  }, [complaints, searchQuery, rangeStart, rangeEnd]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [complaints, searchQuery, rangeStart, rangeEnd, companyFilter, dispatcherFilter, officeFilter, driverMeta]);
 
   const isSearching = searchQuery.trim().length > 0;
 
