@@ -27,6 +27,8 @@ import { AllProblemsDialog } from "@/components/AllProblemsDialog";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
 import { AddOrderSalaryChargeDialog } from "@/components/AddOrderSalaryChargeDialog";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
+import { useDriverComplaintIndicators } from "@/hooks/useDriverComplaintIndicators";
+import { COMPLAINT_TYPE_LABELS, type ComplaintTypeKey } from "@/components/complaints/complaintTypes";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useBrokers } from "@/hooks/useBrokers";
