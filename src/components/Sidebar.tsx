@@ -30,6 +30,7 @@ import {
   DollarSign,
   Droplet,
   Info as InfoIcon,
+  MessageSquareWarning,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
