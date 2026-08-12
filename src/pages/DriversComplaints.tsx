@@ -215,42 +215,72 @@ const DriversComplaints = () => {
       </div>
 
       <div className="flex items-center justify-center gap-3">
-        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart((w) => addDaysKey(w, -7))} title="Previous week">
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftWeek(-7)} title="Previous week">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="flex items-center gap-2 text-sm font-medium w-[320px] justify-center">
-          <Popover>
+          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" title="Pick a date">
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Pick a date or range">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="center">
               <Calendar
-                mode="single"
-                selected={keyToDate(weekStart)}
-                onSelect={(d) => {
-                  if (!d) return;
-                  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-                  setWeekStart(weekStartKey(key));
+                mode="range"
+                numberOfMonths={2}
+                defaultMonth={keyToDate(rangeStart)}
+                selected={{ from: keyToDate(rangeStart), to: keyToDate(rangeEnd) }}
+                onSelect={(range) => {
+                  if (!range?.from) return;
+                  const toKey = (d: Date) =>
+                    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                  const from = toKey(range.from);
+                  const to = range.to ? toKey(range.to) : from;
+                  setCustomRange({ from, to });
+                  if (range.to) setPickerOpen(false);
                 }}
                 initialFocus
                 className="p-3 pointer-events-auto"
               />
+              <div className="flex justify-end border-t p-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => {
+                    setCustomRange(null);
+                    setWeekStart(currentWeek);
+                    setPickerOpen(false);
+                  }}
+                >
+                  Reset to current week
+                </Button>
+              </div>
             </PopoverContent>
           </Popover>
           <span className="whitespace-nowrap">
-            {prettyKey(weekStart)} – {prettyKey(weekEnd)}
+            {rangeStart === rangeEnd
+              ? prettyKey(rangeStart)
+              : `${prettyKey(rangeStart)} – ${prettyKey(rangeEnd)}`}
           </span>
-          {weekStart === currentWeek ? (
+          {!customRange && weekStart === currentWeek ? (
             <span className="text-xs text-muted-foreground whitespace-nowrap">(current week)</span>
           ) : (
-            <Button variant="link" size="sm" className="h-auto p-0 text-xs whitespace-nowrap" onClick={() => setWeekStart(currentWeek)}>
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs whitespace-nowrap"
+              onClick={() => {
+                setCustomRange(null);
+                setWeekStart(currentWeek);
+              }}
+            >
               Back to current week
             </Button>
           )}
         </div>
-        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart((w) => addDaysKey(w, 7))} title="Next week" disabled={weekStart >= currentWeek}>
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftWeek(7)} title="Next week" disabled={!customRange && weekStart >= currentWeek}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
