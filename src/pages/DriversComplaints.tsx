@@ -7,8 +7,12 @@ import { Loader2, Search, ChevronLeft, ChevronRight, CalendarDays } from "lucide
 import { ComplaintCard } from "@/components/complaints/ComplaintCard";
 import {
   COMPLAINT_GROUPS,
+  COMPLAINT_TYPE_LABELS,
+  type ComplaintTypeKey,
   type DriverComplaint,
 } from "@/components/complaints/complaintTypes";
+import { Badge } from "@/components/ui/badge";
+import { ComplaintComments } from "@/components/complaints/ComplaintComments";
 
 // --- Chicago week helpers (Mon–Sun) ---
 const chicagoDateKey = (d: Date) =>
@@ -35,6 +39,23 @@ const prettyKey = (key: string) =>
     timeZone: "UTC",
     month: "short",
     day: "numeric",
+  });
+
+const chicagoDayLabel = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", {
+    timeZone: "America/Chicago",
+    weekday: "short",
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+
+const chicagoTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-US", {
+    timeZone: "America/Chicago",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
   });
 
 const DriversComplaints = () => {
@@ -75,6 +96,30 @@ const DriversComplaints = () => {
       );
     });
   }, [complaints, searchQuery, weekStart]);
+
+  const isSearching = searchQuery.trim().length > 0;
+
+  // Search mode: all complaints, any type / any date, grouped by Chicago day (newest first)
+  const searchResults = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return [] as [string, DriverComplaint[]][];
+    const matches = complaints.filter(
+      (c) =>
+        c.subject_text.toLowerCase().includes(q) ||
+        c.content.toLowerCase().includes(q) ||
+        (c.created_by_name || "").toLowerCase().includes(q),
+    );
+    const map = new Map<string, DriverComplaint[]>();
+    for (const c of matches) {
+      const key = chicagoDateKey(new Date(c.created_at));
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(c);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    }
+    return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  }, [complaints, searchQuery]);
 
   const byType = useMemo(() => {
     const map = new Map<string, DriverComplaint[]>();
@@ -127,15 +172,15 @@ const DriversComplaints = () => {
         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart((w) => addDaysKey(w, -7))} title="Previous week">
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="flex items-center gap-2 text-sm font-medium">
+        <div className="flex items-center gap-2 text-sm font-medium w-[320px] justify-center">
           <CalendarDays className="h-4 w-4 text-muted-foreground" />
-          <span>
+          <span className="whitespace-nowrap">
             {prettyKey(weekStart)} – {prettyKey(weekEnd)}
           </span>
           {weekStart === currentWeek ? (
-            <span className="text-xs text-muted-foreground">(current week)</span>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">(current week)</span>
           ) : (
-            <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setWeekStart(currentWeek)}>
+            <Button variant="link" size="sm" className="h-auto p-0 text-xs whitespace-nowrap" onClick={() => setWeekStart(currentWeek)}>
               Back to current week
             </Button>
           )}
@@ -145,6 +190,48 @@ const DriversComplaints = () => {
         </Button>
       </div>
 
+      {isSearching ? (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {searchResults.reduce((n, [, items]) => n + items.length, 0)} result(s) across all
+            categories and dates
+          </p>
+          {searchResults.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No complaints found</p>
+          ) : (
+            searchResults.map(([dayKey, items]) => (
+              <div key={dayKey} className="rounded-lg border bg-card overflow-hidden">
+                <div className="bg-muted/50 px-4 py-2 text-sm font-semibold">
+                  {chicagoDayLabel(items[0].created_at)}
+                </div>
+                <div className="divide-y">
+                  {items.map((c) => (
+                    <div key={c.id} className="px-4 py-3 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="secondary" className="text-[10px] py-0">
+                          {COMPLAINT_TYPE_LABELS[c.complaint_type as ComplaintTypeKey] ||
+                            c.complaint_type}
+                        </Badge>
+                        <span className="font-semibold text-sm">{c.subject_text}</span>
+                        {c.is_resolved && (
+                          <Badge variant="outline" className="text-[10px] py-0">
+                            Resolved
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                      <span className="text-[11px] text-muted-foreground">
+                        {c.created_by_name || "Unknown"} • {chicagoTime(c.created_at)}
+                      </span>
+                      <ComplaintComments complaintId={c.id} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
       <div className="flex items-start gap-3">
         {groupIndex > 0 && (
           <Button
@@ -181,6 +268,7 @@ const DriversComplaints = () => {
           </Button>
         )}
       </div>
+      )}
     </div>
   );
 };
