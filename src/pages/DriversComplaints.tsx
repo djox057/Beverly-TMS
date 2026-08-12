@@ -184,8 +184,6 @@ const DriversComplaints = () => {
 
   const activeGroup = groups[Math.min(groupIndex, groups.length - 1)];
   const activeTypes = activeGroup.types;
-  const weekEnd = addDaysKey(weekStart, 6);
-
   return (
     <div className="max-w-[1800px] mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
