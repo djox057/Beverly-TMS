@@ -95,7 +95,16 @@ const DriversComplaints = () => {
 
   const goGroup = (delta: number) => {
     setDirection(delta > 0 ? "right" : "left");
-    setGroupIndex((i) => (i + delta + groups.length) % groups.length);
+    setGroupIndex((i) => {
+      // When filtering, only cycle through groups that actually have matches
+      const allowed = groups
+        .map((_, idx) => idx)
+        .filter((idx) => !hasFilterRef.current || groupCountsRef.current[idx] > 0);
+      const pool = allowed.length > 0 ? allowed : groups.map((_, idx) => idx);
+      const pos = pool.indexOf(i);
+      if (pos === -1) return pool[0];
+      return pool[(pos + delta + pool.length) % pool.length];
+    });
   };
 
   const { data: complaints = [], isLoading } = useQuery({
