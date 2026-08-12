@@ -196,9 +196,8 @@ const DriversComplaints = () => {
       const meta = driverId ? driverMeta?.byDriver.get(driverId) : undefined;
       if (meta?.company !== companyFilter) return false;
     }
+    if (typeFilter && c.complaint_type !== typeFilter) return false;
     const prof = origin.created_by ? driverMeta?.byUser.get(origin.created_by) : undefined;
-    if (typeFilter && (prof?.name || origin.created_by_name || "") !== typeFilter)
-      return false;
     if (officeFilter && (prof?.office || "") !== officeFilter) return false;
     return true;
   };
@@ -436,13 +435,13 @@ const DriversComplaints = () => {
           <Combobox
             className="h-[34px] w-[190px] text-xs"
             options={[
-              { value: "", label: "All dispatchers" },
-              ...creatorOptions.dispatchers.map((d) => ({ value: d, label: d })),
+              { value: "", label: "All types" },
+              ...ASSIGNABLE_TYPES.map((t) => ({ value: t, label: COMPLAINT_TYPE_LABELS[t] })),
             ]}
             value={typeFilter}
             onValueChange={setTypeFilter}
-            placeholder="All dispatchers"
-            searchPlaceholder="Search dispatcher..."
+            placeholder="All types"
+            searchPlaceholder="Search type..."
           />
           <Combobox
             className="h-[34px] w-[157px] text-xs"
