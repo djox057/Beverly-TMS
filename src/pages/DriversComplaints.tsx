@@ -374,9 +374,9 @@ const DriversComplaints = () => {
           <ChevronRight className="h-4 w-4" />
         </Button>
 
-        <div className="flex items-center gap-2 lg:absolute lg:right-0 lg:top-0">
+        <div className="flex items-center gap-1.5 lg:absolute lg:right-0 lg:top-1/2 lg:-translate-y-1/2">
           <Combobox
-            className="h-9 w-[190px] text-xs"
+            className="h-7 w-[140px] text-[11px]"
             options={[
               { value: "", label: "All companies" },
               ...(driverMeta?.companies || []).map((c) => ({ value: c, label: c })),
@@ -387,10 +387,10 @@ const DriversComplaints = () => {
             searchPlaceholder="Search company..."
           />
           <Combobox
-            className="h-9 w-[210px] text-xs"
+            className="h-7 w-[150px] text-[11px]"
             options={[
               { value: "", label: "All dispatchers" },
-              ...(driverMeta?.dispatchers || []).map((d) => ({ value: d, label: d })),
+              ...creatorOptions.dispatchers.map((d) => ({ value: d, label: d })),
             ]}
             value={dispatcherFilter}
             onValueChange={setDispatcherFilter}
@@ -398,22 +398,22 @@ const DriversComplaints = () => {
             searchPlaceholder="Search dispatcher..."
           />
           <Combobox
-            className="h-9 w-[170px] text-xs"
+            className="h-7 w-[130px] text-[11px]"
             options={[
               { value: "", label: "All offices" },
-              ...(driverMeta?.offices || []).map((o) => ({ value: o, label: o })),
+              ...creatorOptions.offices.map((o) => ({ value: o, label: o })),
             ]}
             value={officeFilter}
             onValueChange={setOfficeFilter}
             placeholder="All offices"
             searchPlaceholder="Search office..."
           />
-          <div className="w-[56px] shrink-0">
+          <div className="w-[48px] shrink-0">
           {(companyFilter || dispatcherFilter || officeFilter) && (
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs"
+              className="h-7 px-2 text-[11px]"
               onClick={() => {
                 setCompanyFilter("");
                 setDispatcherFilter("");
