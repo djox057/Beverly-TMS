@@ -230,15 +230,34 @@ const DriversComplaints = () => {
                 mode="range"
                 numberOfMonths={2}
                 defaultMonth={keyToDate(rangeStart)}
-                selected={{ from: keyToDate(rangeStart), to: keyToDate(rangeEnd) }}
-                onSelect={(range) => {
-                  if (!range?.from) return;
+                selected={
+                  customRange
+                    ? {
+                        from: keyToDate(customRange.from),
+                        to: customRange.to ? keyToDate(customRange.to) : undefined,
+                      }
+                    : { from: keyToDate(rangeStart), to: keyToDate(rangeEnd) }
+                }
+                onSelect={(_range, day) => {
+                  if (!day) return;
                   const toKey = (d: Date) =>
                     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-                  const from = toKey(range.from);
-                  const to = range.to ? toKey(range.to) : from;
-                  setCustomRange({ from, to });
-                  if (range.to) setPickerOpen(false);
+                  const key = toKey(day);
+                  if (!customRange || customRange.to) {
+                    // start a fresh selection: single day until a second date is picked
+                    setCustomRange({ from: key, to: null });
+                    return;
+                  }
+                  if (key === customRange.from) {
+                    setPickerOpen(false);
+                    return;
+                  }
+                  setCustomRange(
+                    key < customRange.from
+                      ? { from: key, to: customRange.from }
+                      : { from: customRange.from, to: key },
+                  );
+                  setPickerOpen(false);
                 }}
                 initialFocus
                 className="p-3 pointer-events-auto"
