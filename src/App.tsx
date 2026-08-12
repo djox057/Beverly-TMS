@@ -32,6 +32,7 @@ import YardArrivals from "./pages/YardArrivals";
 import Analytics from "./pages/Analytics";
 import DispatcherTier from "./pages/DispatcherTier";
 import DispatcherTierDetail from "./pages/DispatcherTierDetail";
+import DriversComplaints from "./pages/DriversComplaints";
 import Alerts from "./pages/Alerts";
 import Trips from "./pages/Trips";
 import TrucksMap from "./pages/TrucksMap";
@@ -193,6 +194,11 @@ const AppContent = () => {
         <Route path="/dispatcher-tier/:id" element={
           <ProtectedRoute strictAllowedRoles={['admin', 'manager', 'chicago_management']}>
             <Layout><DispatcherTierDetail /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/drivers-complaints" element={
+          <ProtectedRoute strictAllowedRoles={['admin', 'manager']}>
+            <Layout><DriversComplaints /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/beverly-heatmap" element={
