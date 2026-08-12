@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -84,6 +84,8 @@ const DriversComplaints = () => {
   const [companyFilter, setCompanyFilter] = useState("");
   const [dispatcherFilter, setDispatcherFilter] = useState("");
   const [officeFilter, setOfficeFilter] = useState("");
+  const hasFilterRef = useRef(false);
+  const groupCountsRef = useRef<number[]>([]);
 
   const rangeStart = customRange ? customRange.from : weekStart;
   const rangeEnd = customRange ? customRange.to ?? customRange.from : addDaysKey(weekStart, 6);
@@ -95,7 +97,16 @@ const DriversComplaints = () => {
 
   const goGroup = (delta: number) => {
     setDirection(delta > 0 ? "right" : "left");
-    setGroupIndex((i) => (i + delta + groups.length) % groups.length);
+    setGroupIndex((i) => {
+      // When filtering, only cycle through groups that actually have matches
+      const allowed = groups
+        .map((_, idx) => idx)
+        .filter((idx) => !hasFilterRef.current || groupCountsRef.current[idx] > 0);
+      const pool = allowed.length > 0 ? allowed : groups.map((_, idx) => idx);
+      const pos = pool.indexOf(i);
+      if (pos === -1) return pool[0];
+      return pool[(pos + delta + pool.length) % pool.length];
+    });
   };
 
   const { data: complaints = [], isLoading } = useQuery({
@@ -169,14 +180,25 @@ const DriversComplaints = () => {
     };
   }, [complaints, driverMeta]);
 
+  const complaintsById = useMemo(() => {
+    const m = new Map<string, DriverComplaint>();
+    for (const c of complaints) m.set(c.id, c);
+    return m;
+  }, [complaints]);
+
   const matchesMetaFilters = (c: DriverComplaint) => {
     if (!companyFilter && !dispatcherFilter && !officeFilter) return true;
+    // Assigned copies keep the original reporting's creator for filtering purposes
+    const origin =
+      (c.source_complaint_id ? complaintsById.get(c.source_complaint_id) : undefined) || c;
     if (companyFilter) {
-      const meta = c.driver_id ? driverMeta?.byDriver.get(c.driver_id) : undefined;
+      const driverId = c.driver_id || origin.driver_id;
+      const meta = driverId ? driverMeta?.byDriver.get(driverId) : undefined;
       if (meta?.company !== companyFilter) return false;
     }
-    const prof = c.created_by ? driverMeta?.byUser.get(c.created_by) : undefined;
-    if (dispatcherFilter && (prof?.name || c.created_by_name || "") !== dispatcherFilter) return false;
+    const prof = origin.created_by ? driverMeta?.byUser.get(origin.created_by) : undefined;
+    if (dispatcherFilter && (prof?.name || origin.created_by_name || "") !== dispatcherFilter)
+      return false;
     if (officeFilter && (prof?.office || "") !== officeFilter) return false;
     return true;
   };
@@ -245,22 +267,29 @@ const DriversComplaints = () => {
     return map;
   }, [filtered]);
 
+  const hasFilter =
+    !!searchQuery.trim() || !!companyFilter || !!dispatcherFilter || !!officeFilter;
+
+  const groupCounts = useMemo(
+    () => groups.map((g) => g.types.reduce((sum, t) => sum + (byType.get(t)?.length || 0), 0)),
+    [groups, byType],
+  );
+
+  hasFilterRef.current = hasFilter;
+  groupCountsRef.current = groupCounts;
+
   // When a search/filter is active and the current page has no matches,
   // jump to the first page that does.
   useEffect(() => {
-    const hasFilter =
-      !!searchQuery.trim() || !!companyFilter || !!dispatcherFilter || !!officeFilter;
     if (!hasFilter) return;
-    const countFor = (i: number) =>
-      groups[i].types.reduce((sum, t) => sum + (byType.get(t)?.length || 0), 0);
     const current = Math.min(groupIndex, groups.length - 1);
-    if (countFor(current) > 0) return;
-    const target = groups.findIndex((_, i) => countFor(i) > 0);
+    if ((groupCounts[current] || 0) > 0) return;
+    const target = groupCounts.findIndex((n) => n > 0);
     if (target >= 0 && target !== current) {
       setDirection(target > current ? "right" : "left");
       setGroupIndex(target);
     }
-  }, [byType, groups, groupIndex, searchQuery, companyFilter, dispatcherFilter, officeFilter]);
+  }, [groupCounts, groups, groupIndex, hasFilter]);
 
   if (isLoading) {
     return (
@@ -427,7 +456,7 @@ const DriversComplaints = () => {
             searchPlaceholder="Search office..."
           />
           </div>
-          <div>
+          <div className="h-6 flex items-center">
           {(companyFilter || dispatcherFilter || officeFilter) && (
             <Button
               variant="ghost"
