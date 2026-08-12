@@ -500,6 +500,7 @@ const Reports = () => {
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   const { hasDriverMissingRevisedRC: hasLumperMissingRC } = useLumperMissingRevisedRC();
   const { hasDriverProblem, getProblemForDriver } = useDriverProblems();
+  const { hasDriverComplaint, getComplaintsForDriver } = useDriverComplaintIndicators();
   const { driverAfterhoursMap, isWeekendWindow } = useAfterhoursDriverMap();
 
   // Temporary plates query
