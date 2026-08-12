@@ -84,6 +84,8 @@ const DriversComplaints = () => {
   const [companyFilter, setCompanyFilter] = useState("");
   const [dispatcherFilter, setDispatcherFilter] = useState("");
   const [officeFilter, setOfficeFilter] = useState("");
+  const hasFilterRef = useRef(false);
+  const groupCountsRef = useRef<number[]>([]);
 
   const rangeStart = customRange ? customRange.from : weekStart;
   const rangeEnd = customRange ? customRange.to ?? customRange.from : addDaysKey(weekStart, 6);
