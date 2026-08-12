@@ -476,7 +476,7 @@ const DriversComplaints = () => {
       </div>
 
       {isSearching ? (
-        <div className="space-y-4">
+        <div className="space-y-4 pt-4">
           <p className="text-sm text-muted-foreground">
             {searchResults.reduce((n, [, items]) => n + items.length, 0)} result(s) across all
             categories and dates
@@ -517,7 +517,7 @@ const DriversComplaints = () => {
           )}
         </div>
       ) : (
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3 pt-4">
         <div className="flex-1 overflow-hidden">
           <div
             key={groupIndex}
