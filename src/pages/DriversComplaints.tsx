@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Search, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { ComplaintCard } from "@/components/complaints/ComplaintCard";
 import {
+  ASSIGNABLE_TYPES,
   COMPLAINT_GROUPS,
   COMPLAINT_TYPE_LABELS,
   DISPATCHER_REPORTING,
