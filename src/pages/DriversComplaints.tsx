@@ -13,6 +13,8 @@ import {
   type DriverComplaint,
 } from "@/components/complaints/complaintTypes";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ComplaintComments } from "@/components/complaints/ComplaintComments";
 import { useAuthContext } from "@/contexts/AuthContext";
 
@@ -210,7 +212,26 @@ const DriversComplaints = () => {
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="flex items-center gap-2 text-sm font-medium w-[320px] justify-center">
-          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Pick a date">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="center">
+              <Calendar
+                mode="single"
+                selected={keyToDate(weekStart)}
+                onSelect={(d) => {
+                  if (!d) return;
+                  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                  setWeekStart(weekStartKey(key));
+                }}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
           <span className="whitespace-nowrap">
             {prettyKey(weekStart)} – {prettyKey(weekEnd)}
           </span>
