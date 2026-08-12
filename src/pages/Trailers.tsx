@@ -998,23 +998,20 @@ const Trailers = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="edit_truck_id">Truck #</Label>
-                  <Select value={formData.truck_id} onValueChange={value => setFormData({
-                  ...formData,
-                  truck_id: value
-                })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select truck" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {/* Include currently assigned truck + available trucks */}
-                      {editingTrailer?.trucks?.[0] && <SelectItem value={editingTrailer.trucks[0].id}>
-                          {editingTrailer.trucks[0].truck_number}
-                        </SelectItem>}
-                      {truckOptions.filter(truck => truck.value !== editingTrailer?.trucks?.[0]?.id).map(truck => <SelectItem key={truck.value} value={truck.value}>
-                            {truck.label}
-                          </SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={[
+                      ...(editingTrailer?.trucks?.[0]
+                        ? [{ value: editingTrailer.trucks[0].id, label: editingTrailer.trucks[0].truck_number }]
+                        : []),
+                      ...truckOptions.filter(truck => truck.value !== editingTrailer?.trucks?.[0]?.id),
+                    ]}
+                    value={formData.truck_id}
+                    onValueChange={value => setFormData({ ...formData, truck_id: value })}
+                    placeholder="Select truck"
+                    searchPlaceholder="Search truck #..."
+                    emptyText="No trucks found."
+                    modal={false}
+                  />
                 </div>
 
                 {/* Termination notes section for inactive trailers */}
