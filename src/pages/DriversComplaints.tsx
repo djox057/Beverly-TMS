@@ -275,7 +275,7 @@ const DriversComplaints = () => {
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-3 flex-wrap">
+      <div className="relative flex items-center justify-center gap-3">
         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftWeek(-7)} title="Previous week">
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -364,7 +364,7 @@ const DriversComplaints = () => {
           <ChevronRight className="h-4 w-4" />
         </Button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 lg:absolute lg:right-0 lg:top-0">
           <Combobox
             className="h-9 w-[190px] text-xs"
             options={[
@@ -398,6 +398,7 @@ const DriversComplaints = () => {
             placeholder="All offices"
             searchPlaceholder="Search office..."
           />
+          <div className="w-[56px] shrink-0">
           {(companyFilter || dispatcherFilter || officeFilter) && (
             <Button
               variant="ghost"
@@ -412,6 +413,7 @@ const DriversComplaints = () => {
               Clear
             </Button>
           )}
+          </div>
         </div>
       </div>
 
