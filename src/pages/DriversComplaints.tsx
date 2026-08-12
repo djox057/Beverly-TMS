@@ -391,9 +391,10 @@ const DriversComplaints = () => {
           <ChevronRight className="h-4 w-4" />
         </Button>
 
-        <div className="flex items-center gap-1.5 lg:absolute lg:right-0 lg:top-1/2 lg:-translate-y-1/2">
+        <div className="flex flex-col items-end gap-1 lg:absolute lg:right-0 lg:top-1/2 lg:-translate-y-1/2">
+          <div className="flex items-center gap-2">
           <Combobox
-            className="h-7 w-[140px] text-[11px]"
+            className="h-9 w-[180px] text-xs"
             options={[
               { value: "", label: "All companies" },
               ...(driverMeta?.companies || []).map((c) => ({ value: c, label: c })),
@@ -404,7 +405,7 @@ const DriversComplaints = () => {
             searchPlaceholder="Search company..."
           />
           <Combobox
-            className="h-7 w-[150px] text-[11px]"
+            className="h-9 w-[200px] text-xs"
             options={[
               { value: "", label: "All dispatchers" },
               ...creatorOptions.dispatchers.map((d) => ({ value: d, label: d })),
@@ -415,7 +416,7 @@ const DriversComplaints = () => {
             searchPlaceholder="Search dispatcher..."
           />
           <Combobox
-            className="h-7 w-[130px] text-[11px]"
+            className="h-9 w-[165px] text-xs"
             options={[
               { value: "", label: "All offices" },
               ...creatorOptions.offices.map((o) => ({ value: o, label: o })),
@@ -425,12 +426,13 @@ const DriversComplaints = () => {
             placeholder="All offices"
             searchPlaceholder="Search office..."
           />
-          <div className="w-[48px] shrink-0">
+          </div>
+          <div className="h-6">
           {(companyFilter || dispatcherFilter || officeFilter) && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-[11px]"
+              className="h-6 px-2 text-[11px]"
               onClick={() => {
                 setCompanyFilter("");
                 setDispatcherFilter("");
