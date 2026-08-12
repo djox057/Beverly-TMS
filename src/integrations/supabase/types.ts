@@ -1670,6 +1670,101 @@ export type Database = {
           },
         ]
       }
+      driver_complaint_comments: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          complaint_id: string
+          content: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          complaint_id: string
+          content: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          complaint_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_complaint_comments_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "driver_complaints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_complaints: {
+        Row: {
+          complaint_type: string
+          content: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          driver_id: string | null
+          id: string
+          is_resolved: boolean
+          resolved_at: string | null
+          subject_text: string
+          truck_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          complaint_type: string
+          content: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          driver_id?: string | null
+          id?: string
+          is_resolved?: boolean
+          resolved_at?: string | null
+          subject_text?: string
+          truck_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          complaint_type?: string
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          driver_id?: string | null
+          id?: string
+          is_resolved?: boolean
+          resolved_at?: string | null
+          subject_text?: string
+          truck_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_complaints_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_complaints_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_drug_tests: {
         Row: {
           created_at: string

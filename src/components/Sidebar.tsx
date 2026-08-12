@@ -30,6 +30,7 @@ import {
   DollarSign,
   Droplet,
   Info as InfoIcon,
+  MessageSquareWarning,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -97,6 +98,13 @@ const navigation = [
     href: "/dispatcher-tier",
     icon: Trophy,
     roles: ["admin", "manager", "chicago_management"],
+    strict: true,
+  },
+  {
+    name: "Drivers Complaints",
+    href: "/drivers-complaints",
+    icon: MessageSquareWarning,
+    roles: ["admin", "manager"],
     strict: true,
   },
   {
