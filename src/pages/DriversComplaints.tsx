@@ -125,49 +125,59 @@ const DriversComplaints = () => {
       const [driversRes, companiesRes, profilesRes] = await Promise.all([
         supabase.from("drivers").select("id, company_id, dispatcher_id"),
         supabase.from("companies").select("id, name"),
-        supabase.from("profiles").select("id, full_name, office"),
+        supabase.from("profiles").select("user_id, full_name, office"),
       ]);
       if (driversRes.error) throw driversRes.error;
       const companies = new Map(
         (companiesRes.data || []).map((c: any) => [c.id as string, c.name as string]),
       );
-      const profiles = new Map(
-        (profilesRes.data || []).map((p: any) => [
-          p.id as string,
-          { name: (p.full_name as string) || "", office: (p.office as string) || "" },
-        ]),
-      );
-      const byDriver = new Map<
-        string,
-        { company: string; dispatcher: string; office: string }
-      >();
+      // Complaint creators: user_id -> { name, office }
+      const byUser = new Map<string, { name: string; office: string }>();
+      for (const p of (profilesRes.data || []) as any[]) {
+        byUser.set(p.user_id as string, {
+          name: (p.full_name as string) || "",
+          office: (p.office as string) || "",
+        });
+      }
+      const byDriver = new Map<string, { company: string }>();
       for (const d of (driversRes.data || []) as any[]) {
-        const prof = d.dispatcher_id ? profiles.get(d.dispatcher_id) : undefined;
         byDriver.set(d.id, {
           company: (d.company_id && companies.get(d.company_id)) || "",
-          dispatcher: prof?.name || "",
-          office: prof?.office || "",
         });
       }
       return {
         byDriver,
+        byUser,
         companies: Array.from(new Set(Array.from(companies.values()))).sort(),
-        dispatchers: Array.from(
-          new Set(Array.from(byDriver.values()).map((v) => v.dispatcher).filter(Boolean)),
-        ).sort(),
-        offices: Array.from(
-          new Set(Array.from(byDriver.values()).map((v) => v.office).filter(Boolean)),
-        ).sort(),
       };
     },
   });
 
+  // Creator-based options (dispatcher = who created the complaint, office = their office)
+  const creatorOptions = useMemo(() => {
+    const dispatchers = new Set<string>();
+    const offices = new Set<string>();
+    for (const c of complaints) {
+      const prof = c.created_by ? driverMeta?.byUser.get(c.created_by) : undefined;
+      const name = prof?.name || c.created_by_name || "";
+      if (name) dispatchers.add(name);
+      if (prof?.office) offices.add(prof.office);
+    }
+    return {
+      dispatchers: Array.from(dispatchers).sort(),
+      offices: Array.from(offices).sort(),
+    };
+  }, [complaints, driverMeta]);
+
   const matchesMetaFilters = (c: DriverComplaint) => {
     if (!companyFilter && !dispatcherFilter && !officeFilter) return true;
-    const meta = c.driver_id ? driverMeta?.byDriver.get(c.driver_id) : undefined;
-    if (companyFilter && meta?.company !== companyFilter) return false;
-    if (dispatcherFilter && meta?.dispatcher !== dispatcherFilter) return false;
-    if (officeFilter && meta?.office !== officeFilter) return false;
+    if (companyFilter) {
+      const meta = c.driver_id ? driverMeta?.byDriver.get(c.driver_id) : undefined;
+      if (meta?.company !== companyFilter) return false;
+    }
+    const prof = c.created_by ? driverMeta?.byUser.get(c.created_by) : undefined;
+    if (dispatcherFilter && (prof?.name || c.created_by_name || "") !== dispatcherFilter) return false;
+    if (officeFilter && (prof?.office || "") !== officeFilter) return false;
     return true;
   };
 
