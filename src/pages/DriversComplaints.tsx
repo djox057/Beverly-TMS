@@ -394,7 +394,7 @@ const DriversComplaints = () => {
         <div className="flex flex-col items-end gap-1 lg:absolute lg:right-0 lg:top-1/2 lg:-translate-y-1/2">
           <div className="flex items-center gap-2">
           <Combobox
-            className="h-9 w-[180px] text-xs"
+            className="h-[34px] w-[171px] text-xs"
             options={[
               { value: "", label: "All companies" },
               ...(driverMeta?.companies || []).map((c) => ({ value: c, label: c })),
@@ -405,7 +405,7 @@ const DriversComplaints = () => {
             searchPlaceholder="Search company..."
           />
           <Combobox
-            className="h-9 w-[200px] text-xs"
+            className="h-[34px] w-[190px] text-xs"
             options={[
               { value: "", label: "All dispatchers" },
               ...creatorOptions.dispatchers.map((d) => ({ value: d, label: d })),
@@ -416,7 +416,7 @@ const DriversComplaints = () => {
             searchPlaceholder="Search dispatcher..."
           />
           <Combobox
-            className="h-9 w-[165px] text-xs"
+            className="h-[34px] w-[157px] text-xs"
             options={[
               { value: "", label: "All offices" },
               ...creatorOptions.offices.map((o) => ({ value: o, label: o })),
