@@ -208,11 +208,11 @@ const DriversComplaints = () => {
                   {items.map((c) => (
                     <div key={c.id} className="px-4 py-3 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="secondary" className="text-[10px] py-0">
+                        <span className="font-semibold text-sm">{c.subject_text}</span>
+                        <Badge className="text-[11px] py-0.5 px-2 font-semibold uppercase tracking-wide">
                           {COMPLAINT_TYPE_LABELS[c.complaint_type as ComplaintTypeKey] ||
                             c.complaint_type}
                         </Badge>
-                        <span className="font-semibold text-sm">{c.subject_text}</span>
                         {c.is_resolved && (
                           <Badge variant="outline" className="text-[10px] py-0">
                             Resolved
