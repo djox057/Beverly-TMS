@@ -104,7 +104,7 @@ const navigation = [
     name: "Drivers Complaints",
     href: "/drivers-complaints",
     icon: MessageSquareWarning,
-    roles: ["admin", "manager"],
+    roles: ["admin", "manager", "dispatch"],
     strict: true,
   },
   {

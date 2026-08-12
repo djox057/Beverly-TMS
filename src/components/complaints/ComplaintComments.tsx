@@ -30,16 +30,31 @@ const formatChicago = (iso: string) =>
     hour12: true,
   });
 
-export function ComplaintComments({ complaintId }: { complaintId: string }) {
+interface ComplaintCommentsProps {
+  complaintId: string;
+  readOnly?: boolean;
+  allowComment?: boolean;
+  label?: string;
+  defaultOpen?: boolean;
+}
+
+export function ComplaintComments({
+  complaintId,
+  readOnly = false,
+  allowComment = false,
+  label = "Comments",
+  defaultOpen = false,
+}: ComplaintCommentsProps) {
   const { user, profile, hasRole } = useAuthContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const isAdmin = hasRole("admin");
-  const canComment = isAdmin || hasRole("manager");
+  const canComment = !readOnly && (isAdmin || hasRole("manager") || allowComment);
+  const canDeleteOwn = !readOnly;
 
   const { data: comments = [], isLoading } = useQuery({
     queryKey: ["driver-complaint-comments", complaintId],
@@ -97,7 +112,7 @@ export function ComplaintComments({ complaintId }: { complaintId: string }) {
       >
         {open ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
         <MessageSquare className="h-3 w-3 mr-1" />
-        Comments ({comments.length})
+        {label} ({comments.length})
       </Button>
 
       {open && (
@@ -116,7 +131,7 @@ export function ComplaintComments({ complaintId }: { complaintId: string }) {
                     <div className="text-[11px] text-muted-foreground">
                       {c.author_name || "Unknown"} • {formatChicago(c.created_at)}
                     </div>
-                    {(isAdmin || c.author_id === user?.id) && (
+                    {canDeleteOwn && (isAdmin || c.author_id === user?.id) && (
                       <Button
                         variant="ghost"
                         size="icon"

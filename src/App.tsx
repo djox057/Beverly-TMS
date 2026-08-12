@@ -197,7 +197,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/drivers-complaints" element={
-          <ProtectedRoute strictAllowedRoles={['admin', 'manager']}>
+          <ProtectedRoute strictAllowedRoles={['admin', 'manager', 'dispatch']}>
             <Layout><DriversComplaints /></Layout>
           </ProtectedRoute>
         } />
