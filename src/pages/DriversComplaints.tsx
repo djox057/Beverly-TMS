@@ -180,14 +180,25 @@ const DriversComplaints = () => {
     };
   }, [complaints, driverMeta]);
 
+  const complaintsById = useMemo(() => {
+    const m = new Map<string, DriverComplaint>();
+    for (const c of complaints) m.set(c.id, c);
+    return m;
+  }, [complaints]);
+
   const matchesMetaFilters = (c: DriverComplaint) => {
     if (!companyFilter && !dispatcherFilter && !officeFilter) return true;
+    // Assigned copies keep the original reporting's creator for filtering purposes
+    const origin =
+      (c.source_complaint_id ? complaintsById.get(c.source_complaint_id) : undefined) || c;
     if (companyFilter) {
-      const meta = c.driver_id ? driverMeta?.byDriver.get(c.driver_id) : undefined;
+      const driverId = c.driver_id || origin.driver_id;
+      const meta = driverId ? driverMeta?.byDriver.get(driverId) : undefined;
       if (meta?.company !== companyFilter) return false;
     }
-    const prof = c.created_by ? driverMeta?.byUser.get(c.created_by) : undefined;
-    if (dispatcherFilter && (prof?.name || c.created_by_name || "") !== dispatcherFilter) return false;
+    const prof = origin.created_by ? driverMeta?.byUser.get(origin.created_by) : undefined;
+    if (dispatcherFilter && (prof?.name || origin.created_by_name || "") !== dispatcherFilter)
+      return false;
     if (officeFilter && (prof?.office || "") !== officeFilter) return false;
     return true;
   };
