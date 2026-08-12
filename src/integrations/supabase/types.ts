@@ -1716,6 +1716,7 @@ export type Database = {
           id: string
           is_resolved: boolean
           resolved_at: string | null
+          source_complaint_id: string | null
           subject_text: string
           truck_id: string | null
           updated_at: string
@@ -1730,6 +1731,7 @@ export type Database = {
           id?: string
           is_resolved?: boolean
           resolved_at?: string | null
+          source_complaint_id?: string | null
           subject_text?: string
           truck_id?: string | null
           updated_at?: string
@@ -1744,6 +1746,7 @@ export type Database = {
           id?: string
           is_resolved?: boolean
           resolved_at?: string | null
+          source_complaint_id?: string | null
           subject_text?: string
           truck_id?: string | null
           updated_at?: string
@@ -1754,6 +1757,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_complaints_source_complaint_id_fkey"
+            columns: ["source_complaint_id"]
+            isOneToOne: false
+            referencedRelation: "driver_complaints"
             referencedColumns: ["id"]
           },
           {
