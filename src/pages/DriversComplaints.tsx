@@ -267,22 +267,29 @@ const DriversComplaints = () => {
     return map;
   }, [filtered]);
 
+  const hasFilter =
+    !!searchQuery.trim() || !!companyFilter || !!dispatcherFilter || !!officeFilter;
+
+  const groupCounts = useMemo(
+    () => groups.map((g) => g.types.reduce((sum, t) => sum + (byType.get(t)?.length || 0), 0)),
+    [groups, byType],
+  );
+
+  hasFilterRef.current = hasFilter;
+  groupCountsRef.current = groupCounts;
+
   // When a search/filter is active and the current page has no matches,
   // jump to the first page that does.
   useEffect(() => {
-    const hasFilter =
-      !!searchQuery.trim() || !!companyFilter || !!dispatcherFilter || !!officeFilter;
     if (!hasFilter) return;
-    const countFor = (i: number) =>
-      groups[i].types.reduce((sum, t) => sum + (byType.get(t)?.length || 0), 0);
     const current = Math.min(groupIndex, groups.length - 1);
-    if (countFor(current) > 0) return;
-    const target = groups.findIndex((_, i) => countFor(i) > 0);
+    if ((groupCounts[current] || 0) > 0) return;
+    const target = groupCounts.findIndex((n) => n > 0);
     if (target >= 0 && target !== current) {
       setDirection(target > current ? "right" : "left");
       setGroupIndex(target);
     }
-  }, [byType, groups, groupIndex, searchQuery, companyFilter, dispatcherFilter, officeFilter]);
+  }, [groupCounts, groups, groupIndex, hasFilter]);
 
   if (isLoading) {
     return (
