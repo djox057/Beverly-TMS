@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Combobox } from "@/components/ui/combobox";
 import { ComplaintComments } from "@/components/complaints/ComplaintComments";
 import { useAuthContext } from "@/contexts/AuthContext";
 
@@ -80,6 +81,9 @@ const DriversComplaints = () => {
   const [weekStart, setWeekStart] = useState(currentWeek);
   const [customRange, setCustomRange] = useState<{ from: string; to: string | null } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [dispatcherFilter, setDispatcherFilter] = useState("");
+  const [officeFilter, setOfficeFilter] = useState("");
 
   const rangeStart = customRange ? customRange.from : weekStart;
   const rangeEnd = customRange ? customRange.to ?? customRange.from : addDaysKey(weekStart, 6);
@@ -114,6 +118,59 @@ const DriversComplaints = () => {
   });
 
   // Reportings that already have a manager-side copy
+  // Driver -> company / dispatcher / office lookup for filtering
+  const { data: driverMeta } = useQuery({
+    queryKey: ["complaints-driver-meta"],
+    queryFn: async () => {
+      const [driversRes, companiesRes, profilesRes] = await Promise.all([
+        supabase.from("drivers").select("id, company_id, dispatcher_id"),
+        supabase.from("companies").select("id, name"),
+        supabase.from("profiles").select("id, full_name, office"),
+      ]);
+      if (driversRes.error) throw driversRes.error;
+      const companies = new Map(
+        (companiesRes.data || []).map((c: any) => [c.id as string, c.name as string]),
+      );
+      const profiles = new Map(
+        (profilesRes.data || []).map((p: any) => [
+          p.id as string,
+          { name: (p.full_name as string) || "", office: (p.office as string) || "" },
+        ]),
+      );
+      const byDriver = new Map<
+        string,
+        { company: string; dispatcher: string; office: string }
+      >();
+      for (const d of (driversRes.data || []) as any[]) {
+        const prof = d.dispatcher_id ? profiles.get(d.dispatcher_id) : undefined;
+        byDriver.set(d.id, {
+          company: (d.company_id && companies.get(d.company_id)) || "",
+          dispatcher: prof?.name || "",
+          office: prof?.office || "",
+        });
+      }
+      return {
+        byDriver,
+        companies: Array.from(new Set(Array.from(companies.values()))).sort(),
+        dispatchers: Array.from(
+          new Set(Array.from(byDriver.values()).map((v) => v.dispatcher).filter(Boolean)),
+        ).sort(),
+        offices: Array.from(
+          new Set(Array.from(byDriver.values()).map((v) => v.office).filter(Boolean)),
+        ).sort(),
+      };
+    },
+  });
+
+  const matchesMetaFilters = (c: DriverComplaint) => {
+    if (!companyFilter && !dispatcherFilter && !officeFilter) return true;
+    const meta = c.driver_id ? driverMeta?.byDriver.get(c.driver_id) : undefined;
+    if (companyFilter && meta?.company !== companyFilter) return false;
+    if (dispatcherFilter && meta?.dispatcher !== dispatcherFilter) return false;
+    if (officeFilter && meta?.office !== officeFilter) return false;
+    return true;
+  };
+
   const assignedSourceIds = useMemo(
     () =>
       new Set(
@@ -129,6 +186,7 @@ const DriversComplaints = () => {
     return complaints.filter((c) => {
       const key = chicagoDateKey(new Date(c.created_at));
       if (key < rangeStart || key > rangeEnd) return false;
+      if (!matchesMetaFilters(c)) return false;
       if (!q) return true;
       return (
         c.subject_text.toLowerCase().includes(q) ||
@@ -136,7 +194,8 @@ const DriversComplaints = () => {
         (c.created_by_name || "").toLowerCase().includes(q)
       );
     });
-  }, [complaints, searchQuery, rangeStart, rangeEnd]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [complaints, searchQuery, rangeStart, rangeEnd, companyFilter, dispatcherFilter, officeFilter, driverMeta]);
 
   const isSearching = searchQuery.trim().length > 0;
 
@@ -147,6 +206,7 @@ const DriversComplaints = () => {
     const matches = complaints
       // Managers/admins see the assigned copy instead of the original reporting
       .filter((c) => !(canManage && assignedSourceIds.has(c.id)))
+      .filter(matchesMetaFilters)
       .filter(
         (c) =>
           c.subject_text.toLowerCase().includes(q) ||
@@ -163,7 +223,8 @@ const DriversComplaints = () => {
       list.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     }
     return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  }, [complaints, searchQuery, canManage, assignedSourceIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [complaints, searchQuery, canManage, assignedSourceIds, companyFilter, dispatcherFilter, officeFilter, driverMeta]);
 
   const byType = useMemo(() => {
     const map = new Map<string, DriverComplaint[]>();
@@ -214,7 +275,7 @@ const DriversComplaints = () => {
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-3 flex-wrap">
         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftWeek(-7)} title="Previous week">
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -302,6 +363,56 @@ const DriversComplaints = () => {
         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftWeek(7)} title="Next week" disabled={!customRange && weekStart >= currentWeek}>
           <ChevronRight className="h-4 w-4" />
         </Button>
+
+        <div className="flex items-center gap-2">
+          <Combobox
+            className="h-9 w-[190px] text-xs"
+            options={[
+              { value: "", label: "All companies" },
+              ...(driverMeta?.companies || []).map((c) => ({ value: c, label: c })),
+            ]}
+            value={companyFilter}
+            onValueChange={setCompanyFilter}
+            placeholder="All companies"
+            searchPlaceholder="Search company..."
+          />
+          <Combobox
+            className="h-9 w-[210px] text-xs"
+            options={[
+              { value: "", label: "All dispatchers" },
+              ...(driverMeta?.dispatchers || []).map((d) => ({ value: d, label: d })),
+            ]}
+            value={dispatcherFilter}
+            onValueChange={setDispatcherFilter}
+            placeholder="All dispatchers"
+            searchPlaceholder="Search dispatcher..."
+          />
+          <Combobox
+            className="h-9 w-[170px] text-xs"
+            options={[
+              { value: "", label: "All offices" },
+              ...(driverMeta?.offices || []).map((o) => ({ value: o, label: o })),
+            ]}
+            value={officeFilter}
+            onValueChange={setOfficeFilter}
+            placeholder="All offices"
+            searchPlaceholder="Search office..."
+          />
+          {(companyFilter || dispatcherFilter || officeFilter) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              onClick={() => {
+                setCompanyFilter("");
+                setDispatcherFilter("");
+                setOfficeFilter("");
+              }}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       {isSearching ? (
