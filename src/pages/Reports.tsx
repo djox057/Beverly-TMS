@@ -5250,6 +5250,42 @@ const Reports = () => {
                                                       </PopoverContent>
                                                     </Popover>
                                                   )}
+                                                {truck.driverId && hasDriverComplaint(truck.driverId) && (
+                                                  <Popover>
+                                                    <PopoverTrigger asChild>
+                                                      <button
+                                                        className="inline-flex"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        title="Driver complaints"
+                                                      >
+                                                        <MessageSquareWarning
+                                                          className="h-3.5 w-3.5 text-destructive cursor-pointer"
+                                                          strokeWidth={2.5}
+                                                        />
+                                                      </button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto max-w-xs p-3 space-y-2">
+                                                      <p className="text-xs font-bold text-destructive">
+                                                        Driver Complaints
+                                                      </p>
+                                                      {getComplaintsForDriver(truck.driverId).map((c) => (
+                                                        <div key={c.id} className="border-t pt-1.5 first:border-t-0 first:pt-0">
+                                                          <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                                                            {COMPLAINT_TYPE_LABELS[c.complaint_type as ComplaintTypeKey] ||
+                                                              c.complaint_type}
+                                                          </p>
+                                                          <p className="text-xs whitespace-pre-wrap">{c.content}</p>
+                                                          <p className="text-[10px] text-muted-foreground mt-1">
+                                                            {c.created_by_name ? `${c.created_by_name} — ` : ""}
+                                                            {new Date(c.created_at).toLocaleString("en-US", {
+                                                              timeZone: "America/Chicago",
+                                                            })}
+                                                          </p>
+                                                        </div>
+                                                      ))}
+                                                    </PopoverContent>
+                                                  </Popover>
+                                                )}
                                                 <span>{truck.driver}</span>
                                                 {(() => {
                                                   // Collect all driver-row icons into a unified list
