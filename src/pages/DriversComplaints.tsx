@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Combobox } from "@/components/ui/combobox";
 import { ComplaintComments } from "@/components/complaints/ComplaintComments";
 import { useAuthContext } from "@/contexts/AuthContext";
 
@@ -80,6 +81,9 @@ const DriversComplaints = () => {
   const [weekStart, setWeekStart] = useState(currentWeek);
   const [customRange, setCustomRange] = useState<{ from: string; to: string | null } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [dispatcherFilter, setDispatcherFilter] = useState("");
+  const [officeFilter, setOfficeFilter] = useState("");
 
   const rangeStart = customRange ? customRange.from : weekStart;
   const rangeEnd = customRange ? customRange.to ?? customRange.from : addDaysKey(weekStart, 6);
