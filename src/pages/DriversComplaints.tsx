@@ -275,7 +275,7 @@ const DriversComplaints = () => {
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-3 flex-wrap">
         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftWeek(-7)} title="Previous week">
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -363,6 +363,56 @@ const DriversComplaints = () => {
         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftWeek(7)} title="Next week" disabled={!customRange && weekStart >= currentWeek}>
           <ChevronRight className="h-4 w-4" />
         </Button>
+
+        <div className="flex items-center gap-2">
+          <Combobox
+            className="h-9 w-[190px] text-xs"
+            options={[
+              { value: "", label: "All companies" },
+              ...(driverMeta?.companies || []).map((c) => ({ value: c, label: c })),
+            ]}
+            value={companyFilter}
+            onValueChange={setCompanyFilter}
+            placeholder="All companies"
+            searchPlaceholder="Search company..."
+          />
+          <Combobox
+            className="h-9 w-[210px] text-xs"
+            options={[
+              { value: "", label: "All dispatchers" },
+              ...(driverMeta?.dispatchers || []).map((d) => ({ value: d, label: d })),
+            ]}
+            value={dispatcherFilter}
+            onValueChange={setDispatcherFilter}
+            placeholder="All dispatchers"
+            searchPlaceholder="Search dispatcher..."
+          />
+          <Combobox
+            className="h-9 w-[170px] text-xs"
+            options={[
+              { value: "", label: "All offices" },
+              ...(driverMeta?.offices || []).map((o) => ({ value: o, label: o })),
+            ]}
+            value={officeFilter}
+            onValueChange={setOfficeFilter}
+            placeholder="All offices"
+            searchPlaceholder="Search office..."
+          />
+          {(companyFilter || dispatcherFilter || officeFilter) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              onClick={() => {
+                setCompanyFilter("");
+                setDispatcherFilter("");
+                setOfficeFilter("");
+              }}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       {isSearching ? (
