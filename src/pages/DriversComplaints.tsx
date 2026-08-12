@@ -8,11 +8,13 @@ import { ComplaintCard } from "@/components/complaints/ComplaintCard";
 import {
   COMPLAINT_GROUPS,
   COMPLAINT_TYPE_LABELS,
+  DISPATCHER_REPORTING,
   type ComplaintTypeKey,
   type DriverComplaint,
 } from "@/components/complaints/complaintTypes";
 import { Badge } from "@/components/ui/badge";
 import { ComplaintComments } from "@/components/complaints/ComplaintComments";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 // --- Chicago week helpers (Mon–Sun) ---
 const chicagoDateKey = (d: Date) =>
@@ -59,6 +61,16 @@ const chicagoTime = (iso: string) =>
   });
 
 const DriversComplaints = () => {
+  const { hasRole, user } = useAuthContext();
+  const canManage = hasRole("admin") || hasRole("manager");
+  const isDispatchOnly = !canManage && hasRole("dispatch");
+  const groups = useMemo(
+    () =>
+      isDispatchOnly
+        ? COMPLAINT_GROUPS.filter((g) => g.types.includes(DISPATCHER_REPORTING))
+        : COMPLAINT_GROUPS,
+    [isDispatchOnly],
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [groupIndex, setGroupIndex] = useState(0);
   const [direction, setDirection] = useState<"left" | "right">("right");
@@ -67,20 +79,38 @@ const DriversComplaints = () => {
 
   const goGroup = (delta: number) => {
     setDirection(delta > 0 ? "right" : "left");
-    setGroupIndex((i) => (i + delta + COMPLAINT_GROUPS.length) % COMPLAINT_GROUPS.length);
+    setGroupIndex((i) => (i + delta + groups.length) % groups.length);
   };
 
   const { data: complaints = [], isLoading } = useQuery({
-    queryKey: ["driver-complaints"],
+    queryKey: ["driver-complaints", isDispatchOnly ? user?.id : "all"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("driver_complaints")
         .select("*")
         .order("created_at", { ascending: false });
+      if (isDispatchOnly && user) {
+        query = query
+          .eq("created_by", user.id)
+          .eq("complaint_type", DISPATCHER_REPORTING)
+          .is("source_complaint_id", null);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as DriverComplaint[];
     },
   });
+
+  // Reportings that already have a manager-side copy
+  const assignedSourceIds = useMemo(
+    () =>
+      new Set(
+        complaints
+          .map((c) => c.source_complaint_id)
+          .filter((id): id is string => !!id),
+      ),
+    [complaints],
+  );
 
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -103,12 +133,15 @@ const DriversComplaints = () => {
   const searchResults = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return [] as [string, DriverComplaint[]][];
-    const matches = complaints.filter(
-      (c) =>
-        c.subject_text.toLowerCase().includes(q) ||
-        c.content.toLowerCase().includes(q) ||
-        (c.created_by_name || "").toLowerCase().includes(q),
-    );
+    const matches = complaints
+      // Managers/admins see the assigned copy instead of the original reporting
+      .filter((c) => !(canManage && assignedSourceIds.has(c.id)))
+      .filter(
+        (c) =>
+          c.subject_text.toLowerCase().includes(q) ||
+          c.content.toLowerCase().includes(q) ||
+          (c.created_by_name || "").toLowerCase().includes(q),
+      );
     const map = new Map<string, DriverComplaint[]>();
     for (const c of matches) {
       const key = chicagoDateKey(new Date(c.created_at));
@@ -119,7 +152,7 @@ const DriversComplaints = () => {
       list.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     }
     return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  }, [complaints, searchQuery]);
+  }, [complaints, searchQuery, canManage, assignedSourceIds]);
 
   const byType = useMemo(() => {
     const map = new Map<string, DriverComplaint[]>();
@@ -138,7 +171,7 @@ const DriversComplaints = () => {
     );
   }
 
-  const activeGroup = COMPLAINT_GROUPS[groupIndex];
+  const activeGroup = groups[Math.min(groupIndex, groups.length - 1)];
   const activeTypes = activeGroup.types;
   const weekEnd = addDaysKey(weekStart, 6);
 
