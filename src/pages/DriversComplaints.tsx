@@ -3,18 +3,51 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { ComplaintCard } from "@/components/complaints/ComplaintCard";
 import {
   COMPLAINT_GROUPS,
-  COMPLAINT_TYPE_LABELS,
-  type ComplaintTypeKey,
   type DriverComplaint,
 } from "@/components/complaints/complaintTypes";
+
+// --- Chicago week helpers (Mon–Sun) ---
+const chicagoDateKey = (d: Date) =>
+  d.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+
+const keyToDate = (key: string) => new Date(`${key}T12:00:00Z`);
+
+const weekStartKey = (key: string) => {
+  const d = keyToDate(key);
+  const dow = d.getUTCDay(); // 0 = Sun
+  const diff = dow === 0 ? 6 : dow - 1;
+  d.setUTCDate(d.getUTCDate() - diff);
+  return d.toISOString().slice(0, 10);
+};
+
+const addDaysKey = (key: string, days: number) => {
+  const d = keyToDate(key);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+
+const prettyKey = (key: string) =>
+  keyToDate(key).toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+  });
 
 const DriversComplaints = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [groupIndex, setGroupIndex] = useState(0);
+  const [direction, setDirection] = useState<"left" | "right">("right");
+  const currentWeek = weekStartKey(chicagoDateKey(new Date()));
+  const [weekStart, setWeekStart] = useState(currentWeek);
+
+  const goGroup = (delta: number) => {
+    setDirection(delta > 0 ? "right" : "left");
+    setGroupIndex((i) => (i + delta + COMPLAINT_GROUPS.length) % COMPLAINT_GROUPS.length);
+  };
 
   const { data: complaints = [], isLoading } = useQuery({
     queryKey: ["driver-complaints"],
@@ -30,14 +63,18 @@ const DriversComplaints = () => {
 
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return complaints;
-    return complaints.filter(
-      (c) =>
+    const weekEnd = addDaysKey(weekStart, 6);
+    return complaints.filter((c) => {
+      const key = chicagoDateKey(new Date(c.created_at));
+      if (key < weekStart || key > weekEnd) return false;
+      if (!q) return true;
+      return (
         c.subject_text.toLowerCase().includes(q) ||
         c.content.toLowerCase().includes(q) ||
         (c.created_by_name || "").toLowerCase().includes(q)
-    );
-  }, [complaints, searchQuery]);
+      );
+    });
+  }, [complaints, searchQuery, weekStart]);
 
   const byType = useMemo(() => {
     const map = new Map<string, DriverComplaint[]>();
@@ -56,7 +93,9 @@ const DriversComplaints = () => {
     );
   }
 
-  const activeTypes = COMPLAINT_GROUPS[groupIndex].types;
+  const activeGroup = COMPLAINT_GROUPS[groupIndex];
+  const activeTypes = activeGroup.types;
+  const weekEnd = addDaysKey(weekStart, 6);
 
   return (
     <div className="max-w-[1800px] mx-auto p-6 space-y-6">
@@ -73,24 +112,50 @@ const DriversComplaints = () => {
             />
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-md border p-1">
-          {COMPLAINT_GROUPS.map((group, i) => (
-            <Button
-              key={group.label}
-              variant={groupIndex === i ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setGroupIndex(i)}
-            >
-              {group.types.map((t) => COMPLAINT_TYPE_LABELS[t as ComplaintTypeKey]).join(" · ")}
-            </Button>
-          ))}
+        <div className="flex items-center gap-2 rounded-lg border bg-card px-2 py-1.5">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goGroup(-1)} title="Previous group">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium min-w-[220px] text-center">{activeGroup.label}</span>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goGroup(1)} title="Next group">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {activeTypes.map((type) => (
-          <ComplaintCard key={type} type={type} complaints={byType.get(type) || []} />
-        ))}
+      <div className="flex items-center justify-center gap-3">
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart((w) => addDaysKey(w, -7))} title="Previous week">
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+          <span>
+            {prettyKey(weekStart)} – {prettyKey(weekEnd)}
+          </span>
+          {weekStart === currentWeek ? (
+            <span className="text-xs text-muted-foreground">(current week)</span>
+          ) : (
+            <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setWeekStart(currentWeek)}>
+              Back to current week
+            </Button>
+          )}
+        </div>
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart((w) => addDaysKey(w, 7))} title="Next week" disabled={weekStart >= currentWeek}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="overflow-hidden">
+        <div
+          key={groupIndex}
+          className={`grid gap-6 md:grid-cols-2 xl:grid-cols-4 ${
+            direction === "right" ? "animate-slide-from-right" : "animate-slide-from-left"
+          }`}
+        >
+          {activeTypes.map((type) => (
+            <ComplaintCard key={type} type={type} complaints={byType.get(type) || []} />
+          ))}
+        </div>
       </div>
     </div>
   );
