@@ -391,7 +391,7 @@ const DriversComplaints = () => {
           <ChevronRight className="h-4 w-4" />
         </Button>
 
-        <div className="flex flex-col items-end gap-1 lg:absolute lg:right-0 lg:top-1/2 lg:-translate-y-1/2">
+        <div className="flex flex-col items-end gap-0 lg:absolute lg:right-0 lg:top-1/2 lg:-translate-y-1/2">
           <div className="flex items-center gap-2">
           <Combobox
             className="h-[34px] w-[171px] text-xs"
@@ -427,7 +427,7 @@ const DriversComplaints = () => {
             searchPlaceholder="Search office..."
           />
           </div>
-          <div className="h-6">
+          <div>
           {(companyFilter || dispatcherFilter || officeFilter) && (
             <Button
               variant="ghost"
