@@ -69,6 +69,7 @@ import {
   HeartPulse,
   FileWarning,
   AlertTriangle,
+  MessageSquareWarning,
   Share2,
   Plus,
 } from "lucide-react";
