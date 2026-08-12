@@ -78,11 +78,11 @@ const DriversComplaints = () => {
   const [direction, setDirection] = useState<"left" | "right">("right");
   const currentWeek = weekStartKey(chicagoDateKey(new Date()));
   const [weekStart, setWeekStart] = useState(currentWeek);
-  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
+  const [customRange, setCustomRange] = useState<{ from: string; to: string | null } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const rangeStart = customRange ? customRange.from : weekStart;
-  const rangeEnd = customRange ? customRange.to : addDaysKey(weekStart, 6);
+  const rangeEnd = customRange ? customRange.to ?? customRange.from : addDaysKey(weekStart, 6);
 
   const shiftWeek = (delta: number) => {
     setCustomRange(null);
