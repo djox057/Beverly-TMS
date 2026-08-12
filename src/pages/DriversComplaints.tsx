@@ -456,7 +456,7 @@ const DriversComplaints = () => {
             searchPlaceholder="Search office..."
           />
           </div>
-          <div>
+          <div className="h-6 flex items-center">
           {(companyFilter || dispatcherFilter || officeFilter) && (
             <Button
               variant="ghost"
