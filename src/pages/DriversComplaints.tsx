@@ -206,6 +206,7 @@ const DriversComplaints = () => {
     const matches = complaints
       // Managers/admins see the assigned copy instead of the original reporting
       .filter((c) => !(canManage && assignedSourceIds.has(c.id)))
+      .filter(matchesMetaFilters)
       .filter(
         (c) =>
           c.subject_text.toLowerCase().includes(q) ||
@@ -222,7 +223,8 @@ const DriversComplaints = () => {
       list.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
     }
     return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  }, [complaints, searchQuery, canManage, assignedSourceIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [complaints, searchQuery, canManage, assignedSourceIds, companyFilter, dispatcherFilter, officeFilter, driverMeta]);
 
   const byType = useMemo(() => {
     const map = new Map<string, DriverComplaint[]>();
