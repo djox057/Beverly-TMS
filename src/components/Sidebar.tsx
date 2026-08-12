@@ -100,6 +100,13 @@ const navigation = [
     strict: true,
   },
   {
+    name: "Drivers Complaints",
+    href: "/drivers-complaints",
+    icon: MessageSquareWarning,
+    roles: ["admin", "manager"],
+    strict: true,
+  },
+  {
     name: "Transfer List",
     href: "/transfer-list",
     icon: Users,
