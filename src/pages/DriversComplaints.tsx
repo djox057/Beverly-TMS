@@ -300,7 +300,13 @@ const DriversComplaints = () => {
   }
 
   const activeGroup = groups[Math.min(groupIndex, groups.length - 1)];
-  const activeTypes = activeGroup.types;
+  const typeOnly = !!typeFilter;
+  const activeTypes = typeOnly
+    ? ([typeFilter] as ComplaintTypeKey[])
+    : activeGroup.types;
+  const activeLabel = typeOnly
+    ? COMPLAINT_TYPE_LABELS[typeFilter as ComplaintTypeKey] || typeFilter
+    : activeGroup.label;
   return (
     <div className="max-w-[1800px] mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -317,13 +323,13 @@ const DriversComplaints = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 rounded-lg border bg-card px-2 py-1.5">
-          {groups.length > 1 && (
+          {groups.length > 1 && !typeOnly && (
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goGroup(-1)} title="Previous group">
               <ChevronLeft className="h-4 w-4" />
             </Button>
           )}
-          <span className="text-sm font-medium min-w-[220px] text-center">{activeGroup.label}</span>
-          {groups.length > 1 && (
+          <span className="text-sm font-medium min-w-[220px] text-center">{activeLabel}</span>
+          {groups.length > 1 && !typeOnly && (
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goGroup(1)} title="Next group">
               <ChevronRight className="h-4 w-4" />
             </Button>
