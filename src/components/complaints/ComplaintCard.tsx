@@ -5,11 +5,17 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, CheckCircle2, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Trash2, CheckCircle2, RotateCcw, Tags } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AddComplaintDialog } from "./AddComplaintDialog";
 import { ComplaintComments } from "./ComplaintComments";
-import { COMPLAINT_TYPE_LABELS, type ComplaintTypeKey, type DriverComplaint } from "./complaintTypes";
+import { AssignComplaintTypeDialog } from "./AssignComplaintTypeDialog";
+import {
+  COMPLAINT_TYPE_LABELS,
+  DISPATCHER_REPORTING,
+  type ComplaintTypeKey,
+  type DriverComplaint,
+} from "./complaintTypes";
 
 const chicagoDayKey = (iso: string) =>
   new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
@@ -34,16 +40,23 @@ const chicagoTime = (iso: string) =>
 interface ComplaintCardProps {
   type: ComplaintTypeKey;
   complaints: DriverComplaint[];
+  assignedSourceIds?: Set<string>;
 }
 
-export function ComplaintCard({ type, complaints }: ComplaintCardProps) {
-  const { hasRole } = useAuthContext();
+export function ComplaintCard({ type, complaints, assignedSourceIds }: ComplaintCardProps) {
+  const { hasRole, user } = useAuthContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<DriverComplaint | null>(null);
+  const [assigning, setAssigning] = useState<DriverComplaint | null>(null);
 
   const canManage = hasRole("admin") || hasRole("manager");
+  const isReportingCard = type === DISPATCHER_REPORTING;
+  const isDispatchOnly = !canManage && hasRole("dispatch");
+  const canAdd = canManage || (isDispatchOnly && isReportingCard);
+  const canEditRow = (c: DriverComplaint) =>
+    canManage || (isDispatchOnly && c.created_by === user?.id);
 
   const grouped = useMemo(() => {
     const map = new Map<string, DriverComplaint[]>();
@@ -80,6 +93,15 @@ export function ComplaintCard({ type, complaints }: ComplaintCardProps) {
       toast({ title: "Failed to update complaint", variant: "destructive" });
       return;
     }
+    if (c.source_complaint_id) {
+      await supabase
+        .from("driver_complaints")
+        .update({
+          is_resolved: !c.is_resolved,
+          resolved_at: c.is_resolved ? null : new Date().toISOString(),
+        } as never)
+        .eq("id", c.source_complaint_id);
+    }
     refresh();
   };
 
@@ -90,7 +112,7 @@ export function ComplaintCard({ type, complaints }: ComplaintCardProps) {
           <span>
             {COMPLAINT_TYPE_LABELS[type]} ({complaints.length})
           </span>
-          {canManage && (
+          {canAdd && (
             <Button
               variant="outline"
               size="icon"
@@ -128,8 +150,19 @@ export function ComplaintCard({ type, complaints }: ComplaintCardProps) {
                     >
                       <div className="flex items-start justify-between gap-1">
                         <p className="font-semibold text-sm break-words">{c.subject_text}</p>
-                        {canManage && (
+                        {canEditRow(c) && (
                           <div className="flex gap-0.5 shrink-0">
+                            {canManage && isReportingCard && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => setAssigning(c)}
+                                title="Assign category"
+                              >
+                                <Tags className="h-3 w-3" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -172,13 +205,33 @@ export function ComplaintCard({ type, complaints }: ComplaintCardProps) {
                         <span className="text-[11px] text-muted-foreground">
                           {c.created_by_name || "Unknown"} • {chicagoTime(c.created_at)}
                         </span>
+                        {c.source_complaint_id && (
+                          <Badge variant="secondary" className="text-[10px] py-0">
+                            From dispatcher reporting
+                          </Badge>
+                        )}
+                        {isReportingCard && canManage && assignedSourceIds?.has(c.id) && (
+                          <Badge variant="secondary" className="text-[10px] py-0">
+                            Assigned
+                          </Badge>
+                        )}
                         {c.is_resolved && (
                           <Badge variant="outline" className="text-[10px] py-0">
                             Resolved
                           </Badge>
                         )}
                       </div>
-                      <ComplaintComments complaintId={c.id} />
+                      <ComplaintComments
+                        complaintId={c.id}
+                        allowComment={isDispatchOnly && c.created_by === user?.id}
+                      />
+                      {c.source_complaint_id && (
+                        <ComplaintComments
+                          complaintId={c.source_complaint_id}
+                          readOnly
+                          label="Dispatcher comments"
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -196,6 +249,14 @@ export function ComplaintCard({ type, complaints }: ComplaintCardProps) {
         }}
         type={type}
         complaint={editing}
+      />
+
+      <AssignComplaintTypeDialog
+        open={!!assigning}
+        onOpenChange={(o) => {
+          if (!o) setAssigning(null);
+        }}
+        reporting={assigning}
       />
     </Card>
   );
