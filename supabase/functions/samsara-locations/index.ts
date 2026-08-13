@@ -14,6 +14,9 @@ const LOCATION_BOUNDS = {
 };
 
 const MAX_LOCATION_AGE_MINUTES = 30;
+
+// Beverly Freight Inc — insurance status is managed manually, excluded from Samsara sync
+const BEVERLY_FREIGHT_COMPANY_ID = '554f1b2f-9f95-4eb1-add7-ddd3fe168ea6';
 const FETCH_TIMEOUT_MS = 15_000;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000;
 const CIRCUIT_BREAKER_THRESHOLD = 3;
