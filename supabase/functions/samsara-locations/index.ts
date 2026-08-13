@@ -20,6 +20,19 @@ const CIRCUIT_BREAKER_THRESHOLD = 3;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const FETCH_LOCK_TIMEOUT_MS = 30 * 1000; // 30 seconds safety timeout
 
+// Samsara account map: index matches SAMSARA_API_KEY_<index+1>
+// Keys 1-4 = NOT insured orgs, keys 5-8 = insured orgs
+const SAMSARA_ACCOUNTS: Array<{ label: string; insured: boolean }> = [
+  { label: 'dispatch@bfprime.net', insured: false },
+  { label: 'zack@beverlyfreight.net', insured: false },
+  { label: 'beverlyrepair@gmail.com', insured: false },
+  { label: 'luka@bgprime.net', insured: false },
+  { label: 'accounting@bfprime.net', insured: true },
+  { label: 'Dispatch@apsilvertrans.net', insured: true },
+  { label: 'Dispatch@unitedenterprisesolutions.net', insured: true },
+  { label: 'dispatch@bgprime.net', insured: true },
+];
+
 function getLocationTime(vehicle: any): number {
   const loc = vehicle.location || vehicle.gps;
   if (loc?.time) return new Date(loc.time).getTime();
