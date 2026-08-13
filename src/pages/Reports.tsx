@@ -6109,12 +6109,6 @@ const Reports = () => {
                                                               <PopoverTrigger asChild>
                                                                 <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">
                                                                   🚚 Truck: {truck.truckNumber}
-                                                                  {typeof (truck as any).samsaraInsured === "boolean" &&
-                                                                    ((truck as any).samsaraInsured ? (
-                                                                      <ShieldCheck className="inline h-3 w-3 ml-1 text-success" />
-                                                                    ) : (
-                                                                      <ShieldOff className="inline h-3 w-3 ml-1 text-destructive" />
-                                                                    ))}
                                                                 </p>
                                                               </PopoverTrigger>
                                                               <PopoverContent
