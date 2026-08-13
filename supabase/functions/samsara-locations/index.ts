@@ -23,9 +23,9 @@ const FETCH_LOCK_TIMEOUT_MS = 30 * 1000; // 30 seconds safety timeout
 // Samsara account map: index matches SAMSARA_API_KEY_<index+1>
 // Keys 1-4 = NOT insured orgs, keys 5-8 = insured orgs
 const SAMSARA_ACCOUNTS: Array<{ label: string; insured: boolean }> = [
-  { label: 'dispatch@bfprime.net', insured: false },
+  { label: 'retired slot (BF Prime LLC 5006094 covered by key 3)', insured: false },
   { label: 'zack@beverlyfreight.net', insured: false },
-  { label: 'beverlyrepair@gmail.com', insured: false },
+  { label: 'BF Prime LLC 5006094 (dispatch@bfprime.net / beverlyrepair@gmail.com)', insured: false },
   { label: 'luka@bgprime.net', insured: false },
   { label: 'accounting@bfprime.net', insured: true },
   { label: 'Dispatch@apsilvertrans.net', insured: true },
@@ -85,7 +85,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!apiKey1 || !apiKey2) {
+    if (![apiKey1, apiKey2, apiKey3, apiKey4, apiKey5, apiKey6, apiKey7, apiKey8].some(Boolean)) {
       throw new Error('Samsara API keys not configured');
     }
 

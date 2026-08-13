@@ -143,9 +143,9 @@ serve(async (req) => {
       Deno.env.get('SAMSARA_API_KEY_8'),
     ];
     const apiKeyLabels = [
-      'dispatch@bfprime.net',
+      'retired slot (BF Prime LLC 5006094 covered by key 3)',
       'zack@beverlyfreight.net',
-      'beverlyrepair@gmail.com',
+      'BF Prime LLC 5006094 (dispatch@bfprime.net / beverlyrepair@gmail.com)',
       'luka@bgprime.net',
       'accounting@bfprime.net',
       'Dispatch@apsilvertrans.net',
