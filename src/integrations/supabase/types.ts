@@ -5176,6 +5176,7 @@ export type Database = {
           oil_change_note: string | null
           plate: string | null
           plate_expiration_date: string | null
+          registration_expiration_date: string | null
           samsara_account: string | null
           samsara_insured: boolean | null
           samsara_insured_updated_at: string | null
@@ -5225,6 +5226,7 @@ export type Database = {
           oil_change_note?: string | null
           plate?: string | null
           plate_expiration_date?: string | null
+          registration_expiration_date?: string | null
           samsara_account?: string | null
           samsara_insured?: boolean | null
           samsara_insured_updated_at?: string | null
@@ -5274,6 +5276,7 @@ export type Database = {
           oil_change_note?: string | null
           plate?: string | null
           plate_expiration_date?: string | null
+          registration_expiration_date?: string | null
           samsara_account?: string | null
           samsara_insured?: boolean | null
           samsara_insured_updated_at?: string | null
