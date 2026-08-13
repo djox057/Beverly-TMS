@@ -14,6 +14,9 @@ const LOCATION_BOUNDS = {
 };
 
 const MAX_LOCATION_AGE_MINUTES = 30;
+
+// Beverly Freight Inc — insurance status is managed manually, excluded from Samsara sync
+const BEVERLY_FREIGHT_COMPANY_ID = '554f1b2f-9f95-4eb1-add7-ddd3fe168ea6';
 const FETCH_TIMEOUT_MS = 15_000;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000;
 const CIRCUIT_BREAKER_THRESHOLD = 3;
@@ -185,7 +188,7 @@ serve(async (req) => {
     // --- Fetch trucks from DB ---
     const { data: trucks, error: trucksError } = await supabase
       .from('trucks')
-      .select('id, truck_number');
+      .select('id, truck_number, company_id');
 
     if (trucksError) throw trucksError;
     // --- Fetch from Samsara with 15s AbortController per call ---
@@ -349,6 +352,7 @@ serve(async (req) => {
               apiSource: matchedVehicle.apiKeyIndex,
               insured: SAMSARA_ACCOUNTS[matchedVehicle.apiKeyIndex]?.insured ?? null,
               samsaraAccount: SAMSARA_ACCOUNTS[matchedVehicle.apiKeyIndex]?.label ?? null,
+              companyId: truck.company_id ?? null,
             });
           }
         }
@@ -361,7 +365,8 @@ serve(async (req) => {
     try {
       const nowIso = new Date().toISOString();
       const updates = allLocations
-        .filter((l: any) => typeof l.insured === 'boolean')
+        // Beverly Freight Inc insurance status is maintained manually — never overwrite it
+        .filter((l: any) => typeof l.insured === 'boolean' && l.companyId !== BEVERLY_FREIGHT_COMPANY_ID)
         .map((l: any) => ({
           truck_id: l.truck_id,
           insured: l.insured as boolean,
