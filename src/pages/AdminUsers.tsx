@@ -1240,6 +1240,20 @@ const AdminUsers = () => {
           ) : samsaraInspectData?.keys ? (
             <ScrollArea className="flex-1 overflow-auto">
               <div className="space-y-6 pr-4">
+                {samsaraInspectData.summary && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <Badge variant="outline">
+                      {samsaraInspectData.summary.working}/{samsaraInspectData.summary.configured} keys working
+                    </Badge>
+                    {samsaraInspectData.summary.invalidKeys?.length > 0 && (
+                      <span className="text-destructive">
+                        Invalid token(s): {samsaraInspectData.summary.invalidKeys
+                          .map((k: any) => `${k.label} (${k.secretName})`)
+                          .join(', ')} — update the secret value to restore this account.
+                      </span>
+                    )}
+                  </div>
+                )}
                 {samsaraInspectData.keys.map((k: any) => (
                   <div key={k.keyIndex} className="space-y-2 border rounded-md p-3">
                     <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1256,11 +1270,17 @@ const AdminUsers = () => {
                           <>
                             <Badge variant="outline">total: {k.recordCount}</Badge>
                             <Badge variant="outline">shown: {k.matchCount}</Badge>
-                            {k.error && <Badge variant="destructive">error: {k.error}</Badge>}
+                            {k.authFailed && <Badge variant="destructive">key invalid</Badge>}
                           </>
                         )}
                       </div>
                     </div>
+                    {k.error && (
+                      <p className="text-xs text-destructive">
+                        {k.error}
+                        {k.secretName ? ` (${k.secretName})` : ''}
+                      </p>
+                    )}
                     {k.configured && k.vehicles?.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
@@ -1304,7 +1324,9 @@ const AdminUsers = () => {
                       </div>
                     ) : k.configured ? (
                       <p className="text-xs text-muted-foreground">
-                        {samsaraInspectData.truckFilter
+                        {k.error
+                          ? 'No data could be read from this key.'
+                          : samsaraInspectData.truckFilter
                           ? 'No matches on this key.'
                           : 'No vehicles returned.'}
                       </p>
