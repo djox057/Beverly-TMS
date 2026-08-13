@@ -24,7 +24,8 @@ export const useExpiringTrucks = () => {
         const dotDate = truck.dot_inspection_date ? new Date(truck.dot_inspection_date) : null;
         const plateDate = truck.plate_expiration_date ? new Date(truck.plate_expiration_date) : null;
         const insuranceDate = truck.insurance_expiration_date ? new Date(truck.insurance_expiration_date) : null;
-        const hasMaintenanceDate = truck.tires_swap_date || truck.maintenance_check_date;
+        const registrationDate = (truck as any).registration_expiration_date ? new Date((truck as any).registration_expiration_date) : null;
+        const hasMaintenanceDate = truck.maintenance_check_date;
         const milesSinceOil =
           truck.miles != null && truck.last_oil_change_miles != null
             ? truck.miles - truck.last_oil_change_miles
@@ -37,7 +38,8 @@ export const useExpiringTrucks = () => {
           oilMilesTriggered ||
           (dotDate && dotDate <= twoMonthsFromNow) ||
           (plateDate && plateDate <= twoMonthsFromNow) ||
-          (insuranceDate && insuranceDate <= twoMonthsFromNow)
+          (insuranceDate && insuranceDate <= twoMonthsFromNow) ||
+          (registrationDate && registrationDate <= twoMonthsFromNow)
         );
       }) || [];
 
