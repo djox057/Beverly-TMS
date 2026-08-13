@@ -5051,7 +5051,7 @@ const Reports = () => {
                                                          {(truck as any).samsaraInsured ? "INS" : "N/INS"}
                                                        </button>
                                                      </PopoverTrigger>
-                                                     <PopoverContent className="w-auto p-2" modal={false}>
+                                                     <PopoverContent className="w-auto p-2">
                                                        <p className="text-xs font-medium">
                                                          {(truck as any).samsaraInsured ? "INSURED" : "NOT INSURED"}
                                                        </p>
