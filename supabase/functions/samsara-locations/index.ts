@@ -347,6 +347,8 @@ serve(async (req) => {
               ageMinutes,
               isValid: ageMinutes <= MAX_LOCATION_AGE_MINUTES,
               apiSource: matchedVehicle.apiKeyIndex,
+              insured: SAMSARA_ACCOUNTS[matchedVehicle.apiKeyIndex]?.insured ?? null,
+              samsaraAccount: SAMSARA_ACCOUNTS[matchedVehicle.apiKeyIndex]?.label ?? null,
             });
           }
         }
@@ -354,6 +356,37 @@ serve(async (req) => {
     }
 
     console.log(`Matched ${successfulMatches}/${trucks?.length || 0} trucks, ${allLocations.length} valid locations`);
+
+    // --- Persist insured / not-insured source per truck (non-fatal) ---
+    try {
+      const nowIso = new Date().toISOString();
+      const updates = allLocations
+        .filter((l: any) => typeof l.insured === 'boolean')
+        .map((l: any) => ({
+          truck_id: l.truck_id,
+          insured: l.insured as boolean,
+          account: l.samsaraAccount as string | null,
+        }));
+
+      for (let i = 0; i < updates.length; i += 25) {
+        const chunk = updates.slice(i, i + 25);
+        await Promise.all(
+          chunk.map((u) =>
+            supabase
+              .from('trucks')
+              .update({
+                samsara_insured: u.insured,
+                samsara_account: u.account,
+                samsara_insured_updated_at: nowIso,
+              })
+              .eq('id', u.truck_id),
+          ),
+        );
+      }
+      console.log(`🛡️ Updated insured status for ${updates.length} trucks`);
+    } catch (err) {
+      console.error('Failed to persist insured status (non-fatal):', err);
+    }
 
     // --- Update cache with fresh data (try/catch so failure doesn't kill response) ---
     try {
