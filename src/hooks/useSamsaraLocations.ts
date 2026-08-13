@@ -7,6 +7,8 @@ interface TruckLocation {
   latitude: number;
   longitude: number;
   timestamp: string;
+  insured?: boolean | null;
+  samsaraAccount?: string | null;
 }
 
 export const useSamsaraLocations = () => {
