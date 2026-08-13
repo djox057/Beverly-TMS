@@ -1247,6 +1247,11 @@ const AdminUsers = () => {
                         {k.label} {k.configured ? '' : '(not configured)'}
                       </h3>
                       <div className="flex gap-2 text-xs text-muted-foreground">
+                        {typeof k.insured === 'boolean' && (
+                          <Badge className={k.insured ? 'bg-success text-success-foreground' : 'bg-warning text-warning-foreground'}>
+                            {k.insured ? 'Insured' : 'Not Insured'}
+                          </Badge>
+                        )}
                         {k.configured && (
                           <>
                             <Badge variant="outline">total: {k.recordCount}</Badge>
