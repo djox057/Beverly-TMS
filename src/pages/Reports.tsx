@@ -5038,39 +5038,6 @@ const Reports = () => {
                                             <div className="flex flex-col gap-0.5">
                                               <div className="flex items-center gap-1 font-bold text-black">
                                                 {truck.truckNumber}
-                                                 {typeof (truck as any).samsaraInsured === "boolean" && (
-                                                   <Popover>
-                                                     <PopoverTrigger asChild>
-                                                       <button
-                                                         className={`inline-flex items-center rounded px-1 text-[8px] font-bold leading-[13px] ${
-                                                           (truck as any).samsaraInsured
-                                                             ? "bg-success text-success-foreground"
-                                                             : "bg-warning text-warning-foreground"
-                                                         }`}
-                                                         onClick={(e) => e.stopPropagation()}
-                                                       >
-                                                         {(truck as any).samsaraInsured ? "INS" : "N/INS"}
-                                                       </button>
-                                                     </PopoverTrigger>
-                                                     <PopoverContent className="w-auto p-2">
-                                                       <p className="text-xs font-medium">
-                                                         {(truck as any).samsaraInsured ? "INSURED" : "NOT INSURED"}
-                                                       </p>
-                                                       <p className="text-xs text-muted-foreground">
-                                                         Samsara: {(truck as any).samsaraAccount || "—"}
-                                                       </p>
-                                                       {(truck as any).samsaraInsuredUpdatedAt && (
-                                                         <p className="text-xs text-muted-foreground">
-                                                           Last seen:{" "}
-                                                           {format(
-                                                             new Date((truck as any).samsaraInsuredUpdatedAt),
-                                                             "MMM dd, yyyy HH:mm",
-                                                           )}
-                                                         </p>
-                                                       )}
-                                                     </PopoverContent>
-                                                   </Popover>
-                                                 )}
                                                 {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
                                                 {truck.twoWeekBlockDate && (
                                                   <Popover>
