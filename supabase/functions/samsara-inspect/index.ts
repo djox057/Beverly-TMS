@@ -87,9 +87,9 @@ serve(async (req) => {
       Deno.env.get('SAMSARA_API_KEY_8'),
     ];
     const SAMSARA_ACCOUNTS: Array<{ label: string; insured: boolean }> = [
-      { label: 'dispatch@bfprime.net', insured: false },
+      { label: 'retired slot (BF Prime LLC 5006094 covered by key 3)', insured: false },
       { label: 'zack@beverlyfreight.net', insured: false },
-      { label: 'beverlyrepair@gmail.com', insured: false },
+      { label: 'BF Prime LLC 5006094 (dispatch@bfprime.net / beverlyrepair@gmail.com)', insured: false },
       { label: 'luka@bgprime.net', insured: false },
       { label: 'accounting@bfprime.net', insured: true },
       { label: 'Dispatch@apsilvertrans.net', insured: true },
