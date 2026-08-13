@@ -349,6 +349,7 @@ serve(async (req) => {
               apiSource: matchedVehicle.apiKeyIndex,
               insured: SAMSARA_ACCOUNTS[matchedVehicle.apiKeyIndex]?.insured ?? null,
               samsaraAccount: SAMSARA_ACCOUNTS[matchedVehicle.apiKeyIndex]?.label ?? null,
+              companyId: truck.company_id ?? null,
             });
           }
         }
@@ -361,7 +362,8 @@ serve(async (req) => {
     try {
       const nowIso = new Date().toISOString();
       const updates = allLocations
-        .filter((l: any) => typeof l.insured === 'boolean')
+        // Beverly Freight Inc insurance status is maintained manually — never overwrite it
+        .filter((l: any) => typeof l.insured === 'boolean' && l.companyId !== BEVERLY_FREIGHT_COMPANY_ID)
         .map((l: any) => ({
           truck_id: l.truck_id,
           insured: l.insured as boolean,
