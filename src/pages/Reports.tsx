@@ -5771,12 +5771,6 @@ const Reports = () => {
                                                                   </p>
                                                                   <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                   <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
-                                                                  {typeof (truck as any).samsaraInsured === "boolean" && (
-                                                                    <p>
-                                                                      Insurance:{" "}
-                                                                      {(truck as any).samsaraInsured ? "INSURED" : "NOT INSURED"}
-                                                                    </p>
-                                                                  )}
                                                                 </PopoverContent>
                                                               </Popover>
                                                               {truck.trailerNumber && (
