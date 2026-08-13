@@ -81,6 +81,7 @@ serve(async (req) => {
     const apiKey5 = Deno.env.get('SAMSARA_API_KEY_5');
     const apiKey6 = Deno.env.get('SAMSARA_API_KEY_6');
     const apiKey7 = Deno.env.get('SAMSARA_API_KEY_7');
+    const apiKey8 = Deno.env.get('SAMSARA_API_KEY_8');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -188,12 +189,16 @@ serve(async (req) => {
 
     if (trucksError) throw trucksError;
     // --- Fetch from Samsara with 15s AbortController per call ---
-    const apiKeys = [apiKey1, apiKey2, apiKey3, apiKey4, apiKey5, apiKey6, apiKey7].filter(Boolean) as string[];
+    // Keep the original account index so insured/label mapping stays correct
+    const apiKeyEntries = [apiKey1, apiKey2, apiKey3, apiKey4, apiKey5, apiKey6, apiKey7, apiKey8]
+      .map((key, accountIndex) => ({ key, accountIndex }))
+      .filter((e) => !!e.key) as Array<{ key: string; accountIndex: number }>;
     const allVehicles: any[] = [];
     let anySuccess = false;
 
-    for (let keyIndex = 0; keyIndex < apiKeys.length; keyIndex++) {
-      const apiKey = apiKeys[keyIndex];
+    for (const entry of apiKeyEntries) {
+      const apiKey = entry.key;
+      const keyIndex = entry.accountIndex;
       const endpoints = [
         'https://api.samsara.com/fleet/vehicles/locations',
         'https://api.samsara.com/fleet/vehicles',
