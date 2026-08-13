@@ -77,7 +77,6 @@ serve(async (req) => {
     }
 
     const apiKeys = [
-      Deno.env.get('SAMSARA_API_KEY_1'),
       Deno.env.get('SAMSARA_API_KEY_2'),
       Deno.env.get('SAMSARA_API_KEY_3'),
       Deno.env.get('SAMSARA_API_KEY_4'),
@@ -86,25 +85,25 @@ serve(async (req) => {
       Deno.env.get('SAMSARA_API_KEY_7'),
       Deno.env.get('SAMSARA_API_KEY_8'),
     ];
-    const SAMSARA_ACCOUNTS: Array<{ label: string; insured: boolean }> = [
-      { label: 'retired slot (BF Prime LLC 5006094 covered by key 3)', insured: false },
-      { label: 'zack@beverlyfreight.net', insured: false },
-      { label: 'BF Prime LLC 5006094 (dispatch@bfprime.net / beverlyrepair@gmail.com)', insured: false },
-      { label: 'luka@bgprime.net', insured: false },
-      { label: 'accounting@bfprime.net', insured: true },
-      { label: 'Dispatch@apsilvertrans.net', insured: true },
-      { label: 'Dispatch@unitedenterprisesolutions.net', insured: true },
-      { label: 'dispatch@bgprime.net', insured: true },
+    const SAMSARA_ACCOUNTS: Array<{ label: string; insured: boolean; secret: string }> = [
+      { label: 'zack@beverlyfreight.net', insured: false, secret: 'SAMSARA_API_KEY_2' },
+      { label: 'BF Prime LLC 5006094 (dispatch@bfprime.net / beverlyrepair@gmail.com)', insured: false, secret: 'SAMSARA_API_KEY_3' },
+      { label: 'luka@bgprime.net', insured: false, secret: 'SAMSARA_API_KEY_4' },
+      { label: 'accounting@bfprime.net', insured: true, secret: 'SAMSARA_API_KEY_5' },
+      { label: 'Dispatch@apsilvertrans.net', insured: true, secret: 'SAMSARA_API_KEY_6' },
+      { label: 'Dispatch@unitedenterprisesolutions.net', insured: true, secret: 'SAMSARA_API_KEY_7' },
+      { label: 'dispatch@bgprime.net', insured: true, secret: 'SAMSARA_API_KEY_8' },
     ];
 
     const keys: any[] = [];
 
     for (let i = 0; i < apiKeys.length; i++) {
       const apiKey = apiKeys[i];
-      const label = SAMSARA_ACCOUNTS[i]?.label || `SAMSARA_API_KEY_${i + 1}`;
+      const secretName = SAMSARA_ACCOUNTS[i]?.secret || `SAMSARA_API_KEY_${i + 1}`;
+      const label = SAMSARA_ACCOUNTS[i]?.label || secretName;
       const insured = SAMSARA_ACCOUNTS[i]?.insured ?? null;
       if (!apiKey) {
-        keys.push({ keyIndex: i, label, insured, group: insured ? 'Insured' : 'Not Insured', configured: false });
+        keys.push({ keyIndex: i, label, insured, secretName, group: insured ? 'Insured' : 'Not Insured', configured: false });
         continue;
       }
 
@@ -206,7 +205,7 @@ serve(async (req) => {
         insured,
         group: insured ? 'Insured' : 'Not Insured',
         configured: true,
-        secretName: `SAMSARA_API_KEY_${i + 1}`,
+        secretName,
         status,
         authFailed,
         keyValid: !authFailed && errorMsg === null,
