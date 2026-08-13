@@ -20,6 +20,19 @@ const CIRCUIT_BREAKER_THRESHOLD = 3;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const FETCH_LOCK_TIMEOUT_MS = 30 * 1000; // 30 seconds safety timeout
 
+// Samsara account map: index matches SAMSARA_API_KEY_<index+1>
+// Keys 1-4 = NOT insured orgs, keys 5-8 = insured orgs
+const SAMSARA_ACCOUNTS: Array<{ label: string; insured: boolean }> = [
+  { label: 'dispatch@bfprime.net', insured: false },
+  { label: 'zack@beverlyfreight.net', insured: false },
+  { label: 'beverlyrepair@gmail.com', insured: false },
+  { label: 'luka@bgprime.net', insured: false },
+  { label: 'accounting@bfprime.net', insured: true },
+  { label: 'Dispatch@apsilvertrans.net', insured: true },
+  { label: 'Dispatch@unitedenterprisesolutions.net', insured: true },
+  { label: 'dispatch@bgprime.net', insured: true },
+];
+
 function getLocationTime(vehicle: any): number {
   const loc = vehicle.location || vehicle.gps;
   if (loc?.time) return new Date(loc.time).getTime();
@@ -68,6 +81,7 @@ serve(async (req) => {
     const apiKey5 = Deno.env.get('SAMSARA_API_KEY_5');
     const apiKey6 = Deno.env.get('SAMSARA_API_KEY_6');
     const apiKey7 = Deno.env.get('SAMSARA_API_KEY_7');
+    const apiKey8 = Deno.env.get('SAMSARA_API_KEY_8');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -175,12 +189,16 @@ serve(async (req) => {
 
     if (trucksError) throw trucksError;
     // --- Fetch from Samsara with 15s AbortController per call ---
-    const apiKeys = [apiKey1, apiKey2, apiKey3, apiKey4, apiKey5, apiKey6, apiKey7].filter(Boolean) as string[];
+    // Keep the original account index so insured/label mapping stays correct
+    const apiKeyEntries = [apiKey1, apiKey2, apiKey3, apiKey4, apiKey5, apiKey6, apiKey7, apiKey8]
+      .map((key, accountIndex) => ({ key, accountIndex }))
+      .filter((e) => !!e.key) as Array<{ key: string; accountIndex: number }>;
     const allVehicles: any[] = [];
     let anySuccess = false;
 
-    for (let keyIndex = 0; keyIndex < apiKeys.length; keyIndex++) {
-      const apiKey = apiKeys[keyIndex];
+    for (const entry of apiKeyEntries) {
+      const apiKey = entry.key;
+      const keyIndex = entry.accountIndex;
       const endpoints = [
         'https://api.samsara.com/fleet/vehicles/locations',
         'https://api.samsara.com/fleet/vehicles',
@@ -329,6 +347,8 @@ serve(async (req) => {
               ageMinutes,
               isValid: ageMinutes <= MAX_LOCATION_AGE_MINUTES,
               apiSource: matchedVehicle.apiKeyIndex,
+              insured: SAMSARA_ACCOUNTS[matchedVehicle.apiKeyIndex]?.insured ?? null,
+              samsaraAccount: SAMSARA_ACCOUNTS[matchedVehicle.apiKeyIndex]?.label ?? null,
             });
           }
         }
@@ -336,6 +356,37 @@ serve(async (req) => {
     }
 
     console.log(`Matched ${successfulMatches}/${trucks?.length || 0} trucks, ${allLocations.length} valid locations`);
+
+    // --- Persist insured / not-insured source per truck (non-fatal) ---
+    try {
+      const nowIso = new Date().toISOString();
+      const updates = allLocations
+        .filter((l: any) => typeof l.insured === 'boolean')
+        .map((l: any) => ({
+          truck_id: l.truck_id,
+          insured: l.insured as boolean,
+          account: l.samsaraAccount as string | null,
+        }));
+
+      for (let i = 0; i < updates.length; i += 25) {
+        const chunk = updates.slice(i, i + 25);
+        await Promise.all(
+          chunk.map((u) =>
+            supabase
+              .from('trucks')
+              .update({
+                samsara_insured: u.insured,
+                samsara_account: u.account,
+                samsara_insured_updated_at: nowIso,
+              })
+              .eq('id', u.truck_id),
+          ),
+        );
+      }
+      console.log(`🛡️ Updated insured status for ${updates.length} trucks`);
+    } catch (err) {
+      console.error('Failed to persist insured status (non-fatal):', err);
+    }
 
     // --- Update cache with fresh data (try/catch so failure doesn't kill response) ---
     try {
