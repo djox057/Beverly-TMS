@@ -116,6 +116,8 @@ serve(async (req) => {
       let vehicles: any[] = [];
       let sourceEndpoint: string | null = null;
       let errorMsg: string | null = null;
+      let status: number | null = null;
+      let authFailed = false;
 
       for (const endpoint of endpoints) {
         const controller = new AbortController();
@@ -128,17 +130,32 @@ serve(async (req) => {
           });
           clearTimeout(timeout);
           if (!res.ok) {
-            errorMsg = `HTTP ${res.status}`;
+            status = res.status;
+            if (res.status === 401 || res.status === 403) {
+              authFailed = true;
+              errorMsg = res.status === 401
+                ? 'Invalid or revoked API token (401) — update this key in secrets'
+                : 'Token lacks permission for this endpoint (403)';
+              break;
+            }
+            if (res.status === 429) {
+              errorMsg = 'Rate limited by Samsara (429) — try again shortly';
+              continue;
+            }
+            errorMsg = `Samsara returned HTTP ${res.status}`;
             continue;
           }
           const json = await res.json();
           vehicles = json.data || [];
           sourceEndpoint = endpoint;
           errorMsg = null;
+          status = res.status;
           break;
         } catch (e: any) {
           clearTimeout(timeout);
-          errorMsg = e?.name === 'AbortError' ? 'timeout' : (e?.message || 'fetch error');
+          errorMsg = e?.name === 'AbortError'
+            ? 'Request timed out after 20s'
+            : (e?.message || 'Network error reaching Samsara');
         }
       }
 
@@ -189,6 +206,10 @@ serve(async (req) => {
         insured,
         group: insured ? 'Insured' : 'Not Insured',
         configured: true,
+        secretName: `SAMSARA_API_KEY_${i + 1}`,
+        status,
+        authFailed,
+        keyValid: !authFailed && errorMsg === null,
         sourceEndpoint,
         recordCount: shaped.length,
         matchCount: filtered.length,
@@ -198,7 +219,20 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ truckFilter: truckFilter || null, keys }),
+      JSON.stringify({
+        truckFilter: truckFilter || null,
+        keys,
+        summary: {
+          total: keys.length,
+          configured: keys.filter((k: any) => k.configured).length,
+          working: keys.filter((k: any) => k.keyValid).length,
+          invalidKeys: keys.filter((k: any) => k.authFailed).map((k: any) => ({
+            secretName: k.secretName,
+            label: k.label,
+            status: k.status,
+          })),
+        },
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
