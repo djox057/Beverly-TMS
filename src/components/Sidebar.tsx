@@ -261,7 +261,7 @@ export const Sidebar = () => {
     if (primaryRole === "admin") {
       return [
         ...filteredNav,
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Safety and Maintenance", href: "/alerts", icon: AlertTriangle },
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
@@ -273,7 +273,7 @@ export const Sidebar = () => {
     if (primaryRole === "manager") {
       return [
         ...filteredNav,
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Safety and Maintenance", href: "/alerts", icon: AlertTriangle },
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
@@ -284,7 +284,7 @@ export const Sidebar = () => {
     if (primaryRole === "supervisor") {
       return [
         ...filteredNav.filter((item) => item.href !== "/truck-sales"),
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Safety and Maintenance", href: "/alerts", icon: AlertTriangle },
       ];
     }
 
@@ -292,7 +292,7 @@ export const Sidebar = () => {
     if (primaryRole === "chicago_management") {
       return [
         ...filteredNav,
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Safety and Maintenance", href: "/alerts", icon: AlertTriangle },
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
@@ -332,7 +332,7 @@ export const Sidebar = () => {
       ];
       return [
         ...filteredNav.filter((item) => safetyPages.includes(item.href)),
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Safety and Maintenance", href: "/alerts", icon: AlertTriangle },
       ];
     }
 
@@ -353,7 +353,7 @@ export const Sidebar = () => {
       ];
       return [
         ...filteredNav.filter((item) => maintenancePages.includes(item.href)),
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Safety and Maintenance", href: "/alerts", icon: AlertTriangle },
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
       ];
@@ -377,7 +377,7 @@ export const Sidebar = () => {
     if (primaryRole === "dispatch" || primaryRole === "afterhours") {
       return [
         ...filteredNav.filter((item) => !(primaryRole === "afterhours" && item.href === "/live-oil-change")),
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Safety and Maintenance", href: "/alerts", icon: AlertTriangle },
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
       ];
     }
