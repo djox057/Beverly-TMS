@@ -84,24 +84,27 @@ serve(async (req) => {
       Deno.env.get('SAMSARA_API_KEY_5'),
       Deno.env.get('SAMSARA_API_KEY_6'),
       Deno.env.get('SAMSARA_API_KEY_7'),
+      Deno.env.get('SAMSARA_API_KEY_8'),
     ];
-    const apiKeyLabels = [
-      'dispatch@bfprime.net',
-      'Accounting@bfprime.net',
-      'beverlyrepair@gmail.com',
-      'zack@beverlyfreight.net',
-      'dispatch@bgprime.net',
-      'Dispatch@unitedenterprisesolutions.net',
-      'tommy@beverlyfreight.net',
+    const SAMSARA_ACCOUNTS: Array<{ label: string; insured: boolean }> = [
+      { label: 'dispatch@bfprime.net', insured: false },
+      { label: 'zack@beverlyfreight.net', insured: false },
+      { label: 'beverlyrepair@gmail.com', insured: false },
+      { label: 'luka@bgprime.net', insured: false },
+      { label: 'accounting@bfprime.net', insured: true },
+      { label: 'Dispatch@apsilvertrans.net', insured: true },
+      { label: 'Dispatch@unitedenterprisesolutions.net', insured: true },
+      { label: 'dispatch@bgprime.net', insured: true },
     ];
 
     const keys: any[] = [];
 
     for (let i = 0; i < apiKeys.length; i++) {
       const apiKey = apiKeys[i];
-      const label = apiKeyLabels[i] || `SAMSARA_API_KEY_${i + 1}`;
+      const label = SAMSARA_ACCOUNTS[i]?.label || `SAMSARA_API_KEY_${i + 1}`;
+      const insured = SAMSARA_ACCOUNTS[i]?.insured ?? null;
       if (!apiKey) {
-        keys.push({ keyIndex: i, label, configured: false });
+        keys.push({ keyIndex: i, label, insured, group: insured ? 'Insured' : 'Not Insured', configured: false });
         continue;
       }
 
@@ -183,6 +186,8 @@ serve(async (req) => {
       keys.push({
         keyIndex: i,
         label,
+        insured,
+        group: insured ? 'Insured' : 'Not Insured',
         configured: true,
         sourceEndpoint,
         recordCount: shaped.length,
