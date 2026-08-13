@@ -5941,9 +5941,9 @@ const Reports = () => {
                                                               )}
                                                               {typeof (truck as any).samsaraInsured === "boolean" &&
                                                                 ((truck as any).samsaraInsured ? (
-                                                                  <ShieldCheck className="h-5 w-5 text-success" title="Insured" />
+                                                                  <span title="Insured"><ShieldCheck className="h-5 w-5 text-success" /></span>
                                                                 ) : (
-                                                                  <ShieldOff className="h-5 w-5 text-destructive" title="Not Insured" />
+                                                                  <span title="Not Insured"><ShieldOff className="h-5 w-5 text-destructive" /></span>
                                                                 ))}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
@@ -6283,9 +6283,9 @@ const Reports = () => {
                                                               )}
                                                               {typeof (truck as any).samsaraInsured === "boolean" &&
                                                                 ((truck as any).samsaraInsured ? (
-                                                                  <ShieldCheck className="h-5 w-5 text-success" title="Insured" />
+                                                                  <span title="Insured"><ShieldCheck className="h-5 w-5 text-success" /></span>
                                                                 ) : (
-                                                                  <ShieldOff className="h-5 w-5 text-destructive" title="Not Insured" />
+                                                                  <span title="Not Insured"><ShieldOff className="h-5 w-5 text-destructive" /></span>
                                                                 ))}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
