@@ -140,15 +140,17 @@ serve(async (req) => {
       Deno.env.get('SAMSARA_API_KEY_5'),
       Deno.env.get('SAMSARA_API_KEY_6'),
       Deno.env.get('SAMSARA_API_KEY_7'),
+      Deno.env.get('SAMSARA_API_KEY_8'),
     ];
     const apiKeyLabels = [
       'dispatch@bfprime.net',
-      'Accounting@bfprime.net',
-      'beverlyrepair@gmail.com',
       'zack@beverlyfreight.net',
-      'dispatch@bgprime.net',
+      'beverlyrepair@gmail.com',
+      'luka@bgprime.net',
+      'accounting@bfprime.net',
+      'Dispatch@apsilvertrans.net',
       'Dispatch@unitedenterprisesolutions.net',
-      'tommy@beverlyfreight.net',
+      'dispatch@bgprime.net',
     ];
 
     // Find ALL keys/orgs that contain this truck, then pick the one with freshest location
