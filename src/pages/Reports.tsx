@@ -5939,6 +5939,12 @@ const Reports = () => {
                                                                   />
                                                                 </span>
                                                               )}
+                                                              {typeof (truck as any).samsaraInsured === "boolean" &&
+                                                                ((truck as any).samsaraInsured ? (
+                                                                  <ShieldCheck className="h-5 w-5 text-success" title="Insured" />
+                                                                ) : (
+                                                                  <ShieldOff className="h-5 w-5 text-destructive" title="Not Insured" />
+                                                                ))}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton
@@ -6275,6 +6281,12 @@ const Reports = () => {
                                                                   />
                                                                 </span>
                                                               )}
+                                                              {typeof (truck as any).samsaraInsured === "boolean" &&
+                                                                ((truck as any).samsaraInsured ? (
+                                                                  <ShieldCheck className="h-5 w-5 text-success" title="Insured" />
+                                                                ) : (
+                                                                  <ShieldOff className="h-5 w-5 text-destructive" title="Not Insured" />
+                                                                ))}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton
