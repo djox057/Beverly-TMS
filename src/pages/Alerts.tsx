@@ -189,7 +189,7 @@ export default function Alerts() {
   });
 
   // Column filters
-  type TruckColumnFilter = "all" | "dot" | "plate" | "insurance" | "tires_swap" | "maintenance_check";
+  type TruckColumnFilter = "all" | "dot" | "plate" | "insurance" | "registration" | "maintenance_check";
   type TrailerColumnFilter = "all" | "dot" | "plate" | "insurance";
   type DriverColumnFilter = "all" | "cdl" | "mvr" | "clearing_house" | "medical" | "drug_test";
   const [truckColumnFilter, setTruckColumnFilter] = useState<TruckColumnFilter>("all");
@@ -198,7 +198,7 @@ export default function Alerts() {
 
   // Sort state per table: { key, dir } where dir: 'asc' | 'desc'. null = no sort.
   type SortState<K extends string> = { key: K; dir: "asc" | "desc" } | null;
-  type TruckSortKey = "company" | "dot" | "plate" | "insurance" | "tires_swap" | "maintenance_check";
+  type TruckSortKey = "company" | "dot" | "plate" | "insurance" | "registration" | "maintenance_check";
   type TrailerSortKey = "dot" | "plate" | "insurance";
   type DriverSortKey = "cdl" | "mvr" | "clearing_house" | "medical" | "drug_test";
   const [truckSort, setTruckSort] = useState<SortState<TruckSortKey>>(null);
@@ -324,7 +324,7 @@ export default function Alerts() {
       case "dot": return isExpiring(truck.dot_inspection_date);
       case "plate": return isExpiring(truck.plate_expiration_date);
       case "insurance": return isExpiring(truck.insurance_expiration_date);
-      case "tires_swap": return needsMaintenanceAttention(truck.tires_swap_date);
+      case "registration": return isExpiring(truck.registration_expiration_date);
       case "maintenance_check": return needsMaintenanceAttention(truck.maintenance_check_date);
       default:
         // "All Trucks" shows only trucks that have at least one alert
@@ -332,7 +332,7 @@ export default function Alerts() {
           isExpiring(truck.dot_inspection_date) ||
           isExpiring(truck.plate_expiration_date) ||
           isExpiring(truck.insurance_expiration_date) ||
-          needsMaintenanceAttention(truck.tires_swap_date) ||
+          isExpiring(truck.registration_expiration_date) ||
           needsMaintenanceAttention(truck.maintenance_check_date)
         );
     }
@@ -365,7 +365,7 @@ export default function Alerts() {
     { value: "dot", label: "DOT Inspection", icon: ClipboardCheck },
     { value: "plate", label: "Plate Expiration", icon: CreditCard },
     { value: "insurance", label: "Insurance", icon: ShieldCheck },
-    { value: "tires_swap", label: "Tires Swap", icon: CircleDot },
+    { value: "registration", label: "Registration", icon: CreditCard },
     { value: "maintenance_check", label: "Maintenance Check", icon: Wrench },
   ];
 
@@ -493,7 +493,7 @@ export default function Alerts() {
     dot: "dot_inspection_date" as any,
     plate: "plate_expiration_date" as any,
     insurance: "insurance_expiration_date" as any,
-    tires_swap: "tires_swap_date" as any,
+    registration: "registration_expiration_date" as any,
     maintenance_check: "maintenance_check_date" as any,
   };
 
@@ -619,7 +619,7 @@ export default function Alerts() {
         plate_expiration_date: formData.get('plate_expiration_date') as string || null,
         insurance_expiration_date: formData.get('insurance_expiration_date') as string || null,
         oil_change_date: formData.get('oil_change_date') as string || null,
-        tires_swap_date: formData.get('tires_swap_date') as string || null,
+        registration_expiration_date: formData.get('registration_expiration_date') as string || null,
         maintenance_check_date: formData.get('maintenance_check_date') as string || null,
       };
 
@@ -1004,14 +1004,14 @@ export default function Alerts() {
                         </div>
                       </TableHead>
                       )}
-                      {showTruckCol("tires_swap") && (
+                      {showTruckCol("registration") && (
                       <TableHead
-                        onClick={() => setTruckColumnFilter(truckColumnFilter === "tires_swap" ? "all" : "tires_swap")}
-                        className={`w-[120px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "tires_swap" ? "bg-primary/10 text-primary" : ""}`}
+                        onClick={() => setTruckColumnFilter(truckColumnFilter === "registration" ? "all" : "registration")}
+                        className={`w-[210px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "registration" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         <div className="flex items-center gap-1">
-                          <span>Tires Swap {truckColumnFilter === "tires_swap" && "✓"}</span>
-                          {renderSortButton(truckSort, "tires_swap", () => { setTruckSort(prev => cycleSort(prev, "tires_swap")); setTrucksPage(1); }, "tires swap date")}
+                          <span>Registration {truckColumnFilter === "registration" && "✓"}</span>
+                          {renderSortButton(truckSort, "registration", () => { setTruckSort(prev => cycleSort(prev, "registration")); setTrucksPage(1); }, "registration expiration date")}
                         </div>
                       </TableHead>
                       )}
@@ -1087,11 +1087,18 @@ export default function Alerts() {
                            </div>
                          </TableCell>
                          )}
-                         {showTruckCol("tires_swap") && (
+                         {showTruckCol("registration") && (
                          <TableCell>
-                           <span className={getMaintenanceStatus(truck.tires_swap_date).color}>
-                             {getMaintenanceStatus(truck.tires_swap_date).label}
-                           </span>
+                           <div className="flex items-center gap-2">
+                             <span className={getExpirationStatus(truck.registration_expiration_date).className}>
+                               {formatDate(truck.registration_expiration_date)}
+                             </span>
+                             {truck.registration_expiration_date && (
+                               <Badge variant={getExpirationStatus(truck.registration_expiration_date).variant}>
+                                 {getExpirationStatus(truck.registration_expiration_date).label}
+                               </Badge>
+                             )}
+                           </div>
                          </TableCell>
                          )}
                          {showTruckCol("maintenance_check") && (
@@ -1663,8 +1670,8 @@ export default function Alerts() {
                   <Input id="oil_change_date" name="oil_change_date" type="date" defaultValue={editingTruck.oil_change_date || ""} />
                 </div>
                 <div>
-                  <Label htmlFor="tires_swap_date">Tires Swap Date</Label>
-                  <Input id="tires_swap_date" name="tires_swap_date" type="date" defaultValue={editingTruck.tires_swap_date || ""} />
+                  <Label htmlFor="registration_expiration_date">Registration Expiration Date</Label>
+                  <Input id="registration_expiration_date" name="registration_expiration_date" type="date" defaultValue={editingTruck.registration_expiration_date || ""} />
                 </div>
                 <div>
                   <Label htmlFor="maintenance_check_date">Maintenance Check Date</Label>

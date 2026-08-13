@@ -1,0 +1,1 @@
+ALTER TABLE public.trucks ADD COLUMN IF NOT EXISTS registration_expiration_date date;
