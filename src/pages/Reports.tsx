@@ -5793,12 +5793,6 @@ const Reports = () => {
                                                                 <PopoverTrigger asChild>
                                                                   <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">
                                                                     🚚 Truck: {truck.truckNumber}
-                                                                    {typeof (truck as any).samsaraInsured === "boolean" &&
-                                                                      ((truck as any).samsaraInsured ? (
-                                                                        <ShieldCheck className="inline h-3 w-3 ml-1 text-success" />
-                                                                      ) : (
-                                                                        <ShieldOff className="inline h-3 w-3 ml-1 text-destructive" />
-                                                                      ))}
                                                                   </p>
                                                                 </PopoverTrigger>
                                                                 <PopoverContent
@@ -5945,6 +5939,12 @@ const Reports = () => {
                                                                   />
                                                                 </span>
                                                               )}
+                                                              {typeof (truck as any).samsaraInsured === "boolean" &&
+                                                                ((truck as any).samsaraInsured ? (
+                                                                  <span title="Insured"><ShieldCheck className="h-5 w-5 text-success" /></span>
+                                                                ) : (
+                                                                  <span title="Not Insured"><ShieldOff className="h-5 w-5 text-destructive" /></span>
+                                                                ))}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton
@@ -6115,12 +6115,6 @@ const Reports = () => {
                                                               <PopoverTrigger asChild>
                                                                 <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">
                                                                   🚚 Truck: {truck.truckNumber}
-                                                                  {typeof (truck as any).samsaraInsured === "boolean" &&
-                                                                    ((truck as any).samsaraInsured ? (
-                                                                      <ShieldCheck className="inline h-3 w-3 ml-1 text-success" />
-                                                                    ) : (
-                                                                      <ShieldOff className="inline h-3 w-3 ml-1 text-destructive" />
-                                                                    ))}
                                                                 </p>
                                                               </PopoverTrigger>
                                                               <PopoverContent
@@ -6287,6 +6281,12 @@ const Reports = () => {
                                                                   />
                                                                 </span>
                                                               )}
+                                                              {typeof (truck as any).samsaraInsured === "boolean" &&
+                                                                ((truck as any).samsaraInsured ? (
+                                                                  <span title="Insured"><ShieldCheck className="h-5 w-5 text-success" /></span>
+                                                                ) : (
+                                                                  <span title="Not Insured"><ShieldOff className="h-5 w-5 text-destructive" /></span>
+                                                                ))}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton
