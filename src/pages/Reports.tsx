@@ -5793,6 +5793,12 @@ const Reports = () => {
                                                                 <PopoverTrigger asChild>
                                                                   <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">
                                                                     🚚 Truck: {truck.truckNumber}
+                                                                    {typeof (truck as any).samsaraInsured === "boolean" &&
+                                                                      ((truck as any).samsaraInsured ? (
+                                                                        <ShieldCheck className="inline h-3 w-3 ml-1 text-success" />
+                                                                      ) : (
+                                                                        <ShieldOff className="inline h-3 w-3 ml-1 text-destructive" />
+                                                                      ))}
                                                                   </p>
                                                                 </PopoverTrigger>
                                                                 <PopoverContent
@@ -5804,6 +5810,12 @@ const Reports = () => {
                                                                   </p>
                                                                   <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                   <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
+                                                                  {typeof (truck as any).samsaraInsured === "boolean" && (
+                                                                    <p>
+                                                                      Insurance:{" "}
+                                                                      {(truck as any).samsaraInsured ? "INSURED" : "NOT INSURED"}
+                                                                    </p>
+                                                                  )}
                                                                 </PopoverContent>
                                                               </Popover>
                                                               {truck.trailerNumber && (
@@ -6103,6 +6115,12 @@ const Reports = () => {
                                                               <PopoverTrigger asChild>
                                                                 <p className="text-xs cursor-pointer hover:opacity-70 transition-opacity">
                                                                   🚚 Truck: {truck.truckNumber}
+                                                                  {typeof (truck as any).samsaraInsured === "boolean" &&
+                                                                    ((truck as any).samsaraInsured ? (
+                                                                      <ShieldCheck className="inline h-3 w-3 ml-1 text-success" />
+                                                                    ) : (
+                                                                      <ShieldOff className="inline h-3 w-3 ml-1 text-destructive" />
+                                                                    ))}
                                                                 </p>
                                                               </PopoverTrigger>
                                                               <PopoverContent
@@ -6114,6 +6132,12 @@ const Reports = () => {
                                                                 </p>
                                                                 <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                 <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
+                                                                {typeof (truck as any).samsaraInsured === "boolean" && (
+                                                                  <p>
+                                                                    Insurance:{" "}
+                                                                    {(truck as any).samsaraInsured ? "INSURED" : "NOT INSURED"}
+                                                                  </p>
+                                                                )}
                                                               </PopoverContent>
                                                             </Popover>
                                                             {truck.trailerNumber && (
