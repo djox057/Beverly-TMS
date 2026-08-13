@@ -63,6 +63,7 @@ import {
   Download,
   CreditCard,
   ShieldCheck,
+  ShieldOff,
   CircleDot,
   Settings,
   IdCard,
