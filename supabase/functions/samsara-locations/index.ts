@@ -185,7 +185,7 @@ serve(async (req) => {
     // --- Fetch trucks from DB ---
     const { data: trucks, error: trucksError } = await supabase
       .from('trucks')
-      .select('id, truck_number');
+      .select('id, truck_number, company_id');
 
     if (trucksError) throw trucksError;
     // --- Fetch from Samsara with 15s AbortController per call ---
