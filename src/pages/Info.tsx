@@ -3,6 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getCompanyBackgroundColor } from "@/pages/Reports/helpers";
 
+type Cred = { user: string; password: string };
+
 type Company = {
   name: string;
   mc?: string;
@@ -10,11 +12,17 @@ type Company = {
   ein?: string;
   phone?: string;
   address?: string;
-  dispatchMail?: { user: string; password: string };
-  transitTracking?: { user: string; password: string };
-  efs?: { user: string; password: string };
-  truckStop?: { user: string; password: string };
-  owner?: string;
+  dispatchMail?: Cred;
+  transitTracking?: Cred;
+  efs?: Cred;
+  wex?: Cred;
+  truckStop?: Cred;
+  eldLogs?: Cred;
+  eldLiveTracking?: Cred;
+  samsaraInsured?: Cred;
+  samsaraOther?: Cred;
+  samsaraTrailers?: Cred;
+  note?: string;
 };
 
 const companies: Company[] = [
@@ -26,21 +34,29 @@ const companies: Company[] = [
     phone: "(574) 544-5447",
     address: "2901 Carlson Dr #300 L, Hammond IN 46323",
     dispatchMail: { user: "dispatch.old@bfprime.net", password: "Prototips$1099" },
-    transitTracking: { user: "Tommy", password: "Bfprime123" },
     efs: { user: "BFPRIMELLC", password: "Kragujevac123" },
+    wex: { user: "dispatch@bfprime.net", password: "Kragujevac@2026" },
     truckStop: { user: "dispatch@bfprime.net", password: "Kragujevac@2025" },
+    eldLogs: { user: "BFPrime", password: "123456" },
+    eldLiveTracking: { user: "BFPRIME1", password: "123456" },
+    samsaraInsured: { user: "accounting@bfprime.net", password: "Bfprime123" },
+    samsaraOther: { user: "dispatch@bfprime.net", password: "Dispatchbf123" },
+    samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
   },
   {
-    name: "BF PRIME UNITED LLC",
-    mc: "1691807",
-    dot: "4332597",
-    phone: "312-995-0492",
-    address: "3069 N Clybourn Ave Chicago, IL 60618",
-    dispatchMail: { user: "dispatch.old@bfprimeunited.net", password: "Dispatch@2024!" },
-    transitTracking: { user: "bfunited", password: "bfunited123" },
-    efs: { user: "BFPRIMEUNITEDLLC", password: "Petak2025" },
-    truckStop: { user: "/", password: "/" },
-    owner: "Milutin Sekularac",
+    name: "AP SILVER TRANS LLC",
+    mc: "1770262",
+    dot: "4481860",
+    address: "100 SAUNDERS ROAD UNIT 192, LAKE FOREST, IL 60045",
+    dispatchMail: { user: "dispatch@apsilvertrans.net", password: "Egolastop@332$" },
+    transitTracking: { user: "APsliver", password: "123456" },
+    efs: { user: "APSILVERTRANSLLC", password: "Sreda2025" },
+    wex: { user: "dispatch@apsilvertrans.net", password: "Sreda2025" },
+    eldLogs: { user: "APSilver", password: "123456" },
+    eldLiveTracking: { user: "APSILVER1", password: "123456" },
+    samsaraInsured: { user: "Dispatch@apsilvertrans.net", password: "Kragujevac034" },
+    samsaraOther: { user: "dispatch@bfprime.net", password: "Dispatchbf123" },
+    samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
   },
   {
     name: "Beverly Freight INC",
@@ -50,9 +66,29 @@ const companies: Company[] = [
     phone: "(847) 857-6129",
     address: "5665 W 120th St, Alsip, IL 60803",
     dispatchMail: { user: "dispatch.old@beverlyfreight.net", password: "Registration@123" },
-    transitTracking: { user: "beverly", password: "123456" },
     efs: { user: "BEVERLYFREIGHTINC", password: "Beograd567" },
-    truckStop: { user: "BEVERLYFREIGHTINC", password: "" },
+    wex: { user: "dispatch@beverlyfreight.net", password: "Beograd@123456" },
+    truckStop: { user: "BEVERLYFREIGHTINC", password: "Kragujevac@2026" },
+    eldLogs: { user: "bgprime2", password: "123456" },
+    eldLiveTracking: { user: "beverly1", password: "123456" },
+    samsaraInsured: { user: "dispatch@beverlyfreight.net", password: "Kgjenajjaci" },
+    samsaraOther: { user: "zack@beverlyfreight.net", password: "Kragujevac123" },
+    samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
+  },
+  {
+    name: "UNITED ENTERPRISE SOLUTIONS INC",
+    mc: "1423086",
+    dot: "3879749",
+    address: "2340 S RIVER RD STE # 230 DES PLAINES IL 60018",
+    dispatchMail: { user: "Dispatch@unitedenterprisesolutions.net", password: "Draloye@5588" },
+    transitTracking: { user: "unitedenterprise", password: "123456" },
+    efs: { user: "UNITEDENTERPRISEINC", password: "Ponedeljak2025" },
+    wex: { user: "dispatch@unitedenterprisesolutions.net", password: "Ponedeljak2025" },
+    eldLogs: { user: "united1", password: "123456" },
+    eldLiveTracking: { user: "united", password: "123456" },
+    samsaraInsured: { user: "Dispatch@unitedenterprisesolutions.net", password: "Registration@123" },
+    samsaraOther: { user: "dispatch@bfprime.net", password: "Dispatchbf123" },
+    samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
   },
   {
     name: "BG PRIME INC",
@@ -60,43 +96,31 @@ const companies: Company[] = [
     dot: "3909357",
     ein: "88-2889825",
     phone: "(312) 995-9909",
-    address: "1426 W Rosemont Ave, Chicago, IL 60660",
+    address: "1426 W ROSEMONT AVE, CHICAGO, IL 60660",
     dispatchMail: { user: "dispatch@bgprime.net", password: "Sotokoto@3344" },
-    transitTracking: { user: "BGprime", password: "Bgprime123" },
     efs: { user: "BGPRIMEINC", password: "Subota2025" },
-    truckStop: { user: "/", password: "/" },
+    wex: { user: "dispatch@bgprime.net", password: "Ponedeljak@2026" },
+    eldLogs: { user: "bgprime2", password: "123456" },
+    eldLiveTracking: { user: "BGPRIME1", password: "123456" },
+    samsaraInsured: { user: "dispatch@bgprime.net", password: "Registration@123" },
+    samsaraOther: { user: "luka@bgprime.net", password: "Hansotro*3321" },
+    samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
   },
   {
-    name: "AP SILVER TRANS LLC",
-    mc: "1770262",
-    dot: "4481860",
-    address: "100 Saunders Road Unit 192, Lake Forest, IL 60045",
-    dispatchMail: { user: "dispatch@apsilvertrans.net", password: "Egolastop@332$" },
-    transitTracking: { user: "APsliver", password: "123456" },
-    efs: { user: "APSILVERTRANSLLC", password: "Sreda2025" },
-    truckStop: { user: "/", password: "/" },
-  },
-  {
-    name: "UNITED ENTERPRISE SOLUTIONS INC",
-    mc: "1423086",
-    dot: "3879749",
-    address: "2340 S River Rd Ste #230, Des Plaines, IL 60018",
-    dispatchMail: { user: "Dispatch@unitedenterprisesolutions.net", password: "Draloye@5588" },
-    transitTracking: { user: "unitedenterprise", password: "123456" },
-    efs: { user: "UNITEDENTERPRISEINC", password: "Ponedeljak2025" },
+    name: "BF PRIME UNITED LLC",
+    mc: "1691807",
+    dot: "4332597",
+    phone: "312-995-0492",
+    address: "3069 N Clybourn Ave Chicago, IL 60618",
+    note: "Temporarily closed",
+    dispatchMail: { user: "dispatch.old@bfprimeunited.net", password: "Dispatch@2024!" },
+    transitTracking: { user: "bfunited", password: "bfunited123" },
+    efs: { user: "BFPRIMEUNITEDLLC", password: "Petak2025" },
     truckStop: { user: "/", password: "/" },
   },
 ];
 
 const sharedAccounts: { label: string; user: string; password: string }[] = [
-  { label: "Samsara (trucks)", user: "dispatch@bfprime.net", password: "Dispatchbf123" },
-  { label: "Samsara (trucks)", user: "accounting@bfprime.net", password: "Bfprime123" },
-  { label: "Samsara (trucks)", user: "beverlyrepair@gmail.com", password: "Beverlyrepair123" },
-  { label: "Samsara (trucks)", user: "dispatch@bgprime.net", password: "Registration@123" },
-  { label: "Samsara (trucks)", user: "Dispatch@unitedenterprisesolutions.net", password: "Registration@123" },
-  { label: "Samsara (trucks)", user: "dispatch@beverlyfreight.net", password: "Kgjenajjaci" },
-  { label: "Samsara (trailers)", user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
-  { label: "Winfactor", user: "Beverlydispatch1 (1-10)", password: "Dispatch2023" },
   { label: "WIFI KG", user: "", password: "Beverly@2026" },
 ];
 
@@ -128,7 +152,6 @@ const extensions = [
   { name: "Dispatch", ext: "2" },
   { name: "Safety", ext: "3" },
   { name: "Recruiting", ext: "4" },
-  { name: "Afterhours", ext: "5" },
   { name: "Claims", ext: "6" },
   { name: "Maintenance", ext: "7" },
   { name: "ELD", ext: "8" },
@@ -154,7 +177,7 @@ const reps: { mc: string; name: string; contact: string; note?: string }[] = [
   { mc: "197598", name: "GRANE LOGISTICS EXPRESS LLC", contact: "dstojkovic.grane@gmail.com" },
   { mc: "555609", name: "ARMSTRONG TRANSPORT GROUP, LLC", contact: "sullivanjohnson23@gmail.com" },
   { mc: "1096595", name: "ATN LLC", contact: "frank@atnglobal.com" },
-  { mc: "—", name: "LIV Enterprises INC", contact: "danny@liventerprises.com" },
+  { mc: "\u2014", name: "LIV Enterprises INC", contact: "danny@liventerprises.com" },
   { mc: "644047", name: "BMM LOGISTICS INC.", contact: "sladjanzec14@gmail.com" },
 ];
 
@@ -177,24 +200,31 @@ const Field = ({ label, value }: { label: string; value?: string }) => (
   </div>
 );
 
+const CredRow = ({ label, cred }: { label: string; cred?: Cred }) =>
+  cred ? <Field label={label} value={`${cred.user || "\u2014"} / ${cred.password || "\u2014"}`} /> : null;
+
 const CompanyCard = ({ c }: { c: Company }) => (
   <Card className="p-4 space-y-2 select-text border-2" style={{ ...getCompanyBackgroundColor(c.name) }}>
-    <h3 className="font-semibold text-base border-b border-current/30 pb-2">{c.name}</h3>
+    <h3 className="font-semibold text-base border-b border-current/30 pb-2">
+      {c.name}
+      {c.note && <span className="ml-2 text-xs font-normal italic">({c.note})</span>}
+    </h3>
     <Field label="MC#" value={c.mc} />
     <Field label="DOT#" value={c.dot} />
     <Field label="EIN" value={c.ein} />
     <Field label="Phone" value={c.phone} />
     <Field label="Address" value={c.address} />
-    {c.owner && <Field label="Owner" value={c.owner} />}
     <div className="pt-2 border-t space-y-1">
-      {c.dispatchMail && (
-        <Field label="Dispatch mail" value={`${c.dispatchMail.user} / ${c.dispatchMail.password}`} />
-      )}
-      {c.transitTracking && (
-        <Field label="Transit Tracking" value={`${c.transitTracking.user} / ${c.transitTracking.password}`} />
-      )}
-      {c.efs && <Field label="EFS" value={`${c.efs.user} / ${c.efs.password}`} />}
-      {c.truckStop && <Field label="Truck stop" value={`${c.truckStop.user} / ${c.truckStop.password}`} />}
+      <CredRow label="Dispatch mail" cred={c.dispatchMail} />
+      <CredRow label="Transit Tracking" cred={c.transitTracking} />
+      <CredRow label="EFS" cred={c.efs} />
+      <CredRow label="WEX" cred={c.wex} />
+      <CredRow label="Truck stop" cred={c.truckStop} />
+      <CredRow label="ELD - Logs" cred={c.eldLogs} />
+      <CredRow label="ELD - Live Track" cred={c.eldLiveTracking} />
+      <CredRow label="Samsara osigurani" cred={c.samsaraInsured} />
+      <CredRow label="Samsara ostali" cred={c.samsaraOther} />
+      <CredRow label="Samsara prikolice" cred={c.samsaraTrailers} />
     </div>
   </Card>
 );
