@@ -65,9 +65,8 @@ const chicagoTime = (iso: string) =>
   });
 
 const DriversComplaints = () => {
-  const { hasRole, user } = useAuthContext();
-  const canManage = hasRole("admin") || hasRole("manager");
-  const isDispatchOnly = !canManage && hasRole("dispatch");
+  const { user } = useAuthContext();
+  const { canManage, isDispatchOnly } = useComplaintsAccess();
   const groups = useMemo(
     () =>
       isDispatchOnly
