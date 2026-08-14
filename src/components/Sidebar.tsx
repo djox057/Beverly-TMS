@@ -35,6 +35,7 @@ import {
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { isComplaintsViewOnlyEmail } from "@/components/complaints/useComplaintsAccess";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
