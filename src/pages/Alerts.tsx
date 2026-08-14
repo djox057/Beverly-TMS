@@ -366,7 +366,7 @@ export default function Alerts() {
     { value: "dot", label: "DOT Inspection", icon: ClipboardCheck },
     { value: "plate", label: "Plate Expiration", icon: CreditCard },
     { value: "insurance", label: "Insurance", icon: ShieldCheck },
-    { value: "registration", label: "Registration", icon: CreditCard },
+    { value: "registration", label: "Stickers", icon: CreditCard },
     { value: "maintenance_check", label: "Maintenance Check", icon: Wrench },
   ];
 
@@ -1015,7 +1015,7 @@ export default function Alerts() {
                         className={`w-[210px] cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "registration" ? "bg-primary/10 text-primary" : ""}`}
                       >
                         <div className="flex items-center gap-1">
-                          <span>Registration {truckColumnFilter === "registration" && "✓"}</span>
+                          <span>Stickers {truckColumnFilter === "registration" && "✓"}</span>
                           {renderSortButton(truckSort, "registration", () => { setTruckSort(prev => cycleSort(prev, "registration")); setTrucksPage(1); }, "registration expiration date")}
                         </div>
                       </TableHead>
@@ -1680,7 +1680,7 @@ export default function Alerts() {
                   <Input id="oil_change_date" name="oil_change_date" type="date" defaultValue={editingTruck.oil_change_date || ""} />
                 </div>
                 <div>
-                  <Label htmlFor="registration_expiration_date">Registration Expiration Date</Label>
+                  <Label htmlFor="registration_expiration_date">Stickers Expiration Date</Label>
                   <Input id="registration_expiration_date" name="registration_expiration_date" type="date" defaultValue={editingTruck.registration_expiration_date || ""} />
                 </div>
                 <div>
