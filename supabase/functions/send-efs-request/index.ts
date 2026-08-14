@@ -128,6 +128,14 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Hard cap: EFS requests must be under $5,000 (max $4,999.99)
+    if (lumperAmount >= 5000) {
+      return new Response(
+        JSON.stringify({ error: "Amount cannot be $5,000 or more. Maximum allowed is $4,999.99." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Format the email body
     const emailBody = `Load# ${loadNumber} Unit #${truckNumber}
 Driver ${driverName}
