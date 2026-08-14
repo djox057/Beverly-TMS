@@ -81,16 +81,40 @@ export const PaperworkTab = () => {
           .update(rest as never)
           .eq("id", id);
         if (error) throw error;
+        return { created: false as const };
       } else {
         const { error } = await supabase.from("paperwork_items").insert(payload as never);
         if (error) throw error;
+        return { created: true as const, item: payload };
       }
     },
-    onSuccess: () => {
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["paperwork_items"] });
       setDialogOpen(false);
       setEditing(null);
       toast.success("Saved");
+
+      if (result?.created) {
+        const item = result.item as Partial<PaperworkItem>;
+        try {
+          const { data, error } = await supabase.functions.invoke("send-paperwork-reminder", {
+            body: {
+              unitLabel: item.unit_label,
+              lastDay: item.last_day ?? null,
+              lastDayText: item.last_day_text ?? null,
+              reason: item.reason ?? null,
+              note: item.note ?? null,
+            },
+          });
+          if (error || (data as any)?.error || (data as any)?.success === false) {
+            toast.error("Paperwork saved, but reminder email failed");
+          } else {
+            toast.success("Reminder email sent");
+          }
+        } catch {
+          toast.error("Paperwork saved, but reminder email failed");
+        }
+      }
     },
     onError: (e: any) => toast.error(e.message || "Failed to save"),
   });
