@@ -127,6 +127,15 @@ export function EfsRequestDialog({
     if (otherPurpose === "custom" && !customPurpose.trim()) return;
     // Fuel requires city, state only
     if (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim())) return;
+    // Hard cap: requests must be under $5,000 (max $4,999.99)
+    if (parseFloat(otherAmount) >= 5000) {
+      toast({
+        title: "Amount too high",
+        description: "EFS requests cannot be $5,000 or more. Maximum allowed is $4,999.99.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsRequestingOther(true);
     try {
