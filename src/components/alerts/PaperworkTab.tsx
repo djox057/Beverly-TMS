@@ -242,8 +242,32 @@ export const PaperworkTab = () => {
                     <TableCell className="truncate" title={item.reason || ""}>
                       {item.reason || "—"}
                     </TableCell>
-                    <TableCell className="truncate" title={item.note || ""}>
-                      {item.note || "—"}
+                    <TableCell>
+                      {canEdit ? (
+                        <Input
+                          className="h-7 text-sm"
+                          defaultValue={item.note || ""}
+                          placeholder="Add note..."
+                          key={item.note || ""}
+                          onBlur={(e) => {
+                            const val = e.target.value.trim() || null;
+                            if (val !== (item.note || null)) {
+                              saveMutation.mutate({ id: item.id, note: val });
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") e.currentTarget.blur();
+                            if (e.key === "Escape") {
+                              e.currentTarget.value = item.note || "";
+                              e.currentTarget.blur();
+                            }
+                          }}
+                        />
+                      ) : (
+                        <span className="truncate" title={item.note || ""}>
+                          {item.note || "—"}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {item.is_ready ? (
