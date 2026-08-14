@@ -1637,6 +1637,10 @@ export default function Alerts() {
                 })()
               )}
             </TabsContent>
+
+            <TabsContent value="paperwork" className="mt-6">
+              <PaperworkTab />
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
