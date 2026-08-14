@@ -127,6 +127,15 @@ export function EfsRequestDialog({
     if (otherPurpose === "custom" && !customPurpose.trim()) return;
     // Fuel requires city, state only
     if (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim())) return;
+    // Hard cap: requests must be under $5,000 (max $4,999.99)
+    if (parseFloat(otherAmount) >= 5000) {
+      toast({
+        title: "Amount too high",
+        description: "EFS requests cannot be $5,000 or more. Maximum allowed is $4,999.99.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsRequestingOther(true);
     try {
@@ -362,6 +371,7 @@ export function EfsRequestDialog({
                 type="number"
                 step="0.01"
                 min={0}
+                max={4999.99}
                 value={otherAmount}
                 onChange={(e) => setOtherAmount(e.target.value)}
                 placeholder="Enter amount"
@@ -369,8 +379,14 @@ export function EfsRequestDialog({
             </div>
 
             <p className="text-xs text-muted-foreground">
-              This request has no usage limits and will not count toward the cash advance limits.
+              Maximum amount per request is $4,999.99. This request will not count toward the cash advance limits.
             </p>
+
+            {otherAmount && parseFloat(otherAmount) >= 5000 && (
+              <p className="text-xs text-destructive">
+                Amount must be less than $5,000 (max $4,999.99).
+              </p>
+            )}
 
             {/* Actions */}
             <div className="flex gap-2 justify-end pt-2">
@@ -388,6 +404,7 @@ export function EfsRequestDialog({
                   !otherPurpose || 
                   !otherAmount || 
                   parseFloat(otherAmount) <= 0 || 
+                  parseFloat(otherAmount) >= 5000 ||
                   (otherPurpose === "custom" && !customPurpose.trim()) ||
                   (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim()))
                 }

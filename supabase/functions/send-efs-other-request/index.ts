@@ -195,6 +195,14 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Hard cap: requests must be under $5,000 (max $4,999.99)
+    if (amount >= 5000) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Amount cannot be $5,000 or more. Maximum allowed is $4,999.99." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Check if this is a fuel request
     const isFuelRequest = purpose.toLowerCase() === "fuel";
 

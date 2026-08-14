@@ -1946,6 +1946,15 @@ const Reports = () => {
       return;
     }
 
+    if (amount >= 5000) {
+      toast({
+        title: "Amount too high",
+        description: "EFS requests cannot be $5,000 or more. Maximum allowed is $4,999.99.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmittingLumper(true);
     try {
       const { data, error } = await supabase.functions.invoke("send-efs-request", {
