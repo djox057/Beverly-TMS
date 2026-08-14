@@ -130,7 +130,8 @@ export default function EfsRequests() {
       const { data: efsData, error: efsError } = await supabase
         .from("efs_other_requests")
         .select("*")
-        .order("requested_at", { ascending: false });
+        .order("requested_at", { ascending: false })
+        .limit(10000);
 
       if (efsError) throw efsError;
 
@@ -138,7 +139,8 @@ export default function EfsRequests() {
       const { data: cashData, error: cashError } = await supabase
         .from("driver_cash_advances")
         .select("id, amount, requested_at, requested_by, truck_number, driver_id, resend_email_id, drivers(name, company_name)")
-        .order("requested_at", { ascending: false });
+        .order("requested_at", { ascending: false })
+        .limit(10000);
 
       if (cashError) throw cashError;
 
