@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Combobox } from "@/components/ui/combobox";
 import { ComplaintComments } from "@/components/complaints/ComplaintComments";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useComplaintsAccess } from "@/components/complaints/useComplaintsAccess";
 
 // --- Chicago week helpers (Mon–Sun) ---
 const chicagoDateKey = (d: Date) =>
