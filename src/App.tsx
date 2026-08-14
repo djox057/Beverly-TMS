@@ -277,7 +277,10 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/live-oil-change" element={
-          <ProtectedRoute excludedRoles={['afterhours', 'accounting', 'safety', 'claims']}>
+          <ProtectedRoute
+            excludedRoles={['afterhours', 'accounting', 'safety', 'claims']}
+            allowedEmails={['ella@bfprime.net']}
+          >
             <Layout><LiveOilChange /></Layout>
           </ProtectedRoute>
         } />
