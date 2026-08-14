@@ -3682,6 +3682,45 @@ export type Database = {
           },
         ]
       }
+      paperwork_items: {
+        Row: {
+          created_at: string
+          id: string
+          is_ready: boolean
+          last_day: string | null
+          last_day_text: string | null
+          note: string | null
+          office: string
+          reason: string | null
+          unit_label: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_ready?: boolean
+          last_day?: string | null
+          last_day_text?: string | null
+          note?: string | null
+          office?: string
+          reason?: string | null
+          unit_label: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_ready?: boolean
+          last_day?: string | null
+          last_day_text?: string | null
+          note?: string | null
+          office?: string
+          reason?: string | null
+          unit_label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pickup_drops: {
         Row: {
           address: string
