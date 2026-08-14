@@ -905,7 +905,7 @@ export default function Alerts() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="trucks" className="w-full" onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="trucks" className="flex items-center gap-2">
                 <Truck className="h-4 w-4" />
                 Trucks ({filteredTrucks.length}{trucksSearch ? ` of ${trucks.length}` : ''})
@@ -921,6 +921,10 @@ export default function Alerts() {
               <TabsTrigger value="temp_plates" className="flex items-center gap-2">
                 <Image className="h-4 w-4" />
                 Temp Plates ({temporaryPlates.length})
+              </TabsTrigger>
+              <TabsTrigger value="paperwork" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Paperwork
               </TabsTrigger>
             </TabsList>
 
@@ -1635,6 +1639,7 @@ export default function Alerts() {
           </Tabs>
         </CardContent>
       </Card>
+
 
       {/* Edit Truck Dialog */}
       <Dialog open={isEditTruckDialogOpen} onOpenChange={setIsEditTruckDialogOpen}>
