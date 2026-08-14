@@ -11,7 +11,8 @@ import {
   PaginationPrevious,
   PaginationEllipsis
 } from "@/components/ui/pagination";
-import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, CreditCard, ShieldCheck, CircleDot, Wrench, IdCard, FileSearch, ScrollText, HeartPulse, FlaskConical } from "lucide-react";
+import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, CreditCard, ShieldCheck, CircleDot, Wrench, IdCard, FileSearch, ScrollText, HeartPulse, FlaskConical, FileText } from "lucide-react";
+import { PaperworkTab } from "@/components/alerts/PaperworkTab";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -905,7 +906,7 @@ export default function Alerts() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="trucks" className="w-full" onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="trucks" className="flex items-center gap-2">
                 <Truck className="h-4 w-4" />
                 Trucks ({filteredTrucks.length}{trucksSearch ? ` of ${trucks.length}` : ''})
@@ -921,6 +922,10 @@ export default function Alerts() {
               <TabsTrigger value="temp_plates" className="flex items-center gap-2">
                 <Image className="h-4 w-4" />
                 Temp Plates ({temporaryPlates.length})
+              </TabsTrigger>
+              <TabsTrigger value="paperwork" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Paperwork
               </TabsTrigger>
             </TabsList>
 
@@ -1632,9 +1637,14 @@ export default function Alerts() {
                 })()
               )}
             </TabsContent>
+
+            <TabsContent value="paperwork" className="mt-6">
+              <PaperworkTab />
+            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
+
 
       {/* Edit Truck Dialog */}
       <Dialog open={isEditTruckDialogOpen} onOpenChange={setIsEditTruckDialogOpen}>
