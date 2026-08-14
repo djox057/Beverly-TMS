@@ -1,0 +1,2 @@
+CREATE POLICY "Joey can view complaints" ON public.driver_complaints FOR SELECT TO authenticated USING (auth.uid() = '60acd1e3-da7e-4794-9e71-24df33e23e63'::uuid);
+CREATE POLICY "Joey can view complaint comments" ON public.driver_complaint_comments FOR SELECT TO authenticated USING (auth.uid() = '60acd1e3-da7e-4794-9e71-24df33e23e63'::uuid);

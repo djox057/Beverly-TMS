@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useComplaintsAccess } from "./useComplaintsAccess";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
@@ -46,15 +47,16 @@ export function ComplaintComments({
   defaultOpen = false,
 }: ComplaintCommentsProps) {
   const { user, profile, hasRole } = useAuthContext();
+  const { viewOnly } = useComplaintsAccess();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(defaultOpen);
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const isAdmin = hasRole("admin");
-  const canComment = !readOnly && (isAdmin || hasRole("manager") || allowComment);
-  const canDeleteOwn = !readOnly;
+  const isAdmin = hasRole("admin") && !viewOnly;
+  const canComment = !readOnly && !viewOnly && (isAdmin || hasRole("manager") || allowComment);
+  const canDeleteOwn = !readOnly && !viewOnly;
 
   const { data: comments = [], isLoading } = useQuery({
     queryKey: ["driver-complaint-comments", complaintId],

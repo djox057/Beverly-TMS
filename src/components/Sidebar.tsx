@@ -35,6 +35,7 @@ import {
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { isComplaintsViewOnlyEmail } from "@/components/complaints/useComplaintsAccess";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -104,7 +105,7 @@ const navigation = [
     name: "Drivers Complaints",
     href: "/drivers-complaints",
     icon: MessageSquareWarning,
-    roles: ["admin", "manager", "dispatch"],
+    roles: ["admin", "manager", "dispatch", "chicago_management"],
     strict: true,
   },
   {
@@ -247,6 +248,10 @@ export const Sidebar = () => {
     const filteredNav = navigation.filter((item) => {
       // Strict items must match the user's primary role directly (bypasses hasRole inheritance)
       if ((item as any).strict) {
+        // Per-user exception: view-only access to Drivers Complaints
+        if (item.href === "/drivers-complaints" && isComplaintsViewOnlyEmail(user?.email)) {
+          return true;
+        }
         return !!primaryRole && (item.roles || []).includes(primaryRole);
       }
       // If item has role restrictions, check if user has one of those roles
@@ -370,6 +375,7 @@ export const Sidebar = () => {
         "/roadside-inspection",
         "/live-oil-change",
       ];
+      if (isComplaintsViewOnlyEmail(user?.email)) yardPages.push("/drivers-complaints");
       return filteredNav.filter((item) => yardPages.includes(item.href));
     }
 

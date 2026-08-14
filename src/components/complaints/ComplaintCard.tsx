@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useComplaintsAccess } from "./useComplaintsAccess";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,16 +45,15 @@ interface ComplaintCardProps {
 }
 
 export function ComplaintCard({ type, complaints, assignedSourceIds }: ComplaintCardProps) {
-  const { hasRole, user } = useAuthContext();
+  const { user } = useAuthContext();
+  const { canManage, isDispatchOnly, viewOnly } = useComplaintsAccess();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<DriverComplaint | null>(null);
   const [assigning, setAssigning] = useState<DriverComplaint | null>(null);
 
-  const canManage = hasRole("admin") || hasRole("manager");
   const isReportingCard = type === DISPATCHER_REPORTING;
-  const isDispatchOnly = !canManage && hasRole("dispatch");
   const canAdd = canManage || (isDispatchOnly && isReportingCard);
   const canEditRow = (c: DriverComplaint) =>
     canManage || (isDispatchOnly && c.created_by === user?.id);
@@ -223,7 +223,8 @@ export function ComplaintCard({ type, complaints, assignedSourceIds }: Complaint
                       </div>
                       <ComplaintComments
                         complaintId={c.id}
-                        allowComment={isDispatchOnly && c.created_by === user?.id}
+                        readOnly={viewOnly}
+                        allowComment={!viewOnly && isDispatchOnly && c.created_by === user?.id}
                       />
                       {c.source_complaint_id && (
                         <ComplaintComments

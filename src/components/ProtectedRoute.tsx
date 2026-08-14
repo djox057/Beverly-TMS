@@ -11,9 +11,10 @@ interface ProtectedRouteProps {
   excludedRoles?: AppRole[];
   allowedRoles?: AppRole[];
   strictAllowedRoles?: AppRole[];
+  allowedEmails?: string[];
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, excludedRoles, allowedRoles, strictAllowedRoles }) => {
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, excludedRoles, allowedRoles, strictAllowedRoles, allowedEmails }) => {
   const { user, loading, hasRole, getPrimaryRole } = useAuthContext();
 
   if (loading) {
@@ -26,6 +27,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Explicit per-user exceptions bypass role checks (view-only pages)
+  if (allowedEmails?.some((e) => e.toLowerCase() === (user.email || '').toLowerCase())) {
+    return <>{children}</>;
   }
 
   // Check excluded roles using getPrimaryRole to avoid hasRole's privilege escalation

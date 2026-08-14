@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Combobox } from "@/components/ui/combobox";
 import { ComplaintComments } from "@/components/complaints/ComplaintComments";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useComplaintsAccess } from "@/components/complaints/useComplaintsAccess";
 
 // --- Chicago week helpers (Mon–Sun) ---
 const chicagoDateKey = (d: Date) =>
@@ -65,9 +66,8 @@ const chicagoTime = (iso: string) =>
   });
 
 const DriversComplaints = () => {
-  const { hasRole, user } = useAuthContext();
-  const canManage = hasRole("admin") || hasRole("manager");
-  const isDispatchOnly = !canManage && hasRole("dispatch");
+  const { user } = useAuthContext();
+  const { canManage, isDispatchOnly } = useComplaintsAccess();
   const groups = useMemo(
     () =>
       isDispatchOnly
