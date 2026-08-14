@@ -18,6 +18,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { hasMaintenanceOverride } from "@/hooks/useAuth";
 import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 
@@ -266,10 +267,10 @@ const LiveOilChange = () => {
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   };
 
-  const { getPrimaryRole, profile } = useAuthContext();
+  const { getPrimaryRole, profile, user } = useAuthContext();
   const primaryRole = getPrimaryRole();
   const isDispatcher = primaryRole === 'dispatch';
-  const isMaintenance = primaryRole === 'maintenance';
+  const isMaintenance = primaryRole === 'maintenance' || hasMaintenanceOverride(user?.email);
   const { allDispatchers } = useFleetManagement();
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
   const canEditAll = primaryRole !== 'dispatch';

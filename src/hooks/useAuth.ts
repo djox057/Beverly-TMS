@@ -17,6 +17,15 @@ export interface UserProfile {
 
 export type UserRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims';
 
+/**
+ * Users who get `maintenance` permissions on top of their real role.
+ * Does NOT change permissions for the `accounting` role in general.
+ */
+export const MAINTENANCE_OVERRIDE_EMAILS = ['ella@bfprime.net'];
+
+export const hasMaintenanceOverride = (email?: string | null) =>
+  MAINTENANCE_OVERRIDE_EMAILS.includes((email ?? '').toLowerCase());
+
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -36,7 +45,7 @@ export const useAuth = () => {
         if (session?.user) {
           setTimeout(() => {
             fetchUserProfile(session.user.id);
-            fetchUserRoles(session.user.id);
+            fetchUserRoles(session.user.id, session.user.email);
           }, 0);
         } else {
           setProfile(null);
@@ -54,7 +63,7 @@ export const useAuth = () => {
       
       if (session?.user) {
         fetchUserProfile(session.user.id);
-        fetchUserRoles(session.user.id);
+        fetchUserRoles(session.user.id, session.user.email);
       }
       setLoading(false);
     });
@@ -68,6 +77,7 @@ export const useAuth = () => {
   useEffect(() => {
     const userId = user?.id;
     if (!userId) return;
+    const userEmail = user?.email;
 
     const channel = supabase
       .channel(`user_roles:${userId}:${Math.random().toString(36).slice(2)}`)
@@ -81,7 +91,7 @@ export const useAuth = () => {
         },
         () => {
           // Guard against stale closure: re-check current user before fetching
-          fetchUserRoles(userId);
+          fetchUserRoles(userId, userEmail);
         }
       )
       .subscribe();
@@ -89,7 +99,7 @@ export const useAuth = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [user?.id, user?.email]);
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -106,7 +116,7 @@ export const useAuth = () => {
     }
   };
 
-  const fetchUserRoles = async (userId: string) => {
+  const fetchUserRoles = async (userId: string, userEmail?: string | null) => {
     try {
       const { data, error } = await supabase
         .from('user_roles')
@@ -119,9 +129,14 @@ export const useAuth = () => {
       // 'accounting' into the effective roles array so every
       // `roles.includes('accounting')` and `hasRole('accounting')` check across
       // the app passes for Safety/Claims users.
-      const effective = (raw.includes('safety') || raw.includes('claims')) && !raw.includes('accounting')
+      let effective = (raw.includes('safety') || raw.includes('claims')) && !raw.includes('accounting')
         ? [...raw, 'accounting' as UserRole]
         : raw;
+      // Per-user exception: grant maintenance permissions without changing the
+      // permissions of their actual role.
+      if (hasMaintenanceOverride(userEmail) && !effective.includes('maintenance')) {
+        effective = [...effective, 'maintenance' as UserRole];
+      }
       setRoles(effective);
     } catch (error) {
       console.error('Error fetching user roles:', error);
