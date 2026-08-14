@@ -44,16 +44,15 @@ interface ComplaintCardProps {
 }
 
 export function ComplaintCard({ type, complaints, assignedSourceIds }: ComplaintCardProps) {
-  const { hasRole, user } = useAuthContext();
+  const { user } = useAuthContext();
+  const { canManage, isDispatchOnly, viewOnly } = useComplaintsAccess();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<DriverComplaint | null>(null);
   const [assigning, setAssigning] = useState<DriverComplaint | null>(null);
 
-  const canManage = hasRole("admin") || hasRole("manager");
   const isReportingCard = type === DISPATCHER_REPORTING;
-  const isDispatchOnly = !canManage && hasRole("dispatch");
   const canAdd = canManage || (isDispatchOnly && isReportingCard);
   const canEditRow = (c: DriverComplaint) =>
     canManage || (isDispatchOnly && c.created_by === user?.id);
