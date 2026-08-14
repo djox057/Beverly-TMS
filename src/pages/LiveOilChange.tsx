@@ -18,6 +18,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { hasMaintenanceOverride } from "@/hooks/useAuth";
 import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 
