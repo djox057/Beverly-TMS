@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useComplaintsAccess } from "./useComplaintsAccess";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -222,7 +223,8 @@ export function ComplaintCard({ type, complaints, assignedSourceIds }: Complaint
                       </div>
                       <ComplaintComments
                         complaintId={c.id}
-                        allowComment={isDispatchOnly && c.created_by === user?.id}
+                        readOnly={viewOnly}
+                        allowComment={!viewOnly && isDispatchOnly && c.created_by === user?.id}
                       />
                       {c.source_complaint_id && (
                         <ComplaintComments
