@@ -306,14 +306,18 @@ export const Sidebar = () => {
 
     // Accounting role (and Claims, which inherits accounting permissions): all pages except Analytics + Maintenance and Repairs + Fuel Reports + EFS Requests (financial + operational oversight)
     if (primaryRole === "accounting" || primaryRole === "claims") {
+      const hasMaintenanceAccess = hasRole("maintenance");
       return [
         ...filteredNav.filter(
           (item) =>
             item.href !== "/analytics" &&
             item.href !== "/beverly-heatmap" &&
             item.href !== "/truck-sales" &&
-            item.href !== "/live-oil-change",
+            (hasMaintenanceAccess || item.href !== "/live-oil-change"),
         ),
+        ...(hasMaintenanceAccess
+          ? [{ name: "Safety and Maintenance", href: "/alerts", icon: AlertTriangle }]
+          : []),
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
