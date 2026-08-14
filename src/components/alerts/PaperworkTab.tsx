@@ -57,7 +57,6 @@ export const PaperworkTab = () => {
     hasRole("admin") || hasRole("manager") || hasRole("safety") || hasRole("maintenance");
 
   const [search, setSearch] = useState("");
-  const [showReady, setShowReady] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<PaperworkItem | null>(null);
 
@@ -109,13 +108,9 @@ export const PaperworkTab = () => {
     onError: (e: any) => toast.error(e.message || "Failed to delete"),
   });
 
-  const toggleReady = (item: PaperworkItem) =>
-    saveMutation.mutate({ id: item.id, is_ready: !item.is_ready });
-
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return items.filter((i) => {
-      if (i.is_ready !== showReady) return false;
       if (!term) return true;
       return (
         i.unit_label.toLowerCase().includes(term) ||
@@ -123,10 +118,7 @@ export const PaperworkTab = () => {
         (i.note || "").toLowerCase().includes(term)
       );
     });
-  }, [items, search, showReady]);
-
-  const pendingCount = items.filter((i) => !i.is_ready).length;
-  const readyCount = items.length - pendingCount;
+  }, [items, search]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -146,23 +138,7 @@ export const PaperworkTab = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button
-            variant={showReady ? "outline" : "default"}
-            size="sm"
-            onClick={() => setShowReady(false)}
-          >
-            Pending ({pendingCount})
-          </Button>
-          <Button
-            variant={showReady ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowReady(true)}
-          >
-            Ready / Picked Up ({readyCount})
-          </Button>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-center gap-2">
           <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -195,20 +171,19 @@ export const PaperworkTab = () => {
               <TableHead className="w-[170px]">Last Day</TableHead>
               <TableHead className="w-[320px]">Reason / Note</TableHead>
               <TableHead className="w-[240px]">Note</TableHead>
-              <TableHead className="w-[150px]">Status</TableHead>
               <TableHead className="w-[110px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   No items
                 </TableCell>
               </TableRow>
@@ -270,24 +245,8 @@ export const PaperworkTab = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {item.is_ready ? (
-                        <Badge className="bg-green-600 hover:bg-green-600">Ready</Badge>
-                      ) : (
-                        <Badge variant="secondary">Pending</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
                       {canEdit && (
                         <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            title={item.is_ready ? "Mark pending" : "Mark ready / picked up"}
-                            onClick={() => toggleReady(item)}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
