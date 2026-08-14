@@ -126,23 +126,32 @@ export default function EfsRequests() {
   const { data: efsRequests = [], isLoading } = useQuery({
     queryKey: ["efs-all-requests-combined"],
     queryFn: async () => {
-      // Fetch EFS other requests
-      const { data: efsData, error: efsError } = await supabase
-        .from("efs_other_requests")
-        .select("*")
-        .order("requested_at", { ascending: false })
-        .limit(10000);
+      // PostgREST caps each response at 1000 rows, so page through with .range()
+      const PAGE = 1000;
+      const fetchAllPages = async <T,>(
+        table: "efs_other_requests" | "driver_cash_advances",
+        columns: string
+      ): Promise<T[]> => {
+        const rows: T[] = [];
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await supabase
+            .from(table)
+            .select(columns)
+            .order("requested_at", { ascending: false })
+            .range(from, from + PAGE - 1);
+          if (error) throw error;
+          const batch = (data || []) as unknown as T[];
+          rows.push(...batch);
+          if (batch.length < PAGE) break;
+        }
+        return rows;
+      };
 
-      if (efsError) throw efsError;
-
-      // Fetch cash advances with driver name and requester profile
-      const { data: cashData, error: cashError } = await supabase
-        .from("driver_cash_advances")
-        .select("id, amount, requested_at, requested_by, truck_number, driver_id, resend_email_id, drivers(name, company_name)")
-        .order("requested_at", { ascending: false })
-        .limit(10000);
-
-      if (cashError) throw cashError;
+      const efsData = await fetchAllPages<any>("efs_other_requests", "*");
+      const cashData = await fetchAllPages<any>(
+        "driver_cash_advances",
+        "id, amount, requested_at, requested_by, truck_number, driver_id, resend_email_id, drivers(name, company_name)"
+      );
 
       // Fetch profiles to map user_id to full_name
       const allRequesterIds = [...new Set((cashData || []).map(c => c.requested_by).filter(Boolean))] as string[];
