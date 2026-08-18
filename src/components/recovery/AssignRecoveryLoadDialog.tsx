@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
-import { useAuthContext } from "@/contexts/AuthContext";
 import { calculateDhMiles } from "@/utils/mapboxRouteCalculator";
 
 const YARD_COORDS = "41.53782517269106,-87.57865749016162";
