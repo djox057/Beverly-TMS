@@ -147,14 +147,24 @@ serve(async (req) => {
 
     // ---- Trucks nearby (based on each truck's last delivery) ----
     const since = new Date(Date.now() - 45 * 24 * 3600 * 1000).toISOString();
-    const { data: recent } = await db
-      .from("orders")
-      .select("id, truck_id, driver1_id, pickup_datetime")
-      .eq("canceled", false)
-      .not("truck_id", "is", null)
-      .gte("pickup_datetime", since)
-      .order("pickup_datetime", { ascending: true })
-      .limit(5000);
+    // Page through ALL recent orders (newest first) — a single capped query
+    // silently dropped most trucks once volume exceeded the limit.
+    const recent: any[] = [];
+    const PAGE = 1000;
+    for (let page = 0; page < 30; page++) {
+      const { data: chunk, error: chunkErr } = await db
+        .from("orders")
+        .select("id, truck_id, driver1_id, pickup_datetime")
+        .eq("canceled", false)
+        .not("truck_id", "is", null)
+        .gte("pickup_datetime", since)
+        .order("pickup_datetime", { ascending: false })
+        .range(page * PAGE, page * PAGE + PAGE - 1);
+      if (chunkErr) break;
+      recent.push(...(chunk || []));
+      if (!chunk || chunk.length < PAGE) break;
+    }
+    console.log(`recovery-alert: scanned ${recent.length} recent orders`);
 
     const lastByTruck = new Map<string, { orderId: string; driverId: string | null; date: string }>();
     for (const o of recent || []) {
@@ -172,7 +182,7 @@ serve(async (req) => {
       const chunk = lastOrderIds.slice(i, i + 200);
       const { data: d } = await db
         .from("pickup_drops")
-        .select("order_id, sequence_number, latitude, longitude, city, state")
+        .select("order_id, sequence_number, latitude, longitude, address, city, state, zip_code")
         .in("order_id", chunk)
         .eq("type", "delivery")
         .order("sequence_number", { ascending: true });
@@ -190,13 +200,25 @@ serve(async (req) => {
       lastCity: string;
     };
     const nearby: Nearby[] = [];
+    let geocodeBudget = 60;
     for (const [truckId, info] of lastByTruck.entries()) {
       const drops = dropsByOrder.get(info.orderId) || [];
       const lastDrop = drops[drops.length - 1];
-      if (!lastDrop || lastDrop.latitude == null || lastDrop.longitude == null) continue;
+      if (!lastDrop) continue;
+      let dropCoords: { lat: number; lon: number } | null =
+        lastDrop.latitude != null && lastDrop.longitude != null
+          ? { lat: Number(lastDrop.latitude), lon: Number(lastDrop.longitude) }
+          : null;
+      if (!dropCoords && geocodeBudget > 0) {
+        const addr = [lastDrop.address, lastDrop.city, lastDrop.state, lastDrop.zip_code].filter(Boolean).join(", ");
+        if (addr) {
+          geocodeBudget--;
+          dropCoords = await geocode(addr);
+        }
+      }
+      if (!dropCoords) continue;
       const miles = Math.round(
-        haversine(pickupCoords.lat, pickupCoords.lon, Number(lastDrop.latitude), Number(lastDrop.longitude)) *
-          ROAD_FACTOR,
+        haversine(pickupCoords.lat, pickupCoords.lon, dropCoords.lat, dropCoords.lon) * ROAD_FACTOR,
       );
       if (miles > RADIUS_MILES) continue;
       nearby.push({
@@ -206,6 +228,7 @@ serve(async (req) => {
         lastCity: [lastDrop.city, lastDrop.state].filter(Boolean).join(", "),
       });
     }
+    console.log(`recovery-alert: ${lastByTruck.size} trucks scanned, ${nearby.length} within ${RADIUS_MILES} mi`);
 
     if (nearby.length === 0) {
       return new Response(JSON.stringify({ sent: 0, trucksNearby: 0 }), {
