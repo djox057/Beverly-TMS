@@ -796,6 +796,9 @@ const EditOrder = () => {
                 reason: String(it?.reason || ""),
                 file_path: it?.file_path ?? null,
                 file_name: it?.file_name ?? null,
+                requested_by: it?.requested_by ?? null,
+                requested_by_name: it?.requested_by_name ?? null,
+                requested_at: it?.requested_at ?? null,
               })),
             );
           } else {
