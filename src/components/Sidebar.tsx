@@ -491,7 +491,7 @@ export const Sidebar = () => {
                                   variant={recoveryLoads?.hasMine ? "destructive" : "secondary"}
                                   className="ml-auto"
                                 >
-                                  {recoveryLoads?.hasMine ? "!" : recoveryLoads?.count}
+                                  {recoveryLoads?.hasMine ? `! ${recoveryLoads.count}` : recoveryLoads?.count}
                                 </Badge>
                               )}
                               {item.href === "/fleets" && isScheduledThisWeekend && !hasAcknowledgedToday && (
