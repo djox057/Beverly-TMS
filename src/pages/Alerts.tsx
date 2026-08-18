@@ -872,9 +872,17 @@ export default function Alerts() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="h-8 w-8 text-destructive" />
-        <h1 className="text-3xl font-bold">Safety and Maintenance</h1>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+          <h1 className="text-3xl font-bold">Safety and Maintenance</h1>
+        </div>
+        {canSendReminders && (
+          <Button variant="outline" size="sm" onClick={handleSendReminders} disabled={isSendingReminders}>
+            <Mail className="h-4 w-4 mr-2" />
+            {isSendingReminders ? "Sending..." : "Send reminders now"}
+          </Button>
+        )}
       </div>
       
       <Card>
