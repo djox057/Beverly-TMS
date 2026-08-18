@@ -15,6 +15,9 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
+import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
+import { useToast } from "@/hooks/use-toast";
+import { formatInTimeZone } from "date-fns-tz";
 import { AssignRecoveryLoadDialog } from "@/components/recovery/AssignRecoveryLoadDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
@@ -35,15 +38,37 @@ interface RetrievalOrder {
   freight_amount: number | null;
   loaded_miles: number | null;
   canceled: boolean | null;
+  booked_by: string | null;
+  pickup_datetime: string | null;
+  delivery_datetime: string | null;
   broker: { name: string | null } | null;
   booked_by_company: { name: string | null } | null;
   pickup_drops: Stop[] | null;
+  order_files:
+    | { id: string; file_category: string | null; file_name: string | null; file_path: string }[]
+    | null;
 }
 
+// City, ST only
 const formatStop = (stop?: Stop | null) => {
+  if (!stop) return "—";
+  const parts = [stop.city, stop.state].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : "—";
+};
+
+const formatFullStop = (stop?: Stop | null) => {
   if (!stop) return "—";
   const parts = [stop.address, stop.city, stop.state, stop.zip_code].filter(Boolean);
   return parts.length > 0 ? parts.join(", ") : "—";
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "—";
+  try {
+    return formatInTimeZone(new Date(value), "America/Chicago", "MM/dd/yyyy HH:mm");
+  } catch {
+    return "—";
+  }
 };
 
 // Trim legal suffixes so "C.H. ROBINSON COMPANY, LLC" renders as "C.H. ROBINSON"
@@ -68,6 +93,7 @@ const RecoveryLoads = () => {
   } | null>(null);
   const { hasRole } = useAuth();
   const canSeeStats = hasRole("manager") || hasRole("admin");
+  const { toast } = useToast();
 
   const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["recovery-loads"],
@@ -75,10 +101,12 @@ const RecoveryLoads = () => {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          `id, broker_load_number, freight_amount, loaded_miles, canceled,
+          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by,
+           pickup_datetime, delivery_datetime,
            broker:brokers ( name ),
            booked_by_company:companies!orders_booked_by_company_id_fkey ( name ),
-           pickup_drops ( type, address, city, state, zip_code, sequence_number )`
+           pickup_drops ( type, address, city, state, zip_code, sequence_number ),
+           order_files ( id, file_category, file_name, file_path )`
         )
         .eq("retrieval", true)
         .order("created_at", { ascending: false });
@@ -107,6 +135,11 @@ const RecoveryLoads = () => {
         loadNumber: order.broker_load_number || "—",
         pickupAddress: formatStop(pickup),
         deliveryAddress: formatStop(delivery),
+        pickupFullAddress: formatFullStop(pickup),
+        pickupDatetime: order.pickup_datetime,
+        deliveryDatetime: order.delivery_datetime,
+        bookedBy: order.booked_by || "—",
+        rcFile: (order.order_files || []).find((f) => f.file_category === "RC") || null,
         freightAmount: order.freight_amount,
         rpm,
         loadedMiles: order.loaded_miles,
@@ -125,6 +158,7 @@ const RecoveryLoads = () => {
         row.loadNumber,
         row.pickupAddress,
         row.deliveryAddress,
+        row.bookedBy,
         row.bookedByCompany,
         row.brokerName,
       ]
@@ -133,6 +167,27 @@ const RecoveryLoads = () => {
         .includes(term)
     );
   }, [rows, debouncedSearch]);
+
+  const handleOpenRc = async (file: {
+    id: string;
+    file_category: string | null;
+    file_name: string | null;
+    file_path: string;
+  } | null, orderId: string) => {
+    if (!file) {
+      toast({ title: "No RC", description: "This load has no RC file uploaded.", variant: "destructive" });
+      return;
+    }
+    const { signedUrl } = await getOrderFileSignedUrl({
+      id: file.id,
+      order_id: orderId,
+      file_category: file.file_category || "RC",
+      file_name: file.file_name || "rc",
+      file_path: file.file_path,
+    });
+    if (signedUrl) window.open(signedUrl, "_blank");
+    else toast({ title: "Could not open RC", variant: "destructive" });
+  };
 
   const loadsView = (
     <>
@@ -153,25 +208,29 @@ const RecoveryLoads = () => {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[90px]">Load#</TableHead>
-              <TableHead className="w-[300px]">Pickup Address</TableHead>
-              <TableHead className="w-[300px]">Delivery Address</TableHead>
+              <TableHead className="w-[150px]">Pickup</TableHead>
+              <TableHead className="w-[130px]">Pickup Date/Time</TableHead>
+              <TableHead className="w-[150px]">Delivery</TableHead>
+              <TableHead className="w-[130px]">Delivery Date/Time</TableHead>
               <TableHead className="w-[100px]">Freight</TableHead>
               <TableHead className="w-[80px]">Miles</TableHead>
+              <TableHead className="w-[150px]">Booked By</TableHead>
               <TableHead className="w-[200px]">Booked By Company</TableHead>
               <TableHead className="w-[140px]">Broker</TableHead>
+              <TableHead className="w-[70px]">RC</TableHead>
               <TableHead className="w-[100px]">Assign</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                   No recovery loads found.
                 </TableCell>
               </TableRow>
@@ -182,9 +241,11 @@ const RecoveryLoads = () => {
                   <TableCell className="whitespace-normal break-words text-sm">
                     {row.pickupAddress}
                   </TableCell>
+                  <TableCell className="text-sm">{formatDateTime(row.pickupDatetime)}</TableCell>
                   <TableCell className="whitespace-normal break-words text-sm">
                     {row.deliveryAddress}
                   </TableCell>
+                  <TableCell className="text-sm">{formatDateTime(row.deliveryDatetime)}</TableCell>
                   <TableCell>
                     <div className="font-medium">
                       {row.freightAmount != null ? formatCurrency(row.freightAmount) : "—"}
@@ -194,9 +255,22 @@ const RecoveryLoads = () => {
                     </div>
                   </TableCell>
                   <TableCell>{row.loadedMiles ?? "—"}</TableCell>
+                  <TableCell className="truncate" title={row.bookedBy}>
+                    {row.bookedBy}
+                  </TableCell>
                   <TableCell className="truncate">{row.bookedByCompany}</TableCell>
                   <TableCell className="truncate" title={row.brokerName}>
                     {row.brokerName}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!row.rcFile}
+                      onClick={() => handleOpenRc(row.rcFile, row.id)}
+                    >
+                      RC
+                    </Button>
                   </TableCell>
                   <TableCell>
                     <Button
@@ -206,7 +280,7 @@ const RecoveryLoads = () => {
                         setAssignOrder({
                           id: row.id,
                           loadNumber: row.loadNumber,
-                          pickupAddress: row.pickupAddress,
+                          pickupAddress: row.pickupFullAddress,
                         })
                       }
                     >
