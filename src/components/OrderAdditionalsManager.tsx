@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/popover";
 import { Plus, Trash2, Check, ChevronsUpDown, Pencil, Paperclip, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 // Define the available additional types with their display names and database mapping
 const ADDITIONAL_TYPES = [
