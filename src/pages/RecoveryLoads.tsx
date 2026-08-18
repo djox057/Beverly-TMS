@@ -278,6 +278,12 @@ const RecoveryLoads = () => {
                     <Button
                       size="sm"
                       variant="outline"
+                      disabled={!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName)}
+                      title={
+                        !canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName)
+                          ? "Only the dispatcher who booked this load can assign it"
+                          : undefined
+                      }
                       onClick={() =>
                         setAssignOrder({
                           id: row.id,
