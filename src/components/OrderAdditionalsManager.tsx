@@ -730,9 +730,15 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                       const idx = item.index;
                       const li = lumperItems[idx];
                       const isUploading = uploadingLumperIndex === idx;
+                      const requesterLabel = li?.requested_by_name ? (
+                        <span className="text-xs text-muted-foreground italic mr-1" title={li.requested_at ? new Date(li.requested_at).toLocaleString() : undefined}>
+                          by {li.requested_by_name}
+                        </span>
+                      ) : null;
                       if (li?.file_path) {
                         return (
                           <span className="flex items-center gap-1">
+                            {requesterLabel}
                             <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
                             <button
                               type="button"
@@ -760,11 +766,15 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                       }
                       if (isLocked) {
                         return (
-                          <span className="text-xs text-muted-foreground italic">No receipt</span>
+                          <span className="flex items-center gap-1">
+                            {requesterLabel}
+                            <span className="text-xs text-muted-foreground italic">No receipt</span>
+                          </span>
                         );
                       }
                       return (
                         <>
+                          {requesterLabel}
                           <input
                             ref={(el) => { fileInputRefs.current[idx] = el; }}
                             type="file"
