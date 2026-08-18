@@ -92,6 +92,13 @@ const navigation = [
   { name: "Brokers", href: "/brokers", icon: Building2 },
   { name: "Fleets", href: "/fleets", icon: Users },
   { name: "Reports", href: "/reports", icon: BarChart3 },
+  {
+    name: "Recovery Loads",
+    href: "/recovery-loads",
+    icon: RefreshCw,
+    roles: ["dispatch", "supervisor", "manager", "admin"],
+    strict: true,
+  },
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
   {

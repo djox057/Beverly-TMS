@@ -28,6 +28,7 @@ import Drivers from "./pages/Drivers";
 import Brokers from "./pages/Brokers";
 import Fleets from "./pages/Fleets";
 import Reports from "./pages/Reports";
+import RecoveryLoads from "./pages/RecoveryLoads";
 import YardArrivals from "./pages/YardArrivals";
 import Analytics from "./pages/Analytics";
 import DispatcherTier from "./pages/DispatcherTier";
@@ -179,6 +180,11 @@ const AppContent = () => {
         <Route path="/yard-arrivals" element={
           <ProtectedRoute>
             <Layout><YardArrivals /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/recovery-loads" element={
+          <ProtectedRoute strictAllowedRoles={['dispatch', 'supervisor', 'manager', 'admin']}>
+            <Layout><RecoveryLoads /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/analytics" element={
