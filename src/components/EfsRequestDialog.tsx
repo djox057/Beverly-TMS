@@ -351,6 +351,16 @@ export function EfsRequestDialog({
             )}
             
             {/* Fuel-specific fields */}
+            {otherPurpose === "fuel" && hasMissingFuelReceipt && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm text-destructive font-medium">
+                  Fuel request blocked: {driverName} has {missingFuelReceipts.length} fuel receipt
+                  {missingFuelReceipts.length > 1 ? "s" : ""} missing. Upload the missing receipt
+                  {missingFuelReceipts.length > 1 ? "s" : ""} before requesting fuel again.
+                </p>
+              </div>
+            )}
+
             {otherPurpose === "fuel" && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -421,7 +431,9 @@ export function EfsRequestDialog({
                   parseFloat(otherAmount) <= 0 || 
                   parseFloat(otherAmount) >= 5000 ||
                   (otherPurpose === "custom" && !customPurpose.trim()) ||
-                  (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim()))
+                  (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim())) ||
+                  fuelBlocked ||
+                  (otherPurpose === "fuel" && isMissingReceiptsLoading)
                 }
               >
                 {isRequestingOther ? (
