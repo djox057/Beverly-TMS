@@ -152,7 +152,7 @@ const RecoveryLoads = () => {
   }, [orders]);
 
   const filteredRows = useMemo(() => {
-    const activeRows = rows.filter((r) => r.retrieval);
+    const activeRows = rows.filter((r) => r.retrieval && !r.canceled);
     const term = debouncedSearch.trim().toLowerCase();
     if (!term) return activeRows;
     return activeRows.filter((row) =>
