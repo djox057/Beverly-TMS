@@ -7847,20 +7847,31 @@ const Reports = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      className={
+                        zoomedRecovery
+                          ? "border-destructive text-destructive hover:bg-destructive/10"
+                          : undefined
+                      }
                       onClick={async () => {
+                        const next = !zoomedRecovery;
                         const { error } = await supabase
                           .from("orders")
-                          .update({ retrieval: true } as never)
+                          .update({ retrieval: next } as never)
                           .eq("id", zoomedLoad.orderId);
                         if (error) {
-                          toast({ title: "Failed to mark as Recovery", description: error.message, variant: "destructive" });
+                          toast({
+                            title: next ? "Failed to mark as Recovery" : "Failed to remove Recovery",
+                            description: error.message,
+                            variant: "destructive",
+                          });
                           return;
                         }
-                        toast({ title: "Marked as Recovery" });
+                        setZoomedRecovery(next);
+                        toast({ title: next ? "Marked as Recovery" : "Removed from Recovery" });
                       }}
                     >
                       <RefreshCw className="h-4 w-4 mr-2" />
-                      Recovery
+                      {zoomedRecovery ? "Remove Recovery" : "Recovery"}
                     </Button>
                   )}
                   <Button
