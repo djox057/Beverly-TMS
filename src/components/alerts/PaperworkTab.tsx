@@ -83,9 +83,13 @@ export const PaperworkTab = () => {
         if (error) throw error;
         return { created: false as const };
       } else {
-        const { error } = await supabase.from("paperwork_items").insert(payload as never);
+        const { data, error } = await supabase
+          .from("paperwork_items")
+          .insert(payload as never)
+          .select("id")
+          .maybeSingle();
         if (error) throw error;
-        return { created: true as const, item: payload };
+        return { created: true as const, item: payload, id: (data as any)?.id ?? null };
       }
     },
     onSuccess: async (result) => {
@@ -99,6 +103,8 @@ export const PaperworkTab = () => {
         try {
           const { data, error } = await supabase.functions.invoke("send-paperwork-reminder", {
             body: {
+              mode: "created",
+              paperworkId: result.id ?? undefined,
               unitLabel: item.unit_label,
               lastDay: item.last_day ?? null,
               lastDayText: item.last_day_text ?? null,
