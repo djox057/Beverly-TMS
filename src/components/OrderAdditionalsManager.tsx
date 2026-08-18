@@ -171,6 +171,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   isLocked,
   isCanceledLoad = false,
 }, ref) => {
+  const { user, profile } = useAuth();
   const [typeOpen, setTypeOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<AdditionalType | "">("");
   const [newCompanyAmount, setNewCompanyAmount] = useState("");
