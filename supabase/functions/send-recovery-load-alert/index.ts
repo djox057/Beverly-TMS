@@ -219,7 +219,7 @@ serve(async (req) => {
     const [{ data: trucks }, { data: drivers }] = await Promise.all([
       db.from("trucks").select("id, truck_number, dispatcher_id, is_active").in("id", truckIds),
       driverIds.length
-        ? db.from("drivers").select("id, full_name, dispatcher_id, is_active").in("id", driverIds)
+        ? db.from("drivers").select("id, name, dispatcher_id, is_active").in("id", driverIds)
         : Promise.resolve({ data: [] } as any),
     ]);
 
@@ -310,7 +310,7 @@ serve(async (req) => {
           const driver: any = n.driverId ? driverMap.get(n.driverId) : null;
           return `<tr>
             <td style="padding:8px;border-bottom:1px solid #e2e8f0">${esc(truck?.truck_number || "—")}</td>
-            <td style="padding:8px;border-bottom:1px solid #e2e8f0">${esc(driver?.full_name || "—")}</td>
+            <td style="padding:8px;border-bottom:1px solid #e2e8f0">${esc(driver?.name || "—")}</td>
             <td style="padding:8px;border-bottom:1px solid #e2e8f0">${esc(n.lastCity || "—")}</td>
             <td style="padding:8px;border-bottom:1px solid #e2e8f0;font-weight:700">~${n.miles} mi</td>
           </tr>`;
