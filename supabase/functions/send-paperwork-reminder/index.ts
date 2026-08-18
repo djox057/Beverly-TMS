@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@4.0.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { z } from "npm:zod@3.23.8";
+import { FROM, TEST_CC, TEST_TO, routeRecipients } from "../_shared/reminders.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -10,17 +11,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// TEST MODE: all reminders go only to these addresses.
-const TEST_TO = ["tommy@bfprime.net"];
-const TEST_CC = ["jon@bfprime.net"];
-const FROM = "Dispatch <dispatch@bfprime.net>";
-
 const BodySchema = z.object({
   unitLabel: z.string().trim().min(1).max(200),
   lastDay: z.string().trim().max(40).nullish(),
   lastDayText: z.string().trim().max(120).nullish(),
   reason: z.string().trim().max(500).nullish(),
   note: z.string().trim().max(1000).nullish(),
+  mode: z.enum(["created", "milestone"]).nullish(),
+  milestone: z.number().int().nullish(),
+  paperworkId: z.string().uuid().nullish(),
 });
 
 const formatDate = (value?: string | null) => {
@@ -67,7 +66,7 @@ serve(async (req: Request): Promise<Response> => {
       });
     }
 
-    const { unitLabel, lastDay, lastDayText, reason, note } = parsed.data;
+    const { unitLabel, lastDay, lastDayText, reason, note, mode, milestone, paperworkId } = parsed.data;
     const admin = createClient(supabaseUrl, serviceKey);
 
     // Extract candidate unit numbers from labels like "(8495) 096201"
@@ -126,8 +125,16 @@ serve(async (req: Request): Promise<Response> => {
 
     const dueDate = formatDate(lastDay) || lastDayText || "ASAP";
 
+    const recipients = routeRecipients(dispatcherEmail ? [dispatcherEmail] : []);
+    const milestoneText =
+      mode === "milestone"
+        ? milestone != null && milestone > 0
+          ? `REMINDER: ${milestone} day${milestone === 1 ? "" : "s"} left`
+          : "REMINDER: OVERDUE"
+        : null;
+
     const lines = [
-      "Paperwork reminder",
+      milestoneText ?? "Paperwork reminder",
       "",
       `Unit: ${unitLabel}`,
       truckNumber ? `Truck: ${truckNumber}` : null,
@@ -143,14 +150,14 @@ serve(async (req: Request): Promise<Response> => {
       "",
       `Requested by: ${userData.user.email ?? "unknown"}`,
       "",
-      "(TEST MODE: this reminder is only delivered to tommy@bfprime.net, CC jon@bfprime.net.)",
+      recipients.banner ? `(${recipients.banner})` : null,
     ].filter(Boolean);
 
     const response = await resend.emails.send({
       from: FROM,
-      to: TEST_TO,
-      cc: TEST_CC,
-      subject: `Paperwork Reminder - ${unitLabel} - bring to yard by ${dueDate}`,
+      to: recipients.to,
+      ...(recipients.cc ? { cc: recipients.cc } : {}),
+      subject: `${milestoneText ? `${milestoneText} - ` : ""}Paperwork Reminder - ${unitLabel} - bring to yard by ${dueDate}`,
       text: lines.join("\n"),
     });
 
@@ -163,8 +170,21 @@ serve(async (req: Request): Promise<Response> => {
       });
     }
 
+    if (paperworkId) {
+      const { error: logError } = await admin.from("document_reminder_log").insert({
+        entity_type: "paperwork",
+        entity_id: paperworkId,
+        entity_label: unitLabel,
+        field_key: "last_day",
+        milestone: mode === "milestone" ? (milestone ?? 0) : 999,
+        due_date: lastDay ? String(lastDay).slice(0, 10) : null,
+        sent_to: dispatcherEmail ?? "unassigned",
+      });
+      if (logError) console.error("Reminder log insert error:", logError.message);
+    }
+
     return new Response(
-      JSON.stringify({ success: true, to: TEST_TO, cc: TEST_CC, resolvedDispatcher: dispatcherEmail }),
+      JSON.stringify({ success: true, to: recipients.to, cc: recipients.cc ?? [], resolvedDispatcher: dispatcherEmail }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: any) {
