@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import {
   Table,
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
+import { AssignRecoveryLoadDialog } from "@/components/recovery/AssignRecoveryLoadDialog";
 
 interface Stop {
   type: string | null;
@@ -40,11 +42,24 @@ const formatStop = (stop?: Stop | null) => {
   return parts.length > 0 ? parts.join(", ") : "—";
 };
 
+// Trim legal suffixes so "C.H. ROBINSON COMPANY, LLC" renders as "C.H. ROBINSON"
+const shortenBrokerName = (name?: string | null) => {
+  if (!name) return "—";
+  let out = name.trim();
+  out = out.replace(
+    /[\s,.-]+(?:L\.?L\.?C\.?|L\.?L\.?P\.?|INC\.?|INCORPORATED|CORP\.?|CORPORATION|CO\.?|COMPANY|LTD\.?|LIMITED|PLC|LP|PC|USA|GROUP|HOLDINGS?|ENTERPRISES?|LOGISTICS|TRANSPORTATION|TRANSPORT|TRUCKING|FREIGHT|BROKERAGE|SERVICES?|SOLUTIONS)\b\.?/gi,
+    ""
+  );
+  out = out.replace(/[\s,.-]+$/, "").trim();
+  return out || name.trim();
+};
+
 const RecoveryLoads = () => {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
+  const [assignOrder, setAssignOrder] = useState<{ id: string; loadNumber: string } | null>(null);
 
-  const { data: orders = [], isLoading } = useQuery({
+  const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["recovery-loads"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -86,7 +101,7 @@ const RecoveryLoads = () => {
         rpm,
         loadedMiles: order.loaded_miles,
         bookedByCompany: order.booked_by_company?.name || "—",
-        brokerName: order.broker?.name || "—",
+        brokerName: shortenBrokerName(order.broker?.name),
       };
     });
   }, [orders]);
@@ -127,25 +142,26 @@ const RecoveryLoads = () => {
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[140px]">Load#</TableHead>
+              <TableHead className="w-[90px]">Load#</TableHead>
               <TableHead className="w-[300px]">Pickup Address</TableHead>
               <TableHead className="w-[300px]">Delivery Address</TableHead>
-              <TableHead className="w-[130px]">Freight Amount</TableHead>
-              <TableHead className="w-[110px]">Loaded Miles</TableHead>
+              <TableHead className="w-[100px]">Freight</TableHead>
+              <TableHead className="w-[80px]">Miles</TableHead>
               <TableHead className="w-[200px]">Booked By Company</TableHead>
-              <TableHead className="w-[200px]">Broker</TableHead>
+              <TableHead className="w-[140px]">Broker</TableHead>
+              <TableHead className="w-[100px]">Assign</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   No recovery loads found.
                 </TableCell>
               </TableRow>
@@ -169,13 +185,34 @@ const RecoveryLoads = () => {
                   </TableCell>
                   <TableCell>{row.loadedMiles ?? "—"}</TableCell>
                   <TableCell className="truncate">{row.bookedByCompany}</TableCell>
-                  <TableCell className="truncate">{row.brokerName}</TableCell>
+                  <TableCell className="truncate" title={row.brokerName}>
+                    {row.brokerName}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setAssignOrder({ id: row.id, loadNumber: row.loadNumber })
+                      }
+                    >
+                      Assign
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </Card>
+
+      <AssignRecoveryLoadDialog
+        open={!!assignOrder}
+        onOpenChange={(open) => !open && setAssignOrder(null)}
+        orderId={assignOrder?.id ?? null}
+        loadNumber={assignOrder?.loadNumber}
+        onAssigned={() => refetch()}
+      />
     </div>
   );
 };
