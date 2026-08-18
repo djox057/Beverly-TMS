@@ -223,6 +223,7 @@ export function AssignRecoveryLoadDialog({
       trailer_id: trailerId || null,
       driver_price: driverRate ? parseFloat(driverRate) : null,
       dh_miles: dhMiles ? parseInt(dhMiles, 10) : null,
+      retrieval: false,
     };
     if (bookedBy) payload.booked_by = bookedBy;
 
