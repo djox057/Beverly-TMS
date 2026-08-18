@@ -224,6 +224,7 @@ export function AssignRecoveryLoadDialog({
       driver_price: driverRate ? parseFloat(driverRate) : null,
       dh_miles: dhMiles ? parseInt(dhMiles, 10) : null,
       retrieval: false,
+      recovery_assigned: true,
     };
     if (bookedBy) payload.booked_by = bookedBy;
 
