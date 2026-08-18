@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
-import { useAuthContext } from "@/contexts/AuthContext";
 import { calculateDhMiles } from "@/utils/mapboxRouteCalculator";
 
 const YARD_COORDS = "41.53782517269106,-87.57865749016162";
@@ -36,12 +35,6 @@ export function AssignRecoveryLoadDialog({
   onAssigned,
 }: AssignRecoveryLoadDialogProps) {
   const { toast } = useToast();
-  const { user, hasRole } = useAuthContext();
-  const dispatcherOnly =
-    hasRole("dispatch") &&
-    !hasRole("admin") &&
-    !hasRole("manager") &&
-    !hasRole("supervisor");
   const [truckId, setTruckId] = useState("");
   const [driverId, setDriverId] = useState("");
   const [trailerId, setTrailerId] = useState("");
@@ -61,7 +54,7 @@ export function AssignRecoveryLoadDialog({
   }, [open, orderId]);
 
   const { data: trucks = [] } = useQuery({
-    queryKey: ["recovery-assign-trucks", dispatcherOnly ? user?.id : "all"],
+    queryKey: ["recovery-assign-trucks", "all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
@@ -69,25 +62,7 @@ export function AssignRecoveryLoadDialog({
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
-      let rows = data || [];
-
-      if (dispatcherOnly && user?.id) {
-        const driverIds = [
-          ...new Set(rows.flatMap((t: any) => [t.driver1_id, t.driver2_id]).filter(Boolean)),
-        ] as string[];
-        if (driverIds.length === 0) return [];
-        const { data: myDrivers, error: dErr } = await supabase
-          .from("drivers")
-          .select("id")
-          .in("id", driverIds)
-          .eq("dispatcher_id", user.id);
-        if (dErr) throw dErr;
-        const mine = new Set((myDrivers || []).map((d) => d.id));
-        rows = rows.filter(
-          (t: any) => (t.driver1_id && mine.has(t.driver1_id)) || (t.driver2_id && mine.has(t.driver2_id))
-        );
-      }
-      return rows;
+      return data || [];
     },
     enabled: open,
     staleTime: 60000,

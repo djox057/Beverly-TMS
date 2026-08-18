@@ -89,8 +89,10 @@ const RecoveryLoads = () => {
     loadNumber: string;
     pickupAddress: string;
   } | null>(null);
-  const { hasRole } = useAuth();
+  const { hasRole, profile } = useAuth();
   const canSeeStats = hasRole("manager") || hasRole("admin");
+  const canAssignAny = hasRole("manager") || hasRole("admin");
+  const myName = (profile?.full_name || "").trim().toLowerCase();
   const { toast } = useToast();
 
   const { data: orders = [], isLoading, refetch } = useQuery({
@@ -276,6 +278,12 @@ const RecoveryLoads = () => {
                     <Button
                       size="sm"
                       variant="outline"
+                      disabled={!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName)}
+                      title={
+                        !canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName)
+                          ? "Only the dispatcher who booked this load can assign it"
+                          : undefined
+                      }
                       onClick={() =>
                         setAssignOrder({
                           id: row.id,
