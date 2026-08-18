@@ -3286,11 +3286,25 @@ const NewOrder = () => {
                   onChange={(e) => setDriverPrice(e.target.value)}
                 />
                 {stopAmountTooLow && (
-                  <p className="text-xs text-destructive">
-                    Stop Amount cannot be less than 90% of the Freight Amount ($
-                    {((parseFloat(freightAmount) || 0) * 0.9).toFixed(2)}). Contact your managers for approval of a lower
-                    stop amount.
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-destructive">
+                      Stop Amount is below 90% of the Freight Amount ($
+                      {((parseFloat(freightAmount) || 0) * 0.9).toFixed(2)}). Select the manager who approved this lower
+                      stop amount — they will be notified by email.
+                    </p>
+                    <Label htmlFor="approval-manager" className="text-destructive">
+                      Approved by manager *
+                    </Label>
+                    <Combobox
+                      options={approvalManagerOptions}
+                      value={approvalManagerId}
+                      onValueChange={setApprovalManagerId}
+                      placeholder="Select approving manager..."
+                      searchPlaceholder="Search managers..."
+                      emptyText="No managers found."
+                      className={approvalManagerId ? "" : "border-destructive"}
+                    />
+                  </div>
                 )}
                 {(() => {
                   const selectedDriver = allDrivers?.find((d) => d.id === driver1);
