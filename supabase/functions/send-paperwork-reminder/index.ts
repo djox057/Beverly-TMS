@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@4.0.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { z } from "npm:zod@3.23.8";
-import { FROM, TEST_CC, TEST_TO, routeRecipients } from "../_shared/reminders.ts";
+import { FROM, routeRecipients } from "../_shared/reminders.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
