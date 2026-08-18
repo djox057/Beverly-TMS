@@ -182,18 +182,29 @@ Purpose Lumper fee`;
       reason: typeof it?.reason === "string" ? it.reason : "",
       file_path: it?.file_path ?? null,
       file_name: it?.file_name ?? null,
+      requested_by: it?.requested_by ?? null,
+      requested_by_name: it?.requested_by_name ?? null,
+      requested_at: it?.requested_at ?? null,
     }));
 
     // Migrate legacy single lumper (no items yet) into first entry so the new
     // request becomes a separate Lumper 2 instead of stacking into Lumper 1.
     const itemsSum = existingItems.reduce((s, it) => s + (it.amount || 0), 0);
     const seedItems = existingItems.length === 0 && currentLumper > 0
-      ? [{ amount: currentLumper, reason: "", file_path: null, file_name: null }]
+      ? [{ amount: currentLumper, reason: "", file_path: null, file_name: null, requested_by: null, requested_by_name: null, requested_at: null }]
       : existingItems;
 
     const newItems = [
       ...seedItems,
-      { amount: lumperAmount, reason: "", file_path: null, file_name: null },
+      {
+        amount: lumperAmount,
+        reason: "",
+        file_path: null,
+        file_name: null,
+        requested_by: requesterUserId,
+        requested_by_name: requesterName ?? requesterEmail ?? null,
+        requested_at: new Date().toISOString(),
+      },
     ];
     const newLumper = newItems.reduce((s, it) => s + (it.amount || 0), 0);
 
