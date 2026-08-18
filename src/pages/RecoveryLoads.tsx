@@ -211,9 +211,9 @@ const RecoveryLoads = () => {
             <TableRow>
               <TableHead className="w-[110px]">Load#</TableHead>
               <TableHead className="w-[130px]">Pickup</TableHead>
-              <TableHead className="w-[95px]">Pickup</TableHead>
+              <TableHead className="w-[95px]">PU Date</TableHead>
               <TableHead className="w-[130px]">Delivery</TableHead>
-              <TableHead className="w-[95px]">Delivery</TableHead>
+              <TableHead className="w-[95px]">DEL Date</TableHead>
               <TableHead className="w-[95px]">Freight</TableHead>
               <TableHead className="w-[65px]">Miles</TableHead>
               <TableHead className="w-[150px]">Booked By</TableHead>
@@ -243,11 +243,11 @@ const RecoveryLoads = () => {
                   <TableCell className="whitespace-normal break-words text-sm">
                     {row.pickupAddress}
                   </TableCell>
-                  <TableCell className="text-sm">{formatDateTime(row.pickupDatetime)}</TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">{formatDateTime(row.pickupDatetime)}</TableCell>
                   <TableCell className="whitespace-normal break-words text-sm">
                     {row.deliveryAddress}
                   </TableCell>
-                  <TableCell className="text-sm">{formatDateTime(row.deliveryDatetime)}</TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">{formatDateTime(row.deliveryDatetime)}</TableCell>
                   <TableCell>
                     <div className="font-medium">
                       {row.freightAmount != null ? formatCurrency(row.freightAmount) : "—"}
