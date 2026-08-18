@@ -1747,6 +1747,18 @@ const NewOrder = () => {
     // Set submitting flag IMMEDIATELY to prevent race conditions from double-clicks
     setIsSubmitting(true);
 
+    // Stop Amount floor for dispatch/afterhours
+    if (stopAmountTooLow) {
+      toast({
+        title: "Stop Amount too low",
+        description:
+          "Stop Amount cannot be less than 90% of the Freight Amount. Contact your managers for approval of a lower stop amount.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     // Generate (or reuse) an idempotency key for this submit. Reused on retries
     // so the server-side RPC dedupes via the unique (company_id, client_request_id) index.
     if (!clientRequestIdRef.current) {
