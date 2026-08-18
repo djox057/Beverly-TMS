@@ -269,6 +269,16 @@ const NewOrder = () => {
     !hasRole("accounting") &&
     !hasRole("supervisor") &&
     !hasRole("safety");
+
+  // Stop Amount floor: dispatch/afterhours cannot go below 90% of freight amount
+  const stopAmountRestricted = (hasRole("dispatch") || hasRole("afterhours")) && !hasRole("manager") && !hasRole("admin");
+  const stopAmountTooLow = (() => {
+    if (!stopAmountRestricted) return false;
+    const freight = parseFloat(freightAmount);
+    const stop = parseFloat(driverPrice);
+    if (!freight || freight <= 0 || !driverPrice || isNaN(stop)) return false;
+    return stop < freight * 0.9;
+  })();
   const dispatcherDriverIds =
     isDispatchOnly && profile?.user_id
       ? allDrivers?.filter((driver) => driver.dispatcher_id === profile.user_id).map((d) => d.id) || []
@@ -1736,6 +1746,18 @@ const NewOrder = () => {
 
     // Set submitting flag IMMEDIATELY to prevent race conditions from double-clicks
     setIsSubmitting(true);
+
+    // Stop Amount floor for dispatch/afterhours
+    if (stopAmountTooLow) {
+      toast({
+        title: "Stop Amount too low",
+        description:
+          "Stop Amount cannot be less than 90% of the Freight Amount. Contact your managers for approval of a lower stop amount.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
 
     // Generate (or reuse) an idempotency key for this submit. Reused on retries
     // so the server-side RPC dedupes via the unique (company_id, client_request_id) index.
@@ -3225,6 +3247,13 @@ const NewOrder = () => {
                   value={driverPrice}
                   onChange={(e) => setDriverPrice(e.target.value)}
                 />
+                {stopAmountTooLow && (
+                  <p className="text-xs text-destructive">
+                    Stop Amount cannot be less than 90% of the Freight Amount ($
+                    {((parseFloat(freightAmount) || 0) * 0.9).toFixed(2)}). Contact your managers for approval of a lower
+                    stop amount.
+                  </p>
+                )}
                 {(() => {
                   const selectedDriver = allDrivers?.find((d) => d.id === driver1);
                   const totalMiles = (parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0);
