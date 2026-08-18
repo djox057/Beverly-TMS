@@ -91,6 +91,7 @@ const navigation = [
   { name: "Stuff", href: "/stuff", icon: User, roles: ["manager", "admin", "accounting", "chicago_management"] },
   { name: "Brokers", href: "/brokers", icon: Building2 },
   { name: "Fleets", href: "/fleets", icon: Users },
+  { name: "Reports", href: "/reports", icon: BarChart3 },
   {
     name: "Recovery Loads",
     href: "/recovery-loads",
@@ -98,7 +99,6 @@ const navigation = [
     roles: ["dispatch", "supervisor", "manager", "admin"],
     strict: true,
   },
-  { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
   {
@@ -421,7 +421,8 @@ export const Sidebar = () => {
   const allNavigation = (() => {
     if (!canViewDailyReport) return baseNavigation;
     if (baseNavigation.some((i) => i.href === "/daily-report")) return baseNavigation;
-    const idx = baseNavigation.findIndex((i) => i.href === "/reports");
+    const recoveryIdx = baseNavigation.findIndex((i) => i.href === "/recovery-loads");
+    const idx = recoveryIdx !== -1 ? recoveryIdx : baseNavigation.findIndex((i) => i.href === "/reports");
     const dailyItem = { name: "Daily Report", href: "/daily-report", icon: FileText };
     if (idx === -1) return [...baseNavigation, dailyItem];
     const next = [...baseNavigation];
