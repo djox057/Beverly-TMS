@@ -3,7 +3,7 @@
 // TEST MODE: while true, every reminder email is delivered only to these
 // addresses (with a banner naming the intended recipient). Flip to false to
 // deliver to the resolved dispatcher.
-export const TEST_MODE = true;
+export const TEST_MODE = false;
 export const TEST_TO = ["tommy@bfprime.net"];
 export const TEST_CC = ["jon@bfprime.net"];
 export const FROM = "Dispatch <dispatch@bfprime.net>";
