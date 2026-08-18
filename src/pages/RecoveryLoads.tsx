@@ -101,14 +101,14 @@ const RecoveryLoads = () => {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by,
+          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, recovery_assigned,
            pickup_datetime, delivery_datetime,
            broker:brokers ( name ),
            booked_by_company:companies!orders_booked_by_company_id_fkey ( name ),
            pickup_drops ( type, address, city, state, zip_code, sequence_number ),
            order_files ( id, file_category, file_name, file_path )`
         )
-        .eq("retrieval", true)
+        .or("retrieval.eq.true,recovery_assigned.eq.true")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -146,14 +146,16 @@ const RecoveryLoads = () => {
         bookedByCompany: order.booked_by_company?.name || "—",
         brokerName: shortenBrokerName(order.broker?.name),
         canceled: !!order.canceled,
+        retrieval: !!(order as unknown as { retrieval?: boolean }).retrieval,
       };
     });
   }, [orders]);
 
   const filteredRows = useMemo(() => {
+    const activeRows = rows.filter((r) => r.retrieval);
     const term = debouncedSearch.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter((row) =>
+    if (!term) return activeRows;
+    return activeRows.filter((row) =>
       [
         row.loadNumber,
         row.pickupAddress,
