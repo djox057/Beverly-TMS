@@ -7849,8 +7849,8 @@ const Reports = () => {
                       size="sm"
                       className={
                         zoomedRecovery
-                          ? "border-destructive text-destructive hover:bg-destructive/10"
-                          : undefined
+                          ? "border-destructive text-destructive hover:bg-destructive/10 h-8 px-2 text-xs"
+                          : "h-8 px-2 text-xs"
                       }
                       onClick={async () => {
                         const next = !zoomedRecovery;
@@ -7870,7 +7870,7 @@ const Reports = () => {
                         toast({ title: next ? "Marked as Recovery" : "Removed from Recovery" });
                       }}
                     >
-                      <RefreshCw className="h-4 w-4 mr-2" />
+                      <RefreshCw className="h-3.5 w-3.5 mr-1" />
                       {zoomedRecovery ? "Remove Recovery" : "Recovery"}
                     </Button>
                   )}
