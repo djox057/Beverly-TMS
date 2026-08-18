@@ -1,0 +1,2 @@
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS recovery_assigned boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_orders_recovery_assigned ON public.orders (recovery_assigned) WHERE recovery_assigned = true;

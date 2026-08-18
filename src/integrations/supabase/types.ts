@@ -3334,6 +3334,7 @@ export type Database = {
           po_number: string | null
           pod_force_complete: boolean
           pu_number: string | null
+          recovery_assigned: boolean
           recovery_date: string | null
           recovery_driver_price: number | null
           recovery_freight_amount: number | null
@@ -3460,6 +3461,7 @@ export type Database = {
           po_number?: string | null
           pod_force_complete?: boolean
           pu_number?: string | null
+          recovery_assigned?: boolean
           recovery_date?: string | null
           recovery_driver_price?: number | null
           recovery_freight_amount?: number | null
@@ -3586,6 +3588,7 @@ export type Database = {
           po_number?: string | null
           pod_force_complete?: boolean
           pu_number?: string | null
+          recovery_assigned?: boolean
           recovery_date?: string | null
           recovery_driver_price?: number | null
           recovery_freight_amount?: number | null
