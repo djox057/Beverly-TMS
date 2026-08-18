@@ -3235,6 +3235,13 @@ const NewOrder = () => {
                   value={driverPrice}
                   onChange={(e) => setDriverPrice(e.target.value)}
                 />
+                {stopAmountTooLow && (
+                  <p className="text-xs text-destructive">
+                    Stop Amount cannot be less than 90% of the Freight Amount ($
+                    {((parseFloat(freightAmount) || 0) * 0.9).toFixed(2)}). Contact your managers for approval of a lower
+                    stop amount.
+                  </p>
+                )}
                 {(() => {
                   const selectedDriver = allDrivers?.find((d) => d.id === driver1);
                   const totalMiles = (parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0);
