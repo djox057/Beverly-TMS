@@ -49,6 +49,9 @@ export interface LumperItem {
   reason: string;
   file_path: string | null;
   file_name: string | null;
+  requested_by?: string | null;
+  requested_by_name?: string | null;
+  requested_at?: string | null;
 }
 
 export interface AdditionalItem {
