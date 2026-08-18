@@ -269,6 +269,16 @@ const NewOrder = () => {
     !hasRole("accounting") &&
     !hasRole("supervisor") &&
     !hasRole("safety");
+
+  // Stop Amount floor: dispatch/afterhours cannot go below 90% of freight amount
+  const stopAmountRestricted = (hasRole("dispatch") || hasRole("afterhours")) && !hasRole("manager") && !hasRole("admin");
+  const stopAmountTooLow = (() => {
+    if (!stopAmountRestricted) return false;
+    const freight = parseFloat(freightAmount);
+    const stop = parseFloat(driverPrice);
+    if (!freight || freight <= 0 || !driverPrice || isNaN(stop)) return false;
+    return stop < freight * 0.9;
+  })();
   const dispatcherDriverIds =
     isDispatchOnly && profile?.user_id
       ? allDrivers?.filter((driver) => driver.dispatcher_id === profile.user_id).map((d) => d.id) || []
