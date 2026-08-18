@@ -142,6 +142,34 @@ export default function Alerts() {
   const [driversPage, setDriversPage] = useState(1);
   const itemsPerPage = 50;
 
+  // Manual reminder trigger (admin / manager / safety / maintenance, plus ella override)
+  const canSendReminders =
+    hasRole('admin') || hasRole('manager') || hasRole('safety') || hasRole('maintenance') ||
+    user?.email === 'ella@bfprime.net';
+  const [isSendingReminders, setIsSendingReminders] = useState(false);
+
+  const handleSendReminders = async () => {
+    setIsSendingReminders(true);
+    try {
+      const [docs, paperwork] = await Promise.all([
+        supabase.functions.invoke('send-document-reminders', { body: {} }),
+        supabase.functions.invoke('send-paperwork-reminders-cron', { body: {} }),
+      ]);
+      if (docs.error) throw docs.error;
+      if (paperwork.error) throw paperwork.error;
+      const d: any = docs.data || {};
+      const p: any = paperwork.data || {};
+      toast({
+        title: "Reminders processed",
+        description: `Documents: ${d.emailsSent ?? 0} email(s) for ${d.reminders ?? 0} item(s), ${d.skipped ?? 0} already sent. Paperwork: ${p.emailsSent ?? 0} email(s).`,
+      });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to send reminders", variant: "destructive" });
+    } finally {
+      setIsSendingReminders(false);
+    }
+  };
+
   // Search states
   const [activeTab, setActiveTab] = useState("trucks");
   const [trucksSearch, setTrucksSearch] = useState("");
