@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.send-paperwork-reminder]
 verify_jwt = false
+
+[functions.send-stop-amount-approval]
+verify_jwt = false
