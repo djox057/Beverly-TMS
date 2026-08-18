@@ -7849,8 +7849,8 @@ const Reports = () => {
                       size="sm"
                       className={
                         zoomedRecovery
-                          ? "border-destructive text-destructive hover:bg-destructive/10 h-8 px-2 text-xs"
-                          : "h-8 px-2 text-xs"
+                          ? "border-destructive text-destructive hover:bg-destructive/10 px-2 text-xs"
+                          : "px-2 text-xs"
                       }
                       onClick={async () => {
                         const next = !zoomedRecovery;
