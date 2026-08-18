@@ -60,6 +60,14 @@ serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    let dryRun = false;
+    try {
+      const body = await req.json();
+      dryRun = body?.dryRun === true;
+    } catch {
+      // no body -> cron invocation
+    }
+
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -315,6 +323,10 @@ serve(async (req: Request): Promise<Response> => {
         return av - bv;
       });
       const recipients = routeRecipients(group.email ? [group.email] : []);
+      if (dryRun) {
+        emailsSent++;
+        continue;
+      }
 
       const rows = sorted
         .map((c) => {
