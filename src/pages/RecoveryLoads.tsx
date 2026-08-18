@@ -17,7 +17,6 @@ import { formatCurrency } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { useToast } from "@/hooks/use-toast";
-import { formatInTimeZone } from "date-fns-tz";
 import { AssignRecoveryLoadDialog } from "@/components/recovery/AssignRecoveryLoadDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
@@ -64,11 +63,10 @@ const formatFullStop = (stop?: Stop | null) => {
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return "—";
-  try {
-    return formatInTimeZone(new Date(value), "America/Chicago", "MM/dd HH:mm");
-  } catch {
-    return "—";
-  }
+  // Stored values are Chicago wall-time (often with a +00 offset) — read them naively.
+  const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return "—";
+  return `${m[2]}/${m[3]} ${m[4]}:${m[5]}`;
 };
 
 // Trim legal suffixes so "C.H. ROBINSON COMPANY, LLC" renders as "C.H. ROBINSON"
