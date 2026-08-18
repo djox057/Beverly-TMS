@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 interface AssignRecoveryLoadDialogProps {
   open: boolean;
@@ -30,6 +31,12 @@ export function AssignRecoveryLoadDialog({
   onAssigned,
 }: AssignRecoveryLoadDialogProps) {
   const { toast } = useToast();
+  const { user, hasRole } = useAuthContext();
+  const dispatcherOnly =
+    hasRole("dispatch") &&
+    !hasRole("admin") &&
+    !hasRole("manager") &&
+    !hasRole("supervisor");
   const [truckId, setTruckId] = useState("");
   const [driverId, setDriverId] = useState("");
   const [trailerId, setTrailerId] = useState("");
@@ -48,14 +55,33 @@ export function AssignRecoveryLoadDialog({
   }, [open, orderId]);
 
   const { data: trucks = [] } = useQuery({
-    queryKey: ["recovery-assign-trucks"],
+    queryKey: ["recovery-assign-trucks", dispatcherOnly ? user?.id : "all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number")
+        .select("id, truck_number, driver1_id, driver2_id, trailer_id")
+        .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
-      return data || [];
+      let rows = data || [];
+
+      if (dispatcherOnly && user?.id) {
+        const driverIds = [
+          ...new Set(rows.flatMap((t: any) => [t.driver1_id, t.driver2_id]).filter(Boolean)),
+        ] as string[];
+        if (driverIds.length === 0) return [];
+        const { data: myDrivers, error: dErr } = await supabase
+          .from("drivers")
+          .select("id")
+          .in("id", driverIds)
+          .eq("dispatcher_id", user.id);
+        if (dErr) throw dErr;
+        const mine = new Set((myDrivers || []).map((d) => d.id));
+        rows = rows.filter(
+          (t: any) => (t.driver1_id && mine.has(t.driver1_id)) || (t.driver2_id && mine.has(t.driver2_id))
+        );
+      }
+      return rows;
     },
     enabled: open,
     staleTime: 60000,
@@ -103,6 +129,15 @@ export function AssignRecoveryLoadDialog({
     [trailers]
   );
 
+  // Autofill driver + trailer from the selected truck
+  const handleTruckChange = (nextTruckId: string) => {
+    setTruckId(nextTruckId);
+    const truck = trucks.find((t: any) => t.id === nextTruckId) as any;
+    if (!truck) return;
+    if (truck.driver1_id) setDriverId(truck.driver1_id);
+    if (truck.trailer_id) setTrailerId(truck.trailer_id);
+  };
+
   const handleSave = async () => {
     if (!orderId) return;
     setSaving(true);
@@ -144,7 +179,7 @@ export function AssignRecoveryLoadDialog({
             <Combobox
               options={truckOptions}
               value={truckId}
-              onValueChange={setTruckId}
+              onValueChange={handleTruckChange}
               placeholder="Select truck"
               searchPlaceholder="Search truck#..."
               modal={false}

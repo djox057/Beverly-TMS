@@ -63,10 +63,14 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[300px] p-0 pointer-events-auto">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto">
         <Command className="pointer-events-auto">
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          <CommandList
+            className="max-h-[240px] overscroll-contain"
+            onWheel={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
