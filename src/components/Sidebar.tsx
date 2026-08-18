@@ -42,6 +42,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useYardLoadsCount } from "@/hooks/useYardLoadsCount";
+import { useRecoveryLoadsCount } from "@/hooks/useRecoveryLoadsCount";
 import { useDispatchAlertCount } from "@/hooks/useDispatchAlertCount";
 import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
 import { supabase } from "@/integrations/supabase/client";
@@ -146,6 +147,7 @@ export const Sidebar = () => {
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
   const { data: dispatchAlertCount = 0 } = useDispatchAlertCount();
+  const { data: recoveryLoads } = useRecoveryLoadsCount();
   const { canView: canViewDailyReport } = useDailyReportPermissions();
   const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
   const [scheduledDates, setScheduledDates] = useState<string[]>([]);
@@ -482,6 +484,14 @@ export const Sidebar = () => {
                               {item.href === "/alerts" && dispatchAlertCount > 0 && (
                                 <Badge variant="destructive" className="ml-auto">
                                   {dispatchAlertCount}
+                                </Badge>
+                              )}
+                              {item.href === "/recovery-loads" && (recoveryLoads?.count ?? 0) > 0 && (
+                                <Badge
+                                  variant={recoveryLoads?.hasMine ? "destructive" : "secondary"}
+                                  className="ml-auto"
+                                >
+                                  {recoveryLoads?.hasMine ? "!" : recoveryLoads?.count}
                                 </Badge>
                               )}
                               {item.href === "/fleets" && isScheduledThisWeekend && !hasAcknowledgedToday && (
