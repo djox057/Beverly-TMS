@@ -65,7 +65,7 @@ const formatFullStop = (stop?: Stop | null) => {
 const formatDateTime = (value?: string | null) => {
   if (!value) return "—";
   try {
-    return formatInTimeZone(new Date(value), "America/Chicago", "MM/dd/yyyy HH:mm");
+    return formatInTimeZone(new Date(value), "America/Chicago", "MM/dd HH:mm");
   } catch {
     return "—";
   }
@@ -209,18 +209,18 @@ const RecoveryLoads = () => {
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[90px]">Load#</TableHead>
-              <TableHead className="w-[150px]">Pickup</TableHead>
-              <TableHead className="w-[130px]">Pickup Date/Time</TableHead>
-              <TableHead className="w-[150px]">Delivery</TableHead>
-              <TableHead className="w-[130px]">Delivery Date/Time</TableHead>
-              <TableHead className="w-[100px]">Freight</TableHead>
-              <TableHead className="w-[80px]">Miles</TableHead>
+              <TableHead className="w-[110px]">Load#</TableHead>
+              <TableHead className="w-[130px]">Pickup</TableHead>
+              <TableHead className="w-[95px]">PU Date</TableHead>
+              <TableHead className="w-[130px]">Delivery</TableHead>
+              <TableHead className="w-[95px]">DEL Date</TableHead>
+              <TableHead className="w-[95px]">Freight</TableHead>
+              <TableHead className="w-[65px]">Miles</TableHead>
               <TableHead className="w-[150px]">Booked By</TableHead>
-              <TableHead className="w-[200px]">Booked By Company</TableHead>
-              <TableHead className="w-[140px]">Broker</TableHead>
-              <TableHead className="w-[70px]">RC</TableHead>
-              <TableHead className="w-[100px]">Assign</TableHead>
+              <TableHead className="w-[160px]">Booked By Company</TableHead>
+              <TableHead className="w-[130px]">Broker</TableHead>
+              <TableHead className="w-[60px]">RC</TableHead>
+              <TableHead className="w-[90px]">Assign</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -239,15 +239,15 @@ const RecoveryLoads = () => {
             ) : (
               filteredRows.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="font-medium truncate">{row.loadNumber}</TableCell>
+                  <TableCell className="font-medium truncate" title={row.loadNumber}>{row.loadNumber}</TableCell>
                   <TableCell className="whitespace-normal break-words text-sm">
                     {row.pickupAddress}
                   </TableCell>
-                  <TableCell className="text-sm">{formatDateTime(row.pickupDatetime)}</TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">{formatDateTime(row.pickupDatetime)}</TableCell>
                   <TableCell className="whitespace-normal break-words text-sm">
                     {row.deliveryAddress}
                   </TableCell>
-                  <TableCell className="text-sm">{formatDateTime(row.deliveryDatetime)}</TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">{formatDateTime(row.deliveryDatetime)}</TableCell>
                   <TableCell>
                     <div className="font-medium">
                       {row.freightAmount != null ? formatCurrency(row.freightAmount) : "—"}
