@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
+import { useDriverMissingFuelReceipt } from "@/hooks/useDriverMissingFuelReceipt";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -60,6 +61,12 @@ export function EfsRequestDialog({
   // Fuel-specific fields
   const [fuelCity, setFuelCity] = useState<string>("");
   const [fuelState, setFuelState] = useState<string>("");
+
+  // Block fuel requests when the driver has fuel receipts missing
+  const { data: missingFuelReceipts = [], isLoading: isMissingReceiptsLoading } =
+    useDriverMissingFuelReceipt(driverId, open);
+  const hasMissingFuelReceipt = missingFuelReceipts.length > 0;
+  const fuelBlocked = otherPurpose === "fuel" && hasMissingFuelReceipt;
   
   const queryClient = useQueryClient();
 
@@ -127,6 +134,14 @@ export function EfsRequestDialog({
     if (otherPurpose === "custom" && !customPurpose.trim()) return;
     // Fuel requires city, state only
     if (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim())) return;
+    if (otherPurpose === "fuel" && hasMissingFuelReceipt) {
+      toast({
+        title: "Fuel request blocked",
+        description: `${driverName} has ${missingFuelReceipts.length} fuel receipt(s) missing. Upload the missing receipt(s) before requesting fuel again.`,
+        variant: "destructive",
+      });
+      return;
+    }
     // Hard cap: requests must be under $5,000 (max $4,999.99)
     if (parseFloat(otherAmount) >= 5000) {
       toast({
@@ -336,6 +351,16 @@ export function EfsRequestDialog({
             )}
             
             {/* Fuel-specific fields */}
+            {otherPurpose === "fuel" && hasMissingFuelReceipt && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm text-destructive font-medium">
+                  Fuel request blocked: {driverName} has {missingFuelReceipts.length} fuel receipt
+                  {missingFuelReceipts.length > 1 ? "s" : ""} missing. Upload the missing receipt
+                  {missingFuelReceipts.length > 1 ? "s" : ""} before requesting fuel again.
+                </p>
+              </div>
+            )}
+
             {otherPurpose === "fuel" && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -406,7 +431,9 @@ export function EfsRequestDialog({
                   parseFloat(otherAmount) <= 0 || 
                   parseFloat(otherAmount) >= 5000 ||
                   (otherPurpose === "custom" && !customPurpose.trim()) ||
-                  (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim()))
+                  (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim())) ||
+                  fuelBlocked ||
+                  (otherPurpose === "fuel" && isMissingReceiptsLoading)
                 }
               >
                 {isRequestingOther ? (
