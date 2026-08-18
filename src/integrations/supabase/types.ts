@@ -1578,6 +1578,45 @@ export type Database = {
           },
         ]
       }
+      document_reminder_log: {
+        Row: {
+          due_date: string | null
+          entity_id: string | null
+          entity_label: string | null
+          entity_type: string
+          field_key: string
+          id: string
+          milestone: number
+          send_date: string
+          sent_at: string
+          sent_to: string | null
+        }
+        Insert: {
+          due_date?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type: string
+          field_key: string
+          id?: string
+          milestone: number
+          send_date?: string
+          sent_at?: string
+          sent_to?: string | null
+        }
+        Update: {
+          due_date?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string
+          field_key?: string
+          id?: string
+          milestone?: number
+          send_date?: string
+          sent_at?: string
+          sent_to?: string | null
+        }
+        Relationships: []
+      }
       driver_cash_advances: {
         Row: {
           amount: number

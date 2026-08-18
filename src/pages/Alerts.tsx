@@ -11,7 +11,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis
 } from "@/components/ui/pagination";
-import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, CreditCard, ShieldCheck, CircleDot, Wrench, IdCard, FileSearch, ScrollText, HeartPulse, FlaskConical, FileText } from "lucide-react";
+import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, CreditCard, ShieldCheck, CircleDot, Wrench, IdCard, FileSearch, ScrollText, HeartPulse, FlaskConical, FileText, Mail } from "lucide-react";
 import { PaperworkTab } from "@/components/alerts/PaperworkTab";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -141,6 +141,34 @@ export default function Alerts() {
   const [trailersPage, setTrailersPage] = useState(1);
   const [driversPage, setDriversPage] = useState(1);
   const itemsPerPage = 50;
+
+  // Manual reminder trigger (admin / manager / safety / maintenance, plus ella override)
+  const canSendReminders =
+    hasRole('admin') || hasRole('manager') || hasRole('safety') || hasRole('maintenance') ||
+    user?.email === 'ella@bfprime.net';
+  const [isSendingReminders, setIsSendingReminders] = useState(false);
+
+  const handleSendReminders = async () => {
+    setIsSendingReminders(true);
+    try {
+      const [docs, paperwork] = await Promise.all([
+        supabase.functions.invoke('send-document-reminders', { body: {} }),
+        supabase.functions.invoke('send-paperwork-reminders-cron', { body: {} }),
+      ]);
+      if (docs.error) throw docs.error;
+      if (paperwork.error) throw paperwork.error;
+      const d: any = docs.data || {};
+      const p: any = paperwork.data || {};
+      toast({
+        title: "Reminders processed",
+        description: `Documents: ${d.emailsSent ?? 0} email(s) for ${d.reminders ?? 0} item(s), ${d.skipped ?? 0} already sent. Paperwork: ${p.emailsSent ?? 0} email(s).`,
+      });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to send reminders", variant: "destructive" });
+    } finally {
+      setIsSendingReminders(false);
+    }
+  };
 
   // Search states
   const [activeTab, setActiveTab] = useState("trucks");
@@ -872,9 +900,17 @@ export default function Alerts() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="h-8 w-8 text-destructive" />
-        <h1 className="text-3xl font-bold">Safety and Maintenance</h1>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+          <h1 className="text-3xl font-bold">Safety and Maintenance</h1>
+        </div>
+        {canSendReminders && (
+          <Button variant="outline" size="sm" onClick={handleSendReminders} disabled={isSendingReminders}>
+            <Mail className="h-4 w-4 mr-2" />
+            {isSendingReminders ? "Sending..." : "Send reminders now"}
+          </Button>
+        )}
       </div>
       
       <Card>
