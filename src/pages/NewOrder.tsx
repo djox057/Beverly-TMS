@@ -281,6 +281,17 @@ const NewOrder = () => {
     if (!freight || freight <= 0 || !driverPrice || isNaN(stop)) return false;
     return stop < freight * 0.9;
   })();
+  const { data: approvalManagers = [] } = useApprovalManagers(profile?.office);
+  const approvalManagerOptions = useMemo(
+    () =>
+      approvalManagers.map((m) => ({
+        value: m.user_id,
+        label: `${m.full_name || m.email}${m.office ? ` — ${m.office}` : ""}`,
+        searchText: `${m.full_name || ""} ${m.email} ${m.office || ""}`,
+      })),
+    [approvalManagers],
+  );
+  const needsStopAmountApproval = stopAmountTooLow;
   const dispatcherDriverIds =
     isDispatchOnly && profile?.user_id
       ? allDrivers?.filter((driver) => driver.dispatcher_id === profile.user_id).map((d) => d.id) || []
