@@ -2200,6 +2200,31 @@ const NewOrder = () => {
       // Store the created order ID for email logging
       setCreatedOrderId(orderId);
 
+      // Notify the selected manager that a below-90% Stop Amount was approved
+      if (needsStopAmountApproval && approvalManagerId) {
+        const approvalTruck = trucks?.find((t) => t.id === truck);
+        const firstPickup = pickupsDrops.find((p) => p.type === "pickup");
+        const firstDelivery = pickupsDrops.find((p) => p.type === "delivery");
+        const brokerNameForEmail = allBrokers?.find((br) => br.id === broker)?.name || null;
+        supabase.functions
+          .invoke("send-stop-amount-approval", {
+            body: {
+              managerUserId: approvalManagerId,
+              loadNumber: brokerLoadNumber || String(newInternalLoadNumber || ""),
+              brokerName: brokerNameForEmail,
+              truckNumber: approvalTruck?.truck_number || null,
+              driverName: selectedDriver1?.full_name || null,
+              freightAmount: parseFloat(freightAmount) || 0,
+              stopAmount: parseFloat(driverPrice) || 0,
+              pickup: firstPickup ? [firstPickup.city, firstPickup.state].filter(Boolean).join(", ") : null,
+              delivery: firstDelivery ? [firstDelivery.city, firstDelivery.state].filter(Boolean).join(", ") : null,
+            },
+          })
+          .then(({ error: approvalErr }) => {
+            if (approvalErr) console.error("Failed to send stop amount approval email:", approvalErr);
+          });
+      }
+
       // Save RC weight (extracted from RC at creation time) — kept separate from weight_bol
       {
         const wRc = weight ? parseFloat(weight) : NaN;
