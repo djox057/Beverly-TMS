@@ -3265,6 +3265,7 @@ export type Database = {
           internal_load_number: string | null
           invoiced: boolean | null
           invoiced_at: string | null
+          is_last_order: boolean
           is_partial: boolean | null
           is_recovery: boolean | null
           late_fee: number | null
@@ -3390,6 +3391,7 @@ export type Database = {
           internal_load_number?: string | null
           invoiced?: boolean | null
           invoiced_at?: string | null
+          is_last_order?: boolean
           is_partial?: boolean | null
           is_recovery?: boolean | null
           late_fee?: number | null
@@ -3515,6 +3517,7 @@ export type Database = {
           internal_load_number?: string | null
           invoiced?: boolean | null
           invoiced_at?: string | null
+          is_last_order?: boolean
           is_partial?: boolean | null
           is_recovery?: boolean | null
           late_fee?: number | null
@@ -5712,6 +5715,10 @@ export type Database = {
           office: string
           pickup_datetime: string
         }[]
+      }
+      refresh_driver_last_order: {
+        Args: { _driver: string }
+        Returns: undefined
       }
       search_orders_hydrate: { Args: { p_ids: string[] }; Returns: Json }
       search_orders_ids: {
