@@ -61,7 +61,11 @@ const shortenBrokerName = (name?: string | null) => {
 const RecoveryLoads = () => {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
-  const [assignOrder, setAssignOrder] = useState<{ id: string; loadNumber: string } | null>(null);
+  const [assignOrder, setAssignOrder] = useState<{
+    id: string;
+    loadNumber: string;
+    pickupAddress: string;
+  } | null>(null);
   const { hasRole } = useAuth();
   const canSeeStats = hasRole("manager") || hasRole("admin");
 
@@ -199,7 +203,11 @@ const RecoveryLoads = () => {
                       size="sm"
                       variant="outline"
                       onClick={() =>
-                        setAssignOrder({ id: row.id, loadNumber: row.loadNumber })
+                        setAssignOrder({
+                          id: row.id,
+                          loadNumber: row.loadNumber,
+                          pickupAddress: row.pickupAddress,
+                        })
                       }
                     >
                       Assign
@@ -217,6 +225,7 @@ const RecoveryLoads = () => {
         onOpenChange={(open) => !open && setAssignOrder(null)}
         orderId={assignOrder?.id ?? null}
         loadNumber={assignOrder?.loadNumber}
+        pickupAddress={assignOrder?.pickupAddress}
         onAssigned={() => refetch()}
       />
     </>
