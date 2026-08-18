@@ -16,6 +16,9 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { AssignRecoveryLoadDialog } from "@/components/recovery/AssignRecoveryLoadDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/hooks/useAuth";
+import { RecoveryLoadsStats } from "@/components/recovery/RecoveryLoadsStats";
 
 interface Stop {
   type: string | null;
@@ -31,6 +34,7 @@ interface RetrievalOrder {
   broker_load_number: string | null;
   freight_amount: number | null;
   loaded_miles: number | null;
+  canceled: boolean | null;
   broker: { name: string | null } | null;
   booked_by_company: { name: string | null } | null;
   pickup_drops: Stop[] | null;
@@ -58,6 +62,8 @@ const RecoveryLoads = () => {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [assignOrder, setAssignOrder] = useState<{ id: string; loadNumber: string } | null>(null);
+  const { hasRole } = useAuth();
+  const canSeeStats = hasRole("manager") || hasRole("admin");
 
   const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["recovery-loads"],
@@ -65,7 +71,7 @@ const RecoveryLoads = () => {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          `id, broker_load_number, freight_amount, loaded_miles,
+          `id, broker_load_number, freight_amount, loaded_miles, canceled,
            broker:brokers ( name ),
            booked_by_company:companies!orders_booked_by_company_id_fkey ( name ),
            pickup_drops ( type, address, city, state, zip_code, sequence_number )`
@@ -102,6 +108,7 @@ const RecoveryLoads = () => {
         loadedMiles: order.loaded_miles,
         bookedByCompany: order.booked_by_company?.name || "—",
         brokerName: shortenBrokerName(order.broker?.name),
+        canceled: !!order.canceled,
       };
     });
   }, [orders]);
@@ -123,10 +130,9 @@ const RecoveryLoads = () => {
     );
   }, [rows, debouncedSearch]);
 
-  return (
-    <div className="p-6 space-y-4">
+  const loadsView = (
+    <>
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-semibold text-foreground">Recovery Loads</h1>
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -213,6 +219,35 @@ const RecoveryLoads = () => {
         loadNumber={assignOrder?.loadNumber}
         onAssigned={() => refetch()}
       />
+    </>
+  );
+
+  return (
+    <div className="p-6 space-y-4">
+      <h1 className="text-2xl font-semibold text-foreground">Recovery Loads</h1>
+      {canSeeStats ? (
+        <Tabs defaultValue="loads" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="loads">Loads</TabsTrigger>
+            <TabsTrigger value="stats">Statistics</TabsTrigger>
+          </TabsList>
+          <TabsContent value="loads" className="space-y-4">
+            {loadsView}
+          </TabsContent>
+          <TabsContent value="stats">
+            <RecoveryLoadsStats
+              isLoading={isLoading}
+              rows={rows.map((r) => ({
+                canceled: r.canceled,
+                freightAmount: r.freightAmount,
+                bookedByCompany: r.bookedByCompany,
+              }))}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <div className="space-y-4">{loadsView}</div>
+      )}
     </div>
   );
 };
