@@ -14,12 +14,16 @@ import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { calculateDhMiles } from "@/utils/mapboxRouteCalculator";
+
+const YARD_COORDS = "41.53782517269106,-87.57865749016162";
 
 interface AssignRecoveryLoadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orderId: string | null;
   loadNumber?: string;
+  pickupAddress?: string;
   onAssigned?: () => void;
 }
 
@@ -28,6 +32,7 @@ export function AssignRecoveryLoadDialog({
   onOpenChange,
   orderId,
   loadNumber,
+  pickupAddress,
   onAssigned,
 }: AssignRecoveryLoadDialogProps) {
   const { toast } = useToast();
@@ -43,6 +48,7 @@ export function AssignRecoveryLoadDialog({
   const [driverRate, setDriverRate] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [saving, setSaving] = useState(false);
+  const [calculatingDh, setCalculatingDh] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -138,16 +144,88 @@ export function AssignRecoveryLoadDialog({
     if (truck.trailer_id) setTrailerId(truck.trailer_id);
   };
 
+  // Auto-calculate DH miles from the assigned driver's last delivery to this load's pickup
+  useEffect(() => {
+    if (!open || !driverId) return;
+    let cancelled = false;
+
+    const run = async () => {
+      const pickup = (pickupAddress || "").trim();
+      if (!pickup || pickup === "—") return;
+      setCalculatingDh(true);
+      try {
+        const { data: lastOrders } = await supabase
+          .from("orders")
+          .select(
+            "id, delivery_datetime, pickup_drops ( type, address, city, state, zip_code, sequence_number )"
+          )
+          .eq("driver1_id", driverId)
+          .eq("canceled", false)
+          .neq("id", orderId || "")
+          .not("delivery_datetime", "is", null)
+          .order("delivery_datetime", { ascending: false })
+          .limit(1);
+
+        let origin = YARD_COORDS;
+        const stops = (lastOrders?.[0] as any)?.pickup_drops || [];
+        const deliveries = [...stops]
+          .filter((s: any) => s.type === "delivery")
+          .sort((a: any, b: any) => (a.sequence_number ?? 0) - (b.sequence_number ?? 0));
+        const last = deliveries[deliveries.length - 1];
+        if (last) {
+          const parts = [last.address, last.city, last.state, last.zip_code].filter(Boolean);
+          if (parts.length > 0) origin = parts.join(", ");
+        }
+
+        const miles = await calculateDhMiles(origin, pickup);
+        if (!cancelled && miles !== null) setDhMiles(String(miles));
+      } finally {
+        if (!cancelled) setCalculatingDh(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, driverId, orderId, pickupAddress]);
+
   const handleSave = async () => {
     if (!orderId) return;
     setSaving(true);
+
+    const truck = trucks.find((t: any) => t.id === truckId) as any;
+
+    // Booked by becomes the dispatcher of the assigned driver/truck
+    let bookedBy: string | null = null;
+    const dispatcherLookupDriverId = driverId || truck?.driver1_id || null;
+    if (dispatcherLookupDriverId) {
+      const { data: driverRow } = await supabase
+        .from("drivers")
+        .select("dispatcher_id")
+        .eq("id", dispatcherLookupDriverId)
+        .maybeSingle();
+      const dispatcherId = (driverRow as any)?.dispatcher_id;
+      if (dispatcherId) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", dispatcherId)
+          .maybeSingle();
+        bookedBy = (prof as any)?.full_name || null;
+      }
+    }
+
     const payload: Record<string, unknown> = {
       truck_id: truckId || null,
       driver1_id: driverId || null,
+      driver2_id: truck?.driver2_id ?? null,
       trailer_id: trailerId || null,
       driver_price: driverRate ? parseFloat(driverRate) : null,
       dh_miles: dhMiles ? parseInt(dhMiles, 10) : null,
     };
+    if (bookedBy) payload.booked_by = bookedBy;
+
     const { error } = await supabase
       .from("orders")
       .update(payload as never)
@@ -224,7 +302,7 @@ export function AssignRecoveryLoadDialog({
                 type="number"
                 value={dhMiles}
                 onChange={(e) => setDhMiles(e.target.value)}
-                placeholder="0"
+                placeholder={calculatingDh ? "Calculating..." : "0"}
               />
             </div>
           </div>
