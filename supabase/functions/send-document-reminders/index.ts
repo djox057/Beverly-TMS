@@ -383,9 +383,7 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     if (logInserts.length > 0) {
-      const { error: insertError } = await admin
-        .from("document_reminder_log")
-        .upsert(logInserts, { ignoreDuplicates: true, onConflict: "entity_type,entity_id,field_key,milestone,due_date" });
+      const { error: insertError } = await admin.from("document_reminder_log").insert(logInserts);
       if (insertError) console.error("Reminder log insert error:", insertError.message);
     }
 
