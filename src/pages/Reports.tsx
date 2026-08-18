@@ -970,6 +970,28 @@ const Reports = () => {
   );
   const [salaryChargeOpen, setSalaryChargeOpen] = useState(false);
 
+  // Recovery (retrieval) flag for the zoomed load
+  const [zoomedRecovery, setZoomedRecovery] = useState<boolean | null>(null);
+  useEffect(() => {
+    const orderId = zoomedLoad?.orderId;
+    if (!orderId) {
+      setZoomedRecovery(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("orders")
+        .select("retrieval")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (!cancelled) setZoomedRecovery(!!(data as any)?.retrieval);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [zoomedLoad?.orderId]);
+
   // Proximity search state
   const [proximityAddress, setProximityAddress] = useState("");
   const [proximitySearching, setProximitySearching] = useState(false);
