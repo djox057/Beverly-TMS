@@ -421,7 +421,8 @@ export const Sidebar = () => {
   const allNavigation = (() => {
     if (!canViewDailyReport) return baseNavigation;
     if (baseNavigation.some((i) => i.href === "/daily-report")) return baseNavigation;
-    const idx = baseNavigation.findIndex((i) => i.href === "/reports");
+    const recoveryIdx = baseNavigation.findIndex((i) => i.href === "/recovery-loads");
+    const idx = recoveryIdx !== -1 ? recoveryIdx : baseNavigation.findIndex((i) => i.href === "/reports");
     const dailyItem = { name: "Daily Report", href: "/daily-report", icon: FileText };
     if (idx === -1) return [...baseNavigation, dailyItem];
     const next = [...baseNavigation];
