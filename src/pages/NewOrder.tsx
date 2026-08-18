@@ -1760,12 +1760,12 @@ const NewOrder = () => {
     // Set submitting flag IMMEDIATELY to prevent race conditions from double-clicks
     setIsSubmitting(true);
 
-    // Stop Amount floor for dispatch/afterhours
-    if (stopAmountTooLow) {
+    // Stop Amount floor for dispatch/afterhours — requires manager approval
+    if (needsStopAmountApproval && !approvalManagerId) {
       toast({
-        title: "Stop Amount too low",
+        title: "Manager approval required",
         description:
-          "Stop Amount cannot be less than 90% of the Freight Amount. Contact your managers for approval of a lower stop amount.",
+          "Stop Amount is below 90% of the Freight Amount. Select the manager who approved this lower stop amount.",
         variant: "destructive",
       });
       setIsSubmitting(false);
