@@ -972,20 +972,26 @@ const Reports = () => {
 
   // Recovery (retrieval) flag for the zoomed load
   const [zoomedRecovery, setZoomedRecovery] = useState<boolean | null>(null);
+  const [zoomedHasBol, setZoomedHasBol] = useState(false);
   useEffect(() => {
     const orderId = zoomedLoad?.orderId;
     if (!orderId) {
       setZoomedRecovery(null);
+      setZoomedHasBol(false);
       return;
     }
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("orders")
-        .select("retrieval")
+        .select("retrieval, order_files ( file_category )")
         .eq("id", orderId)
         .maybeSingle();
-      if (!cancelled) setZoomedRecovery(!!(data as any)?.retrieval);
+      if (!cancelled) {
+        setZoomedRecovery(!!(data as any)?.retrieval);
+        const files = ((data as any)?.order_files || []) as { file_category: string | null }[];
+        setZoomedHasBol(files.some((f) => (f.file_category || "").toUpperCase() === "BOL"));
+      }
     })();
     return () => {
       cancelled = true;
@@ -7843,7 +7849,7 @@ const Reports = () => {
                       Add charge
                     </Button>
                   )}
-                  {zoomedLoad?.orderId && (
+                  {zoomedLoad?.orderId && (zoomedRecovery || !zoomedHasBol) && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -7854,6 +7860,14 @@ const Reports = () => {
                       }
                       onClick={async () => {
                         const next = !zoomedRecovery;
+                        if (next && zoomedHasBol) {
+                          toast({
+                            title: "Cannot mark as Recovery",
+                            description: "This load already has a BOL uploaded.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
                         const { error } = await supabase
                           .from("orders")
                           .update({ retrieval: next } as never)
