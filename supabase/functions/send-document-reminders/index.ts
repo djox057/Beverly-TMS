@@ -323,6 +323,10 @@ serve(async (req: Request): Promise<Response> => {
         return av - bv;
       });
       const recipients = routeRecipients(group.email ? [group.email] : []);
+      if (dryRun) {
+        emailsSent++;
+        continue;
+      }
 
       const rows = sorted
         .map((c) => {
