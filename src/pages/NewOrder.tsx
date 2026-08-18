@@ -20,6 +20,7 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useBrokers } from "@/hooks/useBrokers";
 import { useNextInternalLoadNumber } from "@/hooks/useNextInternalLoadNumber";
+import { useApprovalManagers } from "@/hooks/useApprovalManagers";
 import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
@@ -103,6 +104,7 @@ const NewOrder = () => {
   const [deliveryDateRange, setDeliveryDateRange] = useState<DateRange>();
   const [freightAmount, setFreightAmount] = useState("");
   const [driverPrice, setDriverPrice] = useState("");
+  const [approvalManagerId, setApprovalManagerId] = useState("");
   const [tonu, setTonu] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
@@ -279,6 +281,17 @@ const NewOrder = () => {
     if (!freight || freight <= 0 || !driverPrice || isNaN(stop)) return false;
     return stop < freight * 0.9;
   })();
+  const { data: approvalManagers = [] } = useApprovalManagers(profile?.office);
+  const approvalManagerOptions = useMemo(
+    () =>
+      approvalManagers.map((m) => ({
+        value: m.user_id,
+        label: `${m.full_name || m.email}${m.office ? ` — ${m.office}` : ""}`,
+        searchText: `${m.full_name || ""} ${m.email} ${m.office || ""}`,
+      })),
+    [approvalManagers],
+  );
+  const needsStopAmountApproval = stopAmountTooLow;
   const dispatcherDriverIds =
     isDispatchOnly && profile?.user_id
       ? allDrivers?.filter((driver) => driver.dispatcher_id === profile.user_id).map((d) => d.id) || []
@@ -1747,12 +1760,12 @@ const NewOrder = () => {
     // Set submitting flag IMMEDIATELY to prevent race conditions from double-clicks
     setIsSubmitting(true);
 
-    // Stop Amount floor for dispatch/afterhours
-    if (stopAmountTooLow) {
+    // Stop Amount floor for dispatch/afterhours — requires manager approval
+    if (needsStopAmountApproval && !approvalManagerId) {
       toast({
-        title: "Stop Amount too low",
+        title: "Manager approval required",
         description:
-          "Stop Amount cannot be less than 90% of the Freight Amount. Contact your managers for approval of a lower stop amount.",
+          "Stop Amount is below 90% of the Freight Amount. Select the manager who approved this lower stop amount.",
         variant: "destructive",
       });
       setIsSubmitting(false);
@@ -2186,6 +2199,31 @@ const NewOrder = () => {
 
       // Store the created order ID for email logging
       setCreatedOrderId(orderId);
+
+      // Notify the selected manager that a below-90% Stop Amount was approved
+      if (needsStopAmountApproval && approvalManagerId) {
+        const approvalTruck = trucks?.find((t) => t.id === truck);
+        const firstPickup = pickupsDrops.find((p) => p.type === "pickup");
+        const firstDelivery = pickupsDrops.find((p) => p.type === "delivery");
+        const brokerNameForEmail = allBrokers?.find((br) => br.id === broker)?.name || null;
+        supabase.functions
+          .invoke("send-stop-amount-approval", {
+            body: {
+              managerUserId: approvalManagerId,
+              loadNumber: brokerLoadNumber || String(newInternalLoadNumber || ""),
+              brokerName: brokerNameForEmail,
+              truckNumber: approvalTruck?.truck_number || null,
+              driverName: selectedDriver1?.full_name || null,
+              freightAmount: parseFloat(freightAmount) || 0,
+              stopAmount: parseFloat(driverPrice) || 0,
+              pickup: firstPickup ? [firstPickup.city, firstPickup.state].filter(Boolean).join(", ") : null,
+              delivery: firstDelivery ? [firstDelivery.city, firstDelivery.state].filter(Boolean).join(", ") : null,
+            },
+          })
+          .then(({ error: approvalErr }) => {
+            if (approvalErr) console.error("Failed to send stop amount approval email:", approvalErr);
+          });
+      }
 
       // Save RC weight (extracted from RC at creation time) — kept separate from weight_bol
       {
@@ -3248,11 +3286,25 @@ const NewOrder = () => {
                   onChange={(e) => setDriverPrice(e.target.value)}
                 />
                 {stopAmountTooLow && (
-                  <p className="text-xs text-destructive">
-                    Stop Amount cannot be less than 90% of the Freight Amount ($
-                    {((parseFloat(freightAmount) || 0) * 0.9).toFixed(2)}). Contact your managers for approval of a lower
-                    stop amount.
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-destructive">
+                      Stop Amount is below 90% of the Freight Amount ($
+                      {((parseFloat(freightAmount) || 0) * 0.9).toFixed(2)}). Select the manager who approved this lower
+                      stop amount — they will be notified by email.
+                    </p>
+                    <Label htmlFor="approval-manager" className="text-destructive">
+                      Approved by manager *
+                    </Label>
+                    <Combobox
+                      options={approvalManagerOptions}
+                      value={approvalManagerId}
+                      onValueChange={setApprovalManagerId}
+                      placeholder="Select approving manager..."
+                      searchPlaceholder="Search managers..."
+                      emptyText="No managers found."
+                      className={approvalManagerId ? "" : "border-destructive"}
+                    />
+                  </div>
                 )}
                 {(() => {
                   const selectedDriver = allDrivers?.find((d) => d.id === driver1);
