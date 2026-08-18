@@ -7868,6 +7868,30 @@ const Reports = () => {
                         }
                         setZoomedRecovery(next);
                         toast({ title: next ? "Marked as Recovery" : "Removed from Recovery" });
+                        if (next) {
+                          try {
+                            const { data: alertData, error: alertError } = await supabase.functions.invoke(
+                              "send-recovery-load-alert",
+                              { body: { orderId: zoomedLoad.orderId } }
+                            );
+                            if (alertError) throw alertError;
+                            const sent = (alertData as any)?.sent ?? 0;
+                            const trucksNearby = (alertData as any)?.trucksNearby ?? 0;
+                            toast({
+                              title: sent > 0 ? `Notified ${sent} dispatcher${sent > 1 ? "s" : ""}` : "No trucks nearby",
+                              description:
+                                sent > 0
+                                  ? `${trucksNearby} truck${trucksNearby > 1 ? "s" : ""} within 150 mi of the pickup`
+                                  : "No trucks with a recent delivery within 150 mi of the pickup",
+                            });
+                          } catch (e: any) {
+                            toast({
+                              title: "Recovery emails failed",
+                              description: e?.message || "Could not notify nearby dispatchers",
+                              variant: "destructive",
+                            });
+                          }
+                        }
                       }}
                     >
                       <RefreshCw className="h-3.5 w-3.5 mr-1" />
