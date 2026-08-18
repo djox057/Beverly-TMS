@@ -78,6 +78,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Prefer resolving requester identity from the JWT (more reliable than client-provided fields)
     let requesterEmail = body.requesterEmail;
     let requesterName = body.requesterName;
+    let requesterUserId: string | null = null;
 
     console.log("EFS Request received:", { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName, requesterEmail });
 
@@ -100,6 +101,7 @@ const handler = async (req: Request): Promise<Response> => {
       if (userError) {
         console.warn("Could not resolve requester from JWT:", userError);
       } else if (userData?.user) {
+        requesterUserId = userData.user.id;
         requesterEmail = userData.user.email ?? requesterEmail;
         requesterName = (userData.user.user_metadata as any)?.full_name ?? requesterName;
 
