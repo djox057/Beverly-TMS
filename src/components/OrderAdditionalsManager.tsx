@@ -304,6 +304,10 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
           reason: newReason.trim(),
           file_path: null,
           file_name: null,
+          requested_by: user?.id ?? null,
+          requested_by_name:
+            profile?.full_name || (user?.user_metadata as any)?.full_name || user?.email || null,
+          requested_at: new Date().toISOString(),
         },
       ];
       setLumperItems(next);
