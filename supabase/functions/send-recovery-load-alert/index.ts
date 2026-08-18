@@ -146,15 +146,17 @@ serve(async (req) => {
     }
 
     // ---- Trucks nearby (based on each truck's last delivery) ----
+    // `is_last_order` is maintained by a DB trigger and flags each driver's
+    // most recent non-canceled order, so this scan reads ~hundreds of rows
+    // instead of paging through thousands.
     const since = new Date(Date.now() - 45 * 24 * 3600 * 1000).toISOString();
-    // Page through ALL recent orders (newest first) — a single capped query
-    // silently dropped most trucks once volume exceeded the limit.
     const recent: any[] = [];
     const PAGE = 1000;
-    for (let page = 0; page < 30; page++) {
+    for (let page = 0; page < 5; page++) {
       const { data: chunk, error: chunkErr } = await db
         .from("orders")
         .select("id, truck_id, driver1_id, pickup_datetime")
+        .eq("is_last_order", true)
         .eq("canceled", false)
         .not("truck_id", "is", null)
         .gte("pickup_datetime", since)
@@ -164,7 +166,7 @@ serve(async (req) => {
       recent.push(...(chunk || []));
       if (!chunk || chunk.length < PAGE) break;
     }
-    console.log(`recovery-alert: scanned ${recent.length} recent orders`);
+    console.log(`recovery-alert: scanned ${recent.length} last-order rows`);
 
     const lastByTruck = new Map<string, { orderId: string; driverId: string | null; date: string }>();
     for (const o of recent || []) {
