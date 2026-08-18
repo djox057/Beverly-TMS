@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/popover";
 import { Plus, Trash2, Check, ChevronsUpDown, Pencil, Paperclip, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 // Define the available additional types with their display names and database mapping
 const ADDITIONAL_TYPES = [
@@ -49,6 +50,9 @@ export interface LumperItem {
   reason: string;
   file_path: string | null;
   file_name: string | null;
+  requested_by?: string | null;
+  requested_by_name?: string | null;
+  requested_at?: string | null;
 }
 
 export interface AdditionalItem {
@@ -167,6 +171,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   isLocked,
   isCanceledLoad = false,
 }, ref) => {
+  const { user, profile } = useAuth();
   const [typeOpen, setTypeOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<AdditionalType | "">("");
   const [newCompanyAmount, setNewCompanyAmount] = useState("");
@@ -299,6 +304,10 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
           reason: newReason.trim(),
           file_path: null,
           file_name: null,
+          requested_by: user?.id ?? null,
+          requested_by_name:
+            profile?.full_name || (user?.user_metadata as any)?.full_name || user?.email || null,
+          requested_at: new Date().toISOString(),
         },
       ];
       setLumperItems(next);
@@ -721,9 +730,15 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                       const idx = item.index;
                       const li = lumperItems[idx];
                       const isUploading = uploadingLumperIndex === idx;
+                      const requesterLabel = li?.requested_by_name ? (
+                        <span className="text-xs text-muted-foreground italic mr-1" title={li.requested_at ? new Date(li.requested_at).toLocaleString() : undefined}>
+                          by {li.requested_by_name}
+                        </span>
+                      ) : null;
                       if (li?.file_path) {
                         return (
                           <span className="flex items-center gap-1">
+                            {requesterLabel}
                             <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
                             <button
                               type="button"
@@ -751,11 +766,15 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
                       }
                       if (isLocked) {
                         return (
-                          <span className="text-xs text-muted-foreground italic">No receipt</span>
+                          <span className="flex items-center gap-1">
+                            {requesterLabel}
+                            <span className="text-xs text-muted-foreground italic">No receipt</span>
+                          </span>
                         );
                       }
                       return (
                         <>
+                          {requesterLabel}
                           <input
                             ref={(el) => { fileInputRefs.current[idx] = el; }}
                             type="file"
