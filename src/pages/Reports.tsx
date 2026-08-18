@@ -77,6 +77,7 @@ import {
   Plus,
 } from "lucide-react";
 import { Calculator } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { SamsaraLiveShareDialog } from "@/components/SamsaraLiveShareDialog";
 import { TranslatableOrderNote } from "@/components/TranslatableOrderNote";
