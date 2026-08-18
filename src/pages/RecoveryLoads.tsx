@@ -89,8 +89,10 @@ const RecoveryLoads = () => {
     loadNumber: string;
     pickupAddress: string;
   } | null>(null);
-  const { hasRole } = useAuth();
+  const { hasRole, profile } = useAuth();
   const canSeeStats = hasRole("manager") || hasRole("admin");
+  const canAssignAny = hasRole("manager") || hasRole("admin");
+  const myName = (profile?.full_name || "").trim().toLowerCase();
   const { toast } = useToast();
 
   const { data: orders = [], isLoading, refetch } = useQuery({
