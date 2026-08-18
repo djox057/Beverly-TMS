@@ -77,6 +77,7 @@ import {
   Plus,
 } from "lucide-react";
 import { Calculator } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { SamsaraLiveShareDialog } from "@/components/SamsaraLiveShareDialog";
 import { TranslatableOrderNote } from "@/components/TranslatableOrderNote";
@@ -7818,6 +7819,26 @@ const Reports = () => {
                   {(roles.includes("admin") || roles.includes("manager")) && zoomedLoad?.orderId && (
                     <Button variant="outline" size="sm" onClick={() => setSalaryChargeOpen(true)}>
                       Add charge
+                    </Button>
+                  )}
+                  {zoomedLoad?.orderId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        const { error } = await supabase
+                          .from("orders")
+                          .update({ retrieval: true } as never)
+                          .eq("id", zoomedLoad.orderId);
+                        if (error) {
+                          toast({ title: "Failed to mark as Recovery", description: error.message, variant: "destructive" });
+                          return;
+                        }
+                        toast({ title: "Marked as Recovery" });
+                      }}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Recovery
                     </Button>
                   )}
                   <Button
