@@ -145,6 +145,37 @@ serve(async (req) => {
       });
     }
 
+    // ---- Eligible fleet: active drivers currently assigned to an active truck ----
+    const activeTrucks: any[] = [];
+    for (let page = 0; page < 5; page++) {
+      const { data: chunk, error: tErr } = await db
+        .from("trucks")
+        .select("id, truck_number, dispatcher_id, driver1_id, is_active")
+        .eq("is_active", true)
+        .not("driver1_id", "is", null)
+        .range(page * 1000, page * 1000 + 999);
+      if (tErr) break;
+      activeTrucks.push(...(chunk || []));
+      if (!chunk || chunk.length < 1000) break;
+    }
+    const activeDriverIds = [...new Set(activeTrucks.map((t) => t.driver1_id).filter(Boolean))] as string[];
+    const activeDrivers: any[] = [];
+    for (let i = 0; i < activeDriverIds.length; i += 200) {
+      const { data: d } = await db
+        .from("drivers")
+        .select("id, name, dispatcher_id, is_active")
+        .in("id", activeDriverIds.slice(i, i + 200))
+        .eq("is_active", true);
+      activeDrivers.push(...(d || []));
+    }
+    const activeDriverMap = new Map(activeDrivers.map((d: any) => [d.id, d]));
+    // truck_id -> current active driver
+    const eligibleTrucks = new Map<string, any>();
+    for (const t of activeTrucks) {
+      if (activeDriverMap.has(t.driver1_id)) eligibleTrucks.set(t.id, t);
+    }
+    console.log(`recovery-alert: ${eligibleTrucks.size} eligible active truck/driver pairs`);
+
     // ---- Trucks nearby (based on each truck's last delivery) ----
     // `is_last_order` is maintained by a DB trigger and flags each driver's
     // most recent non-canceled order, so this scan reads ~hundreds of rows
@@ -171,10 +202,11 @@ serve(async (req) => {
     const lastByTruck = new Map<string, { orderId: string; driverId: string | null; date: string }>();
     for (const o of recent || []) {
       const t = (o as any).truck_id as string;
+      if (!eligibleTrucks.has(t)) continue;
       const date = ((o as any).pickup_datetime as string) || "";
       const prev = lastByTruck.get(t);
       if (!prev || date >= prev.date) {
-        lastByTruck.set(t, { orderId: (o as any).id, driverId: (o as any).driver1_id, date });
+        lastByTruck.set(t, { orderId: (o as any).id, driverId: eligibleTrucks.get(t).driver1_id, date });
       }
     }
 
@@ -241,15 +273,8 @@ serve(async (req) => {
     const truckIds = nearby.map((n) => n.truckId);
     const driverIds = nearby.map((n) => n.driverId).filter(Boolean) as string[];
 
-    const [{ data: trucks }, { data: drivers }] = await Promise.all([
-      db.from("trucks").select("id, truck_number, dispatcher_id, is_active").in("id", truckIds),
-      driverIds.length
-        ? db.from("drivers").select("id, name, dispatcher_id, is_active").in("id", driverIds)
-        : Promise.resolve({ data: [] } as any),
-    ]);
-
-    const truckMap = new Map((trucks || []).map((t: any) => [t.id, t]));
-    const driverMap = new Map((drivers || []).map((d: any) => [d.id, d]));
+    const truckMap = new Map(truckIds.map((id) => [id, eligibleTrucks.get(id)]).filter(([, t]) => !!t) as any);
+    const driverMap = new Map(driverIds.map((id) => [id, activeDriverMap.get(id)]).filter(([, d]) => !!d) as any);
 
     // Group by dispatcher user
     const groups = new Map<string, Nearby[]>();
