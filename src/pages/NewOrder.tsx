@@ -20,6 +20,7 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useBrokers } from "@/hooks/useBrokers";
 import { useNextInternalLoadNumber } from "@/hooks/useNextInternalLoadNumber";
+import { useApprovalManagers } from "@/hooks/useApprovalManagers";
 import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
@@ -103,6 +104,7 @@ const NewOrder = () => {
   const [deliveryDateRange, setDeliveryDateRange] = useState<DateRange>();
   const [freightAmount, setFreightAmount] = useState("");
   const [driverPrice, setDriverPrice] = useState("");
+  const [approvalManagerId, setApprovalManagerId] = useState("");
   const [tonu, setTonu] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
