@@ -3374,10 +3374,14 @@ export type Database = {
           pod_force_complete: boolean
           pu_number: string | null
           recovery_assigned: boolean
+          recovery_auto_cancel_at: string | null
+          recovery_cancel_payload: Json | null
           recovery_date: string | null
           recovery_driver_price: number | null
           recovery_freight_amount: number | null
           recovery_miles: number | null
+          recovery_requested_at: string | null
+          recovery_requested_by: string | null
           reference_number: string | null
           retrieval: boolean
           scale_drive_axle: number | null
@@ -3501,10 +3505,14 @@ export type Database = {
           pod_force_complete?: boolean
           pu_number?: string | null
           recovery_assigned?: boolean
+          recovery_auto_cancel_at?: string | null
+          recovery_cancel_payload?: Json | null
           recovery_date?: string | null
           recovery_driver_price?: number | null
           recovery_freight_amount?: number | null
           recovery_miles?: number | null
+          recovery_requested_at?: string | null
+          recovery_requested_by?: string | null
           reference_number?: string | null
           retrieval?: boolean
           scale_drive_axle?: number | null
@@ -3628,10 +3636,14 @@ export type Database = {
           pod_force_complete?: boolean
           pu_number?: string | null
           recovery_assigned?: boolean
+          recovery_auto_cancel_at?: string | null
+          recovery_cancel_payload?: Json | null
           recovery_date?: string | null
           recovery_driver_price?: number | null
           recovery_freight_amount?: number | null
           recovery_miles?: number | null
+          recovery_requested_at?: string | null
+          recovery_requested_by?: string | null
           reference_number?: string | null
           retrieval?: boolean
           scale_drive_axle?: number | null
