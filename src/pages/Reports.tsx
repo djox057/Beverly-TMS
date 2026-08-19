@@ -8492,7 +8492,16 @@ const Reports = () => {
       />
 
       {/* Cancel Load Dialog */}
-      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+      <Dialog
+        open={cancelDialogOpen}
+        onOpenChange={(open) => {
+          setCancelDialogOpen(open);
+          if (!open) {
+            setCancelRecoverInstead(false);
+            setCancelRecoveryMinutes(120);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancel Load #{zoomedLoad?.loadNumber}</DialogTitle>
