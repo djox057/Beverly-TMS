@@ -90,8 +90,8 @@ serve(async (req) => {
       { label: 'BF Prime LLC 5006094 (dispatch@bfprime.net / beverlyrepair@gmail.com)', insured: false, secret: 'SAMSARA_API_KEY_3' },
       { label: 'luka@bgprime.net', insured: false, secret: 'SAMSARA_API_KEY_4' },
       { label: 'accounting@bfprime.net', insured: true, secret: 'SAMSARA_API_KEY_5' },
-      { label: 'Dispatch@apsilvertrans.net', insured: true, secret: 'SAMSARA_API_KEY_6' },
-      { label: 'Dispatch@unitedenterprisesolutions.net', insured: true, secret: 'SAMSARA_API_KEY_7' },
+      { label: 'Dispatch@apsilvertrans.net', insured: false, secret: 'SAMSARA_API_KEY_6' },
+      { label: 'Dispatch@unitedenterprisesolutions.net', insured: false, secret: 'SAMSARA_API_KEY_7' },
       { label: 'dispatch@bgprime.net', insured: true, secret: 'SAMSARA_API_KEY_8' },
     ];
 
