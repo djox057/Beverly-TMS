@@ -1886,6 +1886,76 @@ const Reports = () => {
     }
   };
 
+  // Send the load to Recovery Loads instead of canceling it now.
+  const handleSendToRecovery = async () => {
+    if (!zoomedLoad?.orderId) return;
+
+    const tonu = parseFloat(cancelFormData.tonu);
+    const driverRate = parseFloat(cancelFormData.driverRate);
+    const dhMiles = parseInt(cancelFormData.dhMiles);
+
+    if (isNaN(tonu) || isNaN(driverRate) || isNaN(dhMiles)) {
+      toast({
+        title: "Error",
+        description: "Please enter valid numbers for all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!cancelFormData.notes.trim()) {
+      toast({ title: "Error", description: "Notes are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const deadline = new Date(Date.now() + cancelRecoveryMinutes * 60 * 1000).toISOString();
+
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          retrieval: true,
+          recovery_auto_cancel_at: deadline,
+          recovery_cancel_payload: {
+            tonu,
+            driver_rate: driverRate,
+            dh_miles: dhMiles,
+            notes: cancelFormData.notes,
+          },
+          recovery_requested_by: user?.id ?? null,
+          recovery_requested_at: new Date().toISOString(),
+        } as never)
+        .eq("id", zoomedLoad.orderId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sent to Recovery",
+        description: `Load will auto-cancel if not assigned by ${new Date(deadline).toLocaleString("en-US", {
+          timeZone: "America/Chicago",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        })} (Chicago).`,
+      });
+      setCancelDialogOpen(false);
+      setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+      setCancelRecoverInstead(false);
+      setCancelRecoveryMinutes(120);
+    } catch (error: any) {
+      console.error("Error sending load to recovery:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to send load to recovery",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Revert cancellation handler
   const handleRevertCancellation = async () => {
     if (!zoomedLoad?.orderId) return;
