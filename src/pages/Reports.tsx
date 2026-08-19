@@ -8499,6 +8499,56 @@ const Reports = () => {
             <DialogDescription className="sr-only">Enter cancellation details for this load</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <Label>Try to recover this load instead?</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={cancelRecoverInstead ? "default" : "outline"}
+                  onClick={() => setCancelRecoverInstead(true)}
+                >
+                  Yes
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={!cancelRecoverInstead ? "default" : "outline"}
+                  onClick={() => setCancelRecoverInstead(false)}
+                >
+                  No
+                </Button>
+              </div>
+              {cancelRecoverInstead && (
+                <div className="space-y-2 pt-1">
+                  <Label>Auto-cancel if not assigned within</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: "30 min", value: 30 },
+                      { label: "1h", value: 60 },
+                      { label: "2h", value: 120 },
+                      { label: "4h", value: 240 },
+                      { label: "8h", value: 480 },
+                      { label: "24h", value: 1440 },
+                    ].map((opt) => (
+                      <Button
+                        key={opt.value}
+                        type="button"
+                        size="sm"
+                        variant={cancelRecoveryMinutes === opt.value ? "default" : "outline"}
+                        onClick={() => setCancelRecoveryMinutes(opt.value)}
+                      >
+                        {opt.label}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The load stays active and shows on Recovery Loads. If nobody assigns it to another driver in time,
+                    it is canceled automatically with the values below.
+                  </p>
+                </div>
+              )}
+            </div>
             <div className="space-y-2">
               <Label htmlFor="cancel-tonu">Company TONU ($)</Label>
               <Input
@@ -8545,9 +8595,13 @@ const Reports = () => {
               <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={handleCancelOrder}>
-                Confirm Cancellation
-              </Button>
+              {cancelRecoverInstead ? (
+                <Button onClick={handleSendToRecovery}>Send to Recovery</Button>
+              ) : (
+                <Button variant="destructive" onClick={handleCancelOrder}>
+                  Confirm Cancellation
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
