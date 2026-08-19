@@ -282,6 +282,45 @@ const RecoveryLoads = () => {
                   <TableCell className="truncate" title={row.brokerName}>
                     {row.brokerName}
                   </TableCell>
+                  <TableCell className="text-sm">
+                    {row.autoCancelAt ? (
+                      <div
+                        className={
+                          new Date(row.autoCancelAt).getTime() <= Date.now()
+                            ? "text-destructive font-medium"
+                            : new Date(row.autoCancelAt).getTime() - Date.now() < 60 * 60 * 1000
+                            ? "text-amber-600 font-medium"
+                            : ""
+                        }
+                      >
+                        {formatChicago(row.autoCancelAt)}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                    {canAssignAny && (
+                      <div className="flex gap-1 pt-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1 text-xs"
+                          onClick={() => updateDeadline(row.id, 120)}
+                        >
+                          +2h
+                        </Button>
+                        {row.autoCancelAt && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-1 text-xs"
+                            onClick={() => updateDeadline(row.id, null)}
+                          >
+                            Clear
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Button
                       size="sm"
