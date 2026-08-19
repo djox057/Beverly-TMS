@@ -17,6 +17,7 @@ const BodySchema = z.object({
   truckNumber: z.string().trim().max(50).nullish(),
   driverName: z.string().trim().max(200).nullish(),
   driverId: z.string().uuid().nullish(),
+  orderId: z.string().uuid().nullish(),
   pickupDate: z.string().trim().max(40).nullish(),
   freightAmount: z.number().nonnegative(),
   stopAmount: z.number().nonnegative(),
@@ -124,14 +125,23 @@ const handler = async (req: Request): Promise<Response> => {
     if (driverId) {
       const { data: weekOrders } = await admin
         .from("orders")
-        .select("freight_amount, driver_price")
+        .select("id, freight_amount, driver_price")
         .eq("driver1_id", driverId)
         .eq("canceled", false)
         .gte("pickup_datetime", `${startISO}T00:00:00`)
         .lt("pickup_datetime", `${endISO}T00:00:00`);
+      // Start from the queried week and add this load only if it is not already stored.
+      weekFreight = 0;
+      weekStop = 0;
+      let includesThisLoad = false;
       for (const o of weekOrders || []) {
+        if (b.orderId && o.id === b.orderId) includesThisLoad = true;
         weekFreight += Number(o.freight_amount) || 0;
         weekStop += Number(o.driver_price) || 0;
+      }
+      if (!includesThisLoad) {
+        weekFreight += b.freightAmount;
+        weekStop += b.stopAmount;
       }
     }
     const weekLabel = `${startISO} – ${endISO}`;
