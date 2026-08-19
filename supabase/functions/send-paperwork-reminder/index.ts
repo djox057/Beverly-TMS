@@ -146,7 +146,7 @@ serve(async (req: Request): Promise<Response> => {
       reason ? `Reason: ${reason}` : null,
       note ? `Note: ${note}` : null,
       "",
-      `ACTION REQUIRED: Please tell the driver to bring the truck/trailer to the yard by ${dueDate}.`,
+      `ACTION REQUIRED: Please route the driver through the yard with the truck/trailer by ${dueDate}.`,
       "",
       `Requested by: ${userData.user.email ?? "unknown"}`,
       "",

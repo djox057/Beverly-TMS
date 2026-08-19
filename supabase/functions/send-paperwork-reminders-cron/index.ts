@@ -162,7 +162,7 @@ serve(async (req: Request): Promise<Response> => {
         item.reason ? `Reason: ${item.reason}` : null,
         item.note ? `Note: ${item.note}` : null,
         "",
-        `ACTION REQUIRED: Please tell the driver to bring the truck/trailer to the yard by ${dueDate}.`,
+        `ACTION REQUIRED: Please route the driver through the yard with the truck/trailer by ${dueDate}.`,
         "",
         recipients.banner ? `(${recipients.banner})` : null,
       ].filter(Boolean);
