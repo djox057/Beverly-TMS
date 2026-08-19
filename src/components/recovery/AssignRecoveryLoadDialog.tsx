@@ -200,6 +200,8 @@ export function AssignRecoveryLoadDialog({
       dh_miles: dhMiles ? parseInt(dhMiles, 10) : null,
       retrieval: false,
       recovery_assigned: true,
+      recovery_auto_cancel_at: null,
+      recovery_cancel_payload: null,
     };
     if (bookedBy) payload.booked_by = bookedBy;
 
