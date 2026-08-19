@@ -24,6 +24,7 @@ const BodySchema = z.object({
   pickup: z.string().trim().max(300).nullish(),
   delivery: z.string().trim().max(300).nullish(),
   testTo: z.string().email().nullish(),
+  serviceTest: z.boolean().nullish(),
 });
 
 const money = (n: number) => `$${n.toFixed(2)}`;
@@ -61,6 +62,13 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const isServiceCall = bearer === serviceKey;
+
+    let callerId: string | null = null;
+    let callerEmail: string | null = null;
+    if (!isServiceCall) {
     const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -70,6 +78,9 @@ const handler = async (req: Request): Promise<Response> => {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+      callerId = userData.user.id;
+      callerEmail = userData.user.email ?? null;
     }
 
     const parsed = BodySchema.safeParse(await req.json());
@@ -81,11 +92,13 @@ const handler = async (req: Request): Promise<Response> => {
     }
     const b = parsed.data;
 
-    const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const admin = createClient(supabaseUrl, serviceKey);
 
     const [{ data: managerProfile }, { data: requesterProfile }] = await Promise.all([
       admin.from("profiles").select("full_name, email, office").eq("user_id", b.managerUserId).maybeSingle(),
-      admin.from("profiles").select("full_name, email, office").eq("user_id", userData.user.id).maybeSingle(),
+      callerId
+        ? admin.from("profiles").select("full_name, email, office").eq("user_id", callerId).maybeSingle()
+        : Promise.resolve({ data: null } as any),
     ]);
 
     if (!managerProfile?.email) {
@@ -96,7 +109,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const pct = b.freightAmount > 0 ? (b.stopAmount / b.freightAmount) * 100 : 0;
-    const requesterName = requesterProfile?.full_name || userData.user.email || "Dispatcher";
+    const requesterName = requesterProfile?.full_name || callerEmail || "Dispatcher";
 
     // Resolve driver: prefer the supplied name, otherwise derive from the truck.
     let driverId = b.driverId || null;
