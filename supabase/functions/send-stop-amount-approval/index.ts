@@ -16,13 +16,36 @@ const BodySchema = z.object({
   brokerName: z.string().trim().max(200).nullish(),
   truckNumber: z.string().trim().max(50).nullish(),
   driverName: z.string().trim().max(200).nullish(),
+  driverId: z.string().uuid().nullish(),
+  pickupDate: z.string().trim().max(40).nullish(),
   freightAmount: z.number().nonnegative(),
   stopAmount: z.number().nonnegative(),
   pickup: z.string().trim().max(300).nullish(),
   delivery: z.string().trim().max(300).nullish(),
+  testTo: z.string().email().nullish(),
 });
 
 const money = (n: number) => `$${n.toFixed(2)}`;
+
+/** Monday–Sunday week (Chicago) containing the given date. */
+const chicagoWeekRange = (value?: string | null) => {
+  const base = value ? new Date(value) : new Date();
+  const iso = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(isNaN(base.getTime()) ? new Date() : base);
+  const day = new Date(`${iso}T00:00:00Z`);
+  const dow = day.getUTCDay(); // 0=Sun
+  const offsetToMonday = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(day.getTime() + offsetToMonday * 86400000);
+  const nextMonday = new Date(monday.getTime() + 7 * 86400000);
+  return {
+    startISO: monday.toISOString().slice(0, 10),
+    endISO: nextMonday.toISOString().slice(0, 10),
+  };
+};
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -74,6 +97,45 @@ const handler = async (req: Request): Promise<Response> => {
     const pct = b.freightAmount > 0 ? (b.stopAmount / b.freightAmount) * 100 : 0;
     const requesterName = requesterProfile?.full_name || userData.user.email || "Dispatcher";
 
+    // Resolve driver: prefer the supplied name, otherwise derive from the truck.
+    let driverId = b.driverId || null;
+    let driverName = b.driverName || null;
+    if (!driverId && b.truckNumber) {
+      const { data: truckRow } = await admin
+        .from("trucks")
+        .select("driver1_id")
+        .eq("truck_number", b.truckNumber)
+        .maybeSingle();
+      driverId = truckRow?.driver1_id || null;
+    }
+    if (driverId && !driverName) {
+      const { data: driverRow } = await admin
+        .from("drivers")
+        .select("full_name")
+        .eq("id", driverId)
+        .maybeSingle();
+      driverName = driverRow?.full_name || null;
+    }
+
+    // Weekly (Mon–Sun Chicago) totals for that driver, including this load.
+    const { startISO, endISO } = chicagoWeekRange(b.pickupDate);
+    let weekFreight = b.freightAmount;
+    let weekStop = b.stopAmount;
+    if (driverId) {
+      const { data: weekOrders } = await admin
+        .from("orders")
+        .select("freight_amount, driver_price")
+        .eq("driver1_id", driverId)
+        .eq("canceled", false)
+        .gte("pickup_datetime", `${startISO}T00:00:00`)
+        .lt("pickup_datetime", `${endISO}T00:00:00`);
+      for (const o of weekOrders || []) {
+        weekFreight += Number(o.freight_amount) || 0;
+        weekStop += Number(o.driver_price) || 0;
+      }
+    }
+    const weekLabel = `${startISO} – ${endISO}`;
+
     const html = `
       <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111">
         <h2 style="margin:0 0 12px">Low Stop Amount Approval</h2>
@@ -82,20 +144,24 @@ const handler = async (req: Request): Promise<Response> => {
         <table cellpadding="6" style="border-collapse:collapse">
           <tr><td><strong>Load #</strong></td><td>${b.loadNumber || "-"}</td></tr>
           <tr><td><strong>Broker</strong></td><td>${b.brokerName || "-"}</td></tr>
-          <tr><td><strong>Truck / Driver</strong></td><td>${b.truckNumber || "-"} / ${b.driverName || "-"}</td></tr>
+          <tr><td><strong>Truck</strong></td><td>${b.truckNumber || "-"}</td></tr>
+          <tr><td><strong>Driver</strong></td><td>${driverName || "-"}</td></tr>
           <tr><td><strong>Pickup</strong></td><td>${b.pickup || "-"}</td></tr>
           <tr><td><strong>Delivery</strong></td><td>${b.delivery || "-"}</td></tr>
-          <tr><td><strong>Freight Amount</strong></td><td>${money(b.freightAmount)}</td></tr>
-          <tr><td><strong>Stop Amount</strong></td><td style="color:#b91c1c">${money(b.stopAmount)} (${pct.toFixed(1)}% of freight)</td></tr>
+          <tr><td><strong>Freight Amount</strong></td><td>${money(b.freightAmount)} <span style="color:#555">(week total: ${money(weekFreight)})</span></td></tr>
+          <tr><td><strong>Stop Amount</strong></td><td style="color:#b91c1c">${money(b.stopAmount)} (${pct.toFixed(1)}% of freight) <span style="color:#555">(week total: ${money(weekStop)})</span></td></tr>
           <tr><td><strong>90% Floor</strong></td><td>${money(b.freightAmount * 0.9)}</td></tr>
+          <tr><td><strong>Week (Mon–Sun)</strong></td><td>${weekLabel}</td></tr>
         </table>
         <p style="margin-top:14px">The load has been created. Reply to this email if this approval is not correct.</p>
       </div>`;
 
     const response = await resend.emails.send({
       from: "Dispatch <dispatch@bfprime.net>",
-      to: [managerProfile.email],
-      ...(requesterProfile?.email ? { cc: [requesterProfile.email], replyTo: [requesterProfile.email] } : {}),
+      to: b.testTo ? [b.testTo] : [managerProfile.email],
+      ...(!b.testTo && requesterProfile?.email
+        ? { cc: [requesterProfile.email], replyTo: [requesterProfile.email] }
+        : {}),
       subject: `Low Stop Amount Approval - Load ${b.loadNumber || ""} (${money(b.stopAmount)} / ${money(b.freightAmount)})`,
       html,
     });
