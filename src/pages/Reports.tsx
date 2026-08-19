@@ -1111,6 +1111,8 @@ const Reports = () => {
   }, [proximityCoords, proximityAddress, truckLastDeliveryVersion]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+  const [cancelRecoverInstead, setCancelRecoverInstead] = useState(false);
+  const [cancelRecoveryMinutes, setCancelRecoveryMinutes] = useState(120);
 
   // Lumper Request state
   const [lumperDialogOpen, setLumperDialogOpen] = useState(false);
