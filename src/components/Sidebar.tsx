@@ -258,7 +258,10 @@ export const Sidebar = () => {
       // Strict items must match the user's primary role directly (bypasses hasRole inheritance)
       if ((item as any).strict) {
         // Per-user exception: view-only access to Drivers Complaints
-        if (item.href === "/drivers-complaints" && isComplaintsViewOnlyEmail(user?.email)) {
+        if (
+          item.href === "/drivers-complaints" &&
+          (isComplaintsViewOnlyEmail(user?.email) || primaryRole === "yard")
+        ) {
           return true;
         }
         return !!primaryRole && (item.roles || []).includes(primaryRole);
@@ -388,7 +391,7 @@ export const Sidebar = () => {
         "/roadside-inspection",
         "/live-oil-change",
       ];
-      if (isComplaintsViewOnlyEmail(user?.email)) yardPages.push("/drivers-complaints");
+      yardPages.push("/drivers-complaints");
       return filteredNav.filter((item) => yardPages.includes(item.href));
     }
 

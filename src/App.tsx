@@ -203,7 +203,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/drivers-complaints" element={
-          <ProtectedRoute strictAllowedRoles={['admin', 'manager', 'dispatch', 'chicago_management']} allowedEmails={['joey@bfprime.net']}>
+          <ProtectedRoute strictAllowedRoles={['admin', 'manager', 'dispatch', 'chicago_management', 'yard']} allowedEmails={['joey@bfprime.net']}>
             <Layout><DriversComplaints /></Layout>
           </ProtectedRoute>
         } />
