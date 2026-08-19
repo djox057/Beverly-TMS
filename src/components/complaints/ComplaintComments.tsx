@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { TranslatableComplaintText } from "./TranslatableComplaintText";
 
 interface ComplaintComment {
   id: string;
@@ -145,7 +146,7 @@ export function ComplaintComments({
                       </Button>
                     )}
                   </div>
-                  <div className="text-sm whitespace-pre-wrap">{c.content}</div>
+                  <TranslatableComplaintText text={c.content} size="xs" />
                 </div>
               ))}
             </div>
