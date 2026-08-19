@@ -147,6 +147,7 @@ const RecoveryLoads = () => {
         bookedByCompany: order.booked_by_company?.name || "—",
         brokerName: shortenBrokerName(order.broker?.name),
         canceled: !!order.canceled,
+        autoCancelAt: order.recovery_auto_cancel_at,
         retrieval: !!(order as unknown as { retrieval?: boolean }).retrieval,
       };
     });
