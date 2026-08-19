@@ -70,6 +70,21 @@ const formatDateTime = (value?: string | null) => {
   return `${m[2]}/${m[3]} ${m[4]}:${m[5]}`;
 };
 
+// Auto-cancel deadlines are true UTC timestamps — render them in Chicago time.
+const formatChicago = (value?: string | null) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-US", {
+    timeZone: "America/Chicago",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};
+
 // Trim legal suffixes so "C.H. ROBINSON COMPANY, LLC" renders as "C.H. ROBINSON"
 const shortenBrokerName = (name?: string | null) => {
   if (!name) return "—";
