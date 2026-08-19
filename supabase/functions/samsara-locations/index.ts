@@ -31,8 +31,8 @@ const SAMSARA_ACCOUNTS: Array<{ label: string; insured: boolean }> = [
   { label: 'BF Prime LLC 5006094 (dispatch@bfprime.net / beverlyrepair@gmail.com)', insured: false },
   { label: 'luka@bgprime.net', insured: false },
   { label: 'accounting@bfprime.net', insured: true },
-  { label: 'Dispatch@apsilvertrans.net', insured: true },
-  { label: 'Dispatch@unitedenterprisesolutions.net', insured: true },
+  { label: 'Dispatch@apsilvertrans.net', insured: false },
+  { label: 'Dispatch@unitedenterprisesolutions.net', insured: false },
   { label: 'dispatch@bgprime.net', insured: true },
 ];
 
