@@ -32,7 +32,8 @@ export const useRecoveryLoadsCount = () => {
       const { data, error } = await supabase
         .from("orders")
         .select("booked_by")
-        .eq("retrieval", true);
+        .eq("retrieval", true)
+        .eq("canceled", false);
 
       if (error) {
         console.error("Error fetching recovery loads count:", error);
