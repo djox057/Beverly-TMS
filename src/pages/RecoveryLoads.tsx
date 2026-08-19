@@ -236,6 +236,7 @@ const RecoveryLoads = () => {
               <TableHead className="w-[150px]">Booked By</TableHead>
               <TableHead className="w-[160px]">Booked By Company</TableHead>
               <TableHead className="w-[130px]">Broker</TableHead>
+              <TableHead className="w-[150px]">Cancels At</TableHead>
               <TableHead className="w-[60px]">RC</TableHead>
               <TableHead className="w-[90px]">Assign</TableHead>
             </TableRow>
