@@ -193,6 +193,29 @@ const RecoveryLoads = () => {
     file_name: string | null;
     file_path: string;
   } | null, orderId: string) => {
+    return handleOpenRcImpl(file, orderId);
+  };
+
+  const updateDeadline = async (orderId: string, minutesFromNow: number | null) => {
+    const value = minutesFromNow == null ? null : new Date(Date.now() + minutesFromNow * 60 * 1000).toISOString();
+    const { error } = await supabase
+      .from("orders")
+      .update({ recovery_auto_cancel_at: value } as never)
+      .eq("id", orderId);
+    if (error) {
+      toast({ title: "Could not update deadline", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: value ? "Deadline updated" : "Deadline cleared" });
+    refetch();
+  };
+
+  const handleOpenRcImpl = async (file: {
+    id: string;
+    file_category: string | null;
+    file_name: string | null;
+    file_path: string;
+  } | null, orderId: string) => {
     if (!file) {
       toast({ title: "No RC", description: "This load has no RC file uploaded.", variant: "destructive" });
       return;
