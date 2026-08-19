@@ -12,7 +12,9 @@ export function useComplaintsAccess() {
   const viewOnly =
     !canManage &&
     !isDispatch &&
-    (roles.includes("chicago_management") || COMPLAINTS_VIEW_ONLY_EMAILS.includes(email));
+    (roles.includes("chicago_management") ||
+      roles.includes("yard") ||
+      COMPLAINTS_VIEW_ONLY_EMAILS.includes(email));
 
   return {
     canManage,
