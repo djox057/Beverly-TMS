@@ -1111,6 +1111,8 @@ const Reports = () => {
   }, [proximityCoords, proximityAddress, truckLastDeliveryVersion]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+  const [cancelRecoverInstead, setCancelRecoverInstead] = useState(false);
+  const [cancelRecoveryMinutes, setCancelRecoveryMinutes] = useState(120);
 
   // Lumper Request state
   const [lumperDialogOpen, setLumperDialogOpen] = useState(false);
@@ -1879,6 +1881,76 @@ const Reports = () => {
       toast({
         title: "Error",
         description: "Failed to cancel load",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Send the load to Recovery Loads instead of canceling it now.
+  const handleSendToRecovery = async () => {
+    if (!zoomedLoad?.orderId) return;
+
+    const tonu = parseFloat(cancelFormData.tonu);
+    const driverRate = parseFloat(cancelFormData.driverRate);
+    const dhMiles = parseInt(cancelFormData.dhMiles);
+
+    if (isNaN(tonu) || isNaN(driverRate) || isNaN(dhMiles)) {
+      toast({
+        title: "Error",
+        description: "Please enter valid numbers for all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!cancelFormData.notes.trim()) {
+      toast({ title: "Error", description: "Notes are required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const deadline = new Date(Date.now() + cancelRecoveryMinutes * 60 * 1000).toISOString();
+
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          retrieval: true,
+          recovery_auto_cancel_at: deadline,
+          recovery_cancel_payload: {
+            tonu,
+            driver_rate: driverRate,
+            dh_miles: dhMiles,
+            notes: cancelFormData.notes,
+          },
+          recovery_requested_by: user?.id ?? null,
+          recovery_requested_at: new Date().toISOString(),
+        } as never)
+        .eq("id", zoomedLoad.orderId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sent to Recovery",
+        description: `Load will auto-cancel if not assigned by ${new Date(deadline).toLocaleString("en-US", {
+          timeZone: "America/Chicago",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        })} (Chicago).`,
+      });
+      setCancelDialogOpen(false);
+      setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+      setCancelRecoverInstead(false);
+      setCancelRecoveryMinutes(120);
+    } catch (error: any) {
+      console.error("Error sending load to recovery:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to send load to recovery",
         variant: "destructive",
       });
     }
@@ -8420,13 +8492,72 @@ const Reports = () => {
       />
 
       {/* Cancel Load Dialog */}
-      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+      <Dialog
+        open={cancelDialogOpen}
+        onOpenChange={(open) => {
+          setCancelDialogOpen(open);
+          if (!open) {
+            setCancelRecoverInstead(false);
+            setCancelRecoveryMinutes(120);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancel Load #{zoomedLoad?.loadNumber}</DialogTitle>
             <DialogDescription className="sr-only">Enter cancellation details for this load</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <Label>Try to recover this load instead?</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={cancelRecoverInstead ? "default" : "outline"}
+                  onClick={() => setCancelRecoverInstead(true)}
+                >
+                  Yes
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={!cancelRecoverInstead ? "default" : "outline"}
+                  onClick={() => setCancelRecoverInstead(false)}
+                >
+                  No
+                </Button>
+              </div>
+              {cancelRecoverInstead && (
+                <div className="space-y-2 pt-1">
+                  <Label>Auto-cancel if not assigned within</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: "30 min", value: 30 },
+                      { label: "1h", value: 60 },
+                      { label: "2h", value: 120 },
+                      { label: "4h", value: 240 },
+                      { label: "8h", value: 480 },
+                      { label: "24h", value: 1440 },
+                    ].map((opt) => (
+                      <Button
+                        key={opt.value}
+                        type="button"
+                        size="sm"
+                        variant={cancelRecoveryMinutes === opt.value ? "default" : "outline"}
+                        onClick={() => setCancelRecoveryMinutes(opt.value)}
+                      >
+                        {opt.label}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The load stays active and shows on Recovery Loads. If nobody assigns it to another driver in time,
+                    it is canceled automatically with the values below.
+                  </p>
+                </div>
+              )}
+            </div>
             <div className="space-y-2">
               <Label htmlFor="cancel-tonu">Company TONU ($)</Label>
               <Input
@@ -8473,9 +8604,13 @@ const Reports = () => {
               <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={handleCancelOrder}>
-                Confirm Cancellation
-              </Button>
+              {cancelRecoverInstead ? (
+                <Button onClick={handleSendToRecovery}>Send to Recovery</Button>
+              ) : (
+                <Button variant="destructive" onClick={handleCancelOrder}>
+                  Confirm Cancellation
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>

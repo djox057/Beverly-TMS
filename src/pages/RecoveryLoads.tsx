@@ -40,6 +40,7 @@ interface RetrievalOrder {
   booked_by: string | null;
   pickup_datetime: string | null;
   delivery_datetime: string | null;
+  recovery_auto_cancel_at: string | null;
   broker: { name: string | null } | null;
   booked_by_company: { name: string | null } | null;
   pickup_drops: Stop[] | null;
@@ -67,6 +68,21 @@ const formatDateTime = (value?: string | null) => {
   const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
   if (!m) return "—";
   return `${m[2]}/${m[3]} ${m[4]}:${m[5]}`;
+};
+
+// Auto-cancel deadlines are true UTC timestamps — render them in Chicago time.
+const formatChicago = (value?: string | null) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-US", {
+    timeZone: "America/Chicago",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 };
 
 // Trim legal suffixes so "C.H. ROBINSON COMPANY, LLC" renders as "C.H. ROBINSON"
@@ -101,7 +117,7 @@ const RecoveryLoads = () => {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, recovery_assigned,
+          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, recovery_assigned, recovery_auto_cancel_at,
            pickup_datetime, delivery_datetime,
            broker:brokers ( name ),
            booked_by_company:companies!orders_booked_by_company_id_fkey ( name ),
@@ -146,6 +162,7 @@ const RecoveryLoads = () => {
         bookedByCompany: order.booked_by_company?.name || "—",
         brokerName: shortenBrokerName(order.broker?.name),
         canceled: !!order.canceled,
+        autoCancelAt: order.recovery_auto_cancel_at,
         retrieval: !!(order as unknown as { retrieval?: boolean }).retrieval,
       };
     });
@@ -171,6 +188,29 @@ const RecoveryLoads = () => {
   }, [rows, debouncedSearch]);
 
   const handleOpenRc = async (file: {
+    id: string;
+    file_category: string | null;
+    file_name: string | null;
+    file_path: string;
+  } | null, orderId: string) => {
+    return handleOpenRcImpl(file, orderId);
+  };
+
+  const updateDeadline = async (orderId: string, minutesFromNow: number | null) => {
+    const value = minutesFromNow == null ? null : new Date(Date.now() + minutesFromNow * 60 * 1000).toISOString();
+    const { error } = await supabase
+      .from("orders")
+      .update({ recovery_auto_cancel_at: value } as never)
+      .eq("id", orderId);
+    if (error) {
+      toast({ title: "Could not update deadline", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: value ? "Deadline updated" : "Deadline cleared" });
+    refetch();
+  };
+
+  const handleOpenRcImpl = async (file: {
     id: string;
     file_category: string | null;
     file_name: string | null;
@@ -219,6 +259,7 @@ const RecoveryLoads = () => {
               <TableHead className="w-[150px]">Booked By</TableHead>
               <TableHead className="w-[160px]">Booked By Company</TableHead>
               <TableHead className="w-[130px]">Broker</TableHead>
+              <TableHead className="w-[150px]">Cancels At</TableHead>
               <TableHead className="w-[60px]">RC</TableHead>
               <TableHead className="w-[90px]">Assign</TableHead>
             </TableRow>
@@ -226,13 +267,13 @@ const RecoveryLoads = () => {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                   No recovery loads found.
                 </TableCell>
               </TableRow>
@@ -263,6 +304,45 @@ const RecoveryLoads = () => {
                   <TableCell className="truncate">{row.bookedByCompany}</TableCell>
                   <TableCell className="truncate" title={row.brokerName}>
                     {row.brokerName}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {row.autoCancelAt ? (
+                      <div
+                        className={
+                          new Date(row.autoCancelAt).getTime() <= Date.now()
+                            ? "text-destructive font-medium"
+                            : new Date(row.autoCancelAt).getTime() - Date.now() < 60 * 60 * 1000
+                            ? "text-amber-600 font-medium"
+                            : ""
+                        }
+                      >
+                        {formatChicago(row.autoCancelAt)}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                    {canAssignAny && (
+                      <div className="flex gap-1 pt-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1 text-xs"
+                          onClick={() => updateDeadline(row.id, 120)}
+                        >
+                          +2h
+                        </Button>
+                        {row.autoCancelAt && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-1 text-xs"
+                            onClick={() => updateDeadline(row.id, null)}
+                          >
+                            Clear
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Button
