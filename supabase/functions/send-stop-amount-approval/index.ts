@@ -138,7 +138,7 @@ const handler = async (req: Request): Promise<Response> => {
     if (driverId) {
       const { data: weekOrders } = await admin
         .from("orders")
-        .select("id, freight_amount, driver_price")
+        .select("id, load_number, freight_amount, driver_price")
         .eq("driver1_id", driverId)
         .eq("canceled", false)
         .gte("pickup_datetime", `${startISO}T00:00:00`)
@@ -148,11 +148,18 @@ const handler = async (req: Request): Promise<Response> => {
       weekStop = 0;
       let includesThisLoad = false;
       for (const o of weekOrders || []) {
-        if (b.orderId && o.id === b.orderId) includesThisLoad = true;
+        if (
+          (b.orderId && o.id === b.orderId) ||
+          (b.loadNumber && o.load_number && String(o.load_number).trim() === b.loadNumber.trim())
+        ) {
+          includesThisLoad = true;
+        }
         weekFreight += Number(o.freight_amount) || 0;
         weekStop += Number(o.driver_price) || 0;
       }
-      if (!includesThisLoad) {
+      // If the caller sent an orderId, the load is already persisted — never add it again,
+      // even if its pickup date falls outside the queried week.
+      if (!includesThisLoad && !b.orderId) {
         weekFreight += b.freightAmount;
         weekStop += b.stopAmount;
       }
