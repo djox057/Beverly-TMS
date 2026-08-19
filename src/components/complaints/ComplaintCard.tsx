@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AddComplaintDialog } from "./AddComplaintDialog";
 import { ComplaintComments } from "./ComplaintComments";
 import { AssignComplaintTypeDialog } from "./AssignComplaintTypeDialog";
+import { TranslatableComplaintText } from "./TranslatableComplaintText";
 import {
   COMPLAINT_TYPE_LABELS,
   DISPATCHER_REPORTING,
@@ -200,7 +201,7 @@ export function ComplaintCard({ type, complaints, assignedSourceIds }: Complaint
                           </div>
                         )}
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                      <TranslatableComplaintText text={c.content} />
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[11px] text-muted-foreground">
                           {c.created_by_name || "Unknown"} • {chicagoTime(c.created_at)}
