@@ -7968,7 +7968,7 @@ const Reports = () => {
                               description:
                                 sent > 0
                                   ? `${trucksNearby} truck${trucksNearby > 1 ? "s" : ""} within 150 mi of the pickup`
-                                  : "No trucks with a recent delivery within 150 mi of the pickup",
+                                  : "No trucks delivering on the pickup day within 150 mi of the pickup",
                             });
                           } catch (e: any) {
                             toast({
