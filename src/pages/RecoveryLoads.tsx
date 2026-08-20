@@ -119,7 +119,7 @@ const RecoveryLoads = () => {
         .from("orders")
         .select(
           `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, recovery_assigned, recovery_auto_cancel_at,
-           pickup_datetime, delivery_datetime,
+           pickup_datetime, pickup_end_datetime, delivery_datetime,
            broker:brokers ( name ),
            booked_by_company:companies!orders_booked_by_company_id_fkey ( name ),
            pickup_drops ( type, address, city, state, zip_code, sequence_number ),
