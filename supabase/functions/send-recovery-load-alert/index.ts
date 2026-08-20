@@ -408,9 +408,15 @@ serve(async (req) => {
           )
           .join("")}
       </div>`;
+    const tag = dayTag(pickupDay);
 
     const loadHeader = `
       <div style="background:#0f1e2e;padding:20px;border-radius:10px;font-family:Arial,Helvetica,sans-serif">
+        ${
+          tag
+            ? `<div style="background:#facc15;color:#111827;font-weight:800;font-size:13px;letter-spacing:.06em;padding:8px 12px;border-radius:6px;margin-bottom:12px;display:inline-block">${esc(tag)}</div>`
+            : ""
+        }
         <div style="color:#ffffff;font-size:18px;font-weight:700;margin-bottom:6px">
           Load #${esc(loadNumber)} &bull; Broker #${esc(brokerLoad)}
         </div>
