@@ -39,6 +39,7 @@ interface RetrievalOrder {
   canceled: boolean | null;
   booked_by: string | null;
   pickup_datetime: string | null;
+  pickup_end_datetime: string | null;
   delivery_datetime: string | null;
   recovery_auto_cancel_at: string | null;
   broker: { name: string | null } | null;
@@ -118,7 +119,7 @@ const RecoveryLoads = () => {
         .from("orders")
         .select(
           `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, recovery_assigned, recovery_auto_cancel_at,
-           pickup_datetime, delivery_datetime,
+           pickup_datetime, pickup_end_datetime, delivery_datetime,
            broker:brokers ( name ),
            booked_by_company:companies!orders_booked_by_company_id_fkey ( name ),
            pickup_drops ( type, address, city, state, zip_code, sequence_number ),
@@ -152,7 +153,7 @@ const RecoveryLoads = () => {
         pickupAddress: formatStop(pickup),
         deliveryAddress: formatStop(delivery),
         pickupFullAddress: formatFullStop(pickup),
-        pickupDatetime: order.pickup_datetime,
+        pickupDatetime: order.pickup_end_datetime || order.pickup_datetime,
         deliveryDatetime: order.delivery_datetime,
         bookedBy: order.booked_by || "—",
         rcFile: (order.order_files || []).find((f) => f.file_category === "RC") || null,
