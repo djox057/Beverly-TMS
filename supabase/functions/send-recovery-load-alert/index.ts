@@ -458,7 +458,8 @@ serve(async (req) => {
       const html = `
         <div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a">
           <p>Hi ${esc(profile.full_name || "")},</p>
-          <p>A <strong>recovery load</strong> is available and you have ${list.length} truck${list.length > 1 ? "s" : ""} nearby.</p>
+          <p>A <strong>recovery load</strong> is available and you have ${list.length} truck${list.length > 1 ? "s" : ""} delivering on the pickup day (${esc(fmtDay(pickupDay))}) nearby.</p>
+          ${tag ? `<p style="font-weight:800;color:#b45309">${esc(tag)}</p>` : ""}
           ${loadHeader}
           <h3 style="margin:20px 0 8px">Your trucks near the pickup (approx. deadhead)</h3>
           <table style="border-collapse:collapse;width:100%;font-size:14px">
