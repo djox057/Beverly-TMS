@@ -236,7 +236,7 @@ serve(async (req) => {
     for (let page = 0; page < 5; page++) {
       const { data: chunk, error: chunkErr } = await db
         .from("orders")
-        .select("id, truck_id, driver1_id, pickup_datetime")
+        .select("id, truck_id, driver1_id, pickup_datetime, delivery_datetime")
         .eq("is_last_order", true)
         .eq("canceled", false)
         .not("truck_id", "is", null)
@@ -249,14 +249,22 @@ serve(async (req) => {
     }
     console.log(`recovery-alert: scanned ${recent.length} last-order rows`);
 
-    const lastByTruck = new Map<string, { orderId: string; driverId: string | null; date: string }>();
+    const lastByTruck = new Map<
+      string,
+      { orderId: string; driverId: string | null; date: string; deliveryDatetime: string | null }
+    >();
     for (const o of recent || []) {
       const t = (o as any).truck_id as string;
       if (!eligibleTrucks.has(t)) continue;
       const date = ((o as any).pickup_datetime as string) || "";
       const prev = lastByTruck.get(t);
       if (!prev || date >= prev.date) {
-        lastByTruck.set(t, { orderId: (o as any).id, driverId: eligibleTrucks.get(t).driver1_id, date });
+        lastByTruck.set(t, {
+          orderId: (o as any).id,
+          driverId: eligibleTrucks.get(t).driver1_id,
+          date,
+          deliveryDatetime: ((o as any).delivery_datetime as string) || null,
+        });
       }
     }
 
