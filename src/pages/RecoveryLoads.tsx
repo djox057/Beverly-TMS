@@ -153,7 +153,7 @@ const RecoveryLoads = () => {
         pickupAddress: formatStop(pickup),
         deliveryAddress: formatStop(delivery),
         pickupFullAddress: formatFullStop(pickup),
-        pickupDatetime: order.pickup_datetime,
+        pickupDatetime: order.pickup_end_datetime || order.pickup_datetime,
         deliveryDatetime: order.delivery_datetime,
         bookedBy: order.booked_by || "—",
         rcFile: (order.order_files || []).find((f) => f.file_category === "RC") || null,
