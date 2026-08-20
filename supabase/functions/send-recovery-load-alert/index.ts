@@ -102,7 +102,7 @@ serve(async (req) => {
     const { data: order, error: orderErr } = await db
       .from("orders")
       .select(
-        "id, internal_load_number, broker_load_number, freight_amount, driver_price, loaded_miles, dh_miles, weight, booked_by, broker_id, booked_by_company_id",
+        "id, internal_load_number, broker_load_number, freight_amount, driver_price, loaded_miles, dh_miles, weight, booked_by, broker_id, booked_by_company_id, pickup_datetime",
       )
       .eq("id", orderId)
       .maybeSingle();
