@@ -8923,6 +8923,32 @@ const Reports = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog open={recoveryConfirmOpen} onOpenChange={setRecoveryConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {zoomedRecovery ? "Remove Recovery?" : "Mark as Recovery?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {zoomedRecovery
+                ? `Load ${zoomedLoad?.loadNumber ?? ""} will no longer be marked as Recovery.`
+                : `Load ${zoomedLoad?.loadNumber ?? ""} will be marked as Recovery and nearby dispatchers will be notified by email.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setRecoveryConfirmOpen(false);
+                applyRecoveryToggle();
+              }}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <WeightBolDialog
         open={bolWeightDialogOpen}
         defaultValue={pendingBolWeight ?? zoomedLoad?.weightBol ?? null}
