@@ -482,7 +482,7 @@ serve(async (req) => {
       const { error } = await resend.emails.send({
         from,
         to: [profile.email],
-        subject: `Recovery load #${loadNumber} - ${list.length} of your truck${list.length > 1 ? "s" : ""} nearby`,
+        subject: `${tag ? `[${tag}] ` : ""}Recovery load #${loadNumber} - ${list.length} of your truck${list.length > 1 ? "s" : ""} nearby`,
         html,
       });
       if (error) failures.push(`${profile.email}: ${JSON.stringify(error)}`);
