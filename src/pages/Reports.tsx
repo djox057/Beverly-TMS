@@ -973,6 +973,50 @@ const Reports = () => {
   // Recovery (retrieval) flag for the zoomed load
   const [zoomedRecovery, setZoomedRecovery] = useState<boolean | null>(null);
   const [zoomedHasBol, setZoomedHasBol] = useState(false);
+  const [recoveryConfirmOpen, setRecoveryConfirmOpen] = useState(false);
+  const applyRecoveryToggle = async () => {
+    if (!zoomedLoad?.orderId) return;
+    const next = !zoomedRecovery;
+    const { error } = await supabase
+      .from("orders")
+      .update({ retrieval: next } as never)
+      .eq("id", zoomedLoad.orderId);
+    if (error) {
+      toast({
+        title: next ? "Failed to mark as Recovery" : "Failed to remove Recovery",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    setZoomedRecovery(next);
+    toast({ title: next ? "Marked as Recovery" : "Removed from Recovery" });
+    if (next) {
+      try {
+        const { data: alertData, error: alertError } = await supabase.functions.invoke(
+          "send-recovery-load-alert",
+          { body: { orderId: zoomedLoad.orderId } }
+        );
+        if (alertError) throw alertError;
+        const sent = (alertData as any)?.sent ?? 0;
+        const trucksNearby = (alertData as any)?.trucksNearby ?? 0;
+        toast({
+          title: sent > 0 ? `Notified ${sent} dispatcher${sent > 1 ? "s" : ""}` : "No trucks nearby",
+          description:
+            sent > 0
+              ? `${trucksNearby} truck${trucksNearby > 1 ? "s" : ""} within 150 mi of the pickup`
+              : "No trucks delivering on the pickup day within 150 mi of the pickup",
+        });
+      } catch (e: any) {
+        toast({
+          title: "Recovery emails failed",
+          description: e?.message || "Could not notify nearby dispatchers",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   useEffect(() => {
     const orderId = zoomedLoad?.orderId;
     if (!orderId) {
