@@ -39,6 +39,56 @@ const fmtDateTime = (v: string | null | undefined) => {
   return `${p(d.getUTCMonth() + 1)}/${p(d.getUTCDate())}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
 };
 
+/**
+ * Calendar day (YYYY-MM-DD) for a stored datetime. Order/stop datetimes are
+ * stored as wall time, so the date prefix is used as-is; anything else is
+ * converted to the Chicago calendar day.
+ */
+const dayKey = (v: string | null | undefined): string | null => {
+  if (!v) return null;
+  const s = String(v);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+};
+
+const todayChicago = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+const daysBetween = (fromDay: string, toDay: string) =>
+  Math.round((Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / 86400000);
+
+/** "" for today, "FOR TOMORROW - Fri 08/21", "FOR 08/24 (Mon)" for later. */
+const dayTag = (pickupDay: string | null): string => {
+  if (!pickupDay) return "";
+  const diff = daysBetween(todayChicago(), pickupDay);
+  if (diff <= 0) return "";
+  const d = new Date(`${pickupDay}T12:00:00Z`);
+  const dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()];
+  const md = `${String(d.getUTCMonth() + 1).padStart(2, "0")}/${String(d.getUTCDate()).padStart(2, "0")}`;
+  return diff === 1 ? `FOR TOMORROW - ${dow} ${md}` : `FOR ${md} (${dow})`;
+};
+
+const fmtDay = (day: string | null) => {
+  if (!day) return "—";
+  const [y, m, d] = day.split("-");
+  return `${m}/${d}/${y}`;
+};
+
+
+
 const resolveSender = (companyName: string | null | undefined) => {
   const n = (companyName || "").toUpperCase();
   if (n.includes("BEVERLY FREIGHT")) return "Recovery Loads <dispatch@beverlyfreight.net>";
