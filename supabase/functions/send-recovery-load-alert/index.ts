@@ -344,7 +344,7 @@ serve(async (req) => {
     console.log(
       `recovery-alert: ${lastByTruck.size} trucks scanned, ${nearby.length} within ${RADIUS_MILES} mi on ${pickupDay} (${dateMismatch} skipped: delivery day mismatch)`,
     );
-    console.log(`recovery-alert: ${lastByTruck.size} trucks scanned, ${nearby.length} within ${RADIUS_MILES} mi`);
+    
 
     if (nearby.length === 0) {
       return new Response(JSON.stringify({ sent: 0, trucksNearby: 0 }), {
