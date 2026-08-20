@@ -39,6 +39,7 @@ interface RetrievalOrder {
   canceled: boolean | null;
   booked_by: string | null;
   pickup_datetime: string | null;
+  pickup_end_datetime: string | null;
   delivery_datetime: string | null;
   recovery_auto_cancel_at: string | null;
   broker: { name: string | null } | null;
