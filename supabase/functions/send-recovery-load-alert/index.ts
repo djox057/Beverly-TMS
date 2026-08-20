@@ -274,7 +274,7 @@ serve(async (req) => {
       const chunk = lastOrderIds.slice(i, i + 200);
       const { data: d } = await db
         .from("pickup_drops")
-        .select("order_id, sequence_number, latitude, longitude, address, city, state, zip_code")
+        .select("order_id, sequence_number, latitude, longitude, address, city, state, zip_code, datetime")
         .in("order_id", chunk)
         .eq("type", "delivery")
         .order("sequence_number", { ascending: true });
@@ -285,14 +285,26 @@ serve(async (req) => {
       }
     }
 
+    // Recovery load's pickup day — trucks only qualify when their last delivery
+    // lands on this same calendar day.
+    const pickupDay = dayKey((order as any).pickup_datetime) || dayKey(firstPickup?.datetime);
+    if (!pickupDay) {
+      return new Response(JSON.stringify({ error: "Load has no pickup date" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     type Nearby = {
       truckId: string;
       driverId: string | null;
       miles: number;
       lastCity: string;
+      lastDeliveryDay: string | null;
     };
     const nearby: Nearby[] = [];
     let geocodeBudget = 60;
+    let dateMismatch = 0;
     for (const [truckId, info] of lastByTruck.entries()) {
       const drops = dropsByOrder.get(info.orderId) || [];
       const lastDrop = drops[drops.length - 1];
@@ -313,13 +325,25 @@ serve(async (req) => {
         haversine(pickupCoords.lat, pickupCoords.lon, dropCoords.lat, dropCoords.lon) * ROAD_FACTOR,
       );
       if (miles > RADIUS_MILES) continue;
+
+      // Last delivery must fall on the same calendar day as this load's pickup.
+      const lastDeliveryDay = dayKey(info.deliveryDatetime) || dayKey(lastDrop.datetime);
+      if (!lastDeliveryDay || lastDeliveryDay !== pickupDay) {
+        dateMismatch++;
+        continue;
+      }
+
       nearby.push({
         truckId,
         driverId: info.driverId,
         miles,
         lastCity: [lastDrop.city, lastDrop.state].filter(Boolean).join(", "),
+        lastDeliveryDay,
       });
     }
+    console.log(
+      `recovery-alert: ${lastByTruck.size} trucks scanned, ${nearby.length} within ${RADIUS_MILES} mi on ${pickupDay} (${dateMismatch} skipped: delivery day mismatch)`,
+    );
     console.log(`recovery-alert: ${lastByTruck.size} trucks scanned, ${nearby.length} within ${RADIUS_MILES} mi`);
 
     if (nearby.length === 0) {
