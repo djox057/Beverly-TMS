@@ -39,6 +39,56 @@ const fmtDateTime = (v: string | null | undefined) => {
   return `${p(d.getUTCMonth() + 1)}/${p(d.getUTCDate())}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
 };
 
+/**
+ * Calendar day (YYYY-MM-DD) for a stored datetime. Order/stop datetimes are
+ * stored as wall time, so the date prefix is used as-is; anything else is
+ * converted to the Chicago calendar day.
+ */
+const dayKey = (v: string | null | undefined): string | null => {
+  if (!v) return null;
+  const s = String(v);
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+};
+
+const todayChicago = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+const daysBetween = (fromDay: string, toDay: string) =>
+  Math.round((Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / 86400000);
+
+/** "" for today, "FOR TOMORROW - Fri 08/21", "FOR 08/24 (Mon)" for later. */
+const dayTag = (pickupDay: string | null): string => {
+  if (!pickupDay) return "";
+  const diff = daysBetween(todayChicago(), pickupDay);
+  if (diff <= 0) return "";
+  const d = new Date(`${pickupDay}T12:00:00Z`);
+  const dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()];
+  const md = `${String(d.getUTCMonth() + 1).padStart(2, "0")}/${String(d.getUTCDate()).padStart(2, "0")}`;
+  return diff === 1 ? `FOR TOMORROW - ${dow} ${md}` : `FOR ${md} (${dow})`;
+};
+
+const fmtDay = (day: string | null) => {
+  if (!day) return "—";
+  const [y, m, d] = day.split("-");
+  return `${m}/${d}/${y}`;
+};
+
+
+
 const resolveSender = (companyName: string | null | undefined) => {
   const n = (companyName || "").toUpperCase();
   if (n.includes("BEVERLY FREIGHT")) return "Recovery Loads <dispatch@beverlyfreight.net>";
@@ -102,7 +152,7 @@ serve(async (req) => {
     const { data: order, error: orderErr } = await db
       .from("orders")
       .select(
-        "id, internal_load_number, broker_load_number, freight_amount, driver_price, loaded_miles, dh_miles, weight, booked_by, broker_id, booked_by_company_id",
+        "id, internal_load_number, broker_load_number, freight_amount, driver_price, loaded_miles, dh_miles, weight, booked_by, broker_id, booked_by_company_id, pickup_datetime",
       )
       .eq("id", orderId)
       .maybeSingle();
@@ -186,7 +236,7 @@ serve(async (req) => {
     for (let page = 0; page < 5; page++) {
       const { data: chunk, error: chunkErr } = await db
         .from("orders")
-        .select("id, truck_id, driver1_id, pickup_datetime")
+        .select("id, truck_id, driver1_id, pickup_datetime, delivery_datetime")
         .eq("is_last_order", true)
         .eq("canceled", false)
         .not("truck_id", "is", null)
@@ -199,14 +249,22 @@ serve(async (req) => {
     }
     console.log(`recovery-alert: scanned ${recent.length} last-order rows`);
 
-    const lastByTruck = new Map<string, { orderId: string; driverId: string | null; date: string }>();
+    const lastByTruck = new Map<
+      string,
+      { orderId: string; driverId: string | null; date: string; deliveryDatetime: string | null }
+    >();
     for (const o of recent || []) {
       const t = (o as any).truck_id as string;
       if (!eligibleTrucks.has(t)) continue;
       const date = ((o as any).pickup_datetime as string) || "";
       const prev = lastByTruck.get(t);
       if (!prev || date >= prev.date) {
-        lastByTruck.set(t, { orderId: (o as any).id, driverId: eligibleTrucks.get(t).driver1_id, date });
+        lastByTruck.set(t, {
+          orderId: (o as any).id,
+          driverId: eligibleTrucks.get(t).driver1_id,
+          date,
+          deliveryDatetime: ((o as any).delivery_datetime as string) || null,
+        });
       }
     }
 
@@ -216,7 +274,7 @@ serve(async (req) => {
       const chunk = lastOrderIds.slice(i, i + 200);
       const { data: d } = await db
         .from("pickup_drops")
-        .select("order_id, sequence_number, latitude, longitude, address, city, state, zip_code")
+        .select("order_id, sequence_number, latitude, longitude, address, city, state, zip_code, datetime")
         .in("order_id", chunk)
         .eq("type", "delivery")
         .order("sequence_number", { ascending: true });
@@ -227,14 +285,26 @@ serve(async (req) => {
       }
     }
 
+    // Recovery load's pickup day — trucks only qualify when their last delivery
+    // lands on this same calendar day.
+    const pickupDay = dayKey((order as any).pickup_datetime) || dayKey(firstPickup?.datetime);
+    if (!pickupDay) {
+      return new Response(JSON.stringify({ error: "Load has no pickup date" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     type Nearby = {
       truckId: string;
       driverId: string | null;
       miles: number;
       lastCity: string;
+      lastDeliveryDay: string | null;
     };
     const nearby: Nearby[] = [];
     let geocodeBudget = 60;
+    let dateMismatch = 0;
     for (const [truckId, info] of lastByTruck.entries()) {
       const drops = dropsByOrder.get(info.orderId) || [];
       const lastDrop = drops[drops.length - 1];
@@ -255,14 +325,26 @@ serve(async (req) => {
         haversine(pickupCoords.lat, pickupCoords.lon, dropCoords.lat, dropCoords.lon) * ROAD_FACTOR,
       );
       if (miles > RADIUS_MILES) continue;
+
+      // Last delivery must fall on the same calendar day as this load's pickup.
+      const lastDeliveryDay = dayKey(info.deliveryDatetime) || dayKey(lastDrop.datetime);
+      if (!lastDeliveryDay || lastDeliveryDay !== pickupDay) {
+        dateMismatch++;
+        continue;
+      }
+
       nearby.push({
         truckId,
         driverId: info.driverId,
         miles,
         lastCity: [lastDrop.city, lastDrop.state].filter(Boolean).join(", "),
+        lastDeliveryDay,
       });
     }
-    console.log(`recovery-alert: ${lastByTruck.size} trucks scanned, ${nearby.length} within ${RADIUS_MILES} mi`);
+    console.log(
+      `recovery-alert: ${lastByTruck.size} trucks scanned, ${nearby.length} within ${RADIUS_MILES} mi on ${pickupDay} (${dateMismatch} skipped: delivery day mismatch)`,
+    );
+    
 
     if (nearby.length === 0) {
       return new Response(JSON.stringify({ sent: 0, trucksNearby: 0 }), {
@@ -326,9 +408,15 @@ serve(async (req) => {
           )
           .join("")}
       </div>`;
+    const tag = dayTag(pickupDay);
 
     const loadHeader = `
       <div style="background:#0f1e2e;padding:20px;border-radius:10px;font-family:Arial,Helvetica,sans-serif">
+        ${
+          tag
+            ? `<div style="background:#facc15;color:#111827;font-weight:800;font-size:13px;letter-spacing:.06em;padding:8px 12px;border-radius:6px;margin-bottom:12px;display:inline-block">${esc(tag)}</div>`
+            : ""
+        }
         <div style="color:#ffffff;font-size:18px;font-weight:700;margin-bottom:6px">
           Load #${esc(loadNumber)} &bull; Broker #${esc(brokerLoad)}
         </div>
@@ -361,7 +449,7 @@ serve(async (req) => {
           return `<tr>
             <td style="padding:8px;border-bottom:1px solid #e2e8f0">${esc(truck?.truck_number || "—")}</td>
             <td style="padding:8px;border-bottom:1px solid #e2e8f0">${esc(driver?.name || "—")}</td>
-            <td style="padding:8px;border-bottom:1px solid #e2e8f0">${esc(n.lastCity || "—")}</td>
+            <td style="padding:8px;border-bottom:1px solid #e2e8f0">${esc(n.lastCity || "—")}<div style="color:#64748b;font-size:12px">${esc(fmtDay(n.lastDeliveryDay))}</div></td>
             <td style="padding:8px;border-bottom:1px solid #e2e8f0;font-weight:700">~${n.miles} mi</td>
           </tr>`;
         })
@@ -370,7 +458,8 @@ serve(async (req) => {
       const html = `
         <div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a">
           <p>Hi ${esc(profile.full_name || "")},</p>
-          <p>A <strong>recovery load</strong> is available and you have ${list.length} truck${list.length > 1 ? "s" : ""} nearby.</p>
+          <p>A <strong>recovery load</strong> is available and you have ${list.length} truck${list.length > 1 ? "s" : ""} delivering on the pickup day (${esc(fmtDay(pickupDay))}) nearby.</p>
+          ${tag ? `<p style="font-weight:800;color:#b45309">${esc(tag)}</p>` : ""}
           ${loadHeader}
           <h3 style="margin:20px 0 8px">Your trucks near the pickup (approx. deadhead)</h3>
           <table style="border-collapse:collapse;width:100%;font-size:14px">
@@ -393,7 +482,7 @@ serve(async (req) => {
       const { error } = await resend.emails.send({
         from,
         to: [profile.email],
-        subject: `Recovery load #${loadNumber} - ${list.length} of your truck${list.length > 1 ? "s" : ""} nearby`,
+        subject: `${tag ? `[${tag}] ` : ""}Recovery load #${loadNumber} - ${list.length} of your truck${list.length > 1 ? "s" : ""} nearby`,
         html,
       });
       if (error) failures.push(`${profile.email}: ${JSON.stringify(error)}`);
