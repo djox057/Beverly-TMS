@@ -292,6 +292,54 @@ const NewOrder = () => {
     [approvalManagers],
   );
   const needsStopAmountApproval = stopAmountTooLow;
+
+  // Week (Mon–Sun) freight / stop totals for the selected driver — shown with the low stop amount warning
+  const weekPickupFrom = useMemo(() => {
+    const p = pickupsDrops.find((item) => item.type === "pickup");
+    return p?.dateRange?.from ? new Date(p.dateRange.from) : null;
+  }, [pickupsDrops]);
+
+  const [weekTotals, setWeekTotals] = useState<{ freight: number; stop: number } | null>(null);
+
+  useEffect(() => {
+    if (!stopAmountTooLow || !driver1) {
+      setWeekTotals(null);
+      return;
+    }
+    const base = weekPickupFrom ?? new Date();
+    const day = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+    const dow = day.getDay(); // 0 = Sunday
+    const monday = new Date(day);
+    monday.setDate(day.getDate() + (dow === 0 ? -6 : 1 - dow));
+    const nextMonday = new Date(monday);
+    nextMonday.setDate(monday.getDate() + 7);
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("freight_amount, driver_price")
+        .eq("driver1_id", driver1)
+        .eq("canceled", false)
+        .gte("pickup_datetime", `${fmt(monday)}T00:00:00`)
+        .lt("pickup_datetime", `${fmt(nextMonday)}T00:00:00`);
+      if (cancelled) return;
+      if (error) {
+        console.error("Error fetching week totals:", error);
+        setWeekTotals(null);
+        return;
+      }
+      // This order is not saved yet, so existing rows never include it (no double counting).
+      const freight = (data || []).reduce((sum, o) => sum + (Number(o.freight_amount) || 0), 0);
+      const stop = (data || []).reduce((sum, o) => sum + (Number(o.driver_price) || 0), 0);
+      setWeekTotals({ freight, stop });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [stopAmountTooLow, driver1, weekPickupFrom]);
   const dispatcherDriverIds =
     isDispatchOnly && profile?.user_id
       ? allDrivers?.filter((driver) => driver.dispatcher_id === profile.user_id).map((d) => d.id) || []
@@ -3290,11 +3338,33 @@ const NewOrder = () => {
                 />
                 {stopAmountTooLow && (
                   <div className="space-y-2">
-                    <p className="text-xs text-destructive">
-                      Stop Amount is below 90% of the Freight Amount ($
-                      {((parseFloat(freightAmount) || 0) * 0.9).toFixed(2)}). Select the manager who approved this lower
-                      stop amount — they will be notified by email.
-                    </p>
+                    {(() => {
+                      const selTruck = trucks?.find((t) => t.id === truck);
+                      const selDriver = allDrivers?.find((d) => d.id === driver1);
+                      const driverName = (selDriver as any)?.full_name || (selDriver as any)?.name || null;
+                      const thisFreight = parseFloat(freightAmount) || 0;
+                      const thisStop = parseFloat(driverPrice) || 0;
+                      return (
+                        <div className="text-xs text-destructive space-y-1">
+                          <p className="font-semibold">
+                            Truck #{selTruck?.truck_number || "-"} — {driverName || "-"}
+                          </p>
+                          <p>
+                            Stop Amount is below 90% of the Freight Amount ($
+                            {(thisFreight * 0.9).toFixed(2)}). Select the manager who approved this lower stop amount —
+                            they will be notified by email.
+                          </p>
+                          {weekTotals && (
+                            <p>
+                              Week (Mon–Sun) with this load: Freight $
+                              {(weekTotals.freight + thisFreight).toFixed(2)} · Stop $
+                              {(weekTotals.stop + thisStop).toFixed(2)}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     <Label htmlFor="approval-manager" className="text-destructive">
                       Approved by manager *
                     </Label>
