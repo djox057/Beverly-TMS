@@ -185,8 +185,9 @@ export function AssignRecoveryLoadDialog({
         const { data: prof } = await supabase
           .from("profiles")
           .select("full_name")
-          .eq("id", dispatcherId)
+          .eq("user_id", dispatcherId)
           .maybeSingle();
+
         bookedBy = (prof as any)?.full_name || null;
       }
     }
