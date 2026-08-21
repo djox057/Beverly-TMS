@@ -3338,11 +3338,33 @@ const NewOrder = () => {
                 />
                 {stopAmountTooLow && (
                   <div className="space-y-2">
-                    <p className="text-xs text-destructive">
-                      Stop Amount is below 90% of the Freight Amount ($
-                      {((parseFloat(freightAmount) || 0) * 0.9).toFixed(2)}). Select the manager who approved this lower
-                      stop amount — they will be notified by email.
-                    </p>
+                    {(() => {
+                      const selTruck = trucks?.find((t) => t.id === truck);
+                      const selDriver = allDrivers?.find((d) => d.id === driver1);
+                      const driverName = (selDriver as any)?.full_name || (selDriver as any)?.name || null;
+                      const thisFreight = parseFloat(freightAmount) || 0;
+                      const thisStop = parseFloat(driverPrice) || 0;
+                      return (
+                        <div className="text-xs text-destructive space-y-1">
+                          <p className="font-semibold">
+                            Truck #{selTruck?.truck_number || "-"} — {driverName || "-"}
+                          </p>
+                          <p>
+                            Stop Amount is below 90% of the Freight Amount ($
+                            {(thisFreight * 0.9).toFixed(2)}). Select the manager who approved this lower stop amount —
+                            they will be notified by email.
+                          </p>
+                          {weekTotals && (
+                            <p>
+                              Week (Mon–Sun) with this load: Freight $
+                              {(weekTotals.freight + thisFreight).toFixed(2)} · Stop $
+                              {(weekTotals.stop + thisStop).toFixed(2)}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     <Label htmlFor="approval-manager" className="text-destructive">
                       Approved by manager *
                     </Label>
