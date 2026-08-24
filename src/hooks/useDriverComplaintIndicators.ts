@@ -28,8 +28,21 @@ export function useDriverComplaintIndicators() {
     staleTime: 60_000,
   });
 
-  const getComplaintsForDriver = (driverId: string) =>
-    complaints.filter((c) => c.driver_id === driverId);
+  const getComplaintsForDriver = (driverId: string) => {
+    const forDriver = complaints.filter((c) => c.driver_id === driverId);
+    const norm = (s: string) => (s || "").trim().replace(/\s+/g, " ").toLowerCase();
+    const nonReportingContents = new Set(
+      forDriver
+        .filter((c) => c.complaint_type !== "dispatcher_reporting")
+        .map((c) => norm(c.content))
+    );
+    // Hide dispatcher reportings that duplicate a categorized complaint
+    return forDriver.filter(
+      (c) =>
+        c.complaint_type !== "dispatcher_reporting" ||
+        !nonReportingContents.has(norm(c.content))
+    );
+  };
 
   const hasDriverComplaint = (driverId: string) =>
     complaints.some((c) => c.driver_id === driverId);
