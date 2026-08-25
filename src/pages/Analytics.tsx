@@ -705,6 +705,18 @@ const Analytics = () => {
     [dispatcherProfiles],
   );
 
+  // Afterhours users use a fixed 16-day divisor for extra/lost day pay instead of the month's workdays.
+  const isDispatcherAfterhours = useCallback(
+    (userId?: string | null, name?: string | null) => {
+      const p =
+        (userId ? dispatcherProfiles[userId] : null) ||
+        (name ? dispatcherProfiles[name] : null);
+      return p?.roles?.includes("afterhours") ?? false;
+    },
+    [dispatcherProfiles],
+  );
+
+
 
   // Fetch dispatcher driver counts for the selected date range
   // Uses pagination to bypass Supabase's 1000 row limit
@@ -4525,7 +4537,8 @@ const Analytics = () => {
                             const bonusRank = bonusInfo?.rank ?? 0;
 
                             // Calculate per-day rate and components for full total
-                            const perDayRate = workDaysInMonth > 0 ? baseRate / workDaysInMonth : 0;
+                            const dayDivisor = isDispatcherAfterhours(stat.userId, stat.name) ? 16 : workDaysInMonth;
+                            const perDayRate = dayDivisor > 0 ? baseRate / dayDivisor : 0;
                             const extraDaysAmount = extraDays * perDayRate;
                             const ptoCount = stat.userId ? ptoDaysByUser[stat.userId] || 0 : 0;
                             const nonSickLostDays = Math.max(0, lostDays - ptoCount);
@@ -4648,8 +4661,9 @@ const Analytics = () => {
                                                 // Calculate extra days amount: per-workday rate * actual extra days count
                                                 // Example (Dec 2025): baseRate $2620.45 / 22 workdays = $119.11 for 1 extra day
                                                 const actualExtraDaysCount = extraDayDates.length;
+                                                const dayDivisor = isDispatcherAfterhours(stat.userId, stat.name) ? 16 : workDaysInMonth;
                                                 const perDayRate =
-                                                  (stat.totalFreight * rGross + stat.cut * rCut) / workDaysInMonth;
+                                                  (stat.totalFreight * rGross + stat.cut * rCut) / dayDivisor;
                                                 const extraDaysAmount =
                                                   actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
 
@@ -4714,8 +4728,9 @@ const Analytics = () => {
 
                                                 // Calculate extra days amount
                                                 const actualExtraDaysCount = extraDayDatesForDoc.length;
+                                                const dayDivisor = isDispatcherAfterhours(stat.userId, stat.name) ? 16 : workDaysInMonth;
                                                 const perDayRate =
-                                                  (stat.totalFreight * rGross + stat.cut * rCut) / workDaysInMonth;
+                                                  (stat.totalFreight * rGross + stat.cut * rCut) / dayDivisor;
                                                 const extraDaysAmountForDoc =
                                                   actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
 
@@ -4868,8 +4883,9 @@ const Analytics = () => {
                                                 // Calculate extra days amount
                                                 const actualExtraDaysCount = extraDayDatesForDoc.length;
                                                 const { grossPct: rGross2, cutPct: rCut2, salary1Label: rSalLabel2, bonus5Label: rBonLabel2 } = getDispatcherRates(stat.userId, stat.name);
+                                                const dayDivisor = isDispatcherAfterhours(stat.userId, stat.name) ? 16 : workDaysInMonth;
                                                 const perDayRate =
-                                                  (stat.totalFreight * rGross2 + stat.cut * rCut2) / workDaysInMonth;
+                                                  (stat.totalFreight * rGross2 + stat.cut * rCut2) / dayDivisor;
                                                 const extraDaysAmountForDoc =
                                                   actualExtraDaysCount > 0 ? perDayRate * actualExtraDaysCount : 0;
 
@@ -5587,7 +5603,8 @@ const Analytics = () => {
                             if (stat.userId) {
                               const { grossPct: bGross, cutPct: bCut } = getDispatcherRates(stat.userId, stat.name);
                               const baseRate = stat.totalFreight * bGross + stat.cut * bCut;
-                              const perDayRate = bulkWorkDays > 0 ? baseRate / bulkWorkDays : 0;
+                              const dayDivisor = isDispatcherAfterhours(stat.userId, stat.name) ? 16 : bulkWorkDays;
+                              const perDayRate = dayDivisor > 0 ? baseRate / dayDivisor : 0;
                               const extraDays = extraDaysByUser[stat.userId] || 0;
                               const lostDays = lostDaysByUser[stat.userId] || 0;
                               const extraDaysAmount = extraDays * perDayRate;
