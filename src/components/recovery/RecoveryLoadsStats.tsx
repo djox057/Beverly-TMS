@@ -50,8 +50,8 @@ export const RecoveryLoadsStats = ({ rows, isLoading }: Props) => {
     };
   }, [rows]);
 
-  const pct = (n: number) =>
-    stats.total > 0 ? `${((n / stats.total) * 100).toFixed(1)}%` : "—";
+  const recoveryPct =
+    stats.total > 0 ? `${((stats.activeCount / stats.total) * 100).toFixed(1)}%` : "—";
 
   if (isLoading) {
     return (
