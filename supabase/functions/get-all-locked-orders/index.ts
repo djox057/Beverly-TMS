@@ -155,39 +155,26 @@ Deno.serve(async (req) => {
 
     console.log(`[get-all-locked-orders] Fetching batch: offset=${offset}, limit=${limit}, fields=${fields}`);
 
-    // Get total count (only on first request)
+    // Get total count estimate (only on first request).
+    // Exact HEAD counts over the locked archive can time out under PostgREST/RLS,
+    // so use the existing planner-estimate RPC for pagination metadata.
     let totalCount: number | null = null;
     if (offset === 0) {
-      let countQuery = supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("locked", true);
-
-      if (bookedBy && dispatcherDriverIds.length > 0) {
-        countQuery = countQuery.or(
-          `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
-        );
-      } else if (bookedBy) {
-        countQuery = countQuery.eq("booked_by", bookedBy);
-      } else if (dispatcherDriverIds.length > 0) {
-        countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
-      }
-      if (excludeBookedByCompanyId) {
-        countQuery = countQuery.or(
-          `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
-        );
-      }
-      if (bookedByCompanyId) {
-        countQuery = countQuery.eq("booked_by_company_id", bookedByCompanyId);
-      }
-
-      const { count, error: countError } = await countQuery;
+      const { data: estimatedCount, error: countError } = await supabase.rpc(
+        "estimate_locked_orders_count",
+        {
+          p_booked_by: bookedBy,
+          p_driver_ids: dispatcherDriverIds.length > 0 ? dispatcherDriverIds : null,
+          p_excluded_booked_by_company_id: excludeBookedByCompanyId,
+          p_booked_by_company_id: bookedByCompanyId,
+        },
+      );
       if (countError) {
-        console.error("[get-all-locked-orders] Count error:", countError);
+        console.error("[get-all-locked-orders] Count estimate error:", countError);
         throw countError;
       }
-      totalCount = count;
-      console.log(`[get-all-locked-orders] Total locked orders: ${totalCount}`);
+      totalCount = estimatedCount ?? null;
+      console.log(`[get-all-locked-orders] Estimated total locked orders: ${totalCount}`);
     }
 
     // Stage 1: Fetch FLAT order columns only (no joins)

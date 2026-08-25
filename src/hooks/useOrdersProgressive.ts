@@ -119,14 +119,15 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       unlockedCountQuery = applyExclusion(unlockedCountQuery);
       unlockedCountQuery = applyInclusion(unlockedCountQuery);
       
-      // Get locked count
-      let lockedCountQuery = supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("locked", true);
-      lockedCountQuery = buildFilter(lockedCountQuery);
-      lockedCountQuery = applyExclusion(lockedCountQuery);
-      lockedCountQuery = applyInclusion(lockedCountQuery);
+      // Get locked count using a planner estimate instead of an exact HEAD count.
+      // Exact PostgREST counts on the large locked-orders set can hit statement timeout
+      // and leave the first page showing 0/1 loads even though rows exist.
+      const lockedCountQuery = supabase.rpc("estimate_locked_orders_count", {
+        p_booked_by: bookedBy ?? undefined,
+        p_driver_ids: dispatcherDriverIds.length > 0 ? dispatcherDriverIds : undefined,
+        p_excluded_booked_by_company_id: excludeBookedByCompanyId ?? undefined,
+        p_booked_by_company_id: bookedByCompanyId ?? undefined,
+      });
 
       const tCQ0 = performance.now();
       const [unlockedResult, lockedResult] = await Promise.all([
@@ -138,7 +139,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       if (lockedResult.error) throw lockedResult.error;
 
       const unlockedCount = unlockedResult.count ?? 0;
-      const lockedCount = lockedResult.count ?? 0;
+      const lockedCount = lockedResult.data ?? 0;
       
       console.log(`[OrdersProgressive] ✓ counts DONE in ${(performance.now() - tCounts0).toFixed(0)}ms — Unlocked: ${unlockedCount}, Locked: ${lockedCount}, Total: ${unlockedCount + lockedCount}`);
 
