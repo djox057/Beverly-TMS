@@ -210,6 +210,12 @@ Deno.serve(async (req) => {
       profileUpdates.cut_percent = null
     }
 
+    if (emailChangedTo) {
+      profileUpdates.email = emailChangedTo
+    }
+
+
+
     if (Object.keys(profileUpdates).length > 0) {
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
