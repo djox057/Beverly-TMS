@@ -135,6 +135,7 @@ Deno.serve(async (req) => {
     let fields: "full" | "analytics" = "full";
     let excludeBookedByCompanyId: string | null = null;
     let bookedByCompanyId: string | null = null;
+    let countOnly = false;
     
     if (req.method === "POST") {
       try {
@@ -148,21 +149,22 @@ Deno.serve(async (req) => {
         if (body.fields === "analytics") fields = "analytics";
         excludeBookedByCompanyId = body.excludeBookedByCompanyId || null;
         bookedByCompanyId = body.bookedByCompanyId || null;
+        countOnly = Boolean(body.countOnly);
       } catch {
         // No body or invalid JSON
       }
     }
 
-    console.log(`[get-all-locked-orders] Fetching batch: offset=${offset}, limit=${limit}, fields=${fields}`);
+    console.log(`[get-all-locked-orders] Fetching batch: offset=${offset}, limit=${limit}, fields=${fields}, countOnly=${countOnly}`);
 
-    // Get total count estimate (only on first request).
-    // Exact HEAD counts over the locked archive can time out under PostgREST/RLS,
-    // so use a planned count for pagination metadata.
+    // Get exact total count through the service-role client (only on first request,
+    // or for explicit count-only calls). The browser/RLS count path can time out,
+    // but the indexed service-role count is fast and keeps pagination accurate.
     let totalCount: number | null = null;
-    if (offset === 0) {
+    if (offset === 0 || countOnly) {
       let countQuery = supabase
         .from("orders")
-        .select("id", { count: "planned", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("locked", true);
 
       if (bookedBy && dispatcherDriverIds.length > 0) {
@@ -183,13 +185,33 @@ Deno.serve(async (req) => {
         countQuery = countQuery.eq("booked_by_company_id", bookedByCompanyId);
       }
 
-      const { count: estimatedCount, error: countError } = await countQuery;
+      const { count: exactCount, error: countError } = await countQuery;
       if (countError) {
-        console.error("[get-all-locked-orders] Count estimate error:", countError);
+        console.error("[get-all-locked-orders] Count error:", countError);
         throw countError;
       }
-      totalCount = estimatedCount ?? null;
-      console.log(`[get-all-locked-orders] Estimated total locked orders: ${totalCount}`);
+      totalCount = exactCount ?? null;
+      console.log(`[get-all-locked-orders] Exact total locked orders: ${totalCount}`);
+    }
+
+    if (countOnly) {
+      return new Response(
+        JSON.stringify({
+          orders: [],
+          count: 0,
+          totalCount,
+          offset,
+          limit: 0,
+          hasMore: Boolean(totalCount && totalCount > 0),
+          fetchTimeMs: Date.now() - startTime,
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
 
     // Stage 1: Fetch FLAT order columns only (no joins)
