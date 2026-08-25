@@ -945,11 +945,54 @@ const AdminUsers = () => {
               />
             </div>
 
-            <div>
-              <p className="text-sm text-muted-foreground mb-4">
-                Email: <span className="font-medium text-foreground">{userToEdit?.email}</span>
-              </p>
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editEmail}
+                onChange={(e) => {
+                  setEditEmail(e.target.value);
+                  setEditEmailError(undefined);
+                }}
+                placeholder="user@company.net"
+              />
+              {editEmailError && <p className="text-sm text-destructive">{editEmailError}</p>}
+              {userToEdit && editEmail.trim().toLowerCase() !== userToEdit.email.toLowerCase() && (
+                <p className="text-xs text-muted-foreground">
+                  The current address <span className="font-medium">{userToEdit.email}</span> will be kept as a login alias,
+                  so this user can still sign in with it using the same password.
+                </p>
+              )}
+
+              <div className="pt-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Old addresses that still work for login</p>
+                {aliasesLoading ? (
+                  <p className="text-xs text-muted-foreground">Loading…</p>
+                ) : editAliases.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">None</p>
+                ) : (
+                  <div className="space-y-1">
+                    {editAliases.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between gap-2 text-xs border rounded px-2 py-1">
+                        <span className="break-all">{a.alias_email}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-destructive"
+                          disabled={removingAliasId === a.id}
+                          onClick={() => handleRemoveAlias(a.id)}
+                        >
+                          {removingAliasId === a.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
+
             
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
