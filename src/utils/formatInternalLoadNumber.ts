@@ -1,31 +1,19 @@
 /**
  * Formats an internal load number for display.
- * Legacy loads already carry the suffix in the stored value ("25653-AP") and are
- * passed through untouched. New loads store the plain number plus a separate
- * company code, so the suffix is appended here for display.
- *
- * The second argument accepts either a company name ("AP Silver Trans LLC") or
- * an already-resolved company code ("AP").
+ * Legacy loads carry the suffix in the stored value ("25653-AP"); new loads
+ * store the plain number and keep the company in `load_company_code`, which is
+ * displayed in its own column. The stored value is passed through as-is.
  */
 export function formatInternalLoadNumber(
   internalLoadNumber: number | string | null | undefined,
-  companyNameOrCode?: string | null | undefined
+  _companyNameOrCode?: string | null | undefined
 ): string {
   if (internalLoadNumber === null || internalLoadNumber === undefined) {
     return "—";
   }
-  const base = internalLoadNumber.toString();
-  if (base.includes("-")) return base;
-
-  const raw = (companyNameOrCode ?? "").trim();
-  if (!raw) return base;
-
-  const KNOWN_CODES = ["BF", "BFP", "BFU", "UE", "BG", "AP"];
-  const upper = raw.toUpperCase();
-  const suffix = KNOWN_CODES.includes(upper) ? upper : getCompanySuffix(raw);
-
-  return suffix ? `${base}-${suffix}` : base;
+  return internalLoadNumber.toString();
 }
+
 
 /**
  * Gets the company suffix based on company name
