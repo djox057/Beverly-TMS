@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, LogIn, Truck } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+
 import { loginSchema } from "@/lib/validation";
 import { useToast } from "@/hooks/use-toast";
 import { useDragPan } from "@/hooks/useDragPan";
