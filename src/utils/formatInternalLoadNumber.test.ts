@@ -22,19 +22,18 @@ describe("formatInternalLoadNumber", () => {
     expect(formatInternalLoadNumber(undefined)).toBe("—");
   });
 
-  it("appends the company suffix for new plain numbers", () => {
-    expect(formatInternalLoadNumber("25653", "AP Silver Trans LLC")).toBe("25653-AP");
-    expect(formatInternalLoadNumber(25653, "AP")).toBe("25653-AP");
-    expect(formatInternalLoadNumber("25653", "ue")).toBe("25653-UE");
-  });
-
-  it("never double-suffixes legacy numbers", () => {
+  it("never appends a suffix (company lives in its own column)", () => {
+    expect(formatInternalLoadNumber("25653", "AP Silver Trans LLC")).toBe("25653");
     expect(formatInternalLoadNumber("25653-AP", "BF Prime LLC")).toBe("25653-AP");
   });
 
-  it("ignores unknown companies", () => {
-    expect(formatInternalLoadNumber("25653", "Some Other Carrier")).toBe("25653");
+  it("resolves the truck company code for display", () => {
+    expect(resolveLoadCompanyCode("25653-AP", null, null)).toBe("AP");
+    expect(resolveLoadCompanyCode("25653", "ap", null)).toBe("AP");
+    expect(resolveLoadCompanyCode("25653", null, "United Enterprise Solutions Inc")).toBe("UE");
+    expect(resolveLoadCompanyCode("25653", null, null)).toBe("");
   });
+
 });
 
 describe("getCompanyNameFromSuffix", () => {
