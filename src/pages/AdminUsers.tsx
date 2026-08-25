@@ -57,7 +57,13 @@ const AdminUsers = () => {
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [editRole, setEditRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims'>('dispatch');
   const [editFullName, setEditFullName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editEmailError, setEditEmailError] = useState<string | undefined>(undefined);
+  const [editAliases, setEditAliases] = useState<{ id: string; alias_email: string }[]>([]);
+  const [aliasesLoading, setAliasesLoading] = useState(false);
+  const [removingAliasId, setRemovingAliasId] = useState<string | null>(null);
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
+
   const [editOffice, setEditOffice] = useState<OfficeLocation>(null);
   const [editExt, setEditExt] = useState('');
   const [editDailyView, setEditDailyView] = useState(false);
