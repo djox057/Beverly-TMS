@@ -157,18 +157,33 @@ Deno.serve(async (req) => {
 
     // Get total count estimate (only on first request).
     // Exact HEAD counts over the locked archive can time out under PostgREST/RLS,
-    // so use the existing planner-estimate RPC for pagination metadata.
+    // so use a planned count for pagination metadata.
     let totalCount: number | null = null;
     if (offset === 0) {
-      const { data: estimatedCount, error: countError } = await supabase.rpc(
-        "estimate_locked_orders_count",
-        {
-          p_booked_by: bookedBy,
-          p_driver_ids: dispatcherDriverIds.length > 0 ? dispatcherDriverIds : null,
-          p_excluded_booked_by_company_id: excludeBookedByCompanyId,
-          p_booked_by_company_id: bookedByCompanyId,
-        },
-      );
+      let countQuery = supabase
+        .from("orders")
+        .select("id", { count: "planned", head: true })
+        .eq("locked", true);
+
+      if (bookedBy && dispatcherDriverIds.length > 0) {
+        countQuery = countQuery.or(
+          `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
+        );
+      } else if (bookedBy) {
+        countQuery = countQuery.eq("booked_by", bookedBy);
+      } else if (dispatcherDriverIds.length > 0) {
+        countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
+      }
+      if (excludeBookedByCompanyId) {
+        countQuery = countQuery.or(
+          `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
+        );
+      }
+      if (bookedByCompanyId) {
+        countQuery = countQuery.eq("booked_by_company_id", bookedByCompanyId);
+      }
+
+      const { count: estimatedCount, error: countError } = await countQuery;
       if (countError) {
         console.error("[get-all-locked-orders] Count estimate error:", countError);
         throw countError;
