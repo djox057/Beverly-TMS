@@ -1,49 +1,66 @@
-Plan: Allow admins to change a user's email address from Admin Users
+Plan: Change a user's email, and keep the old address working for login
 
 ## Goal
-Enable admins to change a user's email address (e.g. `tony@bfprime.net` → `tony@beverlyfreight.net`) directly from the Admin Users page. Both Supabase Auth and the `public.profiles` table must stay in sync.
+1. Let admins change a user's email address (e.g. `tony@bfprime.net` → `tony@beverlyfreight.net`) from the Admin Users page.
+2. Let that user still sign in with the **old** address (`tony@bfprime.net`) using the same password.
 
 ## Current state
-- The `AdminUsers` page lets admins edit role, full name, office, ext, phone, gross/cut %, daily report permissions, and suggestions, but **not email**.
-- The `update-user-role` edge function uses `supabaseAdmin.auth.admin` only to read/list users; it does not update auth email.
-- `profiles.email` is a plain text column without unique constraint, but it is used across the app for display and reference.
-- User `tony@bfprime.net` exists (full_name: `Lazar Petrovic-Tony`, id `a7ec016d-1a3c-4d90-be65-ce509c385957`).
+- The Admin Users edit dialog can change role, full name, office, ext, phone, gross/cut %, daily report permissions, and suggestions — but not email.
+- The `update-user-role` edge function has a service-role admin client available but does not touch auth email.
+- `public.profiles.email` is a plain text column, kept in sync manually.
+- `Login.tsx` passes the typed email straight to `signIn(email, password)`.
+- Supabase Auth allows exactly **one** email per auth user, so "two working logins" must be implemented as an alias that is resolved to the real address before sign-in.
+- User `tony@bfprime.net` exists (`Lazar Petrovic-Tony`).
 
-## What will be changed
+## What will be built
 
-### 1. Backend: extend `supabase/functions/update-user-role/index.ts`
-- Accept an optional `email` field in the request body.
-- Validate the email format with a simple regex.
-- Check that the new email is not already assigned to another user in `auth.users` (or `profiles`).
-- If `email` is provided and changed:
-  - Call `supabaseAdmin.auth.admin.updateUserById(targetUserId, { email: newEmail })`.
-  - Update `profiles.email` to the same value.
-- Keep existing role/profile updates working as before.
+### 1. Email alias table (new)
+Create `public.user_email_aliases`:
+- `user_id` — the auth user the alias points at
+- `alias_email` — the old address, unique, stored lowercase
+- `primary_email` — the current real auth email
+- standard id / created_at / created_by
 
-### 2. Frontend: extend `src/pages/AdminUsers.tsx`
-- Add an editable email field in the Edit User dialog.
-- Pre-populate it with the current email.
-- Include it in the payload to the `update-user-role` function.
-- Show inline validation error if the email is empty or invalid.
-- Disable the Save button while the update is in flight.
+Access rules:
+- Only admins can view, add, or remove aliases.
+- Login resolution does not read the table directly; it goes through a security-definer function so anonymous visitors never get table access.
 
-### 3. Validation & edge cases
-- Email must be a valid email format.
-- Email must not already belong to another user.
-- If the email is unchanged, skip auth/profile updates.
-- If the auth update succeeds but the profile update fails, return a warning so the UI can alert the admin.
+### 2. Login alias resolution function
+A security-definer database function `resolve_login_email(p_email text)`:
+- Returns the primary email when the input matches an alias.
+- Returns the input unchanged otherwise.
+- Executable by anonymous and authenticated users, returns nothing but an email string, so it does not leak account existence beyond what login already reveals.
+
+### 3. Backend: extend `update-user-role` edge function
+- Accept an optional `email` field.
+- Validate format and reject an email already used by another auth user.
+- When the email changes:
+  - Update the auth user via the admin API (email confirmed, no confirmation mail).
+  - Update `profiles.email`.
+  - Insert an alias row mapping the **old** email to the new one, and re-point any existing aliases for that user to the new primary email.
+
+### 4. Frontend: Admin Users edit dialog
+- Add an editable Email field, pre-filled with the current email, with inline validation.
+- Send it in the update payload.
+- Show the user's existing login aliases beneath the field, each with a remove button, so an admin can revoke an old address later.
+
+### 5. Frontend: Login and password reset
+- Before calling sign-in, resolve the typed address through `resolve_login_email` and sign in with the returned address. The user's typed old address keeps working transparently.
+- Apply the same resolution to the Forgot Password flow so a reset requested with the old address reaches the real account.
 
 ## Out of scope
-- Allowing users to change their own email (this is admin-only).
-- Sending email confirmation to the old/new address (Supabase will handle its own email-change confirmation if configured).
-- Bulk email updates.
+- Users changing their own email.
+- Multiple simultaneous "real" mailboxes on one account (Supabase supports one).
+- Bulk email changes.
 
-## Risks
-- Changing the email logs the user out of existing sessions and invalidates password-reset links tied to the old address.
-- If the user is currently signed in, they will need to sign in again with the new email.
+## Risks and notes
+- Changing the auth email invalidates password-reset links issued to the old address; existing sessions may need re-login.
+- The alias only makes **login** work with the old address. Notification emails the app sends will go to the new address.
+- Old addresses stay valid for login until an admin removes the alias.
 
-## Verification steps
-- Update `tony@bfprime.net` to `tony@beverlyfreight.net` in staging.
-- Confirm the `profiles.email` value matches.
-- Confirm the auth user row in Supabase shows the new email.
-- Confirm the user can sign in with the new email and existing password.
+## Verification
+- Change `tony@bfprime.net` to `tony@beverlyfreight.net`.
+- Sign in with the new address and existing password — succeeds.
+- Sign in with `tony@bfprime.net` and the same password — also succeeds.
+- Confirm `profiles.email` and the auth user both show the new address, and one alias row exists.
+- Remove the alias and confirm the old address no longer signs in.
