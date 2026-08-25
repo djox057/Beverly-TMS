@@ -489,8 +489,11 @@ const AdminUsers = () => {
       
       toast({
         title: "Success",
-        description: "User updated successfully",
+        description: data?.emailChangedTo
+          ? `User updated. Email is now ${data.emailChangedTo}; the previous address still works for login.`
+          : "User updated successfully",
       });
+
     } catch (error: any) {
       console.error('Error updating user:', error);
       toast({
