@@ -2646,6 +2646,16 @@ const Orders = () => {
                               <div className="line-clamp-2">{order.bookedByCompanyName}</div>
                             )}
                           </TableCell>
+                          <TableCell className="w-20">
+                            <div className="whitespace-nowrap">
+                              {resolveLoadCompanyCode(
+                                order.internalLoadNumber,
+                                (order as any).loadCompanyCode,
+                                (order as any).driverCompanyName || order.companyName || order.truckCompanyName,
+                              ) || "—"}
+                            </div>
+                          </TableCell>
+
                           <TableCell className="w-24">
                             <div className="line-clamp-2">{order.bookedBy}</div>
                           </TableCell>
