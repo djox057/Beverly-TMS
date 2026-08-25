@@ -5437,6 +5437,36 @@ export type Database = {
           },
         ]
       }
+      user_email_aliases: {
+        Row: {
+          alias_email: string
+          created_at: string
+          created_by: string | null
+          id: string
+          primary_email: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alias_email: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          primary_email: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alias_email?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          primary_email?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -5774,6 +5804,7 @@ export type Database = {
         Args: { _driver: string }
         Returns: undefined
       }
+      resolve_login_email: { Args: { p_email: string }; Returns: string }
       search_orders_hydrate: { Args: { p_ids: string[] }; Returns: Json }
       search_orders_ids: {
         Args: {

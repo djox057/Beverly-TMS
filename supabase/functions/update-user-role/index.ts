@@ -58,9 +58,9 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { userId: targetUserId, role, office, fullName, ext, phoneNumber, grossPercent, cutPercent } = await req.json()
+    const { userId: targetUserId, role, office, fullName, ext, phoneNumber, grossPercent, cutPercent, email } = await req.json()
 
-    console.log('Request body:', { targetUserId, role, office, fullName, ext })
+    console.log('Request body:', { targetUserId, role, office, fullName, ext, email })
 
     if (!targetUserId || !role) {
       throw new Error('Invalid request. userId and role are required.')
@@ -71,6 +71,85 @@ Deno.serve(async (req) => {
     if (!validRoles.includes(role)) {
       throw new Error(`Invalid role: ${role}`)
     }
+
+    // ---- Optional email change (auth + profile + login alias) ----
+    let emailChangedTo: string | null = null
+    if (typeof email === 'string' && email.trim() !== '') {
+      const newEmail = email.trim().toLowerCase()
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(newEmail)) {
+        throw new Error('Invalid email address format')
+      }
+
+      // Read the target user's current auth email
+      const { data: targetAuth, error: targetAuthError } = await supabaseAdmin.auth.admin.getUserById(targetUserId)
+      if (targetAuthError || !targetAuth?.user) {
+        console.error('Error loading target auth user:', targetAuthError)
+        throw new Error('Target user not found')
+      }
+      const oldEmail = (targetAuth.user.email || '').toLowerCase()
+
+      if (oldEmail !== newEmail) {
+        // Reject if the new email already belongs to another auth user
+        const { data: existingProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('user_id')
+          .ilike('email', newEmail)
+          .neq('user_id', targetUserId)
+          .maybeSingle()
+        if (existingProfile) {
+          throw new Error('That email address is already used by another user')
+        }
+
+        // Reject if the new email is registered as somebody else's login alias
+        const { data: conflictAlias } = await supabaseAdmin
+          .from('user_email_aliases')
+          .select('user_id')
+          .ilike('alias_email', newEmail)
+          .neq('user_id', targetUserId)
+          .maybeSingle()
+        if (conflictAlias) {
+          throw new Error('That email address is already used as another user\'s login alias')
+        }
+
+        const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+          email: newEmail,
+          email_confirm: true,
+        })
+        if (authUpdateError) {
+          console.error('Error updating auth email:', authUpdateError)
+          throw new Error(authUpdateError.message || 'Failed to update login email')
+        }
+
+        // Keep any existing aliases pointing at the new primary email
+        const { error: repointError } = await supabaseAdmin
+          .from('user_email_aliases')
+          .update({ primary_email: newEmail })
+          .eq('user_id', targetUserId)
+        if (repointError) console.error('Error re-pointing aliases:', repointError)
+
+        // Preserve the old address as a working login alias
+        if (oldEmail) {
+          const { error: aliasError } = await supabaseAdmin
+            .from('user_email_aliases')
+            .upsert(
+              { user_id: targetUserId, alias_email: oldEmail, primary_email: newEmail, created_by: userId },
+              { onConflict: 'alias_email' }
+            )
+          if (aliasError) console.error('Error creating login alias:', aliasError)
+        }
+
+        // Remove any alias that now equals the primary email
+        await supabaseAdmin
+          .from('user_email_aliases')
+          .delete()
+          .eq('user_id', targetUserId)
+          .ilike('alias_email', newEmail)
+
+        emailChangedTo = newEmail
+      }
+    }
+
 
     // Delete existing roles for the user
     const { error: deleteError } = await supabaseAdmin
@@ -131,6 +210,12 @@ Deno.serve(async (req) => {
       profileUpdates.cut_percent = null
     }
 
+    if (emailChangedTo) {
+      profileUpdates.email = emailChangedTo
+    }
+
+
+
     if (Object.keys(profileUpdates).length > 0) {
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
@@ -148,9 +233,13 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'User role updated successfully',
-        role 
+        message: emailChangedTo
+          ? `User updated. Email changed to ${emailChangedTo}; the previous address still works for login.`
+          : 'User role updated successfully',
+        role,
+        emailChangedTo,
       }),
+
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,

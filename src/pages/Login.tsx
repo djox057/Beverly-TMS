@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, LogIn, Truck } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+
 import { loginSchema } from "@/lib/validation";
 import { useToast } from "@/hooks/use-toast";
 import { useDragPan } from "@/hooks/useDragPan";
@@ -56,6 +58,21 @@ const Login = () => {
     return <Navigate to="/" replace />;
   }
 
+  // Old addresses stay valid for login: resolve them to the account's current email.
+  const resolveLoginEmail = async (typedEmail: string): Promise<string> => {
+    try {
+      const { data, error } = await supabase.rpc('resolve_login_email', { p_email: typedEmail });
+      if (error) {
+        console.error('Error resolving login email alias:', error);
+        return typedEmail;
+      }
+      return (typeof data === 'string' && data.trim() !== '') ? data : typedEmail;
+    } catch (err) {
+      console.error('Error resolving login email alias:', err);
+      return typedEmail;
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -79,7 +96,8 @@ const Login = () => {
     }
     
     setIsLoading(true);
-    await signIn(email, password);
+    const resolvedEmail = await resolveLoginEmail(email);
+    await signIn(resolvedEmail, password);
     setIsLoading(false);
   };
 
@@ -96,7 +114,8 @@ const Login = () => {
     }
 
     setIsResetLoading(true);
-    const { error } = await resetPassword(resetEmail);
+    const resolvedResetEmail = await resolveLoginEmail(resetEmail);
+    const { error } = await resetPassword(resolvedResetEmail);
     setIsResetLoading(false);
 
     if (!error) {
@@ -104,6 +123,7 @@ const Login = () => {
       setResetEmail("");
     }
   };
+
 
 
   return (
