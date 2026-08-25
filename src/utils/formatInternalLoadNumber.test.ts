@@ -21,6 +21,20 @@ describe("formatInternalLoadNumber", () => {
     expect(formatInternalLoadNumber(null)).toBe("—");
     expect(formatInternalLoadNumber(undefined)).toBe("—");
   });
+
+  it("appends the company suffix for new plain numbers", () => {
+    expect(formatInternalLoadNumber("25653", "AP Silver Trans LLC")).toBe("25653-AP");
+    expect(formatInternalLoadNumber(25653, "AP")).toBe("25653-AP");
+    expect(formatInternalLoadNumber("25653", "ue")).toBe("25653-UE");
+  });
+
+  it("never double-suffixes legacy numbers", () => {
+    expect(formatInternalLoadNumber("25653-AP", "BF Prime LLC")).toBe("25653-AP");
+  });
+
+  it("ignores unknown companies", () => {
+    expect(formatInternalLoadNumber("25653", "Some Other Carrier")).toBe("25653");
+  });
 });
 
 describe("getCompanyNameFromSuffix", () => {
