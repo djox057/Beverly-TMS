@@ -705,6 +705,18 @@ const Analytics = () => {
     [dispatcherProfiles],
   );
 
+  // Afterhours users use a fixed 16-day divisor for extra/lost day pay instead of the month's workdays.
+  const isDispatcherAfterhours = useCallback(
+    (userId?: string | null, name?: string | null) => {
+      const p =
+        (userId ? dispatcherProfiles[userId] : null) ||
+        (name ? dispatcherProfiles[name] : null);
+      return p?.roles?.includes("afterhours") ?? false;
+    },
+    [dispatcherProfiles],
+  );
+
+
 
   // Fetch dispatcher driver counts for the selected date range
   // Uses pagination to bypass Supabase's 1000 row limit
