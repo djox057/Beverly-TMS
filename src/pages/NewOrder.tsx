@@ -2230,6 +2230,7 @@ const NewOrder = () => {
         data: {
           id: string;
           internal_load_number: number;
+          load_company_code?: string | null;
         };
         error: any;
       };

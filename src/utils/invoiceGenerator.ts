@@ -3,7 +3,7 @@ import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import ExcelJS from "exceljs";
-import { formatInternalLoadNumber, getCompanyNameFromSuffix, resolveLoadCompanyName } from "@/utils/formatInternalLoadNumber";
+import { formatInternalLoadNumber, resolveLoadCompanyName } from "@/utils/formatInternalLoadNumber";
 // Helper function to load file from Supabase storage
 const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
   try {
