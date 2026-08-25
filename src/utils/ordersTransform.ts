@@ -110,6 +110,7 @@ export function transformOrders(allOrders: any[]) {
       updatedAt: order.updated_at,
       loadNumber: order.load_number,
       internalLoadNumber: order.internal_load_number,
+      loadCompanyCode: order.load_company_code ?? null,
       // Convert to string to handle CSV numeric values in string operations
       brokerLoadNumber: order.broker_load_number != null ? String(order.broker_load_number) : null,
       status: order.status,
