@@ -3,7 +3,7 @@ import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import ExcelJS from "exceljs";
-import { formatInternalLoadNumber, getCompanyNameFromSuffix } from "@/utils/formatInternalLoadNumber";
+import { formatInternalLoadNumber, getCompanyNameFromSuffix, resolveLoadCompanyName } from "@/utils/formatInternalLoadNumber";
 // Helper function to load file from Supabase storage
 const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
   try {
@@ -264,7 +264,7 @@ export const generateInvoicePDF = async (
   const companiesMap = orders.reduce(
     (acc, order) => {
       // Use suffix-derived company from internal load number (frozen at creation)
-      const derivedCompany = getCompanyNameFromSuffix(order.internalLoadNumber) || order.companyName;
+      const derivedCompany = resolveLoadCompanyName(order.internalLoadNumber, (order as any).loadCompanyCode) || order.companyName;
       if (!acc[derivedCompany]) {
         acc[derivedCompany] = [];
       }
@@ -299,7 +299,7 @@ export const generateInvoicePDF = async (
       const doc = new jsPDF();
 
       // Header - Use bookedByCompanyName for display, fallback to suffix-derived company
-      const derivedCompany = getCompanyNameFromSuffix(order.internalLoadNumber) || companyName;
+      const derivedCompany = resolveLoadCompanyName(order.internalLoadNumber, (order as any).loadCompanyCode) || companyName;
       const rawDisplayCompanyName = order.bookedByCompanyName || derivedCompany;
       // Page 1 header-only override: append DBA suffix only for BF Prime LLC
       const upperName = rawDisplayCompanyName.toUpperCase();
@@ -628,7 +628,7 @@ export const generateInvoicePDF = async (
       });
 
       // Add order data to company's XLSX data (use suffix-derived company)
-      const derivedCompanyForXlsx = getCompanyNameFromSuffix(order.internalLoadNumber) || order.companyName;
+      const derivedCompanyForXlsx = resolveLoadCompanyName(order.internalLoadNumber, (order as any).loadCompanyCode) || order.companyName;
       xlsxDataByCompany[sanitizedCompanyName].push({
         ClientNo: brokerMcMap.get(toPdfText(order.brokerName)) || "",
         "Invoice#": formatInternalLoadNumber(toPdfText(order.internalLoadNumber), derivedCompanyForXlsx),
