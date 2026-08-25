@@ -65,7 +65,7 @@ export const RecoveryLoadsStats = ({ rows, isLoading }: Props) => {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Total Recovery Loads</CardTitle>
@@ -76,12 +76,12 @@ export const RecoveryLoadsStats = ({ rows, isLoading }: Props) => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Not Canceled</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Recovered</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold text-primary">{stats.activeCount}</div>
             <div className="text-xs text-muted-foreground">
-              {pct(stats.activeCount)} · {formatCurrency(stats.activeFreight)}
+              {formatCurrency(stats.activeFreight)}
             </div>
           </CardContent>
         </Card>
@@ -92,8 +92,16 @@ export const RecoveryLoadsStats = ({ rows, isLoading }: Props) => {
           <CardContent>
             <div className="text-3xl font-semibold text-destructive">{stats.canceledCount}</div>
             <div className="text-xs text-muted-foreground">
-              {pct(stats.canceledCount)} · {formatCurrency(stats.canceledFreight)}
+              {formatCurrency(stats.canceledFreight)}
             </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">% Recovered</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold text-primary">{recoveryPct}</div>
           </CardContent>
         </Card>
       </div>
