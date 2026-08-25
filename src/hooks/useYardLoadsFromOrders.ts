@@ -75,7 +75,7 @@ export const useYardLoadsFromOrders = () => {
       const { data: orders, error } = await supabase
         .from("orders")
         .select(`
-          id, internal_load_number, broker_load_number, notes, mileage,
+          id, internal_load_number, load_company_code, broker_load_number, notes, mileage,
           driver_price, freight_amount, booked_by, status, locked, canceled,
           is_recovery, truck_id, driver1_id, trailer_id, broker_id, company_id,
           booked_by_company_id, pickup_datetime, delivery_datetime,

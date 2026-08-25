@@ -686,7 +686,9 @@ const BgLoads = () => {
         const suffix = getCompanySuffix(truckCompanyFilter);
         if (!suffix) return false;
         const iln = order.internalLoadNumber ? String(order.internalLoadNumber) : "";
-        return iln.toUpperCase().endsWith(`-${suffix}`);
+        if (iln.toUpperCase().endsWith(`-${suffix}`)) return true;
+        // New loads store the company code separately from the load number
+        return String((order as any).loadCompanyCode || "").toUpperCase() === suffix;
       })();
       const matchesBookedBy =
         !bookedByFilter ||

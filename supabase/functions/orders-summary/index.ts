@@ -29,7 +29,9 @@ const applyFilters = (query: any, filters: OrdersSummaryFilters) => {
 
   if (filters.loadNumberSuffix) {
     const suffix = filters.loadNumberSuffix.replace(/^-+/, "").toUpperCase();
-    query = query.ilike("internal_load_number", `%-${suffix}`);
+    query = query.or(
+      `internal_load_number.ilike.%-${suffix},load_company_code.eq.${suffix}`
+    );
   }
 
   if (filters.bookedBy) query = query.eq("booked_by", filters.bookedBy);
