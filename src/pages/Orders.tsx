@@ -2133,7 +2133,7 @@ const Orders = () => {
                   {paginatedOrders.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={primaryRole === "dispatch" || primaryRole === "afterhours" ? 19 : 21}
+                        colSpan={primaryRole === "dispatch" || primaryRole === "afterhours" ? 20 : 22}
                         className="text-center py-8 text-muted-foreground"
                       >
                         No orders found
