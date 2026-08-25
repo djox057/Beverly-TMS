@@ -88,9 +88,6 @@ export const RecoveryLoadsStats = ({ rows, isLoading }: Props) => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold text-destructive">{stats.canceledCount}</div>
-            <div className="text-xs text-muted-foreground">
-              {formatCurrency(stats.canceledFreight)}
-            </div>
           </CardContent>
         </Card>
         <Card>
