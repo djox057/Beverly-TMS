@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatCurrency } from "@/lib/utils";
+
 
 interface StatRow {
   canceled: boolean;
@@ -80,9 +80,6 @@ export const RecoveryLoadsStats = ({ rows, isLoading }: Props) => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold text-primary">{stats.activeCount}</div>
-            <div className="text-xs text-muted-foreground">
-              {formatCurrency(stats.activeFreight)}
-            </div>
           </CardContent>
         </Card>
         <Card>
@@ -91,9 +88,6 @@ export const RecoveryLoadsStats = ({ rows, isLoading }: Props) => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold text-destructive">{stats.canceledCount}</div>
-            <div className="text-xs text-muted-foreground">
-              {formatCurrency(stats.canceledFreight)}
-            </div>
           </CardContent>
         </Card>
         <Card>
