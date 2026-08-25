@@ -119,28 +119,27 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       unlockedCountQuery = applyExclusion(unlockedCountQuery);
       unlockedCountQuery = applyInclusion(unlockedCountQuery);
       
-      // Get locked count using a planned estimate instead of an exact count.
-      // Exact PostgREST counts on the large locked-orders set can hit statement timeout
-      // and leave the first page showing 0/1 loads even though rows exist.
-      let lockedCountQuery = supabase
-        .from("orders")
-        .select("id", { count: "planned", head: true })
-        .eq("locked", true);
-      lockedCountQuery = buildFilter(lockedCountQuery);
-      lockedCountQuery = applyExclusion(lockedCountQuery);
-      lockedCountQuery = applyInclusion(lockedCountQuery);
-
       const tCQ0 = performance.now();
       const [unlockedResult, lockedResult] = await Promise.all([
         unlockedCountQuery.then(r => { console.log(`[OrdersProgressive]   ⏱ unlocked count query: ${(performance.now() - tCQ0).toFixed(0)}ms`); return r; }),
-        lockedCountQuery.then(r => { console.log(`[OrdersProgressive]   ⏱ locked count query: ${(performance.now() - tCQ0).toFixed(0)}ms`); return r; }),
+        supabase.functions.invoke("get-all-locked-orders", {
+          body: {
+            bookedBy,
+            dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
+            offset: 0,
+            limit: 0,
+            countOnly: true,
+            excludeBookedByCompanyId,
+            bookedByCompanyId,
+          },
+        }).then(r => { console.log(`[OrdersProgressive]   ⏱ locked count edge fn: ${(performance.now() - tCQ0).toFixed(0)}ms`); return r; }),
       ]);
 
       if (unlockedResult.error) throw unlockedResult.error;
       if (lockedResult.error) throw lockedResult.error;
 
       const unlockedCount = unlockedResult.count ?? 0;
-      const lockedCount = lockedResult.count ?? 0;
+      const lockedCount = lockedResult.data?.totalCount ?? 0;
       
       console.log(`[OrdersProgressive] ✓ counts DONE in ${(performance.now() - tCounts0).toFixed(0)}ms — Unlocked: ${unlockedCount}, Locked: ${lockedCount}, Total: ${unlockedCount + lockedCount}`);
 
