@@ -8,7 +8,7 @@ const corsHeaders = {
 
 // Flat column list for orders - NO joins
 const ORDER_COLUMNS = `
-  id, load_number, internal_load_number, broker_load_number, status, notes, date_change_notes,
+  id, load_number, internal_load_number, load_company_code, broker_load_number, status, notes, date_change_notes,
   created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
   canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
   is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
@@ -29,7 +29,7 @@ const ORDER_COLUMNS = `
 const ORDER_COLUMNS_ANALYTICS = `
   id, locked, canceled, created_at,
   pickup_datetime, delivery_datetime,
-  booked_by, internal_load_number, broker_load_number,
+  booked_by, internal_load_number, load_company_code, broker_load_number,
   driver1_id, driver2_id, truck_id, trailer_id, company_id, booked_by_company_id,
   freight_amount, driver_price,
   detention, detention_driver, layover, layover_driver,

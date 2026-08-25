@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getCompanySuffix } from "@/utils/formatInternalLoadNumber";
 
 export const useNextInternalLoadNumber = (companyId?: string, companyName?: string) => {
   return useQuery({
@@ -25,9 +24,9 @@ export const useNextInternalLoadNumber = (companyId?: string, companyName?: stri
         if (!isNaN(num) && num > maxNum) maxNum = num;
       }
       
-      const nextNum = maxNum + 1;
-      const suffix = getCompanySuffix(companyName);
-      return suffix ? `${nextNum}-${suffix}` : `${nextNum}`;
+      // Internal load numbers are now plain numeric; the company is stored separately
+      // in orders.load_company_code.
+      return `${maxNum + 1}`;
     },
     enabled: !!companyId,
     staleTime: 0,

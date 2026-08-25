@@ -68,6 +68,25 @@ export function getCompanyNameFromSuffix(internalLoadNumber: string | null | und
   return map[suffix] || null;
 }
 
+/**
+ * Resolves the legal company name for a load.
+ * Prefers the legacy suffix embedded in the internal load number (older loads),
+ * then falls back to the dedicated load_company_code column (new loads).
+ */
+export function resolveLoadCompanyName(
+  internalLoadNumber: string | number | null | undefined,
+  loadCompanyCode?: string | null | undefined,
+): string | null {
+  const fromSuffix = getCompanyNameFromSuffix(
+    internalLoadNumber == null ? null : internalLoadNumber.toString(),
+  );
+  if (fromSuffix) return fromSuffix;
+  if (loadCompanyCode) {
+    return getCompanyNameFromSuffix(`0-${loadCompanyCode}`);
+  }
+  return null;
+}
+
 export function parseInternalLoadNumber(formattedNumber: string | null | undefined): number | null {
   if (!formattedNumber) return null;
   

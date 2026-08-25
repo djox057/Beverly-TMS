@@ -239,7 +239,9 @@ Deno.serve(async (req) => {
     // (e.g. "-UE", "-AP") rather than by the driver's assigned truck company.
     if (filters.loadNumberSuffix) {
       const suffix = filters.loadNumberSuffix.replace(/^-+/, "").toUpperCase();
-      query = query.ilike("internal_load_number", `%-${suffix}`);
+      query = query.or(
+        `internal_load_number.ilike.%-${suffix},load_company_code.eq.${suffix}`
+      );
     }
     
     // Booked by filter
