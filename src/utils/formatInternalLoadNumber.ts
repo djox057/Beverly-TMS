@@ -99,3 +99,23 @@ export function parseInternalLoadNumber(formattedNumber: string | null | undefin
   if (isNaN(parsed) || parsed > 2147483647 || parsed < 0) return null;
   return parsed;
 }
+
+/**
+ * Resolves the truck company code ("AP", "BFP", ...) for display in the
+ * "T Company" column. Prefers the legacy suffix in the internal load number,
+ * then the dedicated load_company_code, then the truck/driver company name.
+ */
+export function resolveLoadCompanyCode(
+  internalLoadNumber: string | number | null | undefined,
+  loadCompanyCode?: string | null | undefined,
+  companyName?: string | null | undefined,
+): string {
+  const base = internalLoadNumber == null ? "" : internalLoadNumber.toString();
+  if (base.includes("-")) {
+    const suffix = base.split("-").pop()!.toUpperCase();
+    if (["BF", "BFP", "BFU", "UE", "BG", "AP"].includes(suffix)) return suffix;
+  }
+  const code = (loadCompanyCode ?? "").trim().toUpperCase();
+  if (["BF", "BFP", "BFU", "UE", "BG", "AP"].includes(code)) return code;
+  return getCompanySuffix(companyName);
+}
