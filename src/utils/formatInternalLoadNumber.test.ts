@@ -3,9 +3,11 @@ import {
   formatInternalLoadNumber,
   getCompanyNameFromSuffix,
   resolveLoadCompanyName,
+  resolveLoadCompanyCode,
   parseInternalLoadNumber,
   getCompanySuffix,
 } from "./formatInternalLoadNumber";
+
 
 describe("formatInternalLoadNumber", () => {
   it("passes through legacy suffixed numbers", () => {
