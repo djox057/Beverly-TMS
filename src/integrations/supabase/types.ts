@@ -3311,6 +3311,7 @@ export type Database = {
           late_fee_driver: number | null
           layover: number | null
           layover_driver: number | null
+          load_company_code: string | null
           load_number: string
           loaded_miles: number | null
           locked: boolean
@@ -3442,6 +3443,7 @@ export type Database = {
           late_fee_driver?: number | null
           layover?: number | null
           layover_driver?: number | null
+          load_company_code?: string | null
           load_number: string
           loaded_miles?: number | null
           locked?: boolean
@@ -3573,6 +3575,7 @@ export type Database = {
           late_fee_driver?: number | null
           layover?: number | null
           layover_driver?: number | null
+          load_company_code?: string | null
           load_number?: string
           loaded_miles?: number | null
           locked?: boolean
