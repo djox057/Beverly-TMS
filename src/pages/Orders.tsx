@@ -2110,6 +2110,8 @@ const Orders = () => {
                       Freight Amt
                     </TableHead>
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Company</TableHead>
+                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap">T Company</TableHead>
+
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Booked By</TableHead>
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">
                       RC
