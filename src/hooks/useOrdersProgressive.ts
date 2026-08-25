@@ -119,10 +119,12 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       unlockedCountQuery = applyExclusion(unlockedCountQuery);
       unlockedCountQuery = applyInclusion(unlockedCountQuery);
       
-      // Get locked count
+      // Get locked count using a planned estimate instead of an exact count.
+      // Exact PostgREST counts on the large locked-orders set can hit statement timeout
+      // and leave the first page showing 0/1 loads even though rows exist.
       let lockedCountQuery = supabase
         .from("orders")
-        .select("id", { count: "exact", head: true })
+        .select("id", { count: "planned", head: true })
         .eq("locked", true);
       lockedCountQuery = buildFilter(lockedCountQuery);
       lockedCountQuery = applyExclusion(lockedCountQuery);
