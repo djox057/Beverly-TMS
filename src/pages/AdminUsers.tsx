@@ -358,10 +358,49 @@ const AdminUsers = () => {
     }
   };
 
+  const fetchAliases = async (userId: string) => {
+    setAliasesLoading(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from('user_email_aliases')
+        .select('id, alias_email')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setEditAliases((data as any[]) || []);
+    } catch (err) {
+      console.error('Error fetching login aliases:', err);
+      setEditAliases([]);
+    } finally {
+      setAliasesLoading(false);
+    }
+  };
+
+  const handleRemoveAlias = async (aliasId: string) => {
+    setRemovingAliasId(aliasId);
+    try {
+      const { error } = await (supabase as any)
+        .from('user_email_aliases')
+        .delete()
+        .eq('id', aliasId);
+      if (error) throw error;
+      setEditAliases((prev) => prev.filter((a) => a.id !== aliasId));
+      toast({ title: "Removed", description: "That old address can no longer be used to sign in." });
+    } catch (err: any) {
+      console.error('Error removing login alias:', err);
+      toast({ title: "Error", description: err.message || "Failed to remove alias", variant: "destructive" });
+    } finally {
+      setRemovingAliasId(null);
+    }
+  };
+
   const openEditDialog = (user: User) => {
     setUserToEdit(user);
     setEditRole(user.roles[0] || 'dispatch');
     setEditFullName(user.full_name || '');
+    setEditEmail(user.email || '');
+    setEditEmailError(undefined);
+    setEditAliases([]);
     setEditPhoneNumber(user.phone_number || '');
     setEditOffice(user.office);
     setEditExt(user.ext || '');
@@ -371,14 +410,22 @@ const AdminUsers = () => {
     setEditGrossPercent(user.gross_percent != null ? String(user.gross_percent) : (user.roles.includes('dispatch') ? '1' : ''));
     setEditCutPercent(user.cut_percent != null ? String(user.cut_percent) : (user.roles.includes('dispatch') ? '5' : ''));
     setIsEditDialogOpen(true);
+    fetchAliases(user.user_id);
   };
 
   const handleUpdateRoles = async () => {
     if (!userToEdit) return;
 
+    const trimmedEmail = editEmail.trim().toLowerCase();
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setEditEmailError('Please enter a valid email address');
+      return;
+    }
+    const emailChanged = trimmedEmail !== userToEdit.email.toLowerCase();
+
     setIsUpdatingRoles(true);
     try {
-      // Update role, full name, office, and ext via edge function
+      // Update role, full name, office, ext and (optionally) email via edge function
       const { data, error } = await supabase.functions.invoke('update-user-role', {
         body: { 
           userId: userToEdit.user_id,
@@ -388,9 +435,11 @@ const AdminUsers = () => {
           ext: editExt || null,
           phoneNumber: editPhoneNumber ? `+1 ${editPhoneNumber.replace(/^\+1\s?/, '')}` : null,
           grossPercent: editRole === 'dispatch' ? (editGrossPercent === '' ? null : Number(editGrossPercent)) : null,
-          cutPercent: editRole === 'dispatch' ? (editCutPercent === '' ? null : Number(editCutPercent)) : null
+          cutPercent: editRole === 'dispatch' ? (editCutPercent === '' ? null : Number(editCutPercent)) : null,
+          email: emailChanged ? trimmedEmail : undefined
         }
       });
+
 
       if (error) {
         console.error('Error updating role:', error);
