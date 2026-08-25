@@ -1,31 +1,19 @@
 /**
  * Formats an internal load number for display.
- * Legacy loads already carry the suffix in the stored value ("25653-AP") and are
- * passed through untouched. New loads store the plain number plus a separate
- * company code, so the suffix is appended here for display.
- *
- * The second argument accepts either a company name ("AP Silver Trans LLC") or
- * an already-resolved company code ("AP").
+ * Legacy loads carry the suffix in the stored value ("25653-AP"); new loads
+ * store the plain number and keep the company in `load_company_code`, which is
+ * displayed in its own column. The stored value is passed through as-is.
  */
 export function formatInternalLoadNumber(
   internalLoadNumber: number | string | null | undefined,
-  companyNameOrCode?: string | null | undefined
+  _companyNameOrCode?: string | null | undefined
 ): string {
   if (internalLoadNumber === null || internalLoadNumber === undefined) {
     return "—";
   }
-  const base = internalLoadNumber.toString();
-  if (base.includes("-")) return base;
-
-  const raw = (companyNameOrCode ?? "").trim();
-  if (!raw) return base;
-
-  const KNOWN_CODES = ["BF", "BFP", "BFU", "UE", "BG", "AP"];
-  const upper = raw.toUpperCase();
-  const suffix = KNOWN_CODES.includes(upper) ? upper : getCompanySuffix(raw);
-
-  return suffix ? `${base}-${suffix}` : base;
+  return internalLoadNumber.toString();
 }
+
 
 /**
  * Gets the company suffix based on company name
@@ -110,4 +98,24 @@ export function parseInternalLoadNumber(formattedNumber: string | null | undefin
   
   if (isNaN(parsed) || parsed > 2147483647 || parsed < 0) return null;
   return parsed;
+}
+
+/**
+ * Resolves the truck company code ("AP", "BFP", ...) for display in the
+ * "T Company" column. Prefers the legacy suffix in the internal load number,
+ * then the dedicated load_company_code, then the truck/driver company name.
+ */
+export function resolveLoadCompanyCode(
+  internalLoadNumber: string | number | null | undefined,
+  loadCompanyCode?: string | null | undefined,
+  companyName?: string | null | undefined,
+): string {
+  const base = internalLoadNumber == null ? "" : internalLoadNumber.toString();
+  if (base.includes("-")) {
+    const suffix = base.split("-").pop()!.toUpperCase();
+    if (["BF", "BFP", "BFU", "UE", "BG", "AP"].includes(suffix)) return suffix;
+  }
+  const code = (loadCompanyCode ?? "").trim().toUpperCase();
+  if (["BF", "BFP", "BFU", "UE", "BG", "AP"].includes(code)) return code;
+  return getCompanySuffix(companyName);
 }

@@ -60,7 +60,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { toast } from "sonner";
 import { diagnoseLoadMiles } from "@/utils/diagnoseLoad";
-import { formatInternalLoadNumber, getCompanySuffix } from "@/utils/formatInternalLoadNumber";
+import { formatInternalLoadNumber, getCompanySuffix, resolveLoadCompanyCode } from "@/utils/formatInternalLoadNumber";
 import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
 import { transformOrders } from "@/utils/ordersTransform";
 import { hasUpdateTracking } from "@/utils/orderChangeTracker";
@@ -2110,6 +2110,8 @@ const Orders = () => {
                       Freight Amt
                     </TableHead>
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Company</TableHead>
+                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap">T Company</TableHead>
+
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Booked By</TableHead>
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">
                       RC
@@ -2131,7 +2133,7 @@ const Orders = () => {
                   {paginatedOrders.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={primaryRole === "dispatch" || primaryRole === "afterhours" ? 19 : 21}
+                        colSpan={primaryRole === "dispatch" || primaryRole === "afterhours" ? 20 : 22}
                         className="text-center py-8 text-muted-foreground"
                       >
                         No orders found
@@ -2644,6 +2646,16 @@ const Orders = () => {
                               <div className="line-clamp-2">{order.bookedByCompanyName}</div>
                             )}
                           </TableCell>
+                          <TableCell className="w-20">
+                            <div className="whitespace-nowrap">
+                              {resolveLoadCompanyCode(
+                                order.internalLoadNumber,
+                                (order as any).loadCompanyCode,
+                                (order as any).driverCompanyName || order.companyName || order.truckCompanyName,
+                              ) || "—"}
+                            </div>
+                          </TableCell>
+
                           <TableCell className="w-24">
                             <div className="line-clamp-2">{order.bookedBy}</div>
                           </TableCell>
