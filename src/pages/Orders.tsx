@@ -60,7 +60,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { toast } from "sonner";
 import { diagnoseLoadMiles } from "@/utils/diagnoseLoad";
-import { formatInternalLoadNumber, getCompanySuffix } from "@/utils/formatInternalLoadNumber";
+import { formatInternalLoadNumber, getCompanySuffix, resolveLoadCompanyCode } from "@/utils/formatInternalLoadNumber";
 import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
 import { transformOrders } from "@/utils/ordersTransform";
 import { hasUpdateTracking } from "@/utils/orderChangeTracker";
