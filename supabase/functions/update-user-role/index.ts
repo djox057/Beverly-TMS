@@ -233,9 +233,13 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'User role updated successfully',
-        role 
+        message: emailChangedTo
+          ? `User updated. Email changed to ${emailChangedTo}; the previous address still works for login.`
+          : 'User role updated successfully',
+        role,
+        emailChangedTo,
       }),
+
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
