@@ -8563,6 +8563,7 @@ const Reports = () => {
           if (!open) {
             setCancelRecoverInstead(false);
             setCancelRecoveryMinutes(120);
+            setCancelRcFiles([]);
           }
         }}
       >
