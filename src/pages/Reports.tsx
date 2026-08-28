@@ -139,6 +139,8 @@ import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
+import { useCoiInsuredVins } from "@/hooks/useCoiInsuredVins";
+
 import { usePrefetchTruckMatches } from "@/hooks/useLoadSuggestions";
 import LoadSuggestionsDialog from "@/components/reports/LoadSuggestionsDialog";
 import RateCalculatorDialog from "@/components/reports/RateCalculatorDialog";
@@ -451,7 +453,9 @@ const getOrderPickupDateForCarousel = (order: any): Date | null => {
 const Reports = () => {
   const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
   const { individualMode } = useIndividualMode();
+  const { isInsured: isTruckInsured, insuredCompanyForVin } = useCoiInsuredVins();
   const navigate = useNavigate();
+
 
   // Load Suggestions toggle (Reports header). Visible only when the user has
   // suggestions_enabled on their profile AND role is admin or dispatch.
@@ -6096,12 +6100,11 @@ const Reports = () => {
                                                                   />
                                                                 </span>
                                                               )}
-                                                              {typeof (truck as any).samsaraInsured === "boolean" &&
-                                                                ((truck as any).samsaraInsured ? (
-                                                                  <span title="Insured"><ShieldCheck className="h-5 w-5 text-success" /></span>
-                                                                ) : (
-                                                                  <span title="Not Insured"><ShieldOff className="h-5 w-5 text-destructive" /></span>
-                                                                ))}
+                                                              {isTruckInsured((truck as any).truckVin) ? (
+                                                                <span title={`Insured under ${insuredCompanyForVin((truck as any).truckVin) ?? "COI"}`}><ShieldCheck className="h-5 w-5 text-success" /></span>
+                                                              ) : (
+                                                                <span title="Not Insured (VIN not on any COI)"><ShieldOff className="h-5 w-5 text-destructive" /></span>
+                                                              )}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton
@@ -6432,12 +6435,11 @@ const Reports = () => {
                                                                   />
                                                                 </span>
                                                               )}
-                                                              {typeof (truck as any).samsaraInsured === "boolean" &&
-                                                                ((truck as any).samsaraInsured ? (
-                                                                  <span title="Insured"><ShieldCheck className="h-5 w-5 text-success" /></span>
-                                                                ) : (
-                                                                  <span title="Not Insured"><ShieldOff className="h-5 w-5 text-destructive" /></span>
-                                                                ))}
+                                                              {isTruckInsured((truck as any).truckVin) ? (
+                                                                <span title={`Insured under ${insuredCompanyForVin((truck as any).truckVin) ?? "COI"}`}><ShieldCheck className="h-5 w-5 text-success" /></span>
+                                                              ) : (
+                                                                <span title="Not Insured (VIN not on any COI)"><ShieldOff className="h-5 w-5 text-destructive" /></span>
+                                                              )}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton

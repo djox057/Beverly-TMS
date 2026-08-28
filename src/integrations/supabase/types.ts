@@ -822,6 +822,41 @@ export type Database = {
         }
         Relationships: []
       }
+      company_coi_vins: {
+        Row: {
+          coi_file_id: string | null
+          company_name: string
+          created_at: string
+          id: string
+          updated_at: string
+          vin: string
+        }
+        Insert: {
+          coi_file_id?: string | null
+          company_name: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          vin: string
+        }
+        Update: {
+          coi_file_id?: string | null
+          company_name?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          vin?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_coi_vins_coi_file_id_fkey"
+            columns: ["coi_file_id"]
+            isOneToOne: false
+            referencedRelation: "company_coi_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_files: {
         Row: {
           company_id: string
