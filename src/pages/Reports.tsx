@@ -6109,11 +6109,12 @@ const Reports = () => {
                                                                   />
                                                                 </span>
                                                               )}
-                                                              {isTruckInsured((truck as any).truckVin) ? (
-                                                                <span title={`Insured under ${insuredCompanyForVin((truck as any).truckVin) ?? "COI"}`}><ShieldCheck className="h-5 w-5 text-success" /></span>
-                                                              ) : (
-                                                                <span title="Not Insured (VIN not on any COI)"><ShieldOff className="h-5 w-5 text-destructive" /></span>
-                                                              )}
+                                                              {(() => {
+                                                                const status = insuranceStatusForTruck(truck);
+                                                                if (!status.insured) return <span title="Not Insured (VIN not on any COI)"><ShieldOff className="h-5 w-5 text-destructive" /></span>;
+                                                                if (status.mismatch) return <span title={`Insured under ${status.company} (mismatched: truck company is ${truck.companyName || "—"})`}><ShieldCheck className="h-5 w-5 text-warning" /></span>;
+                                                                return <span title={`Insured under ${status.company}`}><ShieldCheck className="h-5 w-5 text-success" /></span>;
+                                                              })()}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton
@@ -6444,11 +6445,12 @@ const Reports = () => {
                                                                   />
                                                                 </span>
                                                               )}
-                                                              {isTruckInsured((truck as any).truckVin) ? (
-                                                                <span title={`Insured under ${insuredCompanyForVin((truck as any).truckVin) ?? "COI"}`}><ShieldCheck className="h-5 w-5 text-success" /></span>
-                                                              ) : (
-                                                                <span title="Not Insured (VIN not on any COI)"><ShieldOff className="h-5 w-5 text-destructive" /></span>
-                                                              )}
+                                                              {(() => {
+                                                                const status = insuranceStatusForTruck(truck);
+                                                                if (!status.insured) return <span title="Not Insured (VIN not on any COI)"><ShieldOff className="h-5 w-5 text-destructive" /></span>;
+                                                                if (status.mismatch) return <span title={`Insured under ${status.company} (mismatched: truck company is ${truck.companyName || "—"})`}><ShieldCheck className="h-5 w-5 text-warning" /></span>;
+                                                                return <span title={`Insured under ${status.company}`}><ShieldCheck className="h-5 w-5 text-success" /></span>;
+                                                              })()}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
                                                               <LeaseAgreementButton
