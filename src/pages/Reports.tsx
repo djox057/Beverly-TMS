@@ -8664,6 +8664,28 @@ const Reports = () => {
                 rows={3}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="cancel-revised-rc">Revised Rate Confirmation (optional)</Label>
+              <Input
+                id="cancel-revised-rc"
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => setCancelRcFiles(Array.from(e.target.files || []))}
+              />
+              {cancelRcFiles.length > 0 && (
+                <div className="space-y-1">
+                  {cancelRcFiles.map((file, idx) => (
+                    <p key={idx} className="text-xs text-muted-foreground truncate">
+                      {file.name}
+                    </p>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Uploading replaces the existing rate confirmation on this load.
+              </p>
+            </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
                 Cancel
