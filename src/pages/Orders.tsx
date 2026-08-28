@@ -64,6 +64,8 @@ import { formatInternalLoadNumber, getCompanySuffix, resolveLoadCompanyCode } fr
 import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
 import { transformOrders } from "@/utils/ordersTransform";
 import { hasUpdateTracking } from "@/utils/orderChangeTracker";
+import { fromZonedTime } from "date-fns-tz";
+
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   Dialog,
