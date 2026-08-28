@@ -1946,12 +1946,15 @@ const Reports = () => {
 
       if (error) throw error;
 
+      await uploadCancelRevisedRC(zoomedLoad.orderId);
+
       toast({
         title: "Success",
         description: "Load cancelled successfully",
       });
       setCancelDialogOpen(false);
       setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+      setCancelRcFiles([]);
       setZoomedLoad(null);
 
       // Optimistic removal — idempotent with the subsequent realtime flush
