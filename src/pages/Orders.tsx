@@ -624,7 +624,11 @@ const Orders = () => {
   const filteredOrders = useMemo(() => {
     return dataSource?.filter((order) => {
       const isServerSearch = searchTerm && searchTerm.trim().length >= 3;
-      const isServerFiltered = hasActiveFilter && filteredServerOrders && filteredServerOrders.length > 0;
+      // During an active load-number search the rows come from the search RPC
+      // (which ignores the filter bar), so the server-filter shortcuts must NOT
+      // apply — every active filter has to be re-evaluated client-side here.
+      const isServerFiltered =
+        !isServerSearch && hasActiveFilter && filteredServerOrders && filteredServerOrders.length > 0;
 
       // Client-side search filter (only when not using server search).
       // Mirrors Reports' load-number filter: substring on broker_load_number and
