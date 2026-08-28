@@ -456,6 +456,15 @@ const Reports = () => {
   const { isInsured: isTruckInsured, insuredCompanyForVin } = useCoiInsuredVins();
   const navigate = useNavigate();
 
+  const insuranceStatusForTruck = useCallback((truck: any) => {
+    const vin = (truck as any).truckVin;
+    const insuredCompany = vin ? insuredCompanyForVin(vin) : null;
+    const truckCompany = truck.companyName || "";
+    if (!insuredCompany) return { insured: false, mismatch: false, company: null };
+    const same = truckCompany.trim().toLowerCase() === insuredCompany.trim().toLowerCase();
+    return { insured: true, mismatch: !same, company: insuredCompany };
+  }, [insuredCompanyForVin]);
+
 
   // Load Suggestions toggle (Reports header). Visible only when the user has
   // suggestions_enabled on their profile AND role is admin or dispatch.
