@@ -5978,7 +5978,27 @@ const Trips = () => {
                                           </TableCell>
                                           <TableCell>
                                             <div className="line-clamp-2">
-                                              {order.driverName}
+                                              {(order.driver2Id || order.driver2Name) ? (
+                                                <Popover>
+                                                  <PopoverTrigger asChild>
+                                                    <button
+                                                      className="font-medium text-primary underline underline-offset-2 cursor-pointer"
+                                                      onClick={(e) => e.stopPropagation()}
+                                                      type="button"
+                                                    >
+                                                      TEAM
+                                                    </button>
+                                                  </PopoverTrigger>
+                                                  <PopoverContent className="w-auto p-3">
+                                                    <div className="space-y-1 text-sm">
+                                                      <p><span className="font-semibold">Driver 1:</span> {order.driver1Name || "N/A"}</p>
+                                                      <p><span className="font-semibold">Driver 2:</span> {order.driver2Name || "N/A"}</p>
+                                                    </div>
+                                                  </PopoverContent>
+                                                </Popover>
+                                              ) : (
+                                                order.driverName
+                                              )}
                                               {hasWeekOverride && (
                                                 <Badge
                                                   variant="outline"
