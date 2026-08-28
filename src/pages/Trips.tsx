@@ -2359,7 +2359,7 @@ const Trips = () => {
 
       // Deductions section (rows 32-43 for BF Prime Drivers)
       // Fixed deductions at the start - date should be week end date
-      const endDateFormatted = format(weekEndDate, "M/d");
+      const endDateFormatted = format(weekEndDate, "MM/dd/yyyy");
       const deductions = [
         { row: 32, description: "Cargo Insurance", amount: 285.0 },
         { row: 33, description: "Trailer + Insurance", amount: 285.0 },
@@ -4365,7 +4365,7 @@ const Trips = () => {
           });
         }
       });
-      const endDateFormatted = format(weekEndDate, "M/d/yyyy");
+      const endDateFormatted = format(weekEndDate, "MM/dd/yyyy");
       const deductions = [
         { row: 39, description: "Cargo Insurance", amount: 285.0 },
         { row: 40, description: "Trailer + Insurance", amount: 285.0 },
