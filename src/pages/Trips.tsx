@@ -5504,7 +5504,7 @@ const Trips = () => {
       <Card className="w-full min-w-0">
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-4 md:p-6">
           <CardTitle className="text-base md:text-lg">
-            Trips ({filteredOrders.length} total, showing {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)})
+            Trips ({filteredOrders.length} total, showing {paginatedOrders.length} on page {currentPage} of {totalPages})
             {filterInfo.companyName && searchFilter && (
               <span className="ml-2 text-sm font-normal text-muted-foreground">— {filterInfo.companyName}</span>
             )}
