@@ -5982,7 +5982,7 @@ const Trips = () => {
                                                 <Popover>
                                                   <PopoverTrigger asChild>
                                                     <button
-                                                      className="font-medium text-primary underline underline-offset-2 cursor-pointer"
+                                                      className="font-medium cursor-pointer"
                                                       onClick={(e) => e.stopPropagation()}
                                                       type="button"
                                                     >
