@@ -2,6 +2,8 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getCompanyBackgroundColor } from "@/pages/Reports/helpers";
+import { CompanyCoiSection } from "@/components/info/CompanyCoiSection";
+
 
 type Cred = { user: string; password: string };
 
@@ -226,7 +228,9 @@ const CompanyCard = ({ c }: { c: Company }) => (
       <CredRow label="Samsara ostali" cred={c.samsaraOther} />
       <CredRow label="Samsara prikolice" cred={c.samsaraTrailers} />
     </div>
+    <CompanyCoiSection companyName={c.name} />
   </Card>
+
 );
 
 export default function Info() {
