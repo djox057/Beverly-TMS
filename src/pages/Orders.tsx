@@ -1356,11 +1356,41 @@ const Orders = () => {
   };
   const generateInvoices = async () => {
     // Use selected orders if in selection mode, otherwise use all filtered orders
-    const ordersToInvoice =
+    const candidateOrders =
       selectionMode && selectedOrderIds.size > 0
         ? filteredOrders.filter((order) => selectedOrderIds.has(order.id))
         : filteredOrders;
-    if (!ordersToInvoice.length) return;
+
+    // Safety net: re-verify every candidate against the active date filters
+    // right before invoicing, so a stale/out-of-range row can never be
+    // invoiced silently. Skipped loads are surfaced in the warnings dialog.
+    const inDateRange = (displayDate: string | null | undefined, range: DateRange | undefined): boolean => {
+      if (!range?.from) return true;
+      if (!displayDate) return false;
+      let dateStr = displayDate.split(" - ")[0];
+      if (dateStr.includes(" ") && !dateStr.includes("T")) dateStr = dateStr.replace(" ", "T");
+      const datePart = dateStr.split("T")[0];
+      if (!datePart || !datePart.match(/^\d{4}-\d{2}-\d{2}$/)) return false;
+      const [y, m, d] = datePart.split("-").map(Number);
+      const orderDateOnly = new Date(y, m - 1, d);
+      const fromDateOnly = new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate());
+      const toDateOnly = range.to
+        ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate())
+        : fromDateOnly;
+      return orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+    };
+
+    const ordersToInvoice = candidateOrders.filter(
+      (order) => inDateRange(order.deliveryDate, dateRange) && inDateRange(order.pickupDate, pickupDateRange),
+    );
+    const skippedOutOfRange = candidateOrders.filter((order) => !ordersToInvoice.includes(order));
+
+    if (!ordersToInvoice.length) {
+      if (skippedOutOfRange.length) {
+        toast.error("All selected loads fall outside the active date filters — nothing invoiced");
+      }
+      return;
+    }
     try {
       setInvoiceProgress({
         current: 0,
@@ -1372,6 +1402,19 @@ const Orders = () => {
         setInvoiceProgress(progress);
       });
       setInvoiceProgress(null);
+
+      if (skippedOutOfRange.length) {
+        result.warnings.push(
+          ...skippedOutOfRange.map((order) => ({
+            invoice: String(order.internalLoadNumber || order.brokerLoadNumber || order.id),
+            files: [],
+            reason: "skipped" as const,
+          })),
+        );
+        toast.warning(`${skippedOutOfRange.length} load(s) skipped — outside the active date filters`);
+      }
+
+
 
       // Show warnings dialog if there are any
       if (result.warnings.length > 0) {
