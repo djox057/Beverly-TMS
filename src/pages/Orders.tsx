@@ -655,60 +655,33 @@ const Orders = () => {
           formattedInternalLoadNumber.toLowerCase().includes(searchLower);
       }
 
-      // Always evaluate date filters client-side so they apply even during active search
-      // (search results come from a load-number lookup that ignores date range).
-      // When the server-side filter is active, the server already enforced
-      // delivery/pickup ranges on `orders.delivery_datetime` / `pickup_datetime`,
-      // so re-applying here against the derived `order.deliveryDate`
-      // (sourced from pickup_drops.lastDelivery) would wrongly drop rows whose
-      // pickup_drops dates differ from the orders.*_datetime columns.
-      let matchesDateAlways = true;
-      if (!isServerFiltered && dateRange?.from && order.deliveryDate) {
-        let dateStr = order.deliveryDate.split(" - ")[0];
+      // Date filters are ALWAYS evaluated client-side — including while a
+      // server-side filter is active — against the exact dates the table
+      // displays (last delivery / first pickup stop, falling back to
+      // orders.delivery_datetime / pickup_datetime). The server window is
+      // padded by one day precisely so this check can be authoritative:
+      // without it, loads whose stop dates differ from orders.*_datetime were
+      // listed (and invoiced) even though their displayed date fell outside
+      // the selected range.
+      const matchesDayRange = (displayDate: string | null | undefined, range: DateRange | undefined): boolean => {
+        if (!range?.from) return true;
+        if (!displayDate) return false;
+        let dateStr = displayDate.split(" - ")[0];
         if (dateStr.includes(" ") && !dateStr.includes("T")) dateStr = dateStr.replace(" ", "T");
         const datePart = dateStr.split("T")[0];
-        if (datePart && datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          const [y, m, d] = datePart.split("-").map(Number);
-          const orderDateOnly = new Date(y, m - 1, d);
-          const fromDateOnly = new Date(
-            dateRange.from.getFullYear(),
-            dateRange.from.getMonth(),
-            dateRange.from.getDate(),
-          );
-          const toDateOnly = dateRange.to
-            ? new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate())
-            : fromDateOnly;
-          matchesDateAlways = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
-        } else {
-          matchesDateAlways = false;
-        }
-      } else if (!isServerFiltered && dateRange?.from && !order.deliveryDate) {
-        matchesDateAlways = false;
-      }
+        if (!datePart || !datePart.match(/^\d{4}-\d{2}-\d{2}$/)) return false;
+        const [y, m, d] = datePart.split("-").map(Number);
+        const orderDateOnly = new Date(y, m - 1, d);
+        const fromDateOnly = new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate());
+        const toDateOnly = range.to
+          ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate())
+          : fromDateOnly;
+        return orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+      };
 
-      let matchesPickupDateAlways = true;
-      if (!isServerFiltered && pickupDateRange?.from && order.pickupDate) {
-        let dateStr = order.pickupDate.split(" - ")[0];
-        if (dateStr.includes(" ") && !dateStr.includes("T")) dateStr = dateStr.replace(" ", "T");
-        const datePart = dateStr.split("T")[0];
-        if (datePart && datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          const [y, m, d] = datePart.split("-").map(Number);
-          const orderDateOnly = new Date(y, m - 1, d);
-          const fromDateOnly = new Date(
-            pickupDateRange.from.getFullYear(),
-            pickupDateRange.from.getMonth(),
-            pickupDateRange.from.getDate(),
-          );
-          const toDateOnly = pickupDateRange.to
-            ? new Date(pickupDateRange.to.getFullYear(), pickupDateRange.to.getMonth(), pickupDateRange.to.getDate())
-            : fromDateOnly;
-          matchesPickupDateAlways = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
-        } else {
-          matchesPickupDateAlways = false;
-        }
-      } else if (!isServerFiltered && pickupDateRange?.from && !order.pickupDate) {
-        matchesPickupDateAlways = false;
-      }
+      const matchesDateAlways = matchesDayRange(order.deliveryDate, dateRange);
+      const matchesPickupDateAlways = matchesDayRange(order.pickupDate, pickupDateRange);
+
 
       // Skip most client-side filters when server-side filtering is active
       if (isServerFiltered) {
