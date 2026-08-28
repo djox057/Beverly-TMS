@@ -1157,6 +1157,7 @@ const Reports = () => {
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
   const [cancelRecoverInstead, setCancelRecoverInstead] = useState(false);
   const [cancelRecoveryMinutes, setCancelRecoveryMinutes] = useState(120);
+  const [cancelRcFiles, setCancelRcFiles] = useState<File[]>([]);
 
   // Lumper Request state
   const [lumperDialogOpen, setLumperDialogOpen] = useState(false);
