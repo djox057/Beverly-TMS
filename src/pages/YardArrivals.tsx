@@ -789,13 +789,15 @@ export default function YardArrivals() {
 
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return "N/A";
-    // Format as MM/DD/YYYY without time
-    const date = new Date(dateString);
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${month}/${day}/${year}`;
+    // Format as MM/DD/YYYY in Chicago time
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Chicago",
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+    }).format(new Date(dateString));
   };
+
 
   if (isLoading || isLoadingTwoWeekNotice) {
     return (
