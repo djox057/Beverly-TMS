@@ -125,3 +125,6 @@ verify_jwt = false
 
 [functions.send-stop-amount-approval]
 verify_jwt = false
+
+[functions.extract-coi-vins]
+verify_jwt = true
