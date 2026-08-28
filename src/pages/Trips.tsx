@@ -1360,14 +1360,61 @@ const Trips = () => {
     return byWeek;
   }, [filterInfo.filterType, terminatedDrivers]);
 
-  // Pagination - paginate individual orders first
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
+  // Pagination - paginate by whole weeks so a week is never split across pages
+  // (pages may therefore contain slightly more/fewer rows than itemsPerPage)
+  const weekPages = useMemo(() => {
+    const parseDate = (dateStr: string): Date | null => {
+      try {
+        const datePart = String(dateStr).replace(" ", "T").split("T")[0];
+        if (!datePart) return null;
+        const [year, month, day] = datePart.split("-").map(Number);
+        if (!year || !month || !day) return null;
+        return new Date(year, month - 1, day, 12, 0, 0);
+      } catch {
+        return null;
+      }
+    };
+
+    // Group all filtered orders by their (possibly overridden) week key
+    const byWeek = new Map<string, any[]>();
+    const noWeek: any[] = [];
+    filteredOrders.forEach((order: any) => {
+      const d = order.deliveryDate ? parseDate(String(order.deliveryDate)) : null;
+      if (!d || isNaN(d.getTime())) {
+        noWeek.push(order);
+        return;
+      }
+      const originalWeekKey = format(startOfWeek(d, { weekStartsOn: 2 }), "yyyy-MM-dd");
+      const weekKey = weekOverrides?.[order.id] || originalWeekKey;
+      if (!byWeek.has(weekKey)) byWeek.set(weekKey, []);
+      byWeek.get(weekKey)!.push(order);
+    });
+
+    const sortedKeys = Array.from(byWeek.keys()).sort((a, b) => b.localeCompare(a));
+
+    // Pack whole weeks into pages without splitting a week
+    const pages: any[][] = [];
+    let current: any[] = [];
+    sortedKeys.forEach((key) => {
+      const chunk = byWeek.get(key)!;
+      if (current.length > 0 && current.length + chunk.length > itemsPerPage) {
+        pages.push(current);
+        current = [];
+      }
+      current = current.concat(chunk);
+    });
+    if (noWeek.length > 0) current = current.concat(noWeek);
+    if (current.length > 0) pages.push(current);
+
+    return pages;
+  }, [filteredOrders, weekOverrides, itemsPerPage]);
+
+  const totalPages = Math.max(1, weekPages.length);
   const paginatedOrders = useMemo(
-    () => filteredOrders.slice(startIndex, endIndex),
-    [filteredOrders, startIndex, endIndex],
+    () => weekPages[currentPage - 1] || [],
+    [weekPages, currentPage],
   );
+
 
   // Group paginated orders by week (Monday-Sunday), respecting week overrides
   const groupedByWeek = useMemo(() => {
@@ -5457,7 +5504,7 @@ const Trips = () => {
       <Card className="w-full min-w-0">
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-4 md:p-6">
           <CardTitle className="text-base md:text-lg">
-            Trips ({filteredOrders.length} total, showing {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)})
+            Trips ({filteredOrders.length} total, showing {paginatedOrders.length} on page {currentPage} of {totalPages})
             {filterInfo.companyName && searchFilter && (
               <span className="ml-2 text-sm font-normal text-muted-foreground">— {filterInfo.companyName}</span>
             )}
