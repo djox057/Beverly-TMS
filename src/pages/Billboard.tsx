@@ -48,16 +48,23 @@ const Billboard = () => {
   // Fetch profiles to resolve booked_by to display names and office
   useEffect(() => {
     const fetchProfiles = async () => {
-      const { data: profiles } = await supabase.from("profiles").select("full_name, user_id, office");
+      const profiles = await fetchAllRows<{ full_name: string | null; user_id: string; office: string | null }>(
+        (from, to) =>
+          supabase
+            .from("profiles")
+            .select("full_name, user_id, office")
+            .order("user_id", { ascending: true })
+            .range(from, to),
+      );
 
-      if (profiles) {
+      if (profiles.length > 0) {
         const profileMap = profiles.reduce(
           (acc, p) => {
             if (p.full_name) {
               acc[p.full_name] = { full_name: p.full_name, user_id: p.user_id, office: p.office };
             }
             if (p.user_id) {
-              acc[p.user_id] = { full_name: p.full_name, user_id: p.user_id, office: p.office };
+              acc[p.user_id] = { full_name: p.full_name as string, user_id: p.user_id, office: p.office };
             }
             return acc;
           },
@@ -70,11 +77,15 @@ const Billboard = () => {
 
     // Fetch manager user IDs to exclude from billboard
     const fetchManagerIds = async () => {
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "manager");
-      if (roles) {
+      const roles = await fetchAllRows<{ user_id: string }>((from, to) =>
+        supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "manager")
+          .order("user_id", { ascending: true })
+          .range(from, to),
+      );
+      if (roles.length > 0) {
         setManagerUserIds(new Set(roles.map((r) => r.user_id)));
       }
     };
@@ -82,11 +93,15 @@ const Billboard = () => {
 
     // Fetch recovery driver IDs to exclude their loads from dispatcher stats
     const fetchRecoveryDrivers = async () => {
-      const { data: recDrivers } = await supabase
-        .from("drivers")
-        .select("id")
-        .eq("is_recovery", true);
-      if (recDrivers) {
+      const recDrivers = await fetchAllRows<{ id: string }>((from, to) =>
+        supabase
+          .from("drivers")
+          .select("id")
+          .eq("is_recovery", true)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
+      if (recDrivers.length > 0) {
         setRecoveryDriverIds(new Set(recDrivers.map((d) => d.id)));
       }
     };
@@ -98,10 +113,25 @@ const Billboard = () => {
   // or after drivers were temporarily reassigned to other dispatchers).
   useEffect(() => {
     const fetchLiveTruckCounts = async () => {
-      const [{ data: activeDrivers }, { data: trucks }] = await Promise.all([
-        supabase.from("drivers").select("id, dispatcher_id").eq("is_active", true).not("dispatcher_id", "is", null),
-        supabase.from("trucks").select("id, driver1_id, driver2_id"),
+      const [activeDrivers, trucks] = await Promise.all([
+        fetchAllRows<{ id: string; dispatcher_id: string | null }>((from, to) =>
+          supabase
+            .from("drivers")
+            .select("id, dispatcher_id")
+            .eq("is_active", true)
+            .not("dispatcher_id", "is", null)
+            .order("id", { ascending: true })
+            .range(from, to),
+        ),
+        fetchAllRows<{ id: string; driver1_id: string | null; driver2_id: string | null }>((from, to) =>
+          supabase
+            .from("trucks")
+            .select("id, driver1_id, driver2_id")
+            .order("id", { ascending: true })
+            .range(from, to),
+        ),
       ]);
+
 
       if (!activeDrivers || !trucks) return;
 
