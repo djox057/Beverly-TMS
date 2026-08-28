@@ -64,6 +64,8 @@ import { formatInternalLoadNumber, getCompanySuffix, resolveLoadCompanyCode } fr
 import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
 import { transformOrders } from "@/utils/ordersTransform";
 import { hasUpdateTracking } from "@/utils/orderChangeTracker";
+import { fromZonedTime } from "date-fns-tz";
+
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   Dialog,
@@ -500,13 +502,20 @@ const Orders = () => {
     if (driverFilter !== "all-drivers" && !driverId) return null;
     if (brokerFilter !== "all-brokers" && !brokerId) return null;
 
-    // Helper to format date without timezone conversion - extracts local date parts
-    const formatDateNoTz = (date: Date, endOfDay = false): string => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      const time = endOfDay ? "23:59:59" : "00:00:00";
-      return `${year}-${month}-${day} ${time}`;
+    // Build a timezone-aware boundary for the selected calendar day in Chicago
+    // time (the timezone the UI displays dates in). Sending a naive
+    // "YYYY-MM-DD HH:mm:ss" string made Postgres interpret it as UTC, which
+    // shifted the window by 5-6 hours and pulled in evening loads from the
+    // adjacent day. `padDays` widens the server window so rows whose stop
+    // dates differ from orders.*_datetime still arrive; the exact day filter is
+    // enforced client-side below against the same date the table displays.
+    const chicagoBoundary = (date: Date, endOfDay = false, padDays = 0): string => {
+      const base = new Date(date.getFullYear(), date.getMonth(), date.getDate() + padDays);
+      const year = base.getFullYear();
+      const month = String(base.getMonth() + 1).padStart(2, "0");
+      const day = String(base.getDate()).padStart(2, "0");
+      const time = endOfDay ? "23:59:59.999" : "00:00:00.000";
+      return fromZonedTime(`${year}-${month}-${day}T${time}`, "America/Chicago").toISOString();
     };
 
     return {
@@ -519,10 +528,11 @@ const Orders = () => {
       statusFilter: serverBackedStatusFilter,
       lockedNotInvoiced: lockedNotInvoicedFilter || undefined,
       invoiced: invoicedFilter || undefined,
-      deliveryDateFrom: dateRange?.from ? formatDateNoTz(dateRange.from) : undefined,
-      deliveryDateTo: dateRange?.to ? formatDateNoTz(dateRange.to, true) : undefined,
-      pickupDateFrom: pickupDateRange?.from ? formatDateNoTz(pickupDateRange.from) : undefined,
-      pickupDateTo: pickupDateRange?.to ? formatDateNoTz(pickupDateRange.to, true) : undefined,
+      deliveryDateFrom: dateRange?.from ? chicagoBoundary(dateRange.from, false, -1) : undefined,
+      deliveryDateTo: dateRange?.to ? chicagoBoundary(dateRange.to, true, 1) : undefined,
+      pickupDateFrom: pickupDateRange?.from ? chicagoBoundary(pickupDateRange.from, false, -1) : undefined,
+      pickupDateTo: pickupDateRange?.to ? chicagoBoundary(pickupDateRange.to, true, 1) : undefined,
+
       excludeBookedByCompanyId: serverBackedStatusFilter === "canceled" ? undefined : EXCLUDED_BOOKED_BY_COMPANY_ID,
     };
   }, [
@@ -645,60 +655,33 @@ const Orders = () => {
           formattedInternalLoadNumber.toLowerCase().includes(searchLower);
       }
 
-      // Always evaluate date filters client-side so they apply even during active search
-      // (search results come from a load-number lookup that ignores date range).
-      // When the server-side filter is active, the server already enforced
-      // delivery/pickup ranges on `orders.delivery_datetime` / `pickup_datetime`,
-      // so re-applying here against the derived `order.deliveryDate`
-      // (sourced from pickup_drops.lastDelivery) would wrongly drop rows whose
-      // pickup_drops dates differ from the orders.*_datetime columns.
-      let matchesDateAlways = true;
-      if (!isServerFiltered && dateRange?.from && order.deliveryDate) {
-        let dateStr = order.deliveryDate.split(" - ")[0];
+      // Date filters are ALWAYS evaluated client-side — including while a
+      // server-side filter is active — against the exact dates the table
+      // displays (last delivery / first pickup stop, falling back to
+      // orders.delivery_datetime / pickup_datetime). The server window is
+      // padded by one day precisely so this check can be authoritative:
+      // without it, loads whose stop dates differ from orders.*_datetime were
+      // listed (and invoiced) even though their displayed date fell outside
+      // the selected range.
+      const matchesDayRange = (displayDate: string | null | undefined, range: DateRange | undefined): boolean => {
+        if (!range?.from) return true;
+        if (!displayDate) return false;
+        let dateStr = displayDate.split(" - ")[0];
         if (dateStr.includes(" ") && !dateStr.includes("T")) dateStr = dateStr.replace(" ", "T");
         const datePart = dateStr.split("T")[0];
-        if (datePart && datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          const [y, m, d] = datePart.split("-").map(Number);
-          const orderDateOnly = new Date(y, m - 1, d);
-          const fromDateOnly = new Date(
-            dateRange.from.getFullYear(),
-            dateRange.from.getMonth(),
-            dateRange.from.getDate(),
-          );
-          const toDateOnly = dateRange.to
-            ? new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate())
-            : fromDateOnly;
-          matchesDateAlways = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
-        } else {
-          matchesDateAlways = false;
-        }
-      } else if (!isServerFiltered && dateRange?.from && !order.deliveryDate) {
-        matchesDateAlways = false;
-      }
+        if (!datePart || !datePart.match(/^\d{4}-\d{2}-\d{2}$/)) return false;
+        const [y, m, d] = datePart.split("-").map(Number);
+        const orderDateOnly = new Date(y, m - 1, d);
+        const fromDateOnly = new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate());
+        const toDateOnly = range.to
+          ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate())
+          : fromDateOnly;
+        return orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+      };
 
-      let matchesPickupDateAlways = true;
-      if (!isServerFiltered && pickupDateRange?.from && order.pickupDate) {
-        let dateStr = order.pickupDate.split(" - ")[0];
-        if (dateStr.includes(" ") && !dateStr.includes("T")) dateStr = dateStr.replace(" ", "T");
-        const datePart = dateStr.split("T")[0];
-        if (datePart && datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          const [y, m, d] = datePart.split("-").map(Number);
-          const orderDateOnly = new Date(y, m - 1, d);
-          const fromDateOnly = new Date(
-            pickupDateRange.from.getFullYear(),
-            pickupDateRange.from.getMonth(),
-            pickupDateRange.from.getDate(),
-          );
-          const toDateOnly = pickupDateRange.to
-            ? new Date(pickupDateRange.to.getFullYear(), pickupDateRange.to.getMonth(), pickupDateRange.to.getDate())
-            : fromDateOnly;
-          matchesPickupDateAlways = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
-        } else {
-          matchesPickupDateAlways = false;
-        }
-      } else if (!isServerFiltered && pickupDateRange?.from && !order.pickupDate) {
-        matchesPickupDateAlways = false;
-      }
+      const matchesDateAlways = matchesDayRange(order.deliveryDate, dateRange);
+      const matchesPickupDateAlways = matchesDayRange(order.pickupDate, pickupDateRange);
+
 
       // Skip most client-side filters when server-side filtering is active
       if (isServerFiltered) {
@@ -1373,11 +1356,41 @@ const Orders = () => {
   };
   const generateInvoices = async () => {
     // Use selected orders if in selection mode, otherwise use all filtered orders
-    const ordersToInvoice =
+    const candidateOrders =
       selectionMode && selectedOrderIds.size > 0
         ? filteredOrders.filter((order) => selectedOrderIds.has(order.id))
         : filteredOrders;
-    if (!ordersToInvoice.length) return;
+
+    // Safety net: re-verify every candidate against the active date filters
+    // right before invoicing, so a stale/out-of-range row can never be
+    // invoiced silently. Skipped loads are surfaced in the warnings dialog.
+    const inDateRange = (displayDate: string | null | undefined, range: DateRange | undefined): boolean => {
+      if (!range?.from) return true;
+      if (!displayDate) return false;
+      let dateStr = displayDate.split(" - ")[0];
+      if (dateStr.includes(" ") && !dateStr.includes("T")) dateStr = dateStr.replace(" ", "T");
+      const datePart = dateStr.split("T")[0];
+      if (!datePart || !datePart.match(/^\d{4}-\d{2}-\d{2}$/)) return false;
+      const [y, m, d] = datePart.split("-").map(Number);
+      const orderDateOnly = new Date(y, m - 1, d);
+      const fromDateOnly = new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate());
+      const toDateOnly = range.to
+        ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate())
+        : fromDateOnly;
+      return orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+    };
+
+    const ordersToInvoice = candidateOrders.filter(
+      (order) => inDateRange(order.deliveryDate, dateRange) && inDateRange(order.pickupDate, pickupDateRange),
+    );
+    const skippedOutOfRange = candidateOrders.filter((order) => !ordersToInvoice.includes(order));
+
+    if (!ordersToInvoice.length) {
+      if (skippedOutOfRange.length) {
+        toast.error("All selected loads fall outside the active date filters — nothing invoiced");
+      }
+      return;
+    }
     try {
       setInvoiceProgress({
         current: 0,
@@ -1389,6 +1402,19 @@ const Orders = () => {
         setInvoiceProgress(progress);
       });
       setInvoiceProgress(null);
+
+      if (skippedOutOfRange.length) {
+        result.warnings.push(
+          ...skippedOutOfRange.map((order) => ({
+            invoice: String(order.internalLoadNumber || order.brokerLoadNumber || order.id),
+            files: [],
+            reason: "skipped" as const,
+          })),
+        );
+        toast.warning(`${skippedOutOfRange.length} load(s) skipped — outside the active date filters`);
+      }
+
+
 
       // Show warnings dialog if there are any
       if (result.warnings.length > 0) {
