@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { FileText, Loader2, Trash2, Upload } from "lucide-react";
+import { FileText, Loader2, ShieldCheck, Trash2, Upload } from "lucide-react";
+import { CoiInsuredTrucksDialog } from "@/components/info/CoiInsuredTrucksDialog";
 import { sanitizeFileName } from "@/utils/orderFilesUpload";
 
 const BUCKET = "company-coi";
@@ -26,6 +27,7 @@ export const CompanyCoiSection = ({ companyName }: { companyName: string }) => {
   const [files, setFiles] = useState<CoiFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [insuredOpen, setInsuredOpen] = useState(false);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -83,8 +85,29 @@ export const CompanyCoiSection = ({ companyName }: { companyName: string }) => {
       });
       if (insErr) throw insErr;
 
-      toast({ title: "COI uploaded" });
+      toast({ title: "COI uploaded", description: "Extracting VIN numbers…" });
       await load();
+
+      const { data: inserted } = await supabase
+        .from("company_coi_files")
+        .select("id")
+        .eq("file_path", path)
+        .maybeSingle();
+
+      if (inserted?.id) {
+        const { data: res, error: fnErr } = await supabase.functions.invoke("extract-coi-vins", {
+          body: { coi_file_id: inserted.id },
+        });
+        if (fnErr) {
+          toast({
+            title: "VIN extraction failed",
+            description: fnErr.message,
+            variant: "destructive",
+          });
+        } else {
+          toast({ title: `${(res as any)?.count ?? 0} VIN(s) extracted from COI` });
+        }
+      }
     } catch (err: any) {
       toast({ title: "Upload failed", description: err?.message ?? String(err), variant: "destructive" });
     } finally {
@@ -106,8 +129,18 @@ export const CompanyCoiSection = ({ companyName }: { companyName: string }) => {
 
   return (
     <div className="pt-2 border-t space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-semibold">COI</span>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2"
+            onClick={() => setInsuredOpen(true)}
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            <span className="ml-1 text-xs">Insured trucks</span>
+          </Button>
         {isAdmin && (
           <>
             <input
@@ -129,7 +162,14 @@ export const CompanyCoiSection = ({ companyName }: { companyName: string }) => {
             </Button>
           </>
         )}
+        </div>
       </div>
+
+      <CoiInsuredTrucksDialog
+        companyName={companyName}
+        open={insuredOpen}
+        onOpenChange={setInsuredOpen}
+      />
 
       {loading ? (
         <p className="text-xs text-muted-foreground">Loading…</p>
