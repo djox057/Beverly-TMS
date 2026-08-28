@@ -3,6 +3,33 @@ import { useBillboardOrders } from "@/hooks/useBillboardOrders";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 40;
+
+/**
+ * Supabase caps every query at 1000 rows by default. Billboard rankings are
+ * computed from full-table aggregates, so truncation silently drops dispatchers.
+ * This pages through the whole result set.
+ */
+async function fetchAllRows<T = any>(
+  build: (from: number, to: number) => any,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE_SIZE;
+    const { data, error } = await build(from, from + PAGE_SIZE - 1);
+    if (error) {
+      console.error("[Billboard] paginated fetch error:", error);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    rows.push(...(data as T[]));
+    if (data.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+
 const Billboard = () => {
   const { data: orders, isLoading } = useBillboardOrders();
   const [dispatcherProfiles, setDispatcherProfiles] = useState<
@@ -21,16 +48,23 @@ const Billboard = () => {
   // Fetch profiles to resolve booked_by to display names and office
   useEffect(() => {
     const fetchProfiles = async () => {
-      const { data: profiles } = await supabase.from("profiles").select("full_name, user_id, office");
+      const profiles = await fetchAllRows<{ full_name: string | null; user_id: string; office: string | null }>(
+        (from, to) =>
+          supabase
+            .from("profiles")
+            .select("full_name, user_id, office")
+            .order("user_id", { ascending: true })
+            .range(from, to),
+      );
 
-      if (profiles) {
+      if (profiles.length > 0) {
         const profileMap = profiles.reduce(
           (acc, p) => {
             if (p.full_name) {
               acc[p.full_name] = { full_name: p.full_name, user_id: p.user_id, office: p.office };
             }
             if (p.user_id) {
-              acc[p.user_id] = { full_name: p.full_name, user_id: p.user_id, office: p.office };
+              acc[p.user_id] = { full_name: p.full_name as string, user_id: p.user_id, office: p.office };
             }
             return acc;
           },
@@ -43,11 +77,15 @@ const Billboard = () => {
 
     // Fetch manager user IDs to exclude from billboard
     const fetchManagerIds = async () => {
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "manager");
-      if (roles) {
+      const roles = await fetchAllRows<{ user_id: string }>((from, to) =>
+        supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "manager")
+          .order("user_id", { ascending: true })
+          .range(from, to),
+      );
+      if (roles.length > 0) {
         setManagerUserIds(new Set(roles.map((r) => r.user_id)));
       }
     };
@@ -55,11 +93,15 @@ const Billboard = () => {
 
     // Fetch recovery driver IDs to exclude their loads from dispatcher stats
     const fetchRecoveryDrivers = async () => {
-      const { data: recDrivers } = await supabase
-        .from("drivers")
-        .select("id")
-        .eq("is_recovery", true);
-      if (recDrivers) {
+      const recDrivers = await fetchAllRows<{ id: string }>((from, to) =>
+        supabase
+          .from("drivers")
+          .select("id")
+          .eq("is_recovery", true)
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
+      if (recDrivers.length > 0) {
         setRecoveryDriverIds(new Set(recDrivers.map((d) => d.id)));
       }
     };
@@ -71,12 +113,26 @@ const Billboard = () => {
   // or after drivers were temporarily reassigned to other dispatchers).
   useEffect(() => {
     const fetchLiveTruckCounts = async () => {
-      const [{ data: activeDrivers }, { data: trucks }] = await Promise.all([
-        supabase.from("drivers").select("id, dispatcher_id").eq("is_active", true).not("dispatcher_id", "is", null),
-        supabase.from("trucks").select("id, driver1_id, driver2_id"),
+      const [activeDrivers, trucks] = await Promise.all([
+        fetchAllRows<{ id: string; dispatcher_id: string | null }>((from, to) =>
+          supabase
+            .from("drivers")
+            .select("id, dispatcher_id")
+            .eq("is_active", true)
+            .not("dispatcher_id", "is", null)
+            .order("id", { ascending: true })
+            .range(from, to),
+        ),
+        fetchAllRows<{ id: string; driver1_id: string | null; driver2_id: string | null }>((from, to) =>
+          supabase
+            .from("trucks")
+            .select("id, driver1_id, driver2_id")
+            .order("id", { ascending: true })
+            .range(from, to),
+        ),
       ]);
 
-      if (!activeDrivers || !trucks) return;
+      if (activeDrivers.length === 0 || trucks.length === 0) return;
 
       const driverToDispatcher = new Map<string, string>();
       activeDrivers.forEach((d) => {
@@ -134,17 +190,28 @@ const Billboard = () => {
       return avgCounts;
     };
 
+    const fetchDailyCounts = (startStr: string, endStr: string, exclusiveEnd = false) =>
+      fetchAllRows<{ dispatcher_id: string; driver_count: number; truck_count?: number | null; date: string }>(
+        (from, to) => {
+          let q = supabase
+            .from("dispatcher_daily_driver_counts")
+            .select("dispatcher_id, driver_count, truck_count, date")
+            .gte("date", startStr);
+          q = exclusiveEnd ? q.lt("date", endStr) : q.lte("date", endStr);
+          return q
+            .order("date", { ascending: true })
+            .order("dispatcher_id", { ascending: true })
+            .range(from, to);
+        },
+      );
+
     const fetchTruckCounts = async () => {
       const startStr = weekStart.toISOString().split("T")[0];
       const endStr = weekEnd.toISOString().split("T")[0];
 
-      const { data } = await supabase
-        .from("dispatcher_daily_driver_counts")
-        .select("dispatcher_id, driver_count")
-        .gte("date", startStr)
-        .lte("date", endStr);
+      const data = await fetchDailyCounts(startStr, endStr);
 
-      if (data && data.length > 0) {
+      if (data.length > 0) {
         const avgCounts = computeAvgCounts(data);
 
         // Per-dispatcher fallback: find dispatchers with no rows in this week
@@ -153,13 +220,9 @@ const Billboard = () => {
         fallbackStart.setDate(fallbackStart.getDate() - 14);
         const fallbackStartStr = fallbackStart.toISOString().split("T")[0];
 
-        const { data: fallbackData } = await supabase
-          .from("dispatcher_daily_driver_counts")
-          .select("dispatcher_id, driver_count")
-          .gte("date", fallbackStartStr)
-          .lt("date", startStr);
+        const fallbackData = await fetchDailyCounts(fallbackStartStr, startStr, true);
 
-        if (fallbackData && fallbackData.length > 0) {
+        if (fallbackData.length > 0) {
           const fallbackAvg = computeAvgCounts(fallbackData);
           // Merge: only fill gaps, don't overwrite current-week data
           Object.entries(fallbackAvg).forEach(([id, avg]) => {
@@ -188,12 +251,8 @@ const Billboard = () => {
         fallbackStart.setDate(fallbackStart.getDate() - 6);
         const fmt = (d: Date) =>
           `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const { data: fallback } = await supabase
-          .from("dispatcher_daily_driver_counts")
-          .select("dispatcher_id, driver_count, truck_count, date")
-          .gte("date", fmt(fallbackStart))
-          .lte("date", fmt(latestDateObj));
-        if (fallback) {
+        const fallback = await fetchDailyCounts(fmt(fallbackStart), fmt(latestDateObj));
+        if (fallback.length > 0) {
           setDispatcherTruckCounts(computeAvgCounts(fallback));
         }
       }
@@ -221,22 +280,18 @@ const Billboard = () => {
       const fmt = (d: Date) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       // Paginate: a full month across all dispatchers exceeds the 1000-row default cap
-      const PAGE = 1000;
-      const data: any[] = [];
-      for (let page = 0; page < 20; page++) {
-        const { data: chunk } = await supabase
+      const data = await fetchAllRows<any>((from, to) =>
+        supabase
           .from("dispatcher_daily_driver_counts")
           .select("dispatcher_id, driver_count, truck_count, date")
           .gte("date", fmt(monthStart))
           .lte("date", fmt(monthEnd))
           .order("date", { ascending: true })
           .order("dispatcher_id", { ascending: true })
-          .range(page * PAGE, page * PAGE + PAGE - 1);
-        if (!chunk || chunk.length === 0) break;
-        data.push(...chunk);
-        if (chunk.length < PAGE) break;
-      }
+          .range(from, to),
+      );
       if (data.length > 0) {
+
         const sums = new Map<string, { total: number; days: Set<string> }>();
         data.forEach((row: any) => {
           const id = row.dispatcher_id;
