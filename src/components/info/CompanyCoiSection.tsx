@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { FileText, Loader2, ShieldCheck, Trash2, Upload } from "lucide-react";
+import { FileText, Loader2, ScanLine, ShieldCheck, Trash2, Upload } from "lucide-react";
 import { CoiInsuredTrucksDialog } from "@/components/info/CoiInsuredTrucksDialog";
 import { sanitizeFileName } from "@/utils/orderFilesUpload";
 
@@ -28,6 +28,20 @@ export const CompanyCoiSection = ({ companyName }: { companyName: string }) => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [insuredOpen, setInsuredOpen] = useState(false);
+  const [scanningId, setScanningId] = useState<string | null>(null);
+
+  const scanVins = async (file: CoiFile) => {
+    setScanningId(file.id);
+    const { data, error } = await supabase.functions.invoke("extract-coi-vins", {
+      body: { coi_file_id: file.id },
+    });
+    setScanningId(null);
+    if (error) {
+      toast({ title: "VIN extraction failed", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `${(data as any)?.count ?? 0} VIN(s) extracted from COI` });
+  };
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -188,14 +202,30 @@ export const CompanyCoiSection = ({ companyName }: { companyName: string }) => {
                 <span>{f.file_name}</span>
               </button>
               {isAdmin && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6 shrink-0"
-                  onClick={() => handleDelete(f)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 shrink-0"
+                    title="Scan VINs from this COI"
+                    disabled={scanningId === f.id}
+                    onClick={() => scanVins(f)}
+                  >
+                    {scanningId === f.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ScanLine className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 shrink-0"
+                    onClick={() => handleDelete(f)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </>
               )}
             </li>
           ))}
