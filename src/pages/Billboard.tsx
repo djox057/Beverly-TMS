@@ -220,12 +220,23 @@ const Billboard = () => {
     const fetchMonthlyTruckCounts = async () => {
       const fmt = (d: Date) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const { data } = await supabase
-        .from("dispatcher_daily_driver_counts")
-        .select("dispatcher_id, driver_count, truck_count, date")
-        .gte("date", fmt(monthStart))
-        .lte("date", fmt(monthEnd));
-      if (data) {
+      // Paginate: a full month across all dispatchers exceeds the 1000-row default cap
+      const PAGE = 1000;
+      const data: any[] = [];
+      for (let page = 0; page < 20; page++) {
+        const { data: chunk } = await supabase
+          .from("dispatcher_daily_driver_counts")
+          .select("dispatcher_id, driver_count, truck_count, date")
+          .gte("date", fmt(monthStart))
+          .lte("date", fmt(monthEnd))
+          .order("date", { ascending: true })
+          .order("dispatcher_id", { ascending: true })
+          .range(page * PAGE, page * PAGE + PAGE - 1);
+        if (!chunk || chunk.length === 0) break;
+        data.push(...chunk);
+        if (chunk.length < PAGE) break;
+      }
+      if (data.length > 0) {
         const sums = new Map<string, { total: number; days: Set<string> }>();
         data.forEach((row: any) => {
           const id = row.dispatcher_id;
