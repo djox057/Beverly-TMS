@@ -139,6 +139,8 @@ import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
+import { useCoiInsuredVins } from "@/hooks/useCoiInsuredVins";
+
 import { usePrefetchTruckMatches } from "@/hooks/useLoadSuggestions";
 import LoadSuggestionsDialog from "@/components/reports/LoadSuggestionsDialog";
 import RateCalculatorDialog from "@/components/reports/RateCalculatorDialog";
