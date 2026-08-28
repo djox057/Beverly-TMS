@@ -926,7 +926,7 @@ export default function YardArrivals() {
                               </div>
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              Date: {formatDateTime(action.arrival_datetime || action.created_at)}
+                              Date: {formatDateTime(action.created_at)}
                               {action.creator?.full_name && ` • Created by: ${action.creator.full_name}`}
                             </div>
                             <div>
@@ -1037,7 +1037,7 @@ export default function YardArrivals() {
                             </div>
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            Date: {formatDateTime(action.arrival_datetime || action.created_at)}
+                            Date: {formatDateTime(action.created_at)}
                             {action.creator?.full_name && ` • Created by: ${action.creator.full_name}`}
                           </div>
                           <div>
@@ -1148,7 +1148,7 @@ export default function YardArrivals() {
                             </div>
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            Date: {formatDateTime(action.arrival_datetime || action.created_at)}
+                            Date: {formatDateTime(action.created_at)}
                             {action.creator?.full_name && ` • Created by: ${action.creator.full_name}`}
                           </div>
                           <div className="flex items-center justify-between">
@@ -1267,7 +1267,7 @@ export default function YardArrivals() {
                             </div>
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            Date: {formatDateTime(action.arrival_datetime || action.created_at)}
+                            Date: {formatDateTime(action.created_at)}
                             {action.creator?.full_name && ` • Created by: ${action.creator.full_name}`}
                           </div>
                           <div>
