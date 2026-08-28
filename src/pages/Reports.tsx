@@ -451,7 +451,9 @@ const getOrderPickupDateForCarousel = (order: any): Date | null => {
 const Reports = () => {
   const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
   const { individualMode } = useIndividualMode();
+  const { isInsured: isTruckInsured, insuredCompanyForVin } = useCoiInsuredVins();
   const navigate = useNavigate();
+
 
   // Load Suggestions toggle (Reports header). Visible only when the user has
   // suggestions_enabled on their profile AND role is admin or dispatch.
