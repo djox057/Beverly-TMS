@@ -190,17 +190,28 @@ const Billboard = () => {
       return avgCounts;
     };
 
+    const fetchDailyCounts = (startStr: string, endStr: string, exclusiveEnd = false) =>
+      fetchAllRows<{ dispatcher_id: string; driver_count: number; truck_count?: number | null; date: string }>(
+        (from, to) => {
+          let q = supabase
+            .from("dispatcher_daily_driver_counts")
+            .select("dispatcher_id, driver_count, truck_count, date")
+            .gte("date", startStr);
+          q = exclusiveEnd ? q.lt("date", endStr) : q.lte("date", endStr);
+          return q
+            .order("date", { ascending: true })
+            .order("dispatcher_id", { ascending: true })
+            .range(from, to);
+        },
+      );
+
     const fetchTruckCounts = async () => {
       const startStr = weekStart.toISOString().split("T")[0];
       const endStr = weekEnd.toISOString().split("T")[0];
 
-      const { data } = await supabase
-        .from("dispatcher_daily_driver_counts")
-        .select("dispatcher_id, driver_count")
-        .gte("date", startStr)
-        .lte("date", endStr);
+      const data = await fetchDailyCounts(startStr, endStr);
 
-      if (data && data.length > 0) {
+      if (data.length > 0) {
         const avgCounts = computeAvgCounts(data);
 
         // Per-dispatcher fallback: find dispatchers with no rows in this week
@@ -209,13 +220,9 @@ const Billboard = () => {
         fallbackStart.setDate(fallbackStart.getDate() - 14);
         const fallbackStartStr = fallbackStart.toISOString().split("T")[0];
 
-        const { data: fallbackData } = await supabase
-          .from("dispatcher_daily_driver_counts")
-          .select("dispatcher_id, driver_count")
-          .gte("date", fallbackStartStr)
-          .lt("date", startStr);
+        const fallbackData = await fetchDailyCounts(fallbackStartStr, startStr, true);
 
-        if (fallbackData && fallbackData.length > 0) {
+        if (fallbackData.length > 0) {
           const fallbackAvg = computeAvgCounts(fallbackData);
           // Merge: only fill gaps, don't overwrite current-week data
           Object.entries(fallbackAvg).forEach(([id, avg]) => {
@@ -244,12 +251,8 @@ const Billboard = () => {
         fallbackStart.setDate(fallbackStart.getDate() - 6);
         const fmt = (d: Date) =>
           `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const { data: fallback } = await supabase
-          .from("dispatcher_daily_driver_counts")
-          .select("dispatcher_id, driver_count, truck_count, date")
-          .gte("date", fmt(fallbackStart))
-          .lte("date", fmt(latestDateObj));
-        if (fallback) {
+        const fallback = await fetchDailyCounts(fmt(fallbackStart), fmt(latestDateObj));
+        if (fallback.length > 0) {
           setDispatcherTruckCounts(computeAvgCounts(fallback));
         }
       }
@@ -277,22 +280,18 @@ const Billboard = () => {
       const fmt = (d: Date) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       // Paginate: a full month across all dispatchers exceeds the 1000-row default cap
-      const PAGE = 1000;
-      const data: any[] = [];
-      for (let page = 0; page < 20; page++) {
-        const { data: chunk } = await supabase
+      const data = await fetchAllRows<any>((from, to) =>
+        supabase
           .from("dispatcher_daily_driver_counts")
           .select("dispatcher_id, driver_count, truck_count, date")
           .gte("date", fmt(monthStart))
           .lte("date", fmt(monthEnd))
           .order("date", { ascending: true })
           .order("dispatcher_id", { ascending: true })
-          .range(page * PAGE, page * PAGE + PAGE - 1);
-        if (!chunk || chunk.length === 0) break;
-        data.push(...chunk);
-        if (chunk.length < PAGE) break;
-      }
+          .range(from, to),
+      );
       if (data.length > 0) {
+
         const sums = new Map<string, { total: number; days: Set<string> }>();
         data.forEach((row: any) => {
           const id = row.dispatcher_id;
