@@ -132,8 +132,7 @@ const Billboard = () => {
         ),
       ]);
 
-
-      if (!activeDrivers || !trucks) return;
+      if (activeDrivers.length === 0 || trucks.length === 0) return;
 
       const driverToDispatcher = new Map<string, string>();
       activeDrivers.forEach((d) => {
