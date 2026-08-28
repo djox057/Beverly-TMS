@@ -2015,6 +2015,8 @@ const Reports = () => {
 
       if (error) throw error;
 
+      await uploadCancelRevisedRC(zoomedLoad.orderId);
+
       toast({
         title: "Sent to Recovery",
         description: `Load will auto-cancel if not assigned by ${new Date(deadline).toLocaleString("en-US", {
@@ -2027,6 +2029,7 @@ const Reports = () => {
       });
       setCancelDialogOpen(false);
       setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+      setCancelRcFiles([]);
       setCancelRecoverInstead(false);
       setCancelRecoveryMinutes(120);
     } catch (error: any) {
