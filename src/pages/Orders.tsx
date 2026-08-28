@@ -500,13 +500,20 @@ const Orders = () => {
     if (driverFilter !== "all-drivers" && !driverId) return null;
     if (brokerFilter !== "all-brokers" && !brokerId) return null;
 
-    // Helper to format date without timezone conversion - extracts local date parts
-    const formatDateNoTz = (date: Date, endOfDay = false): string => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      const time = endOfDay ? "23:59:59" : "00:00:00";
-      return `${year}-${month}-${day} ${time}`;
+    // Build a timezone-aware boundary for the selected calendar day in Chicago
+    // time (the timezone the UI displays dates in). Sending a naive
+    // "YYYY-MM-DD HH:mm:ss" string made Postgres interpret it as UTC, which
+    // shifted the window by 5-6 hours and pulled in evening loads from the
+    // adjacent day. `padDays` widens the server window so rows whose stop
+    // dates differ from orders.*_datetime still arrive; the exact day filter is
+    // enforced client-side below against the same date the table displays.
+    const chicagoBoundary = (date: Date, endOfDay = false, padDays = 0): string => {
+      const base = new Date(date.getFullYear(), date.getMonth(), date.getDate() + padDays);
+      const year = base.getFullYear();
+      const month = String(base.getMonth() + 1).padStart(2, "0");
+      const day = String(base.getDate()).padStart(2, "0");
+      const time = endOfDay ? "23:59:59.999" : "00:00:00.000";
+      return fromZonedTime(`${year}-${month}-${day}T${time}`, "America/Chicago").toISOString();
     };
 
     return {
@@ -519,10 +526,11 @@ const Orders = () => {
       statusFilter: serverBackedStatusFilter,
       lockedNotInvoiced: lockedNotInvoicedFilter || undefined,
       invoiced: invoicedFilter || undefined,
-      deliveryDateFrom: dateRange?.from ? formatDateNoTz(dateRange.from) : undefined,
-      deliveryDateTo: dateRange?.to ? formatDateNoTz(dateRange.to, true) : undefined,
-      pickupDateFrom: pickupDateRange?.from ? formatDateNoTz(pickupDateRange.from) : undefined,
-      pickupDateTo: pickupDateRange?.to ? formatDateNoTz(pickupDateRange.to, true) : undefined,
+      deliveryDateFrom: dateRange?.from ? chicagoBoundary(dateRange.from, false, -1) : undefined,
+      deliveryDateTo: dateRange?.to ? chicagoBoundary(dateRange.to, true, 1) : undefined,
+      pickupDateFrom: pickupDateRange?.from ? chicagoBoundary(pickupDateRange.from, false, -1) : undefined,
+      pickupDateTo: pickupDateRange?.to ? chicagoBoundary(pickupDateRange.to, true, 1) : undefined,
+
       excludeBookedByCompanyId: serverBackedStatusFilter === "canceled" ? undefined : EXCLUDED_BOOKED_BY_COMPANY_ID,
     };
   }, [
