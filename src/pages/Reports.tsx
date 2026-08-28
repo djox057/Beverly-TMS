@@ -1157,6 +1157,7 @@ const Reports = () => {
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
   const [cancelRecoverInstead, setCancelRecoverInstead] = useState(false);
   const [cancelRecoveryMinutes, setCancelRecoveryMinutes] = useState(120);
+  const [cancelRcFiles, setCancelRcFiles] = useState<File[]>([]);
 
   // Lumper Request state
   const [lumperDialogOpen, setLumperDialogOpen] = useState(false);
@@ -1831,9 +1832,44 @@ const Reports = () => {
     }
   };
 
+  // Upload revised rate confirmation from the cancel dialog.
+  // Mirrors Edit Order behavior: replaces all existing RC files with the new one(s).
+  const uploadCancelRevisedRC = async (orderId: string) => {
+    if (!cancelRcFiles.length) return;
+
+    const { data: existingRc, error: existingErr } = await supabase
+      .from("order_files")
+      .select("id, file_path, file_name")
+      .eq("order_id", orderId)
+      .eq("file_category", "RC");
+    if (existingErr) throw existingErr;
+
+    for (const file of existingRc || []) {
+      const { error: storageErr } = await supabase.storage.from("order-files").remove([file.file_path]);
+      if (storageErr) console.error(`Storage delete failed for ${file.file_path}:`, storageErr);
+      const { error: dbErr } = await supabase.from("order_files").delete().eq("id", file.id);
+      if (dbErr) console.error(`DB delete failed for order_files id=${file.id}:`, dbErr);
+    }
+
+    for (const file of cancelRcFiles) {
+      const filePath = await uploadOrderFilePreserveName({ orderId, folder: "RC", file });
+      const { error: fileError } = await supabase.from("order_files").insert({
+        order_id: orderId,
+        file_name: file.name,
+        file_path: filePath,
+        file_size: file.size,
+        content_type: file.type,
+        file_category: "RC",
+        uploaded_by: profile?.full_name || profile?.email || "Unknown User",
+      });
+      if (fileError) throw fileError;
+    }
+  };
+
   // Cancel order handlers
   const handleCancelOrder = async () => {
     if (!zoomedLoad?.orderId) return;
+
 
     try {
       // Validate inputs
@@ -1910,12 +1946,15 @@ const Reports = () => {
 
       if (error) throw error;
 
+      await uploadCancelRevisedRC(zoomedLoad.orderId);
+
       toast({
         title: "Success",
         description: "Load cancelled successfully",
       });
       setCancelDialogOpen(false);
       setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+      setCancelRcFiles([]);
       setZoomedLoad(null);
 
       // Optimistic removal — idempotent with the subsequent realtime flush
@@ -1976,6 +2015,8 @@ const Reports = () => {
 
       if (error) throw error;
 
+      await uploadCancelRevisedRC(zoomedLoad.orderId);
+
       toast({
         title: "Sent to Recovery",
         description: `Load will auto-cancel if not assigned by ${new Date(deadline).toLocaleString("en-US", {
@@ -1988,6 +2029,7 @@ const Reports = () => {
       });
       setCancelDialogOpen(false);
       setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+      setCancelRcFiles([]);
       setCancelRecoverInstead(false);
       setCancelRecoveryMinutes(120);
     } catch (error: any) {
@@ -8521,6 +8563,7 @@ const Reports = () => {
           if (!open) {
             setCancelRecoverInstead(false);
             setCancelRecoveryMinutes(120);
+            setCancelRcFiles([]);
           }
         }}
       >
@@ -8621,6 +8664,28 @@ const Reports = () => {
                 placeholder="Enter reason for cancellation"
                 rows={3}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cancel-revised-rc">Revised Rate Confirmation (optional)</Label>
+              <Input
+                id="cancel-revised-rc"
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => setCancelRcFiles(Array.from(e.target.files || []))}
+              />
+              {cancelRcFiles.length > 0 && (
+                <div className="space-y-1">
+                  {cancelRcFiles.map((file, idx) => (
+                    <p key={idx} className="text-xs text-muted-foreground truncate">
+                      {file.name}
+                    </p>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Uploading replaces the existing rate confirmation on this load.
+              </p>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
