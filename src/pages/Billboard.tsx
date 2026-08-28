@@ -3,6 +3,33 @@ import { useBillboardOrders } from "@/hooks/useBillboardOrders";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 40;
+
+/**
+ * Supabase caps every query at 1000 rows by default. Billboard rankings are
+ * computed from full-table aggregates, so truncation silently drops dispatchers.
+ * This pages through the whole result set.
+ */
+async function fetchAllRows<T = any>(
+  build: (from: number, to: number) => any,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE_SIZE;
+    const { data, error } = await build(from, from + PAGE_SIZE - 1);
+    if (error) {
+      console.error("[Billboard] paginated fetch error:", error);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    rows.push(...(data as T[]));
+    if (data.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+
 const Billboard = () => {
   const { data: orders, isLoading } = useBillboardOrders();
   const [dispatcherProfiles, setDispatcherProfiles] = useState<
