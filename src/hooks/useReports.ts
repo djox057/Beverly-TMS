@@ -1734,6 +1734,7 @@ export const useReports = (options?: UseReportsOptions) => {
               milesAway: truck.miles_away,
               etaMinutes: truck.eta_minutes,
               truckVin: (truck as any).vin || null,
+              truckOos: (truck as any).oos ?? false,
               samsaraInsured: (truck as any).samsara_insured ?? null,
               samsaraAccount: (truck as any).samsara_account ?? null,
               samsaraInsuredUpdatedAt: (truck as any).samsara_insured_updated_at ?? null,

@@ -1,4 +1,5 @@
 import { CoiRequestDialog } from "@/components/reports/CoiRequestDialog";
+import { TruckOosCheckbox } from "@/components/reports/TruckOosCheckbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -5246,7 +5247,24 @@ const Reports = () => {
                                           >
                                             <div className="flex flex-col gap-0.5">
                                               <div className="flex items-center gap-1 font-bold text-black">
-                                                {truck.truckNumber}
+                                                {(truck as any).truckOos ? (
+                                                  <TooltipProvider>
+                                                    <Tooltip>
+                                                      <TooltipTrigger asChild>
+                                                        <span className="font-bold text-destructive cursor-help">
+                                                          {truck.truckNumber}
+                                                        </span>
+                                                      </TooltipTrigger>
+                                                      <TooltipContent>
+                                                        <p className="text-xs">
+                                                          Truck is out of service due to insurance
+                                                        </p>
+                                                      </TooltipContent>
+                                                    </Tooltip>
+                                                  </TooltipProvider>
+                                                ) : (
+                                                  truck.truckNumber
+                                                )}
                                                 {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
                                                 {truck.twoWeekBlockDate && (
                                                   <Popover>
@@ -5980,6 +5998,12 @@ const Reports = () => {
                                                                   </p>
                                                                   <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                   <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
+                                                                  {(hasRole("manager") || hasRole("admin")) && truck.id && (
+                                                                    <TruckOosCheckbox
+                                                                      truckId={truck.id}
+                                                                      checked={!!(truck as any).truckOos}
+                                                                    />
+                                                                  )}
                                                                 </PopoverContent>
                                                               </Popover>
                                                               {truck.trailerNumber && (
@@ -6296,6 +6320,12 @@ const Reports = () => {
                                                                 </p>
                                                                 <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                 <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
+                                                                {(hasRole("manager") || hasRole("admin")) && truck.id && (
+                                                                  <TruckOosCheckbox
+                                                                    truckId={truck.id}
+                                                                    checked={!!(truck as any).truckOos}
+                                                                  />
+                                                                )}
                                                               </PopoverContent>
                                                             </Popover>
                                                             {truck.trailerNumber && (
