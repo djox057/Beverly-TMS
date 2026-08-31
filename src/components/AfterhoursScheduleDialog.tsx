@@ -659,9 +659,18 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                 return (
                   <div className="border rounded-md p-2 sm:p-3 bg-muted/30">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
-                        Extra days in {format(monthBase, "MMMM")}
-                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setIsExtraDaysExpanded((prev) => !prev)}
+                        className="flex items-center gap-1 hover:opacity-80"
+                      >
+                        <ChevronRight
+                          className={`h-3 w-3 transition-transform duration-200 ${isExtraDaysExpanded ? "rotate-90" : ""}`}
+                        />
+                        <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                          Extra days in {format(monthBase, "MMMM")}
+                        </h4>
+                      </button>
                       {usersWithExtraDays.length > 0 && (
                         <Popover>
                           <PopoverTrigger asChild>
@@ -698,20 +707,22 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                         </Popover>
                       )}
                     </div>
-                    <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
-                      {usersWithMultipleDays.map(({ user, count }) => {
-                        // Display count - 1 (first day is regular, rest are extra)
-                        const extraDaysCount = count - 1;
-                        return (
-                          <div key={user.id} className="flex items-center justify-between text-xs sm:text-sm">
-                            <span className="truncate">{user.full_name || user.email}</span>
-                            <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
-                              {extraDaysCount}x
-                            </Badge>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {isExtraDaysExpanded && (
+                      <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
+                        {usersWithMultipleDays.map(({ user, count }) => {
+                          // Display count - 1 (first day is regular, rest are extra)
+                          const extraDaysCount = count - 1;
+                          return (
+                            <div key={user.id} className="flex items-center justify-between text-xs sm:text-sm">
+                              <span className="truncate">{user.full_name || user.email}</span>
+                              <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
+                                {extraDaysCount}x
+                              </Badge>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
