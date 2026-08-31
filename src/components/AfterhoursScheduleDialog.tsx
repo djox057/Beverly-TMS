@@ -107,6 +107,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     })();
   }, [open, selectedDate ? format(startOfMonth(selectedDate), "yyyy-MM") : "current"]);
 
+  // Collapse extra/lost day lists by default whenever the dialog opens
+  useEffect(() => {
+    if (open) {
+      setIsExtraDaysExpanded(false);
+      setIsLostDaysExpanded(false);
+    }
+  }, [open]);
+
   const fetchScheduleUsers = async () => {
     setLoading(true);
     try {
