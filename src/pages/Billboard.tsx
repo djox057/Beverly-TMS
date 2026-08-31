@@ -418,8 +418,36 @@ const Billboard = () => {
   const top5MonthlyGross = sortedMonthlyByGross.slice(0, 5);
   const worst5MonthlyRPM = worstMonthlyByRPM.slice(0, 5);
 
-  // View order now has 8 pages
-  const viewOrder: Array<"rpm5" | "rpm10" | "gross5" | "gross10" | "monthlyRpm5" | "monthlyGross5" | "worstRpm5" | "worstMonthlyRpm5"> = [
+  // Monthly office RPM ranking (all dispatchers with an office, no truck-count filter)
+  const monthlyOfficeRPM = useMemo(() => {
+    const byOffice: Record<string, { totalFreight: number; totalMiles: number; orderCount: number }> = {};
+    monthlyDispatcherStats.forEach((d) => {
+      if (!d.office) return;
+      const key = d.office === "Čačak" ? "ČAČAK" : d.office;
+      if (!byOffice[key]) byOffice[key] = { totalFreight: 0, totalMiles: 0, orderCount: 0 };
+      byOffice[key].totalFreight += d.totalFreight;
+      byOffice[key].totalMiles += d.totalMiles;
+      byOffice[key].orderCount += d.orderCount;
+    });
+
+    return Object.entries(byOffice)
+      .map(([officeName, stats]) => ({
+        name: officeName,
+        displayName: officeName,
+        userId: undefined as string | undefined,
+        office: null as string | null,
+        totalFreight: stats.totalFreight,
+        totalMiles: stats.totalMiles,
+        ratePerMile: stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0,
+        orderCount: stats.orderCount,
+        avgTrucks: 0,
+      }))
+      .filter((o) => o.totalMiles > 0)
+      .sort((a, b) => b.ratePerMile - a.ratePerMile);
+  }, [monthlyDispatcherStats]);
+
+  // View order now has 9 pages
+  const viewOrder: Array<"rpm5" | "rpm10" | "gross5" | "gross10" | "monthlyRpm5" | "monthlyGross5" | "worstRpm5" | "worstMonthlyRpm5" | "monthlyOfficeRpm"> = [
     "rpm5",
     "rpm10",
     "gross5",
@@ -428,6 +456,7 @@ const Billboard = () => {
     "monthlyGross5",
     "worstRpm5",
     "worstMonthlyRpm5",
+    "monthlyOfficeRpm",
   ];
 
   // Rotate views every 20 seconds with smooth transition (6 views)
