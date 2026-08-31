@@ -59,7 +59,9 @@ interface TerminationNote {
 const ITEMS_PER_PAGE = 100;
 
 const Trucks = () => {
+  useTruckOosRealtime();
   const [searchTerm, setSearchTerm] = useState("");
+
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
