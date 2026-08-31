@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useState } from "react";
 import { useBillboardOrders } from "@/hooks/useBillboardOrders";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, Flame } from "lucide-react";
 
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 40;
@@ -627,6 +627,7 @@ const Billboard = () => {
 
   // Helper to determine if the current view is an RPM view (show miles instead of gross)
   const isRpmView = activeView === "rpm5" || activeView === "rpm10" || activeView === "monthlyRpm5" || activeView === "worstRpm5" || activeView === "worstMonthlyRpm5" || activeView === "monthlyOfficeRpm";
+  const isWorstView = activeView === "worstRpm5" || activeView === "worstMonthlyRpm5";
 
   const getCurrentListAndTitle = () => {
     switch (activeView) {
@@ -760,11 +761,11 @@ const Billboard = () => {
                     <span className="text-3xl font-semibold text-muted-foreground">—</span>
                   </div>
                   <div className="flex items-center gap-12">
-                    <div className="text-right">
+                    <div className="text-right w-36 shrink-0">
                       <p className="text-xs text-muted-foreground uppercase tracking-wide">RPM</p>
                       <p className="text-3xl font-bold text-muted-foreground">—</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right w-56 shrink-0">
                       <p className="text-xs text-muted-foreground uppercase tracking-wide">
                         {isRpmView ? "Total Miles" : "Gross"}
                       </p>
