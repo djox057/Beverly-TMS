@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus, Copy, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus, Copy, ChevronRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
