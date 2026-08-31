@@ -651,6 +651,8 @@ const Billboard = () => {
         return { list: worst5ByRPM, title: "Worst 5 Dispatchers by RPM This Week (3+ trucks)", startRank: worstByRPM.length, descending: true };
       case "worstMonthlyRpm5":
         return { list: worst5MonthlyRPM, title: `Worst 5 Dispatchers by RPM - ${monthLabel} (3+ trucks)`, startRank: worstMonthlyByRPM.length, descending: true };
+      case "monthlyOfficeRpm":
+        return { list: monthlyOfficeRPM, title: `Offices by RPM - ${monthLabel}`, startRank: 1, descending: false };
     }
   };
 
