@@ -26,6 +26,8 @@ import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 import { AssignmentReasonDialog, AssignmentConflict } from "@/components/AssignmentReasonDialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useTruckOosRealtime } from "@/hooks/useTruckOosRealtime";
+
 
 interface TruckFormData {
   truck_number: string;
@@ -59,7 +61,9 @@ interface TerminationNote {
 const ITEMS_PER_PAGE = 100;
 
 const Trucks = () => {
+  useTruckOosRealtime();
   const [searchTerm, setSearchTerm] = useState("");
+
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);

@@ -141,6 +141,8 @@ import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { useCoiInsuredVins } from "@/hooks/useCoiInsuredVins";
+import { useTruckOosRealtime } from "@/hooks/useTruckOosRealtime";
+
 
 import { usePrefetchTruckMatches } from "@/hooks/useLoadSuggestions";
 import LoadSuggestionsDialog from "@/components/reports/LoadSuggestionsDialog";
@@ -453,6 +455,8 @@ const getOrderPickupDateForCarousel = (order: any): Date | null => {
 
 const Reports = () => {
   const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
+  useTruckOosRealtime();
+
   const { individualMode } = useIndividualMode();
   const { isInsured: isTruckInsured, insuredCompanyForVin } = useCoiInsuredVins();
   const navigate = useNavigate();
