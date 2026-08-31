@@ -6002,7 +6002,7 @@ const Reports = () => {
                                                                   </p>
                                                                   <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                   <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
-                                                                  {(hasRole("manager") || hasRole("admin")) && truck.id && truck.companyName?.toLowerCase().includes("ap silver trans") && (
+                                                                  {(hasRole("manager") || hasRole("admin") || hasRole("dispatch")) && truck.id && truck.companyName?.toLowerCase().includes("ap silver trans") && (
                                                                     <TruckOosCheckbox
                                                                       truckId={truck.id}
                                                                       checked={!!(truck as any).truckOos}
@@ -6324,7 +6324,7 @@ const Reports = () => {
                                                                 </p>
                                                                 <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                 <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
-                                                                {(hasRole("manager") || hasRole("admin")) && truck.id && truck.companyName?.toLowerCase().includes("ap silver trans") && (
+                                                                {(hasRole("manager") || hasRole("admin") || hasRole("dispatch")) && truck.id && truck.companyName?.toLowerCase().includes("ap silver trans") && (
                                                                   <TruckOosCheckbox
                                                                     truckId={truck.id}
                                                                     checked={!!(truck as any).truckOos}

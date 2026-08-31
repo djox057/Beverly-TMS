@@ -11,7 +11,7 @@ interface TruckOosCheckboxProps {
 
 /**
  * OOS (out of service due to insurance) toggle shown inside the truck
- * VIN/Plate popover in Reports. Managers/admins only — gate at call site.
+ * VIN/Plate popover in Reports. Managers/admins/dispatchers — gate at call site.
  */
 export const TruckOosCheckbox: React.FC<TruckOosCheckboxProps> = ({ truckId, checked }) => {
   const [value, setValue] = useState(checked);
@@ -25,7 +25,10 @@ export const TruckOosCheckbox: React.FC<TruckOosCheckboxProps> = ({ truckId, che
   const handleChange = async (next: boolean) => {
     setValue(next);
     setSaving(true);
-    const { error } = await supabase.from("trucks").update({ oos: next } as any).eq("id", truckId);
+    const { error } = await (supabase as any).rpc("dispatcher_update_truck_oos", {
+      _truck_id: truckId,
+      _oos: next,
+    });
     setSaving(false);
     if (error) {
       setValue(!next);
