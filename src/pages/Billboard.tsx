@@ -41,7 +41,7 @@ const Billboard = () => {
   const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
   const [recoveryDriverIds, setRecoveryDriverIds] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<
-    "gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyGross5" | "worstRpm5" | "worstMonthlyRpm5"
+    "gross5" | "gross10" | "rpm5" | "rpm10" | "monthlyRpm5" | "monthlyGross5" | "worstRpm5" | "worstMonthlyRpm5" | "monthlyOfficeRpm"
   >("rpm5");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
