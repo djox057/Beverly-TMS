@@ -5980,6 +5980,12 @@ const Reports = () => {
                                                                   </p>
                                                                   <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                   <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
+                                                                  {(hasRole("manager") || hasRole("admin")) && truck.id && (
+                                                                    <TruckOosCheckbox
+                                                                      truckId={truck.id}
+                                                                      checked={!!(truck as any).truckOos}
+                                                                    />
+                                                                  )}
                                                                 </PopoverContent>
                                                               </Popover>
                                                               {truck.trailerNumber && (
