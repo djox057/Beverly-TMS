@@ -64,7 +64,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     beograd: [],
     maintenance: [],
   });
-  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [expandedFilledOffices, setExpandedFilledOffices] = useState<Record<SelectionKey, boolean>>({
     kragujevac: false,
     cacak: false,
@@ -507,7 +506,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   };
 
   // ---- Extra days / Lost days lists for the selected month ----
-  const monthBase = selectedDate || calendarMonth;
+  const monthBase = selectedDate || new Date();
   const monthStartStr = format(startOfMonth(monthBase), "yyyy-MM-dd");
   const monthEndStr = format(endOfMonth(monthBase), "yyyy-MM-dd");
 
@@ -603,15 +602,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                 setSelectedDate(date);
                 setForceShowOffice(null); // Reset force show when date changes
               }}
-              month={selectedDate || calendarMonth}
-              onMonthChange={setCalendarMonth}
               disabled={isDateDisabled}
               className="rounded-md border mx-auto sm:mx-0"
             />
 
             {/* People who worked more than 1 day this month */}
-            {(() => {
-                const workCounts = getMonthlyWorkCounts(monthBase);
+            {selectedDate &&
+              (() => {
+                const workCounts = getMonthlyWorkCounts(selectedDate);
                 const usersWithMultipleDays = Object.values(workCounts)
                   .filter((entry) => entry.count > 1)
                   .sort((a, b) => b.count - a.count);
@@ -619,8 +617,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                 if (usersWithMultipleDays.length === 0) return null;
 
                 // Calculate extra days per person (excluding holidays)
-                const monthStartStr = format(startOfMonth(monthBase), "yyyy-MM-dd");
-                const monthEndStr = format(endOfMonth(monthBase), "yyyy-MM-dd");
+                const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
+                const monthEndStr = format(endOfMonth(selectedDate), "yyyy-MM-dd");
 
                 const getExtraDaysForUser = (userId: string) => {
                   // Get all weekend (Sat/Sun) non-holiday dates this user worked in the month
@@ -652,7 +650,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   <div className="border rounded-md p-2 sm:p-3 bg-muted/30">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
-                        Extra days in {format(monthBase, "MMMM")}
+                        Extra days in {format(selectedDate, "MMMM")}
                       </h4>
                       {usersWithExtraDays.length > 0 && (
                         <Popover>
@@ -663,7 +661,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                           </PopoverTrigger>
                           <PopoverContent className="w-80 max-h-96 overflow-y-auto" align="end">
                             <div className="space-y-3">
-                              <h4 className="font-medium text-sm">Extra Days in {format(monthBase, "MMMM")}</h4>
+                              <h4 className="font-medium text-sm">Extra Days in {format(selectedDate, "MMMM")}</h4>
                               <p className="text-xs text-muted-foreground">
                                 Holidays that fall on Saturday or Sunday count toward extra days.
                               </p>
