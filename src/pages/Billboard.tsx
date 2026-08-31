@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useState } from "react";
 import { useBillboardOrders } from "@/hooks/useBillboardOrders";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Flame } from "lucide-react";
+import { Loader2, ThumbsDown } from "lucide-react";
 
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 40;
@@ -687,7 +687,7 @@ const Billboard = () => {
               isWorstView ? "text-destructive/80" : "text-muted-foreground"
             }`}
           >
-            {isWorstView && <Flame className="inline-block h-5 w-5 mr-2 -mt-1 text-destructive/70" />}
+            {isWorstView && <ThumbsDown className="inline-block h-5 w-5 mr-2 -mt-1 text-destructive/70" />}
             {currentTitle}
           </h2>
 
