@@ -626,7 +626,7 @@ const Billboard = () => {
   const monthLabel = monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   // Helper to determine if the current view is an RPM view (show miles instead of gross)
-  const isRpmView = activeView === "rpm5" || activeView === "rpm10" || activeView === "monthlyRpm5" || activeView === "worstRpm5" || activeView === "worstMonthlyRpm5";
+  const isRpmView = activeView === "rpm5" || activeView === "rpm10" || activeView === "monthlyRpm5" || activeView === "worstRpm5" || activeView === "worstMonthlyRpm5" || activeView === "monthlyOfficeRpm";
 
   const getCurrentListAndTitle = () => {
     switch (activeView) {
