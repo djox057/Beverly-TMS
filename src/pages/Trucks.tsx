@@ -25,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 import { AssignmentReasonDialog, AssignmentConflict } from "@/components/AssignmentReasonDialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface TruckFormData {
   truck_number: string;
@@ -45,6 +46,7 @@ interface TruckFormData {
   maintenance_check_date: string;
   company_id: string;
   dispatcher_id: string;
+  oos: boolean;
 }
 
 interface TerminationNote {
@@ -96,7 +98,8 @@ const Trucks = () => {
     tires_swap_date: "",
     maintenance_check_date: "",
     company_id: "",
-    dispatcher_id: ""
+    dispatcher_id: "",
+    oos: false
   });
   const { user } = useAuth();
   const { hasRole } = useAuthContext();
@@ -126,6 +129,11 @@ const Trucks = () => {
     allDispatchers
   } = useFleetManagement();
 
+  const isApSilverSelected = useMemo(() => {
+    const name = companies?.find(c => c.id === formData.company_id)?.name || "";
+    return name.toLowerCase().includes("ap silver trans");
+  }, [companies, formData.company_id]);
+
   // Filter trucks based on search term, company filter, assignment filter, and status filter
   const filteredTrucks = useMemo(() => {
     return trucks?.filter(truck => {
@@ -151,7 +159,8 @@ const Trucks = () => {
       // Status filter - filter by is_active status
       const matchesStatus = statusFilter === "all" || 
         (statusFilter === "active" && truck.is_active !== false) || 
-        (statusFilter === "inactive" && truck.is_active === false);
+        (statusFilter === "inactive" && truck.is_active === false) ||
+        (statusFilter === "oos" && truck.oos === true);
       
       return matchesSearch && matchesCompany && matchesAssignment && matchesStatus;
     }) || [];
@@ -187,7 +196,8 @@ const Trucks = () => {
       tires_swap_date: "",
       maintenance_check_date: "",
       company_id: "",
-      dispatcher_id: ""
+      dispatcher_id: "",
+      oos: false
     });
   };
   const handleAddTruck = async (e: React.FormEvent) => {
@@ -431,7 +441,8 @@ const Trucks = () => {
         insurance_expiration_date: formData.insurance_expiration_date || null,
         oil_change_date: formData.oil_change_date || null,
         tires_swap_date: formData.tires_swap_date || null,
-        maintenance_check_date: formData.maintenance_check_date || null
+        maintenance_check_date: formData.maintenance_check_date || null,
+        oos: formData.oos
       }).eq('id', editingTruck.id);
       if (error) throw error;
 
@@ -593,7 +604,8 @@ const Trucks = () => {
       tires_swap_date: truck.tires_swap_date || "",
       maintenance_check_date: truck.maintenance_check_date || "",
       company_id: truck.company_id || "",
-      dispatcher_id: truck.dispatcher_id || ""
+      dispatcher_id: truck.dispatcher_id || "",
+      oos: truck.oos === true
     });
     
     // Store original assignments for comparison
@@ -981,6 +993,7 @@ const Trucks = () => {
                   options={[
                     { value: "active", label: "Active" },
                     { value: "inactive", label: "Inactive" },
+                    { value: "oos", label: "OOS" },
                     { value: "all", label: "All Status" }
                   ]}
                   value={statusFilter}
@@ -1063,7 +1076,15 @@ const Trucks = () => {
                   </TableRow> : (
                     <>
                       {paginatedTrucks.map(truck => <TableRow key={truck.id}>
-                        <TableCell className="font-medium text-center whitespace-nowrap">{truck.truck_number}</TableCell>
+                        <TableCell className="font-medium text-center whitespace-nowrap">
+                          {truck.oos === true ? (
+                            <span className="inline-flex items-center rounded-md border-2 border-destructive bg-destructive/10 px-2 py-0.5 text-destructive font-semibold" title="Out of Service">
+                              {truck.truck_number}
+                            </span>
+                          ) : (
+                            truck.truck_number
+                          )}
+                        </TableCell>
                         <TableCell className="font-mono text-sm text-center whitespace-nowrap">{truck.vin || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">
                           {truck.driver1?.company?.name 
@@ -1356,6 +1377,19 @@ const Trucks = () => {
                     />
                   </div>
                 </div>
+
+                {isApSilverSelected && (
+                  <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+                    <Checkbox
+                      id="edit_oos"
+                      checked={formData.oos}
+                      onCheckedChange={checked => setFormData({ ...formData, oos: checked === true })}
+                    />
+                    <Label htmlFor="edit_oos" className="cursor-pointer text-destructive">OOS (Out of Service)</Label>
+                  </div>
+                )}
+
+
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
