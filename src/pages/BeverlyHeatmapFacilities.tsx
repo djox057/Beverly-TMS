@@ -158,7 +158,7 @@ export default function BeverlyHeatmapFacilities() {
               <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[220px] p-0" align="start" modal={false}>
+          <PopoverContent className="w-[220px] p-0" align="start">
             <Command>
               <CommandInput placeholder="Search state..." />
               <CommandList>
