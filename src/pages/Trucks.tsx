@@ -26,6 +26,8 @@ import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 import { AssignmentReasonDialog, AssignmentConflict } from "@/components/AssignmentReasonDialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useTruckOosRealtime } from "@/hooks/useTruckOosRealtime";
+
 
 interface TruckFormData {
   truck_number: string;
