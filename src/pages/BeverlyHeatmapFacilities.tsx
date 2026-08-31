@@ -44,6 +44,8 @@ type SortKey = "company_name" | "city" | "pickup_count" | "delivery_count" | "to
 export default function BeverlyHeatmapFacilities() {
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [selectedStates, setSelectedStates] = useState<string[]>([]);
+  const [statesOpen, setStatesOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "total_visits",
     dir: "desc",
@@ -65,16 +67,35 @@ export default function BeverlyHeatmapFacilities() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const availableStates = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of facilities) {
+      const s = (f.state || "").trim().toUpperCase();
+      if (s) set.add(s);
+    }
+    return [...set].sort();
+  }, [facilities]);
+
+  const toggleState = (s: string) =>
+    setSelectedStates((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return facilities;
-    return facilities.filter(
-      (f) =>
+    return facilities.filter((f) => {
+      if (
+        selectedStates.length > 0 &&
+        !selectedStates.includes((f.state || "").trim().toUpperCase())
+      )
+        return false;
+      if (!q) return true;
+      return (
         (f.company_name || "").toLowerCase().includes(q) ||
         (f.city || "").toLowerCase().includes(q) ||
         (f.address || "").toLowerCase().includes(q)
-    );
-  }, [facilities, search]);
+      );
+    });
+  }, [facilities, search, selectedStates]);
+
 
   const sorted = useMemo(() => {
     const rows = [...filtered];
