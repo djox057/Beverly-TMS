@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus, Copy } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus, Copy, ChevronRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -77,6 +77,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [lostDays, setLostDays] = useState<{ dispatcher_id: string; off_duty_date: string }[]>([]);
+  const [isExtraDaysExpanded, setIsExtraDaysExpanded] = useState(false);
+  const [isLostDaysExpanded, setIsLostDaysExpanded] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -104,6 +106,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
       setLostDays((data || []) as { dispatcher_id: string; off_duty_date: string }[]);
     })();
   }, [open, selectedDate ? format(startOfMonth(selectedDate), "yyyy-MM") : "current"]);
+
+  // Collapse extra/lost day lists by default whenever the dialog opens
+  useEffect(() => {
+    if (open) {
+      setIsExtraDaysExpanded(false);
+      setIsLostDaysExpanded(false);
+    }
+  }, [open]);
 
   const fetchScheduleUsers = async () => {
     setLoading(true);
@@ -649,9 +659,18 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                 return (
                   <div className="border rounded-md p-2 sm:p-3 bg-muted/30">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
-                        Extra days in {format(monthBase, "MMMM")}
-                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setIsExtraDaysExpanded((prev) => !prev)}
+                        className="flex items-center gap-1 hover:opacity-80"
+                      >
+                        <ChevronRight
+                          className={`h-3 w-3 transition-transform duration-200 ${isExtraDaysExpanded ? "rotate-90" : ""}`}
+                        />
+                        <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                          Extra days in {format(monthBase, "MMMM")}
+                        </h4>
+                      </button>
                       {usersWithExtraDays.length > 0 && (
                         <Popover>
                           <PopoverTrigger asChild>
@@ -688,20 +707,22 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                         </Popover>
                       )}
                     </div>
-                    <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
-                      {usersWithMultipleDays.map(({ user, count }) => {
-                        // Display count - 1 (first day is regular, rest are extra)
-                        const extraDaysCount = count - 1;
-                        return (
-                          <div key={user.id} className="flex items-center justify-between text-xs sm:text-sm">
-                            <span className="truncate">{user.full_name || user.email}</span>
-                            <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
-                              {extraDaysCount}x
-                            </Badge>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {isExtraDaysExpanded && (
+                      <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
+                        {usersWithMultipleDays.map(({ user, count }) => {
+                          // Display count - 1 (first day is regular, rest are extra)
+                          const extraDaysCount = count - 1;
+                          return (
+                            <div key={user.id} className="flex items-center justify-between text-xs sm:text-sm">
+                              <span className="truncate">{user.full_name || user.email}</span>
+                              <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
+                                {extraDaysCount}x
+                              </Badge>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -710,9 +731,18 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             {lostDaysList.length > 0 && (
               <div className="border rounded-md p-2 sm:p-3 bg-muted/30">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
-                    Lost days in {format(monthBase, "MMMM")}
-                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setIsLostDaysExpanded((prev) => !prev)}
+                    className="flex items-center gap-1 hover:opacity-80"
+                  >
+                    <ChevronRight
+                      className={`h-3 w-3 transition-transform duration-200 ${isLostDaysExpanded ? "rotate-90" : ""}`}
+                    />
+                    <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                      Lost days in {format(monthBase, "MMMM")}
+                    </h4>
+                  </button>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-5 w-5">
@@ -741,16 +771,18 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     </PopoverContent>
                   </Popover>
                 </div>
-                <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
-                  {lostDaysList.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between text-xs sm:text-sm">
-                      <span className="truncate">{entry.name}</span>
-                      <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
-                        {entry.dates.length}x
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                {isLostDaysExpanded && (
+                  <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
+                    {lostDaysList.map((entry) => (
+                      <div key={entry.id} className="flex items-center justify-between text-xs sm:text-sm">
+                        <span className="truncate">{entry.name}</span>
+                        <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
+                          {entry.dates.length}x
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
