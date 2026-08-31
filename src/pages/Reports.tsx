@@ -5247,7 +5247,7 @@ const Reports = () => {
                                           >
                                             <div className="flex flex-col gap-0.5">
                                               <div className="flex items-center gap-1 font-bold text-black">
-                                                {(truck as any).truckOos ? (
+                                                {((truck as any).truckOos && truck.companyName?.toLowerCase().includes("ap silver trans")) ? (
                                                   <TooltipProvider>
                                                     <Tooltip>
                                                       <TooltipTrigger asChild>
@@ -5998,7 +5998,7 @@ const Reports = () => {
                                                                   </p>
                                                                   <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                   <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
-                                                                  {(hasRole("manager") || hasRole("admin")) && truck.id && (
+                                                                  {(hasRole("manager") || hasRole("admin")) && truck.id && truck.companyName?.toLowerCase().includes("ap silver trans") && (
                                                                     <TruckOosCheckbox
                                                                       truckId={truck.id}
                                                                       checked={!!(truck as any).truckOos}
@@ -6320,7 +6320,7 @@ const Reports = () => {
                                                                 </p>
                                                                 <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                 <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
-                                                                {(hasRole("manager") || hasRole("admin")) && truck.id && (
+                                                                {(hasRole("manager") || hasRole("admin")) && truck.id && truck.companyName?.toLowerCase().includes("ap silver trans") && (
                                                                   <TruckOosCheckbox
                                                                     truckId={truck.id}
                                                                     checked={!!(truck as any).truckOos}
