@@ -607,9 +607,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             />
 
             {/* People who worked more than 1 day this month */}
-            {selectedDate &&
-              (() => {
-                const workCounts = getMonthlyWorkCounts(selectedDate);
+            {(() => {
+                const workCounts = getMonthlyWorkCounts(monthBase);
                 const usersWithMultipleDays = Object.values(workCounts)
                   .filter((entry) => entry.count > 1)
                   .sort((a, b) => b.count - a.count);
@@ -617,8 +616,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                 if (usersWithMultipleDays.length === 0) return null;
 
                 // Calculate extra days per person (excluding holidays)
-                const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
-                const monthEndStr = format(endOfMonth(selectedDate), "yyyy-MM-dd");
+                const monthStartStr = format(startOfMonth(monthBase), "yyyy-MM-dd");
+                const monthEndStr = format(endOfMonth(monthBase), "yyyy-MM-dd");
+
 
                 const getExtraDaysForUser = (userId: string) => {
                   // Get all weekend (Sat/Sun) non-holiday dates this user worked in the month
