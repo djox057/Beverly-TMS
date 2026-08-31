@@ -5702,6 +5702,10 @@ export type Database = {
         Args: { _note: string; _truck_id: string }
         Returns: undefined
       }
+      dispatcher_update_truck_oos: {
+        Args: { _oos: boolean; _truck_id: string }
+        Returns: undefined
+      }
       estimate_locked_orders_count: {
         Args: {
           p_booked_by?: string
