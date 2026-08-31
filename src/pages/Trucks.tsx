@@ -27,6 +27,7 @@ import { AssignmentReasonDialog, AssignmentConflict } from "@/components/Assignm
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTruckOosRealtime } from "@/hooks/useTruckOosRealtime";
+import { useTruckOosOverrides } from "@/hooks/useTruckOosOverrides";
 
 
 interface TruckFormData {
@@ -62,6 +63,7 @@ const ITEMS_PER_PAGE = 100;
 
 const Trucks = () => {
   useTruckOosRealtime();
+  const resolveTruckOos = useTruckOosOverrides();
   const [searchTerm, setSearchTerm] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -164,7 +166,7 @@ const Trucks = () => {
       const matchesStatus = statusFilter === "all" || 
         (statusFilter === "active" && truck.is_active !== false) || 
         (statusFilter === "inactive" && truck.is_active === false) ||
-        (statusFilter === "oos" && truck.oos === true);
+        (statusFilter === "oos" && resolveTruckOos(truck.id, truck.oos === true));
       
       return matchesSearch && matchesCompany && matchesAssignment && matchesStatus;
     }) || [];
@@ -1081,7 +1083,7 @@ const Trucks = () => {
                     <>
                       {paginatedTrucks.map(truck => <TableRow key={truck.id}>
                         <TableCell className="font-medium text-center whitespace-nowrap">
-                          {truck.oos === true ? (
+                          {resolveTruckOos(truck.id, truck.oos === true) ? (
                             <span className="inline-flex items-center rounded-md border-2 border-destructive bg-destructive/10 px-2 py-0.5 text-destructive font-semibold" title="Out of Service">
                               {truck.truck_number}
                             </span>
