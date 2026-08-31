@@ -681,17 +681,34 @@ const Billboard = () => {
             isTransitioning ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
           }`}
         >
-          <h2 className="text-xl text-center text-muted-foreground uppercase tracking-widest mb-3">{currentTitle}</h2>
+          <h2
+            className={`text-xl text-center uppercase tracking-widest mb-3 ${
+              isWorstView ? "text-destructive/80" : "text-muted-foreground"
+            }`}
+          >
+            {isWorstView && <Flame className="inline-block h-5 w-5 mr-2 -mt-1 text-destructive/70" />}
+            {currentTitle}
+          </h2>
 
           <div className="space-y-2">
             {currentList.map((dispatcher, index) => (
               <div
                 key={dispatcher.name}
-                className="flex items-center justify-between px-8 py-3 bg-card rounded-lg border border-border"
+                className={`flex items-center justify-between px-8 py-3 rounded-lg border ${
+                  isWorstView
+                    ? "bg-destructive/5 border-destructive/25 shadow-[inset_0_0_30px_hsl(var(--destructive)/0.08)]"
+                    : "bg-card border-border"
+                }`}
               >
                 {/* Rank + Name + Office */}
                 <div className="flex items-center gap-5">
-                  <span className="text-4xl font-bold text-muted-foreground w-12 text-center">{descending ? startRank - index : startRank + index}</span>
+                  <span
+                    className={`text-4xl font-bold w-12 text-center ${
+                      isWorstView ? "text-destructive/70" : "text-muted-foreground"
+                    }`}
+                  >
+                    {descending ? startRank - index : startRank + index}
+                  </span>
                   <span className="text-3xl font-semibold text-foreground">
                     {dispatcher.displayName}
                     {dispatcher.office && (
@@ -704,26 +721,31 @@ const Billboard = () => {
 
                 {/* Gross or Miles + RPM */}
                 <div className="flex items-center gap-12">
-                  <div className="text-right">
+                  <div className="text-right w-36 shrink-0">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">RPM</p>
-                    <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                    <p
+                      className={`text-3xl font-bold tabular-nums ${
+                        isWorstView ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"
+                      }`}
+                    >
                       {formatRPM(dispatcher.ratePerMile)}
                     </p>
                   </div>
                   {isRpmView ? (
-                    <div className="text-right">
+                    <div className="text-right w-56 shrink-0">
                       <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Miles</p>
-                      <p className="text-3xl font-bold text-primary">{dispatcher.totalMiles.toLocaleString()}</p>
+                      <p className="text-3xl font-bold text-primary tabular-nums">{dispatcher.totalMiles.toLocaleString()}</p>
                     </div>
                   ) : (
-                    <div className="text-right">
+                    <div className="text-right w-56 shrink-0">
                       <p className="text-xs text-muted-foreground uppercase tracking-wide">Gross</p>
-                      <p className="text-3xl font-bold text-primary">{formatCurrency(dispatcher.totalFreight)}</p>
+                      <p className="text-3xl font-bold text-primary tabular-nums">{formatCurrency(dispatcher.totalFreight)}</p>
                     </div>
                   )}
                 </div>
               </div>
             ))}
+
 
             {/* If less than 5 dispatchers, fill empty slots */}
             {Array.from({ length: Math.max(0, 5 - currentList.length) }).map((_, i) => {
