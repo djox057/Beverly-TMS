@@ -3,10 +3,21 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, ChevronsUpDown, X } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Table,
   TableBody,
@@ -15,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
 
 interface FacilityRow {
   address: string | null;
@@ -32,6 +44,8 @@ type SortKey = "company_name" | "city" | "pickup_count" | "delivery_count" | "to
 export default function BeverlyHeatmapFacilities() {
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [selectedStates, setSelectedStates] = useState<string[]>([]);
+  const [statesOpen, setStatesOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "total_visits",
     dir: "desc",
@@ -53,16 +67,35 @@ export default function BeverlyHeatmapFacilities() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const availableStates = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of facilities) {
+      const s = (f.state || "").trim().toUpperCase();
+      if (s) set.add(s);
+    }
+    return [...set].sort();
+  }, [facilities]);
+
+  const toggleState = (s: string) =>
+    setSelectedStates((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return facilities;
-    return facilities.filter(
-      (f) =>
+    return facilities.filter((f) => {
+      if (
+        selectedStates.length > 0 &&
+        !selectedStates.includes((f.state || "").trim().toUpperCase())
+      )
+        return false;
+      if (!q) return true;
+      return (
         (f.company_name || "").toLowerCase().includes(q) ||
         (f.city || "").toLowerCase().includes(q) ||
         (f.address || "").toLowerCase().includes(q)
-    );
-  }, [facilities, search]);
+      );
+    });
+  }, [facilities, search, selectedStates]);
+
 
   const sorted = useMemo(() => {
     const rows = [...filtered];
@@ -112,6 +145,41 @@ export default function BeverlyHeatmapFacilities() {
           placeholder="Filter by date range"
           className="w-[260px]"
         />
+        <Popover open={statesOpen} onOpenChange={setStatesOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[220px] justify-between font-normal">
+              <span className="truncate">
+                {selectedStates.length === 0
+                  ? "Filter by state"
+                  : selectedStates.length <= 3
+                  ? selectedStates.join(", ")
+                  : `${selectedStates.length} states selected`}
+              </span>
+              <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[220px] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search state..." />
+              <CommandList>
+                <CommandEmpty>No state found.</CommandEmpty>
+                <CommandGroup>
+                  {availableStates.map((s) => (
+                    <CommandItem key={s} value={s} onSelect={() => toggleState(s)}>
+                      <Checkbox checked={selectedStates.includes(s)} className="mr-2" />
+                      {s}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        {selectedStates.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => setSelectedStates([])}>
+            <X className="h-4 w-4 mr-1" /> Clear states
+          </Button>
+        )}
         <Badge variant="outline" className="text-xs whitespace-nowrap">
           {filtered.length} facilities
         </Badge>
