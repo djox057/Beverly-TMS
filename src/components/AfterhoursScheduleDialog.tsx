@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus, Copy } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus, Copy, ChevronDown, ChevronRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -77,6 +77,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [lostDays, setLostDays] = useState<{ dispatcher_id: string; off_duty_date: string }[]>([]);
+  const [isExtraDaysExpanded, setIsExtraDaysExpanded] = useState(false);
+  const [isLostDaysExpanded, setIsLostDaysExpanded] = useState(false);
 
   useEffect(() => {
     if (open) {
