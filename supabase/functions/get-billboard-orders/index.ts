@@ -55,8 +55,9 @@ Deno.serve(async (req) => {
     }).formatToParts(now);
     const cYear = Number(chicagoParts.find((p) => p.type === "year")!.value);
     const cMonth = Number(chicagoParts.find((p) => p.type === "month")!.value);
-    // Chicago is UTC-5 (CDT) or UTC-6 (CST); use UTC-6 to be safely earlier
-    const monthStartUtc = new Date(Date.UTC(cYear, cMonth - 1, 1, 6, 0, 0));
+    // Start of the Chicago calendar month, with a 1-day safety buffer so no
+    // load delivered on the 1st (any timezone offset) can fall outside the window
+    const monthStartUtc = new Date(Date.UTC(cYear, cMonth - 1, 1, 0, 0, 0) - 24 * 60 * 60 * 1000);
 
     const cutoffDate = new Date(
       Math.min(thirtyDaysAgo.getTime(), monthStartUtc.getTime())
