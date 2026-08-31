@@ -608,7 +608,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
             {/* People who worked more than 1 day this month */}
             {(() => {
-              {
                 const workCounts = getMonthlyWorkCounts(monthBase);
                 const usersWithMultipleDays = Object.values(workCounts)
                   .filter((entry) => entry.count > 1)
