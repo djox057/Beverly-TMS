@@ -42,10 +42,26 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Calculate 30 days ago cutoff date
-    const thirtyDaysAgo = new Date();
+    // Cutoff: earlier of (30 days ago) and (start of current month in Chicago time)
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const cutoffDate = thirtyDaysAgo.toISOString();
+
+    // Determine current year/month in Chicago
+    const chicagoParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Chicago",
+      year: "numeric",
+      month: "2-digit",
+    }).formatToParts(now);
+    const cYear = Number(chicagoParts.find((p) => p.type === "year")!.value);
+    const cMonth = Number(chicagoParts.find((p) => p.type === "month")!.value);
+    // Chicago is UTC-5 (CDT) or UTC-6 (CST); use UTC-6 to be safely earlier
+    const monthStartUtc = new Date(Date.UTC(cYear, cMonth - 1, 1, 6, 0, 0));
+
+    const cutoffDate = new Date(
+      Math.min(thirtyDaysAgo.getTime(), monthStartUtc.getTime())
+    ).toISOString();
+
     
     console.log(`[get-billboard-orders] Cutoff date: ${cutoffDate}`);
 
