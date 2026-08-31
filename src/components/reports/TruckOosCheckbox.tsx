@@ -3,6 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { setTruckOosOverride } from "@/hooks/useTruckOosOverrides";
 
 interface TruckOosCheckboxProps {
   truckId: string;
@@ -24,6 +25,7 @@ export const TruckOosCheckbox: React.FC<TruckOosCheckboxProps> = ({ truckId, che
 
   const handleChange = async (next: boolean) => {
     setValue(next);
+    setTruckOosOverride(truckId, next);
     setSaving(true);
     const { error } = await (supabase as any).rpc("dispatcher_update_truck_oos", {
       _truck_id: truckId,
@@ -32,6 +34,7 @@ export const TruckOosCheckbox: React.FC<TruckOosCheckboxProps> = ({ truckId, che
     setSaving(false);
     if (error) {
       setValue(!next);
+      setTruckOosOverride(truckId, !next);
       toast.error("Failed to update OOS status");
       return;
     }

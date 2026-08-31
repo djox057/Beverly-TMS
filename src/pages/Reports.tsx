@@ -142,6 +142,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { useCoiInsuredVins } from "@/hooks/useCoiInsuredVins";
 import { useTruckOosRealtime } from "@/hooks/useTruckOosRealtime";
+import { useTruckOosOverrides } from "@/hooks/useTruckOosOverrides";
 
 
 import { usePrefetchTruckMatches } from "@/hooks/useLoadSuggestions";
@@ -456,6 +457,7 @@ const getOrderPickupDateForCarousel = (order: any): Date | null => {
 const Reports = () => {
   const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
   useTruckOosRealtime();
+  const resolveTruckOos = useTruckOosOverrides();
 
   const { individualMode } = useIndividualMode();
   const { isInsured: isTruckInsured, insuredCompanyForVin } = useCoiInsuredVins();
@@ -5251,7 +5253,7 @@ const Reports = () => {
                                           >
                                             <div className="flex flex-col gap-0.5">
                                               <div className="flex items-center gap-1 font-bold text-black">
-                                                {((truck as any).truckOos && truck.companyName?.toLowerCase().includes("ap silver trans")) ? (
+                                                {(resolveTruckOos(truck.id, !!(truck as any).truckOos) && truck.companyName?.toLowerCase().includes("ap silver trans")) ? (
                                                   <TooltipProvider>
                                                     <Tooltip>
                                                       <TooltipTrigger asChild>
@@ -6005,7 +6007,7 @@ const Reports = () => {
                                                                   {(hasRole("manager") || hasRole("admin") || hasRole("dispatch")) && truck.id && truck.companyName?.toLowerCase().includes("ap silver trans") && (
                                                                     <TruckOosCheckbox
                                                                       truckId={truck.id}
-                                                                      checked={!!(truck as any).truckOos}
+                                                                      checked={resolveTruckOos(truck.id, !!(truck as any).truckOos)}
                                                                     />
                                                                   )}
                                                                 </PopoverContent>
@@ -6327,7 +6329,7 @@ const Reports = () => {
                                                                 {(hasRole("manager") || hasRole("admin") || hasRole("dispatch")) && truck.id && truck.companyName?.toLowerCase().includes("ap silver trans") && (
                                                                   <TruckOosCheckbox
                                                                     truckId={truck.id}
-                                                                    checked={!!(truck as any).truckOos}
+                                                                    checked={resolveTruckOos(truck.id, !!(truck as any).truckOos)}
                                                                   />
                                                                 )}
                                                               </PopoverContent>

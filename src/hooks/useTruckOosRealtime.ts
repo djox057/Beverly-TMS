@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { setTruckOosOverride } from "@/hooks/useTruckOosOverrides";
 
 /**
  * Live-updates OOS (out of service) truck flags across pages.
@@ -19,7 +20,9 @@ export const useTruckOosRealtime = () => {
         (payload) => {
           const oldOos = (payload.old as any)?.oos;
           const newOos = (payload.new as any)?.oos;
+          const truckId = (payload.new as any)?.id;
           if (oldOos === newOos) return;
+          if (truckId) setTruckOosOverride(truckId, !!newOos);
           queryClient.invalidateQueries({ queryKey: ["reports"], exact: false });
           queryClient.invalidateQueries({ queryKey: ["trucks"], exact: false });
         }
