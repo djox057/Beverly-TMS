@@ -453,6 +453,8 @@ const getOrderPickupDateForCarousel = (order: any): Date | null => {
 
 const Reports = () => {
   const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
+  useTruckOosRealtime();
+
   const { individualMode } = useIndividualMode();
   const { isInsured: isTruckInsured, insuredCompanyForVin } = useCoiInsuredVins();
   const navigate = useNavigate();
