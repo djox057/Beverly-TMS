@@ -731,9 +731,18 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             {lostDaysList.length > 0 && (
               <div className="border rounded-md p-2 sm:p-3 bg-muted/30">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
-                    Lost days in {format(monthBase, "MMMM")}
-                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setIsLostDaysExpanded((prev) => !prev)}
+                    className="flex items-center gap-1 hover:opacity-80"
+                  >
+                    <ChevronRight
+                      className={`h-3 w-3 transition-transform duration-200 ${isLostDaysExpanded ? "rotate-90" : ""}`}
+                    />
+                    <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                      Lost days in {format(monthBase, "MMMM")}
+                    </h4>
+                  </button>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-5 w-5">
@@ -762,16 +771,18 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     </PopoverContent>
                   </Popover>
                 </div>
-                <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
-                  {lostDaysList.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between text-xs sm:text-sm">
-                      <span className="truncate">{entry.name}</span>
-                      <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
-                        {entry.dates.length}x
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                {isLostDaysExpanded && (
+                  <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
+                    {lostDaysList.map((entry) => (
+                      <div key={entry.id} className="flex items-center justify-between text-xs sm:text-sm">
+                        <span className="truncate">{entry.name}</span>
+                        <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
+                          {entry.dates.length}x
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
