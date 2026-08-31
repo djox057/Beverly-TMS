@@ -1372,6 +1372,19 @@ const Trucks = () => {
                   </div>
                 </div>
 
+                {isApSilverSelected && (
+                  <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+                    <Checkbox
+                      id="edit_oos"
+                      checked={formData.oos}
+                      onCheckedChange={checked => setFormData({ ...formData, oos: checked === true })}
+                    />
+                    <Label htmlFor="edit_oos" className="cursor-pointer text-destructive">OOS (Out of Service)</Label>
+                  </div>
+                )}
+
+
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_ipass">IPASS</Label>
