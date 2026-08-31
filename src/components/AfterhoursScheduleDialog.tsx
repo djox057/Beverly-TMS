@@ -189,13 +189,20 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         const validData = data.filter((s) => s.user_id != null);
         const userIds = [...new Set(validData.map((s) => s.user_id).filter(Boolean))] as string[];
 
-        let profilesMap = new Map<string, { user_id: string; email: string; full_name: string | null; office: string | null }>();
+        let profilesMap = new Map<
+          string,
+          { user_id: string; email: string; full_name: string | null; office: string | null }
+        >();
         let maintenanceUserIds = new Set<string>();
 
         if (userIds.length > 0) {
           const [profilesRes, roleRes] = await Promise.all([
             supabase.from("profiles").select("user_id, email, full_name, office").in("user_id", userIds),
-            supabase.from("user_roles").select("user_id, role").in("user_id", userIds).in("role", ["maintenance", "afterhours"]),
+            supabase
+              .from("user_roles")
+              .select("user_id, role")
+              .in("user_id", userIds)
+              .in("role", ["maintenance", "afterhours"]),
           ]);
 
           if (profilesRes.error) console.error("Error fetching schedule profiles:", profilesRes.error);
@@ -596,7 +603,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             </Button>
           </div>
           <DialogDescription className="text-xs sm:text-sm">
-            Schedule users by office: 3x KG, 2x CA, 2x BG + Maintenance for weekends and holidays. Role changes: 6am →
+            Schedule users by office: 3x KG, 3x CA, 3x BG + Maintenance for weekends and holidays. Role changes: 6am →
             afterhours, 5pm → dispatch (Chicago time)
           </DialogDescription>
         </DialogHeader>
@@ -618,114 +625,113 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
             {/* People who worked more than 1 day this month */}
             {(() => {
-                const workCounts = getMonthlyWorkCounts(monthBase);
-                const usersWithMultipleDays = Object.values(workCounts)
-                  .filter((entry) => entry.count > 1)
-                  .sort((a, b) => b.count - a.count);
+              const workCounts = getMonthlyWorkCounts(monthBase);
+              const usersWithMultipleDays = Object.values(workCounts)
+                .filter((entry) => entry.count > 1)
+                .sort((a, b) => b.count - a.count);
 
-                if (usersWithMultipleDays.length === 0) return null;
+              if (usersWithMultipleDays.length === 0) return null;
 
-                // Calculate extra days per person (excluding holidays)
-                const monthStartStr = format(startOfMonth(monthBase), "yyyy-MM-dd");
-                const monthEndStr = format(endOfMonth(monthBase), "yyyy-MM-dd");
+              // Calculate extra days per person (excluding holidays)
+              const monthStartStr = format(startOfMonth(monthBase), "yyyy-MM-dd");
+              const monthEndStr = format(endOfMonth(monthBase), "yyyy-MM-dd");
 
+              const getExtraDaysForUser = (userId: string) => {
+                // Get all weekend (Sat/Sun) non-holiday dates this user worked in the month
+                const userSchedules = existingSchedules
+                  .filter((s) => {
+                    if (s.user_id !== userId) return false;
+                    if (s.scheduled_date < monthStartStr || s.scheduled_date > monthEndStr) return false;
+                    const scheduleDate = new Date(s.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
+                    // Count weekend days (Sat/Sun); weekend holidays still count.
+                    return isWeekend(scheduleDate);
+                  })
+                  .map((s) => s.scheduled_date)
+                  .sort();
 
-                const getExtraDaysForUser = (userId: string) => {
-                  // Get all weekend (Sat/Sun) non-holiday dates this user worked in the month
-                  const userSchedules = existingSchedules
-                    .filter((s) => {
-                      if (s.user_id !== userId) return false;
-                      if (s.scheduled_date < monthStartStr || s.scheduled_date > monthEndStr) return false;
-                      const scheduleDate = new Date(s.scheduled_date + "T12:00:00"); // Use noon to avoid timezone issues
-                      // Count weekend days (Sat/Sun); weekend holidays still count.
-                      return isWeekend(scheduleDate);
-                    })
-                    .map((s) => s.scheduled_date)
-                    .sort();
+                // First day is not extra, subsequent days are extra
+                return userSchedules.slice(1);
+              };
 
-                  // First day is not extra, subsequent days are extra
-                  return userSchedules.slice(1);
-                };
+              // Build list of users with extra days
+              const usersWithExtraDays = usersWithMultipleDays
+                .map(({ user, count }) => ({
+                  user,
+                  count,
+                  extraDays: getExtraDaysForUser(user.id),
+                }))
+                .filter((entry) => entry.extraDays.length > 0);
 
-                // Build list of users with extra days
-                const usersWithExtraDays = usersWithMultipleDays
-                  .map(({ user, count }) => ({
-                    user,
-                    count,
-                    extraDays: getExtraDaysForUser(user.id),
-                  }))
-                  .filter((entry) => entry.extraDays.length > 0);
-
-                return (
-                  <div className="border rounded-md p-2 sm:p-3 bg-muted/30">
-                    <div className="flex items-center justify-between mb-2">
-                      <button
-                        type="button"
-                        onClick={() => setIsExtraDaysExpanded((prev) => !prev)}
-                        className="flex items-center gap-1 hover:opacity-80"
-                      >
-                        <ChevronRight
-                          className={`h-3 w-3 transition-transform duration-200 ${isExtraDaysExpanded ? "rotate-90" : ""}`}
-                        />
-                        <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
-                          Extra days in {format(monthBase, "MMMM")}
-                        </h4>
-                      </button>
-                      {usersWithExtraDays.length > 0 && (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-5 w-5">
-                              <Info className="h-3 w-3" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 max-h-96 overflow-y-auto" align="end">
+              return (
+                <div className="border rounded-md p-2 sm:p-3 bg-muted/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsExtraDaysExpanded((prev) => !prev)}
+                      className="flex items-center gap-1 hover:opacity-80"
+                    >
+                      <ChevronRight
+                        className={`h-3 w-3 transition-transform duration-200 ${isExtraDaysExpanded ? "rotate-90" : ""}`}
+                      />
+                      <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                        Extra days in {format(monthBase, "MMMM")}
+                      </h4>
+                    </button>
+                    {usersWithExtraDays.length > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-5 w-5">
+                            <Info className="h-3 w-3" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 max-h-96 overflow-y-auto" align="end">
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-sm">Extra Days in {format(monthBase, "MMMM")}</h4>
+                            <p className="text-xs text-muted-foreground">
+                              Holidays that fall on Saturday or Sunday count toward extra days.
+                            </p>
                             <div className="space-y-3">
-                              <h4 className="font-medium text-sm">Extra Days in {format(monthBase, "MMMM")}</h4>
-                              <p className="text-xs text-muted-foreground">
-                                Holidays that fall on Saturday or Sunday count toward extra days.
-                              </p>
-                              <div className="space-y-3">
-                                {usersWithExtraDays.map(({ user, extraDays }) => (
-                                  <div key={user.id} className="border-b pb-2 last:border-0">
-                                    <div className="font-medium text-sm">{user.full_name || user.email}</div>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {extraDays.map((date) => (
-                                        <Badge
-                                          key={date}
-                                          variant="outline"
-                                          className="text-xs text-orange-500 border-orange-500"
-                                        >
-                                          {format(new Date(date + "T12:00:00"), "MMM d")}
-                                        </Badge>
-                                      ))}
-                                    </div>
+                              {usersWithExtraDays.map(({ user, extraDays }) => (
+                                <div key={user.id} className="border-b pb-2 last:border-0">
+                                  <div className="font-medium text-sm">{user.full_name || user.email}</div>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {extraDays.map((date) => (
+                                      <Badge
+                                        key={date}
+                                        variant="outline"
+                                        className="text-xs text-orange-500 border-orange-500"
+                                      >
+                                        {format(new Date(date + "T12:00:00"), "MMM d")}
+                                      </Badge>
+                                    ))}
                                   </div>
-                                ))}
-                              </div>
+                                </div>
+                              ))}
                             </div>
-                          </PopoverContent>
-                        </Popover>
-                      )}
-                    </div>
-                    {isExtraDaysExpanded && (
-                      <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
-                        {usersWithMultipleDays.map(({ user, count }) => {
-                          // Display count - 1 (first day is regular, rest are extra)
-                          const extraDaysCount = count - 1;
-                          return (
-                            <div key={user.id} className="flex items-center justify-between text-xs sm:text-sm">
-                              <span className="truncate">{user.full_name || user.email}</span>
-                              <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
-                                {extraDaysCount}x
-                              </Badge>
-                            </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     )}
                   </div>
-                );
-              })()}
+                  {isExtraDaysExpanded && (
+                    <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
+                      {usersWithMultipleDays.map(({ user, count }) => {
+                        // Display count - 1 (first day is regular, rest are extra)
+                        const extraDaysCount = count - 1;
+                        return (
+                          <div key={user.id} className="flex items-center justify-between text-xs sm:text-sm">
+                            <span className="truncate">{user.full_name || user.email}</span>
+                            <Badge variant="secondary" className="text-[10px] sm:text-xs ml-2">
+                              {extraDaysCount}x
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Lost days list */}
             {lostDaysList.length > 0 && (
@@ -849,7 +855,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     <>
                       {/* Show existing scheduled users */}
                       {existingForDate.length > 0 && (
-                        <ScrollArea className={`border rounded-md p-2 sm:p-3 bg-muted/30 ${needsMoreDispatchers || forceShowOffice ? "max-h-[35vh]" : "max-h-[60vh]"}`}>
+                        <ScrollArea
+                          className={`border rounded-md p-2 sm:p-3 bg-muted/30 ${needsMoreDispatchers || forceShowOffice ? "max-h-[35vh]" : "max-h-[60vh]"}`}
+                        >
                           {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
                             const officeSchedules = scheduledByOffice[office] || [];
                             if (officeSchedules.length === 0) return null;
@@ -864,7 +872,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                             return (
                               <div key={office} className="mb-3 sm:mb-4">
                                 <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                                  <Badge variant="outline" className="text-xs">{config.label}</Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    {config.label}
+                                  </Badge>
                                   <span className="text-xs text-muted-foreground">
                                     {officeSchedules.length}/{config.slots}
                                   </span>
@@ -887,15 +897,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     // Use string comparison to avoid timezone issues
                                     const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
                                     const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
-                                    const daysWorkedBefore = existingSchedules.filter(
-                                      (s) => {
-                                        if (s.user_id !== schedule.user_id) return false;
-                                        if (s.scheduled_date < monthStartStr || s.scheduled_date >= selectedDateStr) return false;
-                                        const scheduleDate = new Date(s.scheduled_date + "T12:00:00");
-                                        // Count weekend days (Sat/Sun); weekend holidays still count.
-                                        return isWeekend(scheduleDate);
-                                      },
-                                    ).length;
+                                    const daysWorkedBefore = existingSchedules.filter((s) => {
+                                      if (s.user_id !== schedule.user_id) return false;
+                                      if (s.scheduled_date < monthStartStr || s.scheduled_date >= selectedDateStr)
+                                        return false;
+                                      const scheduleDate = new Date(s.scheduled_date + "T12:00:00");
+                                      // Count weekend days (Sat/Sun); weekend holidays still count.
+                                      return isWeekend(scheduleDate);
+                                    }).length;
                                     const isExtra = daysWorkedBefore >= 1;
 
                                     return (
@@ -904,7 +913,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                         className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
                                       >
                                         <span className="flex items-center gap-1 sm:gap-2 truncate">
-                                          <span className="truncate">{schedule.user?.full_name || schedule.user?.email || "Unknown"}</span>
+                                          <span className="truncate">
+                                            {schedule.user?.full_name || schedule.user?.email || "Unknown"}
+                                          </span>
                                           {isExtra && (
                                             <Badge
                                               variant="outline"
@@ -945,8 +956,12 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                               return (
                                 <div className="mb-3 sm:mb-4 border-t pt-3 sm:pt-4 mt-3 sm:mt-4">
                                   <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                                    <Badge variant="outline" className="text-xs">{MAINTENANCE_CONFIG.label}</Badge>
-                                    <span className="text-[10px] sm:text-xs text-muted-foreground">{maintenanceSchedules.length}</span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {MAINTENANCE_CONFIG.label}
+                                    </Badge>
+                                    <span className="text-[10px] sm:text-xs text-muted-foreground">
+                                      {maintenanceSchedules.length}
+                                    </span>
                                     {canManageSchedules && !isPastDate && availableMaintenanceToAdd.length > 0 && (
                                       <Button
                                         variant="ghost"
@@ -968,14 +983,13 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       // Use string comparison to avoid timezone issues
                                       const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
                                       const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
-                                      const daysWorkedBefore = existingSchedules.filter(
-                                        (s) => {
-                                          if (s.user_id !== schedule.user_id) return false;
-                                          if (s.scheduled_date < monthStartStr || s.scheduled_date >= selectedDateStr) return false;
-                                          const scheduleDate = new Date(s.scheduled_date + "T12:00:00");
-                                          return isWeekend(scheduleDate);
-                                        },
-                                      ).length;
+                                      const daysWorkedBefore = existingSchedules.filter((s) => {
+                                        if (s.user_id !== schedule.user_id) return false;
+                                        if (s.scheduled_date < monthStartStr || s.scheduled_date >= selectedDateStr)
+                                          return false;
+                                        const scheduleDate = new Date(s.scheduled_date + "T12:00:00");
+                                        return isWeekend(scheduleDate);
+                                      }).length;
                                       const isExtra = daysWorkedBefore >= 1;
 
                                       return (
@@ -984,7 +998,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                           className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
                                         >
                                           <span className="flex items-center gap-1 sm:gap-2 truncate">
-                                            <span className="truncate">{schedule.user?.full_name || schedule.user?.email || "Unknown"}</span>
+                                            <span className="truncate">
+                                              {schedule.user?.full_name || schedule.user?.email || "Unknown"}
+                                            </span>
                                             {isExtra && (
                                               <Badge
                                                 variant="outline"
@@ -1025,14 +1041,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       {canManageSchedules &&
                         !isPastDate &&
                         (existingForDate.length === 0 || needsMoreDispatchers || forceShowOffice) && (
-                            <>
-                              {loading ? (
-                                <div className="flex items-center justify-center py-4">
-                                  <Loader2 className="h-5 w-5 animate-spin" />
-                                </div>
-                              ) : (
-                                <>
-                                  <ScrollArea className="flex-1 border rounded-md p-2 max-h-48 sm:max-h-[30vh]">
+                          <>
+                            {loading ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              </div>
+                            ) : (
+                              <>
+                                <ScrollArea className="flex-1 border rounded-md p-2 max-h-48 sm:max-h-[30vh]">
                                   {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
                                     const officeUsersForOffice = usersByOffice[office] || [];
                                     const config = OFFICE_CONFIG[office];
@@ -1133,7 +1149,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     return (
                                       <div key={office} className="mb-3 sm:mb-4">
                                         <div className="flex items-center gap-2 mb-1 sm:mb-2 sticky top-0 bg-background py-1 flex-wrap">
-                                          <Badge variant="outline" className="text-xs">{config.label}</Badge>
+                                          <Badge variant="outline" className="text-xs">
+                                            {config.label}
+                                          </Badge>
                                           <span className="text-[10px] sm:text-xs text-muted-foreground">
                                             {totalCount}/{config.slots} (need {MIN_THRESHOLDS[office] - existingCount}{" "}
                                             more)
@@ -1170,7 +1188,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                     }
                                                     className="h-3.5 w-3.5 sm:h-4 sm:w-4"
                                                   />
-                                                  <span className="text-xs sm:text-sm flex-1 truncate">{user.full_name || user.email}</span>
+                                                  <span className="text-xs sm:text-sm flex-1 truncate">
+                                                    {user.full_name || user.email}
+                                                  </span>
                                                   {hasNotWorked ? (
                                                     <Badge
                                                       variant="outline"
@@ -1279,7 +1299,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                           return (
                                             <>
                                               <div className="flex items-center gap-2 mb-1 sm:mb-2 sticky top-0 bg-background py-1">
-                                                <Badge variant="outline" className="text-xs">{MAINTENANCE_CONFIG.label}</Badge>
+                                                <Badge variant="outline" className="text-xs">
+                                                  {MAINTENANCE_CONFIG.label}
+                                                </Badge>
                                                 <span className="text-[10px] sm:text-xs text-muted-foreground">
                                                   {totalCount}/{MAINTENANCE_CONFIG.slots} (need{" "}
                                                   {MIN_THRESHOLDS.maintenance - existingMaintenanceCount} more)
@@ -1287,24 +1309,26 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                               </div>
                                               <div className="space-y-1 pl-2">
                                                 {availableMaintenanceUsers.map((user) => (
-                                                    <label
-                                                      key={user.id}
-                                                      className="flex items-center gap-2 p-1 sm:p-1.5 rounded hover:bg-muted cursor-pointer"
-                                                    >
-                                                      <Checkbox
-                                                        checked={selectedUsers.maintenance.includes(user.id)}
-                                                        onCheckedChange={() =>
-                                                          handleUserToggle(
-                                                            user.id,
-                                                            "maintenance",
-                                                            forceShowOffice === "maintenance",
-                                                          )
-                                                        }
-                                                        className="h-3.5 w-3.5 sm:h-4 sm:w-4"
-                                                      />
-                                                      <span className="text-xs sm:text-sm truncate">{user.full_name || user.email}</span>
-                                                    </label>
-                                                  ))}
+                                                  <label
+                                                    key={user.id}
+                                                    className="flex items-center gap-2 p-1 sm:p-1.5 rounded hover:bg-muted cursor-pointer"
+                                                  >
+                                                    <Checkbox
+                                                      checked={selectedUsers.maintenance.includes(user.id)}
+                                                      onCheckedChange={() =>
+                                                        handleUserToggle(
+                                                          user.id,
+                                                          "maintenance",
+                                                          forceShowOffice === "maintenance",
+                                                        )
+                                                      }
+                                                      className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                                                    />
+                                                    <span className="text-xs sm:text-sm truncate">
+                                                      {user.full_name || user.email}
+                                                    </span>
+                                                  </label>
+                                                ))}
                                               </div>
                                             </>
                                           );
