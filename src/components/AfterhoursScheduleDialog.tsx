@@ -650,7 +650,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   <div className="border rounded-md p-2 sm:p-3 bg-muted/30">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-[10px] sm:text-xs font-medium text-muted-foreground">
-                        Extra days in {format(selectedDate, "MMMM")}
+                        Extra days in {format(monthBase, "MMMM")}
                       </h4>
                       {usersWithExtraDays.length > 0 && (
                         <Popover>
@@ -661,7 +661,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                           </PopoverTrigger>
                           <PopoverContent className="w-80 max-h-96 overflow-y-auto" align="end">
                             <div className="space-y-3">
-                              <h4 className="font-medium text-sm">Extra Days in {format(selectedDate, "MMMM")}</h4>
+                              <h4 className="font-medium text-sm">Extra Days in {format(monthBase, "MMMM")}</h4>
                               <p className="text-xs text-muted-foreground">
                                 Holidays that fall on Saturday or Sunday count toward extra days.
                               </p>
