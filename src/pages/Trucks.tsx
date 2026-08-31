@@ -25,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 import { AssignmentReasonDialog, AssignmentConflict } from "@/components/AssignmentReasonDialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface TruckFormData {
   truck_number: string;
@@ -127,6 +128,11 @@ const Trucks = () => {
   const {
     allDispatchers
   } = useFleetManagement();
+
+  const isApSilverSelected = useMemo(() => {
+    const name = companies?.find(c => c.id === formData.company_id)?.name || "";
+    return name.toLowerCase().includes("ap silver trans");
+  }, [companies, formData.company_id]);
 
   // Filter trucks based on search term, company filter, assignment filter, and status filter
   const filteredTrucks = useMemo(() => {
