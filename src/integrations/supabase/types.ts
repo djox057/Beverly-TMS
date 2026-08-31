@@ -5347,6 +5347,7 @@ export type Database = {
           needs_recovery: boolean | null
           oil_change_date: string | null
           oil_change_note: string | null
+          oos: boolean
           plate: string | null
           plate_expiration_date: string | null
           registration_expiration_date: string | null
@@ -5397,6 +5398,7 @@ export type Database = {
           needs_recovery?: boolean | null
           oil_change_date?: string | null
           oil_change_note?: string | null
+          oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
           registration_expiration_date?: string | null
@@ -5447,6 +5449,7 @@ export type Database = {
           needs_recovery?: boolean | null
           oil_change_date?: string | null
           oil_change_note?: string | null
+          oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
           registration_expiration_date?: string | null
