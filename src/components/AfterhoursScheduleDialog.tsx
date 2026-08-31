@@ -41,8 +41,8 @@ interface AfterhoursScheduleDialogProps {
 // Office configuration: slots per office
 const OFFICE_CONFIG = {
   kragujevac: { label: "Kragujevac (KG)", slots: 3 },
-  cacak: { label: "ČAČAK (CA)", slots: 2 },
-  beograd: { label: "Beograd (BG)", slots: 2 },
+  cacak: { label: "ČAČAK (CA)", slots: 3 },
+  beograd: { label: "Beograd (BG)", slots: 3 },
 } as const;
 
 const MAINTENANCE_CONFIG = { label: "Maintenance", slots: 10 };
@@ -778,8 +778,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   // Define minimum thresholds for showing add section
                   const MIN_THRESHOLDS: Record<SelectionKey, number> = {
                     kragujevac: 3,
-                    cacak: 2,
-                    beograd: 2,
+                    cacak: 3,
+                    beograd: 3,
                     maintenance: 1,
                   };
 
