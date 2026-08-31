@@ -1,4 +1,5 @@
 import { CoiRequestDialog } from "@/components/reports/CoiRequestDialog";
+import { TruckOosCheckbox } from "@/components/reports/TruckOosCheckbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
