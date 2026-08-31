@@ -145,6 +145,41 @@ export default function BeverlyHeatmapFacilities() {
           placeholder="Filter by date range"
           className="w-[260px]"
         />
+        <Popover open={statesOpen} onOpenChange={setStatesOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[220px] justify-between font-normal">
+              <span className="truncate">
+                {selectedStates.length === 0
+                  ? "Filter by state"
+                  : selectedStates.length <= 3
+                  ? selectedStates.join(", ")
+                  : `${selectedStates.length} states selected`}
+              </span>
+              <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[220px] p-0" align="start" modal={false}>
+            <Command>
+              <CommandInput placeholder="Search state..." />
+              <CommandList>
+                <CommandEmpty>No state found.</CommandEmpty>
+                <CommandGroup>
+                  {availableStates.map((s) => (
+                    <CommandItem key={s} value={s} onSelect={() => toggleState(s)}>
+                      <Checkbox checked={selectedStates.includes(s)} className="mr-2" />
+                      {s}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        {selectedStates.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => setSelectedStates([])}>
+            <X className="h-4 w-4 mr-1" /> Clear states
+          </Button>
+        )}
         <Badge variant="outline" className="text-xs whitespace-nowrap">
           {filtered.length} facilities
         </Badge>
