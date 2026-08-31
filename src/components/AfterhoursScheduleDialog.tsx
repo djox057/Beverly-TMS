@@ -64,6 +64,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     beograd: [],
     maintenance: [],
   });
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [expandedFilledOffices, setExpandedFilledOffices] = useState<Record<SelectionKey, boolean>>({
     kragujevac: false,
     cacak: false,
@@ -506,7 +507,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   };
 
   // ---- Extra days / Lost days lists for the selected month ----
-  const monthBase = selectedDate || new Date();
+  const monthBase = selectedDate || calendarMonth;
   const monthStartStr = format(startOfMonth(monthBase), "yyyy-MM-dd");
   const monthEndStr = format(endOfMonth(monthBase), "yyyy-MM-dd");
 
@@ -602,6 +603,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                 setSelectedDate(date);
                 setForceShowOffice(null); // Reset force show when date changes
               }}
+              month={selectedDate || calendarMonth}
+              onMonthChange={setCalendarMonth}
               disabled={isDateDisabled}
               className="rounded-md border mx-auto sm:mx-0"
             />
