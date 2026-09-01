@@ -685,13 +685,14 @@ const Trailers = () => {
           <div className="flex items-center justify-between">
             <CardTitle>Trailer Inventory</CardTitle>
             <div className="flex items-center gap-3">
-              <Select value={statusFilter} onValueChange={(value: "all" | "active" | "inactive") => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={(value: "all" | "active" | "inactive" | "changed") => setStatusFilter(value)}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="changed">Changed</SelectItem>
                   <SelectItem value="all">All Status</SelectItem>
                 </SelectContent>
               </Select>
