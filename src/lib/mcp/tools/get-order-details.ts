@@ -43,7 +43,7 @@ export default defineTool({
       .from("pickup_drops")
       .select("*")
       .in("order_id", ids)
-      .order("stop_order", { ascending: true });
+      .order("sequence_number", { ascending: true });
     const result = data.map((o: { id: string }) => ({
       ...o,
       stops: (stops ?? []).filter((s: { order_id: string }) => s.order_id === o.id),
