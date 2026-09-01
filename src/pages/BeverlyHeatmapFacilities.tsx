@@ -178,9 +178,41 @@ export default function BeverlyHeatmapFacilities() {
     },
   });
 
+  const laneOrderIds = useMemo(() => detailLanes.map((l) => l.order_id), [detailLanes]);
+
+  const { data: rcFiles = {} } = useQuery({
+    queryKey: ["facility-lane-rc-files", laneOrderIds.join(",")],
+    enabled: laneOrderIds.length > 0,
+    queryFn: async () => {
+      const map: Record<string, { id: string; file_path: string; file_name: string | null; file_category: string | null; order_id: string }> = {};
+      for (let i = 0; i < laneOrderIds.length; i += 200) {
+        const chunk = laneOrderIds.slice(i, i + 200);
+        const { data, error } = await supabase
+          .from("order_files")
+          .select("id, order_id, file_category, file_name, file_path")
+          .in("order_id", chunk)
+          .eq("file_category", "RC");
+        if (error) throw error;
+        for (const f of data || []) {
+          if (f.order_id && !map[f.order_id]) map[f.order_id] = f as any;
+        }
+      }
+      return map;
+    },
+  });
+
+  const openRc = async (orderId: string) => {
+    const file = rcFiles[orderId];
+    if (!file) return;
+    const { signedUrl } = await getOrderFileSignedUrl(file);
+    if (signedUrl) window.open(signedUrl, "_blank");
+  };
+
   const fmtDate = (d: string | null) => (d ? format(new Date(d), "MM/dd/yyyy") : "—");
   const fmtMoney = (n: number | null) =>
     n == null ? "—" : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+
 
 
 
