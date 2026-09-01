@@ -144,7 +144,8 @@ const Trailers = () => {
       // Status filter
       const matchesStatus = statusFilter === "all" || 
         (statusFilter === "active" && trailer.is_active !== false) || 
-        (statusFilter === "inactive" && trailer.is_active === false);
+        (statusFilter === "inactive" && trailer.is_active === false) ||
+        (statusFilter === "changed" && trailer.is_active !== false && !!changedTrailerIds?.has(trailer.id));
       
       // Company filter (company of the truck/driver this trailer is connected to)
       const companyName = trailerCompanyMap.get(trailer.id) || "Unassigned";
