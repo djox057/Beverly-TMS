@@ -4712,17 +4712,6 @@ const Reports = () => {
                 hasRole("dispatch") ||
                 hasRole("afterhours")) && (
                 <div className="flex flex-wrap gap-1 sm:gap-2 sm:ml-4">
-                  {canUseSuggestions && (
-                    <Button
-                      variant={suggestionsMode ? "default" : "outline"}
-                      size="sm"
-                      onClick={toggleSuggestionsMode}
-                      className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
-                    >
-                      <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-                      Suggestions
-                    </Button>
-                  )}
                   <Button
                     variant={showEmptyTrucks ? "default" : "outline"}
                     size="sm"
@@ -4740,6 +4729,17 @@ const Reports = () => {
                     <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                     Late trucks
                   </Button>
+                  {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety") || hasRole("dispatch")) && (
+                    <Button
+                      variant={showOosTrucks ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setShowOosTrucks(!showOosTrucks)}
+                      className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
+                    >
+                      <ShieldOff className="h-3 w-3 sm:h-4 sm:w-4" />
+                      OOS trucks
+                    </Button>
+                  )}
                   {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety")) && (
                     <>
                       <Button
