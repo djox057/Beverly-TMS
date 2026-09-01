@@ -694,7 +694,9 @@ const LiveOilChange = () => {
                                     <Upload className="h-3.5 w-3.5 mr-1" /> Upload
                                   </Button>
                                 )}
+                                <OdometerHistoryPopover truckId={t.id} />
                               </div>
+
                             );
                           })()}
                         </TableCell>
