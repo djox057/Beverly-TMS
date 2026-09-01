@@ -395,6 +395,14 @@ export default function BeverlyHeatmapFacilities() {
                     Total <SortIcon columnKey="total_visits" />
                   </span>
                 </TableHead>
+                <TableHead
+                  className="text-center w-[90px] cursor-pointer select-none"
+                  onClick={() => handleSort("broker_count")}
+                >
+                  <span className="inline-flex items-center justify-center w-full">
+                    Brokers <SortIcon columnKey="broker_count" />
+                  </span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -406,22 +414,49 @@ export default function BeverlyHeatmapFacilities() {
                   <TableCell className="text-sm">{f.state || "—"}</TableCell>
                   <TableCell className="text-sm font-mono">{f.zip_code || "—"}</TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline" className="font-mono">
-                      {f.pickup_count}
-                    </Badge>
+                    <button
+                      type="button"
+                      disabled={!f.pickup_count}
+                      onClick={() => setLaneDetail({ row: f, type: "pickup" })}
+                      className="disabled:opacity-50 disabled:cursor-default"
+                    >
+                      <Badge variant="outline" className="font-mono hover:bg-accent cursor-pointer">
+                        {f.pickup_count}
+                      </Badge>
+                    </button>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline" className="font-mono">
-                      {f.delivery_count}
-                    </Badge>
+                    <button
+                      type="button"
+                      disabled={!f.delivery_count}
+                      onClick={() => setLaneDetail({ row: f, type: "delivery" })}
+                      className="disabled:opacity-50 disabled:cursor-default"
+                    >
+                      <Badge variant="outline" className="font-mono hover:bg-accent cursor-pointer">
+                        {f.delivery_count}
+                      </Badge>
+                    </button>
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant="secondary" className="font-mono">
                       {f.total_visits}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-center">
+                    <button
+                      type="button"
+                      disabled={!f.broker_count}
+                      onClick={() => setBrokerDetail(f)}
+                      className="disabled:opacity-50 disabled:cursor-default"
+                    >
+                      <Badge variant="outline" className="font-mono hover:bg-accent cursor-pointer">
+                        {f.broker_count}
+                      </Badge>
+                    </button>
+                  </TableCell>
                 </TableRow>
               ))}
+
             </TableBody>
           </Table>
         </div>
