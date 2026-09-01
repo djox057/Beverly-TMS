@@ -4096,6 +4096,19 @@ const Reports = () => {
         .filter((group) => group.trucks.length > 0);
     }
 
+    // OOS trucks filter: show only trucks flagged out-of-service (insurance)
+    if (showOosTrucks) {
+      return reports
+        .map((group) => {
+          const oosTrucks = group.trucks.filter((truck) => !!(truck as any).truckOos);
+          return {
+            ...group,
+            trucks: oosTrucks,
+          };
+        })
+        .filter((group) => group.trucks.length > 0);
+    }
+
     // New drivers filter: show only trucks with no loads ever OR exactly 1 load with pickup today
     if (showNewDrivers) {
       const today = getChicagoToday();
