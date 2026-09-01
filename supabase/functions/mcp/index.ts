@@ -105,7 +105,7 @@ var list_recent_orders_default = defineTool3({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
     const supabase = supabaseForUser3(ctx);
-    let query = supabase.from("orders").select("id, load_number, internal_load_number, status, canceled, pickup_datetime, delivery_datetime, freight_amount, driver_price, dispatcher_name, deleted_truck_number, broker_id, created_at").order("created_at", { ascending: false }).limit(limit ?? 25);
+    let query = supabase.from("orders").select("id, load_number, internal_load_number, status, canceled, pickup_datetime, delivery_datetime, freight_amount, driver_price, booked_by, deleted_truck_number, broker_id, created_at").order("created_at", { ascending: false }).limit(limit ?? 25);
     if (status) query = query.eq("status", status);
     if (!include_canceled) query = query.eq("canceled", false);
     if (load_number_contains) {
