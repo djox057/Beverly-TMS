@@ -619,20 +619,28 @@ const LiveOilChange = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Input
-                            key={t.miles ?? "empty-miles"}
-                            type="number"
-                            defaultValue={t.miles ?? ""}
-                            onBlur={(e) => {
-                              const raw = e.target.value.trim();
-                              const v = raw === "" ? null : Number(raw);
-                              if (v !== (t.miles ?? null)) {
-                                updateTruck.mutate({ id: t.id, patch: { miles: v as any } });
-                              }
-                            }}
-                            className={cn(bareInput, "no-spinner")}
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input
+                              key={t.miles ?? "empty-miles"}
+                              type="number"
+                              defaultValue={t.miles ?? ""}
+                              onBlur={(e) => {
+                                const raw = e.target.value.trim();
+                                const v = raw === "" ? null : Number(raw);
+                                if (v !== (t.miles ?? null)) {
+                                  updateTruck.mutate({ id: t.id, patch: { miles: v as any } });
+                                }
+                              }}
+                              className={cn(bareInput, "no-spinner")}
+                            />
+                            <MileageHistoryPopover
+                              truckId={t.id}
+                              field="miles"
+                              label="Odometer"
+                            />
+                          </div>
                         </TableCell>
+
                         <TableCell>
                           {fmtNum(milesSinceOil)}
                         </TableCell>
