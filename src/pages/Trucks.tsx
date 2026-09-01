@@ -1003,6 +1003,7 @@ const Trucks = () => {
                     { value: "active", label: "Active" },
                     { value: "inactive", label: "Inactive" },
                     { value: "oos", label: "OOS" },
+                    { value: "changed", label: "Changed" },
                     { value: "all", label: "All Status" }
                   ]}
                   value={statusFilter}
