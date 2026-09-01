@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useQueryClient } from "@tanstack/react-query";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useChangedTrailers } from "@/hooks/useChangedTrailers";
 
 interface TrailerFormData {
   trailer_number: string;
