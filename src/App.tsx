@@ -111,6 +111,7 @@ const AppContent = () => {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/oauth/consent" element={<OAuthConsent />} />
         <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
         <Route path="/admin/users" element={
           <ProtectedRoute requiredRole="admin">
