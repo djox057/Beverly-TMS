@@ -46,6 +46,8 @@ export default function BeverlyHeatmapFacilities() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [statesOpen, setStatesOpen] = useState(false);
+  const [excludedBrokerIds, setExcludedBrokerIds] = useState<string[]>([]);
+  const [brokersOpen, setBrokersOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "total_visits",
     dir: "desc",
@@ -54,18 +56,39 @@ export default function BeverlyHeatmapFacilities() {
   const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
   const endDateStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
 
+  const { data: brokers = [] } = useQuery({
+    queryKey: ["heatmap-brokers-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("brokers")
+        .select("id, name, mc_number")
+        .order("name", { ascending: true })
+        .limit(2000);
+      if (error) throw error;
+      return (data || []) as { id: string; name: string | null; mc_number: string | null }[];
+    },
+    staleTime: 30 * 60 * 1000,
+  });
+
+  const excludedBrokerKey = useMemo(() => [...excludedBrokerIds].sort().join(","), [excludedBrokerIds]);
+
   const { data: facilities = [], isLoading } = useQuery({
-    queryKey: ["facility-visit-counts", startDateStr, endDateStr],
+    queryKey: ["facility-visit-counts", startDateStr, endDateStr, excludedBrokerKey],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_facility_visit_counts", {
         p_start_date: startDateStr ?? null,
         p_end_date: endDateStr ?? null,
+        p_exclude_broker_ids: excludedBrokerIds.length > 0 ? excludedBrokerIds : null,
       });
       if (error) throw error;
       return (data || []) as FacilityRow[];
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  const toggleBroker = (id: string) =>
+    setExcludedBrokerIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
 
   const availableStates = useMemo(() => {
     const set = new Set<string>();
