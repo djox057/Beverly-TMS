@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "beverly-tms-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "title": "Beverly TMS"
     },
     "tools": [
@@ -110,6 +110,259 @@
               "minimum": 1,
               "maximum": 100,
               "description": "Max rows to return (default 25)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_brokers",
+        "title": "List brokers",
+        "description": "List brokers/customers with credit status. Optionally filter by name or MC number substring.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "search": {
+              "type": "string",
+              "description": "Case-insensitive substring match on broker name or MC number."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Max rows to return (default 50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_companies",
+        "title": "List companies",
+        "description": "List the legal operating companies (carriers) in the system with their UUIDs.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Max rows to return (default 100)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_order_details",
+        "title": "Get order details",
+        "description": "Get the full detail of one order/load by its UUID, broker load number, or internal load number, including its pickup/drop stops.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "load_number": {
+              "type": "string",
+              "description": "Exact broker load number or internal load number. Use this or order_id."
+            },
+            "order_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Order UUID. Use this or load_number."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_orders_by_date",
+        "title": "Search orders by date range",
+        "description": "Search orders/loads in a date range by pickup or delivery date. Optionally filter by the booking dispatcher UUID or truck number.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from_date": {
+              "type": "string",
+              "description": "Start date (inclusive), ISO format YYYY-MM-DD."
+            },
+            "to_date": {
+              "type": "string",
+              "description": "End date (inclusive), ISO format YYYY-MM-DD."
+            },
+            "date_field": {
+              "type": "string",
+              "enum": [
+                "pickup",
+                "delivery"
+              ],
+              "description": "Which date to filter on: 'pickup' (default) or 'delivery'."
+            },
+            "booked_by": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filter by the booking dispatcher's user UUID (orders.booked_by)."
+            },
+            "truck_number": {
+              "type": "string",
+              "description": "Exact truck number."
+            },
+            "include_canceled": {
+              "type": "boolean",
+              "description": "If false (default), excludes canceled orders."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Max rows to return (default 100)."
+            }
+          },
+          "required": [
+            "from_date",
+            "to_date"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_truck_location",
+        "title": "Get truck locations",
+        "description": "Get the latest known GPS location for trucks. Optionally filter to one truck number; otherwise returns the latest locations for all visible trucks.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "truck_number": {
+              "type": "string",
+              "description": "Exact truck number to look up."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Max rows when listing all (default 100)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_driver_expenses",
+        "title": "List driver expenses",
+        "description": "List driver expenses/debts. Optionally filter by driver UUID, truck number, status, or expense date range.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "driver_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filter by driver UUID."
+            },
+            "truck_number": {
+              "type": "string",
+              "description": "Exact truck number."
+            },
+            "status": {
+              "type": "string",
+              "description": "Filter by exact status value (e.g. 'pending', 'paid')."
+            },
+            "from_date": {
+              "type": "string",
+              "description": "Earliest expense_date, YYYY-MM-DD."
+            },
+            "to_date": {
+              "type": "string",
+              "description": "Latest expense_date, YYYY-MM-DD."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Max rows to return (default 100)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_dispatcher_performance",
+        "title": "Get dispatcher performance",
+        "description": "Read precalculated dispatcher performance periods (freight, driver rate, miles, RPM, order count, avg trucks). Filter by dispatcher name, office, period type, or period start range.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "dispatcher_name": {
+              "type": "string",
+              "description": "Case-insensitive substring match on dispatcher_name."
+            },
+            "office": {
+              "type": "string",
+              "description": "Exact office name (e.g. 'ČAČAK', 'BG 1st floor')."
+            },
+            "period_type": {
+              "type": "string",
+              "description": "Period type, e.g. 'week' or 'month'."
+            },
+            "from_period_start": {
+              "type": "string",
+              "description": "Earliest period_start, YYYY-MM-DD."
+            },
+            "to_period_start": {
+              "type": "string",
+              "description": "Latest period_start, YYYY-MM-DD."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Max rows to return (default 100)."
             }
           },
           "additionalProperties": false,

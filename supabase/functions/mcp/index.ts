@@ -105,7 +105,7 @@ var list_recent_orders_default = defineTool3({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
     const supabase = supabaseForUser3(ctx);
-    let query = supabase.from("orders").select("id, load_number, internal_load_number, status, canceled, pickup_datetime, delivery_datetime, freight_amount, driver_price, dispatcher_name, deleted_truck_number, broker_id, created_at").order("created_at", { ascending: false }).limit(limit ?? 25);
+    let query = supabase.from("orders").select("id, load_number, internal_load_number, status, canceled, pickup_datetime, delivery_datetime, freight_amount, driver_price, booked_by, deleted_truck_number, broker_id, created_at").order("created_at", { ascending: false }).limit(limit ?? 25);
     if (status) query = query.eq("status", status);
     if (!include_canceled) query = query.eq("canceled", false);
     if (load_number_contains) {
@@ -122,18 +122,321 @@ var list_recent_orders_default = defineTool3({
   }
 });
 
+// src/lib/mcp/tools/list-brokers.ts
+import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.78.0";
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z4 } from "npm:zod@^3.23.8";
+function supabaseForUser4(ctx) {
+  return createClient4(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_brokers_default = defineTool4({
+  name: "list_brokers",
+  title: "List brokers",
+  description: "List brokers/customers with credit status. Optionally filter by name or MC number substring.",
+  inputSchema: {
+    search: z4.string().optional().describe("Case-insensitive substring match on broker name or MC number."),
+    limit: z4.number().int().min(1).max(200).optional().describe("Max rows to return (default 50).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ search, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser4(ctx);
+    let query = supabase.from("brokers").select("id, name, mc_number, address, credit_status, credit_limit_amount, credit_used_amount").order("name", { ascending: true }).limit(limit ?? 50);
+    if (search) query = query.or(`name.ilike.%${search}%,mc_number.ilike.%${search}%`);
+    const { data, error } = await query;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
+      structuredContent: { brokers: data ?? [] }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-companies.ts
+import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.78.0";
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z5 } from "npm:zod@^3.23.8";
+function supabaseForUser5(ctx) {
+  return createClient5(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_companies_default = defineTool5({
+  name: "list_companies",
+  title: "List companies",
+  description: "List the legal operating companies (carriers) in the system with their UUIDs.",
+  inputSchema: {
+    limit: z5.number().int().min(1).max(200).optional().describe("Max rows to return (default 100).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser5(ctx);
+    const { data, error } = await supabase.from("companies").select("id, name, created_at").order("name", { ascending: true }).limit(limit ?? 100);
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
+      structuredContent: { companies: data ?? [] }
+    };
+  }
+});
+
+// src/lib/mcp/tools/get-order-details.ts
+import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.78.0";
+import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z6 } from "npm:zod@^3.23.8";
+function supabaseForUser6(ctx) {
+  return createClient6(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var get_order_details_default = defineTool6({
+  name: "get_order_details",
+  title: "Get order details",
+  description: "Get the full detail of one order/load by its UUID, broker load number, or internal load number, including its pickup/drop stops.",
+  inputSchema: {
+    load_number: z6.string().optional().describe("Exact broker load number or internal load number. Use this or order_id."),
+    order_id: z6.string().uuid().optional().describe("Order UUID. Use this or load_number.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ load_number, order_id }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    if (!load_number && !order_id) {
+      return { content: [{ type: "text", text: "Provide either load_number or order_id" }], isError: true };
+    }
+    const supabase = supabaseForUser6(ctx);
+    let query = supabase.from("orders").select("*").limit(5);
+    if (order_id) query = query.eq("id", order_id);
+    else query = query.or(`load_number.eq.${load_number},internal_load_number.eq.${load_number}`);
+    const { data, error } = await query;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    if (!data || data.length === 0) {
+      return { content: [{ type: "text", text: "No matching order found" }], isError: true };
+    }
+    const ids = data.map((o) => o.id);
+    const { data: stops } = await supabase.from("pickup_drops").select("*").in("order_id", ids).order("sequence_number", { ascending: true });
+    const result = data.map((o) => ({
+      ...o,
+      stops: (stops ?? []).filter((s) => s.order_id === o.id)
+    }));
+    return {
+      content: [{ type: "text", text: JSON.stringify(result) }],
+      structuredContent: { orders: result }
+    };
+  }
+});
+
+// src/lib/mcp/tools/search-orders-by-date.ts
+import { createClient as createClient7 } from "npm:@supabase/supabase-js@^2.78.0";
+import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z7 } from "npm:zod@^3.23.8";
+function supabaseForUser7(ctx) {
+  return createClient7(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var search_orders_by_date_default = defineTool7({
+  name: "search_orders_by_date",
+  title: "Search orders by date range",
+  description: "Search orders/loads in a date range by pickup or delivery date. Optionally filter by the booking dispatcher UUID or truck number.",
+  inputSchema: {
+    from_date: z7.string().describe("Start date (inclusive), ISO format YYYY-MM-DD."),
+    to_date: z7.string().describe("End date (inclusive), ISO format YYYY-MM-DD."),
+    date_field: z7.enum(["pickup", "delivery"]).optional().describe("Which date to filter on: 'pickup' (default) or 'delivery'."),
+    booked_by: z7.string().uuid().optional().describe("Filter by the booking dispatcher's user UUID (orders.booked_by)."),
+    truck_number: z7.string().optional().describe("Exact truck number."),
+    include_canceled: z7.boolean().optional().describe("If false (default), excludes canceled orders."),
+    limit: z7.number().int().min(1).max(500).optional().describe("Max rows to return (default 100).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ from_date, to_date, date_field, booked_by, truck_number, include_canceled, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser7(ctx);
+    const col = date_field === "delivery" ? "delivery_datetime" : "pickup_datetime";
+    let query = supabase.from("orders").select(
+      "id, load_number, internal_load_number, load_company_code, status, canceled, pickup_datetime, delivery_datetime, freight_amount, driver_price, loaded_miles, dh_miles, booked_by, deleted_truck_number"
+    ).gte(col, `${from_date}T00:00:00`).lte(col, `${to_date}T23:59:59`).order(col, { ascending: false }).limit(limit ?? 100);
+    if (!include_canceled) query = query.eq("canceled", false);
+    if (booked_by) query = query.eq("booked_by", booked_by);
+    if (truck_number) query = query.eq("deleted_truck_number", truck_number);
+    const { data, error } = await query;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
+      structuredContent: { orders: data ?? [] }
+    };
+  }
+});
+
+// src/lib/mcp/tools/get-truck-location.ts
+import { createClient as createClient8 } from "npm:@supabase/supabase-js@^2.78.0";
+import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z8 } from "npm:zod@^3.23.8";
+function supabaseForUser8(ctx) {
+  return createClient8(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var get_truck_location_default = defineTool8({
+  name: "get_truck_location",
+  title: "Get truck locations",
+  description: "Get the latest known GPS location for trucks. Optionally filter to one truck number; otherwise returns the latest locations for all visible trucks.",
+  inputSchema: {
+    truck_number: z8.string().optional().describe("Exact truck number to look up."),
+    limit: z8.number().int().min(1).max(500).optional().describe("Max rows when listing all (default 100).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ truck_number, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser8(ctx);
+    if (truck_number) {
+      const { data: data2, error: error2 } = await supabase.from("truck_locations").select("truck_id, truck_number, latitude, longitude, location_timestamp, speed, heading").eq("truck_number", truck_number).order("location_timestamp", { ascending: false }).limit(1);
+      if (error2) return { content: [{ type: "text", text: error2.message }], isError: true };
+      return {
+        content: [{ type: "text", text: JSON.stringify(data2 ?? []) }],
+        structuredContent: { locations: data2 ?? [] }
+      };
+    }
+    const { data, error } = await supabase.rpc("get_latest_truck_locations");
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const rows = (data ?? []).slice(0, limit ?? 100);
+    return {
+      content: [{ type: "text", text: JSON.stringify(rows) }],
+      structuredContent: { locations: rows }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-driver-expenses.ts
+import { createClient as createClient9 } from "npm:@supabase/supabase-js@^2.78.0";
+import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z9 } from "npm:zod@^3.23.8";
+function supabaseForUser9(ctx) {
+  return createClient9(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_driver_expenses_default = defineTool9({
+  name: "list_driver_expenses",
+  title: "List driver expenses",
+  description: "List driver expenses/debts. Optionally filter by driver UUID, truck number, status, or expense date range.",
+  inputSchema: {
+    driver_id: z9.string().uuid().optional().describe("Filter by driver UUID."),
+    truck_number: z9.string().optional().describe("Exact truck number."),
+    status: z9.string().optional().describe("Filter by exact status value (e.g. 'pending', 'paid')."),
+    from_date: z9.string().optional().describe("Earliest expense_date, YYYY-MM-DD."),
+    to_date: z9.string().optional().describe("Latest expense_date, YYYY-MM-DD."),
+    limit: z9.number().int().min(1).max(500).optional().describe("Max rows to return (default 100).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ driver_id, truck_number, status, from_date, to_date, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser9(ctx);
+    let query = supabase.from("driver_expenses").select(
+      "id, driver_id, truck_number, trailer_number, name, explanation, expense_date, amount, status, paid_date, paid_amount, expense_type"
+    ).order("expense_date", { ascending: false }).limit(limit ?? 100);
+    if (driver_id) query = query.eq("driver_id", driver_id);
+    if (truck_number) query = query.eq("truck_number", truck_number);
+    if (status) query = query.eq("status", status);
+    if (from_date) query = query.gte("expense_date", from_date);
+    if (to_date) query = query.lte("expense_date", to_date);
+    const { data, error } = await query;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
+      structuredContent: { expenses: data ?? [] }
+    };
+  }
+});
+
+// src/lib/mcp/tools/get-dispatcher-performance.ts
+import { createClient as createClient10 } from "npm:@supabase/supabase-js@^2.78.0";
+import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z10 } from "npm:zod@^3.23.8";
+function supabaseForUser10(ctx) {
+  return createClient10(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var get_dispatcher_performance_default = defineTool10({
+  name: "get_dispatcher_performance",
+  title: "Get dispatcher performance",
+  description: "Read precalculated dispatcher performance periods (freight, driver rate, miles, RPM, order count, avg trucks). Filter by dispatcher name, office, period type, or period start range.",
+  inputSchema: {
+    dispatcher_name: z10.string().optional().describe("Case-insensitive substring match on dispatcher_name."),
+    office: z10.string().optional().describe("Exact office name (e.g. '\u010CA\u010CAK', 'BG 1st floor')."),
+    period_type: z10.string().optional().describe("Period type, e.g. 'week' or 'month'."),
+    from_period_start: z10.string().optional().describe("Earliest period_start, YYYY-MM-DD."),
+    to_period_start: z10.string().optional().describe("Latest period_start, YYYY-MM-DD."),
+    limit: z10.number().int().min(1).max(500).optional().describe("Max rows to return (default 100).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ dispatcher_name, office, period_type, from_period_start, to_period_start, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser10(ctx);
+    let query = supabase.from("analytics_dispatcher_period").select(
+      "dispatcher_id, dispatcher_name, office, period_type, period_start, period_end, total_freight, total_driver_rate, dispatcher_cut, total_miles, rate_per_mile, order_count, avg_trucks, last_calculated_at"
+    ).order("period_start", { ascending: false }).limit(limit ?? 100);
+    if (dispatcher_name) query = query.ilike("dispatcher_name", `%${dispatcher_name}%`);
+    if (office) query = query.eq("office", office);
+    if (period_type) query = query.eq("period_type", period_type);
+    if (from_period_start) query = query.gte("period_start", from_period_start);
+    if (to_period_start) query = query.lte("period_start", to_period_start);
+    const { data, error } = await query;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return {
+      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
+      structuredContent: { periods: data ?? [] }
+    };
+  }
+});
+
 // src/lib/mcp/index.ts
 var projectRef = "wjkbtagwgjniilmgwutb";
 var mcp_default = defineMcp({
   name: "beverly-tms-mcp",
   title: "Beverly TMS",
-  version: "0.1.0",
-  instructions: "Read-only access to Beverly TMS trucking dispatch data for the signed-in user. Use `list_drivers` to find drivers, `list_trucks` to find trucks, and `list_recent_orders` to inspect recent loads. All results are scoped by the user's role and RLS.",
+  version: "0.2.0",
+  instructions: "Read-only access to Beverly TMS trucking dispatch data for the signed-in user. Use `list_drivers`, `list_trucks`, `list_brokers`, and `list_companies` to resolve entities; `list_recent_orders`, `search_orders_by_date`, and `get_order_details` for loads; `get_truck_location` for GPS positions; `list_driver_expenses` for driver debts; and `get_dispatcher_performance` for precalculated dispatcher metrics (freight, miles, RPM). All results are scoped by the user's role and RLS.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
-  tools: [list_drivers_default, list_trucks_default, list_recent_orders_default]
+  tools: [
+    list_drivers_default,
+    list_trucks_default,
+    list_recent_orders_default,
+    list_brokers_default,
+    list_companies_default,
+    get_order_details_default,
+    search_orders_by_date_default,
+    get_truck_location_default,
+    list_driver_expenses_default,
+    get_dispatcher_performance_default
+  ]
 });
 
 // lovable-mcp-supabase-entry.ts

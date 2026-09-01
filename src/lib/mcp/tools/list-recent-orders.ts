@@ -27,7 +27,7 @@ export default defineTool({
     const supabase = supabaseForUser(ctx);
     let query = supabase
       .from("orders")
-      .select("id, load_number, internal_load_number, status, canceled, pickup_datetime, delivery_datetime, freight_amount, driver_price, dispatcher_name, deleted_truck_number, broker_id, created_at")
+      .select("id, load_number, internal_load_number, status, canceled, pickup_datetime, delivery_datetime, freight_amount, driver_price, booked_by, deleted_truck_number, broker_id, created_at")
       .order("created_at", { ascending: false })
       .limit(limit ?? 25);
     if (status) query = query.eq("status", status);
