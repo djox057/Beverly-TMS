@@ -498,6 +498,8 @@ const Reports = () => {
     setShowLateTrucks,
     showProblems,
     setShowProblems,
+    showOosTrucks,
+    setShowOosTrucks,
     truckDriverFilter,
     setTruckDriverFilter,
     dispatchNameFilter,
