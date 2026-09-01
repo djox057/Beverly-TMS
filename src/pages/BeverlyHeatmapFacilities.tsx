@@ -26,6 +26,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 
 interface FacilityRow {
@@ -37,9 +43,41 @@ interface FacilityRow {
   pickup_count: number;
   delivery_count: number;
   total_visits: number;
+  broker_count: number;
+  lat_cell: number;
+  lng_cell: number;
 }
 
-type SortKey = "company_name" | "city" | "pickup_count" | "delivery_count" | "total_visits";
+interface BrokerRow {
+  broker_id: string | null;
+  broker_name: string | null;
+  mc_number: string | null;
+  load_count: number;
+}
+
+interface LaneRow {
+  order_id: string;
+  load_number: string | null;
+  broker_name: string | null;
+  origin_city: string | null;
+  origin_state: string | null;
+  destination_city: string | null;
+  destination_state: string | null;
+  pickup_date: string | null;
+  delivery_date: string | null;
+  freight_amount: number | null;
+  loaded_miles: number | null;
+  stop_datetime: string | null;
+}
+
+type SortKey =
+  | "company_name"
+  | "city"
+  | "pickup_count"
+  | "delivery_count"
+  | "total_visits"
+  | "broker_count";
+
 
 export default function BeverlyHeatmapFacilities() {
   const [search, setSearch] = useState("");
