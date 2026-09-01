@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTruckOosRealtime } from "@/hooks/useTruckOosRealtime";
 import { useTruckOosOverrides } from "@/hooks/useTruckOosOverrides";
+import { useChangedTrucks } from "@/hooks/useChangedTrucks";
 
 
 interface TruckFormData {
