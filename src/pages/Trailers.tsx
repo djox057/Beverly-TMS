@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useQueryClient } from "@tanstack/react-query";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useChangedTrailers } from "@/hooks/useChangedTrailers";
 
 interface TrailerFormData {
   trailer_number: string;
@@ -47,7 +48,8 @@ interface TerminationNote {
 const Trailers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [assignmentFilter, setAssignmentFilter] = useState<"all" | "assigned" | "unassigned">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "changed">("active");
+  const { data: changedTrailerIds } = useChangedTrailers(statusFilter === "changed");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -143,7 +145,8 @@ const Trailers = () => {
       // Status filter
       const matchesStatus = statusFilter === "all" || 
         (statusFilter === "active" && trailer.is_active !== false) || 
-        (statusFilter === "inactive" && trailer.is_active === false);
+        (statusFilter === "inactive" && trailer.is_active === false) ||
+        (statusFilter === "changed" && trailer.is_active !== false && !!changedTrailerIds?.has(trailer.id));
       
       // Company filter (company of the truck/driver this trailer is connected to)
       const companyName = trailerCompanyMap.get(trailer.id) || "Unassigned";
@@ -153,7 +156,7 @@ const Trailers = () => {
       
       return matchesSearch && matchesAssignment && matchesStatus && matchesCompany;
     }) || [];
-  }, [trailers, searchTerm, assignmentFilter, statusFilter, companyFilter, trailerCompanyMap]);
+  }, [trailers, searchTerm, assignmentFilter, statusFilter, companyFilter, trailerCompanyMap, changedTrailerIds]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
@@ -683,13 +686,14 @@ const Trailers = () => {
           <div className="flex items-center justify-between">
             <CardTitle>Trailer Inventory</CardTitle>
             <div className="flex items-center gap-3">
-              <Select value={statusFilter} onValueChange={(value: "all" | "active" | "inactive") => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={(value: "all" | "active" | "inactive" | "changed") => setStatusFilter(value)}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="changed">Changed</SelectItem>
                   <SelectItem value="all">All Status</SelectItem>
                 </SelectContent>
               </Select>
