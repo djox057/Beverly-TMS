@@ -22,6 +22,8 @@ import { hasMaintenanceOverride } from "@/hooks/useAuth";
 import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { MileageHistoryPopover } from "@/components/liveOilChange/MileageHistoryPopover";
+import { OdometerHistoryPopover } from "@/components/liveOilChange/OdometerHistoryPopover";
+
 
 
 type TruckRow = {
