@@ -5190,6 +5190,44 @@ export type Database = {
           },
         ]
       }
+      truck_mileage_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          field: string
+          id: string
+          new_value: number | null
+          old_value: number | null
+          truck_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          field: string
+          id?: string
+          new_value?: number | null
+          old_value?: number | null
+          truck_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          field?: string
+          id?: string
+          new_value?: number | null
+          old_value?: number | null
+          truck_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_mileage_history_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       truck_note_history: {
         Row: {
           created_at: string
