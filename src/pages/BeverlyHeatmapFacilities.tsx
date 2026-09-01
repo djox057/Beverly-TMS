@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, ChevronsUpDown, X } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, ChevronsUpDown, X, FileText } from "lucide-react";
+import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
+
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -178,9 +180,41 @@ export default function BeverlyHeatmapFacilities() {
     },
   });
 
+  const laneOrderIds = useMemo(() => detailLanes.map((l) => l.order_id), [detailLanes]);
+
+  const { data: rcFiles = {} } = useQuery({
+    queryKey: ["facility-lane-rc-files", laneOrderIds.join(",")],
+    enabled: laneOrderIds.length > 0,
+    queryFn: async () => {
+      const map: Record<string, { id: string; file_path: string; file_name: string | null; file_category: string | null; order_id: string }> = {};
+      for (let i = 0; i < laneOrderIds.length; i += 200) {
+        const chunk = laneOrderIds.slice(i, i + 200);
+        const { data, error } = await supabase
+          .from("order_files")
+          .select("id, order_id, file_category, file_name, file_path")
+          .in("order_id", chunk)
+          .eq("file_category", "RC");
+        if (error) throw error;
+        for (const f of data || []) {
+          if (f.order_id && !map[f.order_id]) map[f.order_id] = f as any;
+        }
+      }
+      return map;
+    },
+  });
+
+  const openRc = async (orderId: string) => {
+    const file = rcFiles[orderId];
+    if (!file) return;
+    const { signedUrl } = await getOrderFileSignedUrl(file);
+    if (signedUrl) window.open(signedUrl, "_blank");
+  };
+
   const fmtDate = (d: string | null) => (d ? format(new Date(d), "MM/dd/yyyy") : "—");
   const fmtMoney = (n: number | null) =>
     n == null ? "—" : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+
 
 
 
@@ -503,7 +537,7 @@ export default function BeverlyHeatmapFacilities() {
       </Dialog>
 
       <Dialog open={!!laneDetail} onOpenChange={(o) => !o && setLaneDetail(null)}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-[95vw] xl:max-w-[1400px]">
           <DialogHeader>
             <DialogTitle>
               {laneDetail?.type === "pickup" ? "Pickup" : "Delivery"} lanes —{" "}
@@ -515,18 +549,19 @@ export default function BeverlyHeatmapFacilities() {
           ) : detailLanes.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">No loads found.</div>
           ) : (
-            <div className="max-h-[60vh] overflow-auto border rounded-lg">
+            <div className="max-h-[70vh] overflow-auto border rounded-lg">
               <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[100px]">Load #</TableHead>
-                    <TableHead className="w-[180px]">Broker</TableHead>
-                    <TableHead className="w-[220px]">Lane</TableHead>
+                    <TableHead className="w-[110px]">Load #</TableHead>
+                    <TableHead className="w-[220px]">Broker</TableHead>
+                    <TableHead className="w-[300px]">Lane</TableHead>
                     <TableHead className="w-[110px]">PU date</TableHead>
                     <TableHead className="w-[110px]">DEL date</TableHead>
-                    <TableHead className="w-[100px] text-right">Rate</TableHead>
+                    <TableHead className="w-[110px] text-right">Rate</TableHead>
                     <TableHead className="w-[90px] text-right">Miles</TableHead>
                     <TableHead className="w-[80px] text-right">RPM</TableHead>
+                    <TableHead className="w-[70px] text-center">RC</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -549,8 +584,24 @@ export default function BeverlyHeatmapFacilities() {
                           ? (Number(l.freight_amount) / Number(l.loaded_miles)).toFixed(2)
                           : "—"}
                       </TableCell>
+                      <TableCell className="text-center">
+                        {rcFiles[l.order_id] ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            title="Open rate confirmation"
+                            onClick={() => openRc(l.order_id)}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
+
                 </TableBody>
               </Table>
             </div>
