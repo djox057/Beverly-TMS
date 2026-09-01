@@ -26,6 +26,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 
 interface FacilityRow {
@@ -37,9 +43,41 @@ interface FacilityRow {
   pickup_count: number;
   delivery_count: number;
   total_visits: number;
+  broker_count: number;
+  lat_cell: number;
+  lng_cell: number;
 }
 
-type SortKey = "company_name" | "city" | "pickup_count" | "delivery_count" | "total_visits";
+interface BrokerRow {
+  broker_id: string | null;
+  broker_name: string | null;
+  mc_number: string | null;
+  load_count: number;
+}
+
+interface LaneRow {
+  order_id: string;
+  load_number: string | null;
+  broker_name: string | null;
+  origin_city: string | null;
+  origin_state: string | null;
+  destination_city: string | null;
+  destination_state: string | null;
+  pickup_date: string | null;
+  delivery_date: string | null;
+  freight_amount: number | null;
+  loaded_miles: number | null;
+  stop_datetime: string | null;
+}
+
+type SortKey =
+  | "company_name"
+  | "city"
+  | "pickup_count"
+  | "delivery_count"
+  | "total_visits"
+  | "broker_count";
+
 
 export default function BeverlyHeatmapFacilities() {
   const [search, setSearch] = useState("");
@@ -88,6 +126,63 @@ export default function BeverlyHeatmapFacilities() {
 
   const toggleBroker = (id: string) =>
     setExcludedBrokerIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const [brokerDetail, setBrokerDetail] = useState<FacilityRow | null>(null);
+  const [laneDetail, setLaneDetail] = useState<{ row: FacilityRow; type: "pickup" | "delivery" } | null>(null);
+
+  const { data: detailBrokers = [], isLoading: brokersLoading } = useQuery({
+    queryKey: [
+      "facility-brokers",
+      brokerDetail?.lat_cell,
+      brokerDetail?.lng_cell,
+      startDateStr,
+      endDateStr,
+      excludedBrokerKey,
+    ],
+    enabled: !!brokerDetail,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_facility_brokers", {
+        p_lat_cell: brokerDetail!.lat_cell,
+        p_lng_cell: brokerDetail!.lng_cell,
+        p_start_date: startDateStr ?? null,
+        p_end_date: endDateStr ?? null,
+        p_exclude_broker_ids: excludedBrokerIds.length > 0 ? excludedBrokerIds : null,
+      });
+      if (error) throw error;
+      return (data || []) as BrokerRow[];
+    },
+  });
+
+  const { data: detailLanes = [], isLoading: lanesLoading } = useQuery({
+    queryKey: [
+      "facility-lanes",
+      laneDetail?.row.lat_cell,
+      laneDetail?.row.lng_cell,
+      laneDetail?.type,
+      startDateStr,
+      endDateStr,
+      excludedBrokerKey,
+    ],
+    enabled: !!laneDetail,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_facility_lanes", {
+        p_lat_cell: laneDetail!.row.lat_cell,
+        p_lng_cell: laneDetail!.row.lng_cell,
+        p_type: laneDetail!.type,
+        p_start_date: startDateStr ?? null,
+        p_end_date: endDateStr ?? null,
+        p_exclude_broker_ids: excludedBrokerIds.length > 0 ? excludedBrokerIds : null,
+      });
+      if (error) throw error;
+      return (data || []) as LaneRow[];
+    },
+  });
+
+  const fmtDate = (d: string | null) => (d ? format(new Date(d), "MM/dd/yyyy") : "—");
+  const fmtMoney = (n: number | null) =>
+    n == null ? "—" : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+
 
 
   const availableStates = useMemo(() => {
@@ -300,6 +395,14 @@ export default function BeverlyHeatmapFacilities() {
                     Total <SortIcon columnKey="total_visits" />
                   </span>
                 </TableHead>
+                <TableHead
+                  className="text-center w-[90px] cursor-pointer select-none"
+                  onClick={() => handleSort("broker_count")}
+                >
+                  <span className="inline-flex items-center justify-center w-full">
+                    Brokers <SortIcon columnKey="broker_count" />
+                  </span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -311,26 +414,150 @@ export default function BeverlyHeatmapFacilities() {
                   <TableCell className="text-sm">{f.state || "—"}</TableCell>
                   <TableCell className="text-sm font-mono">{f.zip_code || "—"}</TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline" className="font-mono">
-                      {f.pickup_count}
-                    </Badge>
+                    <button
+                      type="button"
+                      disabled={!f.pickup_count}
+                      onClick={() => setLaneDetail({ row: f, type: "pickup" })}
+                      className="disabled:opacity-50 disabled:cursor-default"
+                    >
+                      <Badge variant="outline" className="font-mono hover:bg-accent cursor-pointer">
+                        {f.pickup_count}
+                      </Badge>
+                    </button>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline" className="font-mono">
-                      {f.delivery_count}
-                    </Badge>
+                    <button
+                      type="button"
+                      disabled={!f.delivery_count}
+                      onClick={() => setLaneDetail({ row: f, type: "delivery" })}
+                      className="disabled:opacity-50 disabled:cursor-default"
+                    >
+                      <Badge variant="outline" className="font-mono hover:bg-accent cursor-pointer">
+                        {f.delivery_count}
+                      </Badge>
+                    </button>
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant="secondary" className="font-mono">
                       {f.total_visits}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-center">
+                    <button
+                      type="button"
+                      disabled={!f.broker_count}
+                      onClick={() => setBrokerDetail(f)}
+                      className="disabled:opacity-50 disabled:cursor-default"
+                    >
+                      <Badge variant="outline" className="font-mono hover:bg-accent cursor-pointer">
+                        {f.broker_count}
+                      </Badge>
+                    </button>
+                  </TableCell>
                 </TableRow>
               ))}
+
             </TableBody>
           </Table>
         </div>
       )}
+
+      <Dialog open={!!brokerDetail} onOpenChange={(o) => !o && setBrokerDetail(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Brokers — {brokerDetail?.company_name || brokerDetail?.address || "Facility"}
+            </DialogTitle>
+          </DialogHeader>
+          {brokersLoading ? (
+            <div className="py-8 text-center text-muted-foreground">Loading brokers...</div>
+          ) : detailBrokers.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">No brokers found.</div>
+          ) : (
+            <div className="max-h-[60vh] overflow-y-auto border rounded-lg">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[280px]">Broker</TableHead>
+                    <TableHead className="w-[120px]">MC</TableHead>
+                    <TableHead className="w-[90px] text-center">Loads</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailBrokers.map((b, i) => (
+                    <TableRow key={b.broker_id ?? i} className="hover:bg-transparent">
+                      <TableCell className="text-sm">{b.broker_name || "No broker"}</TableCell>
+                      <TableCell className="text-sm font-mono">{b.mc_number || "—"}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="font-mono">
+                          {b.load_count}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!laneDetail} onOpenChange={(o) => !o && setLaneDetail(null)}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>
+              {laneDetail?.type === "pickup" ? "Pickup" : "Delivery"} lanes —{" "}
+              {laneDetail?.row.company_name || laneDetail?.row.address || "Facility"}
+            </DialogTitle>
+          </DialogHeader>
+          {lanesLoading ? (
+            <div className="py-8 text-center text-muted-foreground">Loading lanes...</div>
+          ) : detailLanes.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">No loads found.</div>
+          ) : (
+            <div className="max-h-[60vh] overflow-auto border rounded-lg">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[100px]">Load #</TableHead>
+                    <TableHead className="w-[180px]">Broker</TableHead>
+                    <TableHead className="w-[220px]">Lane</TableHead>
+                    <TableHead className="w-[110px]">PU date</TableHead>
+                    <TableHead className="w-[110px]">DEL date</TableHead>
+                    <TableHead className="w-[100px] text-right">Rate</TableHead>
+                    <TableHead className="w-[90px] text-right">Miles</TableHead>
+                    <TableHead className="w-[80px] text-right">RPM</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailLanes.map((l) => (
+                    <TableRow key={l.order_id} className="hover:bg-transparent">
+                      <TableCell className="text-sm font-mono">{l.load_number || "—"}</TableCell>
+                      <TableCell className="text-sm truncate">{l.broker_name || "—"}</TableCell>
+                      <TableCell className="text-sm">
+                        {(l.origin_city || "—")}, {l.origin_state || "—"} → {(l.destination_city || "—")},{" "}
+                        {l.destination_state || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm">{fmtDate(l.pickup_date)}</TableCell>
+                      <TableCell className="text-sm">{fmtDate(l.delivery_date)}</TableCell>
+                      <TableCell className="text-sm text-right font-mono">{fmtMoney(l.freight_amount)}</TableCell>
+                      <TableCell className="text-sm text-right font-mono">
+                        {l.loaded_miles != null ? Math.round(Number(l.loaded_miles)) : "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-right font-mono">
+                        {l.freight_amount && l.loaded_miles
+                          ? (Number(l.freight_amount) / Number(l.loaded_miles)).toFixed(2)
+                          : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }

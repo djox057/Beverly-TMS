@@ -5773,6 +5773,45 @@ export type Database = {
         }[]
       }
       get_driver_id_for_user: { Args: never; Returns: string }
+      get_facility_brokers: {
+        Args: {
+          p_end_date?: string
+          p_exclude_broker_ids?: string[]
+          p_lat_cell: number
+          p_lng_cell: number
+          p_start_date?: string
+        }
+        Returns: {
+          broker_id: string
+          broker_name: string
+          load_count: number
+          mc_number: string
+        }[]
+      }
+      get_facility_lanes: {
+        Args: {
+          p_end_date?: string
+          p_exclude_broker_ids?: string[]
+          p_lat_cell: number
+          p_lng_cell: number
+          p_start_date?: string
+          p_type: string
+        }
+        Returns: {
+          broker_name: string
+          delivery_date: string
+          destination_city: string
+          destination_state: string
+          freight_amount: number
+          load_number: string
+          loaded_miles: number
+          order_id: string
+          origin_city: string
+          origin_state: string
+          pickup_date: string
+          stop_datetime: string
+        }[]
+      }
       get_facility_visit_counts: {
         Args: {
           p_end_date?: string
@@ -5781,9 +5820,12 @@ export type Database = {
         }
         Returns: {
           address: string
+          broker_count: number
           city: string
           company_name: string
           delivery_count: number
+          lat_cell: number
+          lng_cell: number
           pickup_count: number
           state: string
           total_visits: number
