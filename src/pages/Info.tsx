@@ -4,7 +4,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getCompanyBackgroundColor } from "@/pages/Reports/helpers";
 import { CompanyCoiSection } from "@/components/info/CompanyCoiSection";
 
-
 type Cred = { user: string; password: string };
 
 type Company = {
@@ -155,14 +154,19 @@ const extensions = [
   { name: "Safety", ext: "3" },
   { name: "Recruiting", ext: "4" },
   { name: "Claims", ext: "6" },
-  { name: "Maintenance", ext: "7" },
+  { name: "Maintenance", ext: "11" },
   { name: "ELD", ext: "8" },
 ];
 
 const reps: { mc: string; name: string; contact: string; note?: string }[] = [
   { mc: "595216", name: "PEPSI LOGISTICS COMPANY INC", contact: "alanmccall1234@gmail.com" },
   { mc: "945637", name: "EMERGE TRANSPORTATION", contact: "chadwomack3@gmail.com" },
-  { mc: "511639", name: "ECHO GLOBAL LOGISTICS, INC.", contact: "djohnsenecho@gmail.com", note: "Samo na Beverly Freight" },
+  {
+    mc: "511639",
+    name: "ECHO GLOBAL LOGISTICS, INC.",
+    contact: "djohnsenecho@gmail.com",
+    note: "Samo na Beverly Freight",
+  },
   { mc: "304386", name: "BLUE-GRACE LOGISTICS LLC", contact: "hhaakerbg@gmail.com" },
   { mc: "412533", name: "Redwood", contact: "kendalloliver1994@gmail.com" },
   { mc: "131029", name: "C.H. ROBINSON COMPANY, LLC", contact: "mcarusiello99@gmail.com" },
@@ -230,7 +234,6 @@ const CompanyCard = ({ c }: { c: Company }) => (
     </div>
     <CompanyCoiSection companyName={c.name} />
   </Card>
-
 );
 
 export default function Info() {
@@ -290,21 +293,33 @@ export default function Info() {
               <Card className="p-4 select-text">
                 <h3 className="font-semibold mb-2">Inspection emails</h3>
                 <ul className="text-sm space-y-1">
-                  {inspectionEmails.map((e) => <li key={e} className="break-all">{e}</li>)}
+                  {inspectionEmails.map((e) => (
+                    <li key={e} className="break-all">
+                      {e}
+                    </li>
+                  ))}
                 </ul>
               </Card>
 
               <Card className="p-4 select-text">
                 <h3 className="font-semibold mb-2">Accident emails</h3>
                 <ul className="text-sm space-y-1">
-                  {accidentEmails.map((e) => <li key={e} className="break-all">{e}</li>)}
+                  {accidentEmails.map((e) => (
+                    <li key={e} className="break-all">
+                      {e}
+                    </li>
+                  ))}
                 </ul>
               </Card>
 
               <Card className="p-4 select-text">
                 <h3 className="font-semibold mb-2">2-week notice emails</h3>
                 <ul className="text-sm space-y-1">
-                  {twoWeekNoticeEmails.map((e) => <li key={e} className="break-all">{e}</li>)}
+                  {twoWeekNoticeEmails.map((e) => (
+                    <li key={e} className="break-all">
+                      {e}
+                    </li>
+                  ))}
                 </ul>
               </Card>
             </div>
@@ -338,7 +353,11 @@ export default function Info() {
 
         <TabsContent value="portals" className="space-y-4">
           {portalsByCompany.map((g) => (
-            <Card key={g.company} className="p-4 select-text border-2" style={{ ...getCompanyBackgroundColor(g.company) }}>
+            <Card
+              key={g.company}
+              className="p-4 select-text border-2"
+              style={{ ...getCompanyBackgroundColor(g.company) }}
+            >
               <h3 className="font-semibold mb-2">{g.company}</h3>
               {g.portals.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No portals listed.</p>
