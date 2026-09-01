@@ -222,7 +222,8 @@ const LiveOilChange = () => {
       await Promise.all(
         ids.map(async (id) => {
           const { data } = await supabase.storage
-            .from("truck-odometer-files").list(id, { limit: 5 });
+            .from("truck-odometer-files")
+            .list(id, { limit: 1, sortBy: { column: "created_at", order: "desc" } });
           map[id] = data && data.length > 0 ? data[0].name : null;
         }),
       );
@@ -237,14 +238,7 @@ const LiveOilChange = () => {
       toast({ title: "Invalid file", description: "Only images or PDF are allowed", variant: "destructive" });
       return;
     }
-    // Remove any existing files first (replace behavior)
-    const { data: existing } = await supabase.storage
-      .from("truck-odometer-files").list(truckId, { limit: 100 });
-    if (existing && existing.length > 0) {
-      await supabase.storage
-        .from("truck-odometer-files")
-        .remove(existing.map((f) => `${truckId}/${f.name}`));
-    }
+    // Previous uploads are kept so the odometer history stays available.
     const ext = file.name.split(".").pop() || "bin";
     const safeName = `odometer-${Date.now()}.${ext}`;
     const { error } = await supabase.storage
@@ -256,7 +250,9 @@ const LiveOilChange = () => {
     }
     toast({ title: "Odometer uploaded" });
     refetchOdometer();
+    queryClient.invalidateQueries({ queryKey: ["odometer-file-history", truckId] });
   };
+
 
   const viewOdometer = async (truckId: string, fileName: string) => {
     const { data, error } = await supabase.storage
