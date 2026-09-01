@@ -46,6 +46,8 @@ export default function BeverlyHeatmapFacilities() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [statesOpen, setStatesOpen] = useState(false);
+  const [excludedBrokerIds, setExcludedBrokerIds] = useState<string[]>([]);
+  const [brokersOpen, setBrokersOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "total_visits",
     dir: "desc",
@@ -54,18 +56,39 @@ export default function BeverlyHeatmapFacilities() {
   const startDateStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
   const endDateStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
 
+  const { data: brokers = [] } = useQuery({
+    queryKey: ["heatmap-brokers-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("brokers")
+        .select("id, name, mc_number")
+        .order("name", { ascending: true })
+        .limit(2000);
+      if (error) throw error;
+      return (data || []) as { id: string; name: string | null; mc_number: string | null }[];
+    },
+    staleTime: 30 * 60 * 1000,
+  });
+
+  const excludedBrokerKey = useMemo(() => [...excludedBrokerIds].sort().join(","), [excludedBrokerIds]);
+
   const { data: facilities = [], isLoading } = useQuery({
-    queryKey: ["facility-visit-counts", startDateStr, endDateStr],
+    queryKey: ["facility-visit-counts", startDateStr, endDateStr, excludedBrokerKey],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_facility_visit_counts", {
         p_start_date: startDateStr ?? null,
         p_end_date: endDateStr ?? null,
+        p_exclude_broker_ids: excludedBrokerIds.length > 0 ? excludedBrokerIds : null,
       });
       if (error) throw error;
       return (data || []) as FacilityRow[];
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  const toggleBroker = (id: string) =>
+    setExcludedBrokerIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
 
   const availableStates = useMemo(() => {
     const set = new Set<string>();
@@ -178,6 +201,46 @@ export default function BeverlyHeatmapFacilities() {
         {selectedStates.length > 0 && (
           <Button variant="ghost" size="sm" onClick={() => setSelectedStates([])}>
             <X className="h-4 w-4 mr-1" /> Clear states
+          </Button>
+        )}
+        <Popover open={brokersOpen} onOpenChange={setBrokersOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[260px] justify-between font-normal">
+              <span className="truncate">
+                {excludedBrokerIds.length === 0
+                  ? "Exclude brokers"
+                  : `${excludedBrokerIds.length} broker${excludedBrokerIds.length > 1 ? "s" : ""} excluded`}
+              </span>
+              <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[320px] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search broker..." />
+              <CommandList>
+                <CommandEmpty>No broker found.</CommandEmpty>
+                <CommandGroup>
+                  {brokers.map((b) => (
+                    <CommandItem
+                      key={b.id}
+                      value={`${b.name ?? ""} ${b.mc_number ?? ""}`}
+                      onSelect={() => toggleBroker(b.id)}
+                    >
+                      <Checkbox checked={excludedBrokerIds.includes(b.id)} className="mr-2" />
+                      <span className="truncate">
+                        {b.name || "Unnamed"}
+                        {b.mc_number ? ` (MC ${b.mc_number})` : ""}
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        {excludedBrokerIds.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => setExcludedBrokerIds([])}>
+            <X className="h-4 w-4 mr-1" /> Clear brokers
           </Button>
         )}
         <Badge variant="outline" className="text-xs whitespace-nowrap">
