@@ -6,15 +6,61 @@
 import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
 
 // src/lib/mcp/tools/list-drivers.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.78.0";
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z } from "npm:zod@^3.23.8";
+
+// src/lib/mcp/supabase.ts
+import { createClient } from "npm:@supabase/supabase-js@^2.78.0";
+function runtimeEnv(name) {
+  const runtime = globalThis;
+  return runtime.Deno?.env?.get?.(name) ?? runtime.process?.env?.[name];
+}
+function configuredEnv(names) {
+  for (const name of names) {
+    const value = runtimeEnv(name)?.trim();
+    if (value) return value;
+  }
+  return void 0;
+}
+function supabaseProjectUrl() {
+  const url = configuredEnv(["SUPABASE_URL", "VITE_SUPABASE_URL"]);
+  if (!url) throw new Error("SUPABASE_URL (or VITE_SUPABASE_URL) is required");
+  return url;
+}
+function supabasePublishableKey() {
+  const direct = configuredEnv([
+    "SUPABASE_PUBLISHABLE_KEY",
+    "VITE_SUPABASE_PUBLISHABLE_KEY"
+  ]);
+  if (direct) return direct;
+  const keyset = runtimeEnv("SUPABASE_PUBLISHABLE_KEYS");
+  if (keyset) {
+    try {
+      const parsed = JSON.parse(keyset);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const keys = parsed;
+        const key = [keys.default, ...Object.values(keys)].find((v) => typeof v === "string" && v.trim().startsWith("sb_publishable_"))?.trim();
+        if (key) return key;
+      }
+    } catch {
+    }
+  }
+  const legacy = configuredEnv(["SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY"]);
+  if (legacy) return legacy;
+  throw new Error(
+    "SUPABASE_PUBLISHABLE_KEY, SUPABASE_PUBLISHABLE_KEYS, or SUPABASE_ANON_KEY is required"
+  );
+}
 function supabaseForUser(ctx) {
-  return createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "", {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+  const token = ctx.getToken();
+  if (!token) throw new Error("supabaseForUser requires a verified OAuth token");
+  return createClient(supabaseProjectUrl(), supabasePublishableKey(), {
+    global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
+
+// src/lib/mcp/tools/list-drivers.ts
 var list_drivers_default = defineTool({
   name: "list_drivers",
   title: "List drivers",
@@ -43,15 +89,8 @@ var list_drivers_default = defineTool({
 });
 
 // src/lib/mcp/tools/list-trucks.ts
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.78.0";
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z2 } from "npm:zod@^3.23.8";
-function supabaseForUser2(ctx) {
-  return createClient2(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "", {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var list_trucks_default = defineTool2({
   name: "list_trucks",
   title: "List trucks",
@@ -66,7 +105,7 @@ var list_trucks_default = defineTool2({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser2(ctx);
+    const supabase = supabaseForUser(ctx);
     let query = supabase.from("trucks").select("id, truck_number, vin, plate, company_id, status").order("truck_number", { ascending: true }).limit(limit ?? 50);
     if (truck_number_contains) query = query.ilike("truck_number", `%${truck_number_contains}%`);
     if (company_id) query = query.eq("company_id", company_id);
@@ -80,15 +119,8 @@ var list_trucks_default = defineTool2({
 });
 
 // src/lib/mcp/tools/list-recent-orders.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.78.0";
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z3 } from "npm:zod@^3.23.8";
-function supabaseForUser3(ctx) {
-  return createClient3(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "", {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var list_recent_orders_default = defineTool3({
   name: "list_recent_orders",
   title: "List recent orders",
@@ -104,7 +136,7 @@ var list_recent_orders_default = defineTool3({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser3(ctx);
+    const supabase = supabaseForUser(ctx);
     let query = supabase.from("orders").select("id, load_number, internal_load_number, status, canceled, pickup_datetime, delivery_datetime, freight_amount, driver_price, booked_by, deleted_truck_number, broker_id, created_at").order("created_at", { ascending: false }).limit(limit ?? 25);
     if (status) query = query.eq("status", status);
     if (!include_canceled) query = query.eq("canceled", false);
@@ -123,15 +155,8 @@ var list_recent_orders_default = defineTool3({
 });
 
 // src/lib/mcp/tools/list-brokers.ts
-import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.78.0";
 import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z4 } from "npm:zod@^3.23.8";
-function supabaseForUser4(ctx) {
-  return createClient4(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "", {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var list_brokers_default = defineTool4({
   name: "list_brokers",
   title: "List brokers",
@@ -145,7 +170,7 @@ var list_brokers_default = defineTool4({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser4(ctx);
+    const supabase = supabaseForUser(ctx);
     let query = supabase.from("brokers").select("id, name, mc_number, address, credit_status, credit_limit_amount, credit_used_amount").order("name", { ascending: true }).limit(limit ?? 50);
     if (search) query = query.or(`name.ilike.%${search}%,mc_number.ilike.%${search}%`);
     const { data, error } = await query;
@@ -158,15 +183,8 @@ var list_brokers_default = defineTool4({
 });
 
 // src/lib/mcp/tools/list-companies.ts
-import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.78.0";
 import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z5 } from "npm:zod@^3.23.8";
-function supabaseForUser5(ctx) {
-  return createClient5(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "", {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var list_companies_default = defineTool5({
   name: "list_companies",
   title: "List companies",
@@ -179,7 +197,7 @@ var list_companies_default = defineTool5({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser5(ctx);
+    const supabase = supabaseForUser(ctx);
     const { data, error } = await supabase.from("companies").select("id, name, created_at").order("name", { ascending: true }).limit(limit ?? 100);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
@@ -190,15 +208,8 @@ var list_companies_default = defineTool5({
 });
 
 // src/lib/mcp/tools/get-order-details.ts
-import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.78.0";
 import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z6 } from "npm:zod@^3.23.8";
-function supabaseForUser6(ctx) {
-  return createClient6(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "", {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var get_order_details_default = defineTool6({
   name: "get_order_details",
   title: "Get order details",
@@ -215,7 +226,7 @@ var get_order_details_default = defineTool6({
     if (!load_number && !order_id) {
       return { content: [{ type: "text", text: "Provide either load_number or order_id" }], isError: true };
     }
-    const supabase = supabaseForUser6(ctx);
+    const supabase = supabaseForUser(ctx);
     let query = supabase.from("orders").select("*").limit(5);
     if (order_id) query = query.eq("id", order_id);
     else query = query.or(`load_number.eq.${load_number},internal_load_number.eq.${load_number}`);
@@ -238,15 +249,8 @@ var get_order_details_default = defineTool6({
 });
 
 // src/lib/mcp/tools/search-orders-by-date.ts
-import { createClient as createClient7 } from "npm:@supabase/supabase-js@^2.78.0";
 import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z7 } from "npm:zod@^3.23.8";
-function supabaseForUser7(ctx) {
-  return createClient7(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "", {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var search_orders_by_date_default = defineTool7({
   name: "search_orders_by_date",
   title: "Search orders by date range",
@@ -265,7 +269,7 @@ var search_orders_by_date_default = defineTool7({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser7(ctx);
+    const supabase = supabaseForUser(ctx);
     const col = date_field === "delivery" ? "delivery_datetime" : "pickup_datetime";
     let query = supabase.from("orders").select(
       "id, load_number, internal_load_number, load_company_code, status, canceled, pickup_datetime, delivery_datetime, freight_amount, driver_price, loaded_miles, dh_miles, booked_by, deleted_truck_number"
@@ -283,15 +287,8 @@ var search_orders_by_date_default = defineTool7({
 });
 
 // src/lib/mcp/tools/get-truck-location.ts
-import { createClient as createClient8 } from "npm:@supabase/supabase-js@^2.78.0";
 import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z8 } from "npm:zod@^3.23.8";
-function supabaseForUser8(ctx) {
-  return createClient8(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "", {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var get_truck_location_default = defineTool8({
   name: "get_truck_location",
   title: "Get truck locations",
@@ -305,7 +302,7 @@ var get_truck_location_default = defineTool8({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser8(ctx);
+    const supabase = supabaseForUser(ctx);
     if (truck_number) {
       const { data: data2, error: error2 } = await supabase.from("truck_locations").select("truck_id, truck_number, latitude, longitude, location_timestamp, speed, heading").eq("truck_number", truck_number).order("location_timestamp", { ascending: false }).limit(1);
       if (error2) return { content: [{ type: "text", text: error2.message }], isError: true };
@@ -325,15 +322,8 @@ var get_truck_location_default = defineTool8({
 });
 
 // src/lib/mcp/tools/list-driver-expenses.ts
-import { createClient as createClient9 } from "npm:@supabase/supabase-js@^2.78.0";
 import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z9 } from "npm:zod@^3.23.8";
-function supabaseForUser9(ctx) {
-  return createClient9(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "", {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var list_driver_expenses_default = defineTool9({
   name: "list_driver_expenses",
   title: "List driver expenses",
@@ -351,7 +341,7 @@ var list_driver_expenses_default = defineTool9({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser9(ctx);
+    const supabase = supabaseForUser(ctx);
     let query = supabase.from("driver_expenses").select(
       "id, driver_id, truck_number, trailer_number, name, explanation, expense_date, amount, status, paid_date, paid_amount, expense_type"
     ).order("expense_date", { ascending: false }).limit(limit ?? 100);
@@ -370,15 +360,8 @@ var list_driver_expenses_default = defineTool9({
 });
 
 // src/lib/mcp/tools/get-dispatcher-performance.ts
-import { createClient as createClient10 } from "npm:@supabase/supabase-js@^2.78.0";
 import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z10 } from "npm:zod@^3.23.8";
-function supabaseForUser10(ctx) {
-  return createClient10(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "", {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var get_dispatcher_performance_default = defineTool10({
   name: "get_dispatcher_performance",
   title: "Get dispatcher performance",
@@ -396,7 +379,7 @@ var get_dispatcher_performance_default = defineTool10({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser10(ctx);
+    const supabase = supabaseForUser(ctx);
     let query = supabase.from("analytics_dispatcher_period").select(
       "dispatcher_id, dispatcher_name, office, period_type, period_start, period_end, total_freight, total_driver_rate, dispatcher_cut, total_miles, rate_per_mile, order_count, avg_trucks, last_calculated_at"
     ).order("period_start", { ascending: false }).limit(limit ?? 100);
@@ -415,15 +398,8 @@ var get_dispatcher_performance_default = defineTool10({
 });
 
 // src/lib/mcp/tools/list-heatmap-facilities.ts
-import { createClient as createClient11 } from "npm:@supabase/supabase-js@^2.78.0";
 import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z11 } from "npm:zod@^3.23.8";
-function supabaseForUser11(ctx) {
-  return createClient11(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "", {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var list_heatmap_facilities_default = defineTool11({
   name: "list_heatmap_facilities",
   title: "List Beverly heatmap facilities",
@@ -441,7 +417,7 @@ var list_heatmap_facilities_default = defineTool11({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const supabase = supabaseForUser11(ctx);
+    const supabase = supabaseForUser(ctx);
     const { data, error } = await supabase.rpc("get_facility_visit_counts", {
       p_start_date: start_date ?? null,
       p_end_date: end_date ?? null
