@@ -78,6 +78,7 @@ const Trucks = () => {
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("active");
+  const { data: changedTruckIds } = useChangedTrucks(statusFilter === "changed");
   const [showDoneConfirmation, setShowDoneConfirmation] = useState(false);
   const [showNoteDialog, setShowNoteDialog] = useState(false);
   const [terminationNote, setTerminationNote] = useState("");
