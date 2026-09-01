@@ -168,11 +168,12 @@ const Trucks = () => {
       const matchesStatus = statusFilter === "all" || 
         (statusFilter === "active" && truck.is_active !== false) || 
         (statusFilter === "inactive" && truck.is_active === false) ||
-        (statusFilter === "oos" && resolveTruckOos(truck.id, truck.oos === true));
+        (statusFilter === "oos" && resolveTruckOos(truck.id, truck.oos === true)) ||
+        (statusFilter === "changed" && truck.is_active !== false && !!changedTruckIds?.has(truck.id));
       
       return matchesSearch && matchesCompany && matchesAssignment && matchesStatus;
     }) || [];
-  }, [trucks, searchTerm, companyFilter, assignmentFilter, statusFilter]);
+  }, [trucks, searchTerm, companyFilter, assignmentFilter, statusFilter, changedTruckIds, resolveTruckOos]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTrucks.length / ITEMS_PER_PAGE);
