@@ -203,6 +203,46 @@ export default function BeverlyHeatmapFacilities() {
             <X className="h-4 w-4 mr-1" /> Clear states
           </Button>
         )}
+        <Popover open={brokersOpen} onOpenChange={setBrokersOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[260px] justify-between font-normal">
+              <span className="truncate">
+                {excludedBrokerIds.length === 0
+                  ? "Exclude brokers"
+                  : `${excludedBrokerIds.length} broker${excludedBrokerIds.length > 1 ? "s" : ""} excluded`}
+              </span>
+              <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[320px] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search broker..." />
+              <CommandList>
+                <CommandEmpty>No broker found.</CommandEmpty>
+                <CommandGroup>
+                  {brokers.map((b) => (
+                    <CommandItem
+                      key={b.id}
+                      value={`${b.name ?? ""} ${b.mc_number ?? ""}`}
+                      onSelect={() => toggleBroker(b.id)}
+                    >
+                      <Checkbox checked={excludedBrokerIds.includes(b.id)} className="mr-2" />
+                      <span className="truncate">
+                        {b.name || "Unnamed"}
+                        {b.mc_number ? ` (MC ${b.mc_number})` : ""}
+                      </span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        {excludedBrokerIds.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => setExcludedBrokerIds([])}>
+            <X className="h-4 w-4 mr-1" /> Clear brokers
+          </Button>
+        )}
         <Badge variant="outline" className="text-xs whitespace-nowrap">
           {filtered.length} facilities
         </Badge>
