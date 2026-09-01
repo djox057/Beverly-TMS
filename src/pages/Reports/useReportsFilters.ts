@@ -32,6 +32,11 @@ export function useReportsFilters() {
     return saved ? JSON.parse(saved) : false;
   });
 
+  const [showOosTrucks, setShowOosTrucks] = useState(() => {
+    const saved = localStorage.getItem("reports-showOosTrucks");
+    return saved ? JSON.parse(saved) : false;
+  });
+
   const [truckDriverFilter, setTruckDriverFilter] = useState(() => {
     return localStorage.getItem("reports-truckDriverFilter") || "";
   });
@@ -68,6 +73,10 @@ export function useReportsFilters() {
   useEffect(() => {
     localStorage.setItem("reports-showProblems", JSON.stringify(showProblems));
   }, [showProblems]);
+
+  useEffect(() => {
+    localStorage.setItem("reports-showOosTrucks", JSON.stringify(showOosTrucks));
+  }, [showOosTrucks]);
 
   useEffect(() => {
     localStorage.setItem("reports-truckDriverFilter", truckDriverFilter);
@@ -139,6 +148,8 @@ export function useReportsFilters() {
     setShowLateTrucks,
     showProblems,
     setShowProblems,
+    showOosTrucks,
+    setShowOosTrucks,
     truckDriverFilter,
     setTruckDriverFilter,
     dispatchNameFilter,
@@ -162,6 +173,7 @@ export function useReportsFilters() {
     showTwoWeekNotice,
     showLateTrucks,
     showProblems,
+    showOosTrucks,
     truckDriverFilter,
     dispatchNameFilter,
     loadNumberFilter,
