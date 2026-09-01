@@ -155,7 +155,7 @@ const Trailers = () => {
       
       return matchesSearch && matchesAssignment && matchesStatus && matchesCompany;
     }) || [];
-  }, [trailers, searchTerm, assignmentFilter, statusFilter, companyFilter, trailerCompanyMap]);
+  }, [trailers, searchTerm, assignmentFilter, statusFilter, companyFilter, trailerCompanyMap, changedTrailerIds]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
