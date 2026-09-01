@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.log_truck_mileage_history() FROM PUBLIC, anon, authenticated;
