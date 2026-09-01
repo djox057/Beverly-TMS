@@ -414,13 +414,73 @@ var get_dispatcher_performance_default = defineTool10({
   }
 });
 
+// src/lib/mcp/tools/list-heatmap-facilities.ts
+import { createClient as createClient11 } from "npm:@supabase/supabase-js@^2.78.0";
+import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z11 } from "npm:zod@^3.23.8";
+function supabaseForUser11(ctx) {
+  return createClient11(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var list_heatmap_facilities_default = defineTool11({
+  name: "list_heatmap_facilities",
+  title: "List Beverly heatmap facilities",
+  description: "List shipper/receiver facilities from the Beverly heatmap with pickup, delivery and total visit counts. Optionally restrict to a date range (pickup/delivery dates), filter by state or a name/city/address substring, and sort by visits.",
+  inputSchema: {
+    start_date: z11.string().optional().describe("Start date (YYYY-MM-DD) of the visit window."),
+    end_date: z11.string().optional().describe("End date (YYYY-MM-DD) of the visit window."),
+    state: z11.string().optional().describe("Two-letter state code filter, e.g. IL."),
+    search: z11.string().optional().describe("Case-insensitive substring match on company name, city, or address."),
+    sort_by: z11.enum(["total_visits", "pickup_count", "delivery_count", "company_name", "city"]).optional().describe("Sort key (default total_visits, descending for counts)."),
+    limit: z11.number().int().min(1).max(500).optional().describe("Max rows to return (default 100).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ start_date, end_date, state, search, sort_by, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const supabase = supabaseForUser11(ctx);
+    const { data, error } = await supabase.rpc("get_facility_visit_counts", {
+      p_start_date: start_date ?? null,
+      p_end_date: end_date ?? null
+    });
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    let rows = data ?? [];
+    if (state) {
+      const st = state.trim().toUpperCase();
+      rows = rows.filter((r) => (r.state || "").trim().toUpperCase() === st);
+    }
+    if (search) {
+      const q = search.toLowerCase().trim();
+      rows = rows.filter(
+        (r) => (r.company_name || "").toLowerCase().includes(q) || (r.city || "").toLowerCase().includes(q) || (r.address || "").toLowerCase().includes(q)
+      );
+    }
+    const key = sort_by ?? "total_visits";
+    const isText = key === "company_name" || key === "city";
+    rows = [...rows].sort((a, b) => {
+      if (isText) {
+        return String(a[key] ?? "").localeCompare(String(b[key] ?? ""));
+      }
+      return Number(b[key] ?? 0) - Number(a[key] ?? 0);
+    });
+    const sliced = rows.slice(0, limit ?? 100);
+    return {
+      content: [{ type: "text", text: JSON.stringify(sliced) }],
+      structuredContent: { facilities: sliced, total_matched: rows.length }
+    };
+  }
+});
+
 // src/lib/mcp/index.ts
 var projectRef = "wjkbtagwgjniilmgwutb";
 var mcp_default = defineMcp({
   name: "beverly-tms-mcp",
   title: "Beverly TMS",
-  version: "0.2.0",
-  instructions: "Read-only access to Beverly TMS trucking dispatch data for the signed-in user. Use `list_drivers`, `list_trucks`, `list_brokers`, and `list_companies` to resolve entities; `list_recent_orders`, `search_orders_by_date`, and `get_order_details` for loads; `get_truck_location` for GPS positions; `list_driver_expenses` for driver debts; and `get_dispatcher_performance` for precalculated dispatcher metrics (freight, miles, RPM). All results are scoped by the user's role and RLS.",
+  version: "0.3.0",
+  instructions: "Read-only access to Beverly TMS trucking dispatch data for the signed-in user. Use `list_drivers`, `list_trucks`, `list_brokers`, and `list_companies` to resolve entities; `list_recent_orders`, `search_orders_by_date`, and `get_order_details` for loads; `get_truck_location` for GPS positions; `list_driver_expenses` for driver debts; and `get_dispatcher_performance` for precalculated dispatcher metrics (freight, miles, RPM); and `list_heatmap_facilities` for Beverly heatmap facility visit counts (pickups/deliveries by shipper/receiver location). All results are scoped by the user's role and RLS.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
@@ -435,7 +495,8 @@ var mcp_default = defineMcp({
     search_orders_by_date_default,
     get_truck_location_default,
     list_driver_expenses_default,
-    get_dispatcher_performance_default
+    get_dispatcher_performance_default,
+    list_heatmap_facilities_default
   ]
 });
 

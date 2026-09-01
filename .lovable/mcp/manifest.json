@@ -12,7 +12,7 @@
   "mcp": {
     "server": {
       "name": "beverly-tms-mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "title": "Beverly TMS"
     },
     "tools": [
@@ -357,6 +357,57 @@
             "to_period_start": {
               "type": "string",
               "description": "Latest period_start, YYYY-MM-DD."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Max rows to return (default 100)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_heatmap_facilities",
+        "title": "List Beverly heatmap facilities",
+        "description": "List shipper/receiver facilities from the Beverly heatmap with pickup, delivery and total visit counts. Optionally restrict to a date range (pickup/delivery dates), filter by state or a name/city/address substring, and sort by visits.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "start_date": {
+              "type": "string",
+              "description": "Start date (YYYY-MM-DD) of the visit window."
+            },
+            "end_date": {
+              "type": "string",
+              "description": "End date (YYYY-MM-DD) of the visit window."
+            },
+            "state": {
+              "type": "string",
+              "description": "Two-letter state code filter, e.g. IL."
+            },
+            "search": {
+              "type": "string",
+              "description": "Case-insensitive substring match on company name, city, or address."
+            },
+            "sort_by": {
+              "type": "string",
+              "enum": [
+                "total_visits",
+                "pickup_count",
+                "delivery_count",
+                "company_name",
+                "city"
+              ],
+              "description": "Sort key (default total_visits, descending for counts)."
             },
             "limit": {
               "type": "integer",
