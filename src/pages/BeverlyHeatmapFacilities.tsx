@@ -127,6 +127,63 @@ export default function BeverlyHeatmapFacilities() {
   const toggleBroker = (id: string) =>
     setExcludedBrokerIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
+  const [brokerDetail, setBrokerDetail] = useState<FacilityRow | null>(null);
+  const [laneDetail, setLaneDetail] = useState<{ row: FacilityRow; type: "pickup" | "delivery" } | null>(null);
+
+  const { data: detailBrokers = [], isLoading: brokersLoading } = useQuery({
+    queryKey: [
+      "facility-brokers",
+      brokerDetail?.lat_cell,
+      brokerDetail?.lng_cell,
+      startDateStr,
+      endDateStr,
+      excludedBrokerKey,
+    ],
+    enabled: !!brokerDetail,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_facility_brokers", {
+        p_lat_cell: brokerDetail!.lat_cell,
+        p_lng_cell: brokerDetail!.lng_cell,
+        p_start_date: startDateStr ?? null,
+        p_end_date: endDateStr ?? null,
+        p_exclude_broker_ids: excludedBrokerIds.length > 0 ? excludedBrokerIds : null,
+      });
+      if (error) throw error;
+      return (data || []) as BrokerRow[];
+    },
+  });
+
+  const { data: detailLanes = [], isLoading: lanesLoading } = useQuery({
+    queryKey: [
+      "facility-lanes",
+      laneDetail?.row.lat_cell,
+      laneDetail?.row.lng_cell,
+      laneDetail?.type,
+      startDateStr,
+      endDateStr,
+      excludedBrokerKey,
+    ],
+    enabled: !!laneDetail,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_facility_lanes", {
+        p_lat_cell: laneDetail!.row.lat_cell,
+        p_lng_cell: laneDetail!.row.lng_cell,
+        p_type: laneDetail!.type,
+        p_start_date: startDateStr ?? null,
+        p_end_date: endDateStr ?? null,
+        p_exclude_broker_ids: excludedBrokerIds.length > 0 ? excludedBrokerIds : null,
+      });
+      if (error) throw error;
+      return (data || []) as LaneRow[];
+    },
+  });
+
+  const fmtDate = (d: string | null) => (d ? format(new Date(d), "MM/dd/yyyy") : "—");
+  const fmtMoney = (n: number | null) =>
+    n == null ? "—" : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+
+
 
   const availableStates = useMemo(() => {
     const set = new Set<string>();
