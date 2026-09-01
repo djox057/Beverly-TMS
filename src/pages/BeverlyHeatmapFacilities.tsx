@@ -461,6 +461,103 @@ export default function BeverlyHeatmapFacilities() {
           </Table>
         </div>
       )}
+
+      <Dialog open={!!brokerDetail} onOpenChange={(o) => !o && setBrokerDetail(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Brokers — {brokerDetail?.company_name || brokerDetail?.address || "Facility"}
+            </DialogTitle>
+          </DialogHeader>
+          {brokersLoading ? (
+            <div className="py-8 text-center text-muted-foreground">Loading brokers...</div>
+          ) : detailBrokers.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">No brokers found.</div>
+          ) : (
+            <div className="max-h-[60vh] overflow-y-auto border rounded-lg">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[280px]">Broker</TableHead>
+                    <TableHead className="w-[120px]">MC</TableHead>
+                    <TableHead className="w-[90px] text-center">Loads</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailBrokers.map((b, i) => (
+                    <TableRow key={b.broker_id ?? i} className="hover:bg-transparent">
+                      <TableCell className="text-sm">{b.broker_name || "No broker"}</TableCell>
+                      <TableCell className="text-sm font-mono">{b.mc_number || "—"}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="font-mono">
+                          {b.load_count}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!laneDetail} onOpenChange={(o) => !o && setLaneDetail(null)}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>
+              {laneDetail?.type === "pickup" ? "Pickup" : "Delivery"} lanes —{" "}
+              {laneDetail?.row.company_name || laneDetail?.row.address || "Facility"}
+            </DialogTitle>
+          </DialogHeader>
+          {lanesLoading ? (
+            <div className="py-8 text-center text-muted-foreground">Loading lanes...</div>
+          ) : detailLanes.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">No loads found.</div>
+          ) : (
+            <div className="max-h-[60vh] overflow-auto border rounded-lg">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[100px]">Load #</TableHead>
+                    <TableHead className="w-[180px]">Broker</TableHead>
+                    <TableHead className="w-[220px]">Lane</TableHead>
+                    <TableHead className="w-[110px]">PU date</TableHead>
+                    <TableHead className="w-[110px]">DEL date</TableHead>
+                    <TableHead className="w-[100px] text-right">Rate</TableHead>
+                    <TableHead className="w-[90px] text-right">Miles</TableHead>
+                    <TableHead className="w-[80px] text-right">RPM</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailLanes.map((l) => (
+                    <TableRow key={l.order_id} className="hover:bg-transparent">
+                      <TableCell className="text-sm font-mono">{l.load_number || "—"}</TableCell>
+                      <TableCell className="text-sm truncate">{l.broker_name || "—"}</TableCell>
+                      <TableCell className="text-sm">
+                        {(l.origin_city || "—")}, {l.origin_state || "—"} → {(l.destination_city || "—")},{" "}
+                        {l.destination_state || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm">{fmtDate(l.pickup_date)}</TableCell>
+                      <TableCell className="text-sm">{fmtDate(l.delivery_date)}</TableCell>
+                      <TableCell className="text-sm text-right font-mono">{fmtMoney(l.freight_amount)}</TableCell>
+                      <TableCell className="text-sm text-right font-mono">
+                        {l.loaded_miles != null ? Math.round(Number(l.loaded_miles)) : "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-right font-mono">
+                        {l.freight_amount && l.loaded_miles
+                          ? (Number(l.freight_amount) / Number(l.loaded_miles)).toFixed(2)
+                          : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
