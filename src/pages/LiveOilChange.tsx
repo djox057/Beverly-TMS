@@ -21,6 +21,8 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { hasMaintenanceOverride } from "@/hooks/useAuth";
 import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
+import { MileageHistoryPopover } from "@/components/liveOilChange/MileageHistoryPopover";
+
 
 type TruckRow = {
   id: string;
@@ -578,21 +580,29 @@ const LiveOilChange = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Input
-                            key={t.last_oil_change_miles ?? "empty-locm"}
-                            type="number"
-                            defaultValue={t.last_oil_change_miles ?? ""}
-                            onBlur={(e) => {
-                              const raw = e.target.value.trim();
-                              const v = raw === "" ? null : Number(raw);
-                              if (v !== (t.last_oil_change_miles ?? null)) {
-                                updateTruck.mutate({ id: t.id, patch: { last_oil_change_miles: v as any } });
-                              }
-                            }}
-                            className={cn(bareInput, "no-spinner")}
-                            readOnly={!canEditAll}
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input
+                              key={t.last_oil_change_miles ?? "empty-locm"}
+                              type="number"
+                              defaultValue={t.last_oil_change_miles ?? ""}
+                              onBlur={(e) => {
+                                const raw = e.target.value.trim();
+                                const v = raw === "" ? null : Number(raw);
+                                if (v !== (t.last_oil_change_miles ?? null)) {
+                                  updateTruck.mutate({ id: t.id, patch: { last_oil_change_miles: v as any } });
+                                }
+                              }}
+                              className={cn(bareInput, "no-spinner")}
+                              readOnly={!canEditAll}
+                            />
+                            <MileageHistoryPopover
+                              truckId={t.id}
+                              field="last_oil_change_miles"
+                              label="Last oil change mileage"
+                            />
+                          </div>
                         </TableCell>
+
                         <TableCell>
                           {canEditAll ? (
                             <MaintenanceDateCell
@@ -611,20 +621,28 @@ const LiveOilChange = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Input
-                            key={t.miles ?? "empty-miles"}
-                            type="number"
-                            defaultValue={t.miles ?? ""}
-                            onBlur={(e) => {
-                              const raw = e.target.value.trim();
-                              const v = raw === "" ? null : Number(raw);
-                              if (v !== (t.miles ?? null)) {
-                                updateTruck.mutate({ id: t.id, patch: { miles: v as any } });
-                              }
-                            }}
-                            className={cn(bareInput, "no-spinner")}
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input
+                              key={t.miles ?? "empty-miles"}
+                              type="number"
+                              defaultValue={t.miles ?? ""}
+                              onBlur={(e) => {
+                                const raw = e.target.value.trim();
+                                const v = raw === "" ? null : Number(raw);
+                                if (v !== (t.miles ?? null)) {
+                                  updateTruck.mutate({ id: t.id, patch: { miles: v as any } });
+                                }
+                              }}
+                              className={cn(bareInput, "no-spinner")}
+                            />
+                            <MileageHistoryPopover
+                              truckId={t.id}
+                              field="miles"
+                              label="Odometer"
+                            />
+                          </div>
                         </TableCell>
+
                         <TableCell>
                           {fmtNum(milesSinceOil)}
                         </TableCell>
