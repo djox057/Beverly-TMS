@@ -4269,6 +4269,7 @@ const Reports = () => {
     showTwoWeekNotice,
     showLateTrucks,
     showProblems,
+    showOosTrucks,
     lateTrucks,
     hasDriverProblem,
   ]);
