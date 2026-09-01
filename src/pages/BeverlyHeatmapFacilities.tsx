@@ -537,7 +537,7 @@ export default function BeverlyHeatmapFacilities() {
       </Dialog>
 
       <Dialog open={!!laneDetail} onOpenChange={(o) => !o && setLaneDetail(null)}>
-        <DialogContent className="max-w-5xl">
+        <DialogContent className="max-w-[95vw] xl:max-w-[1400px]">
           <DialogHeader>
             <DialogTitle>
               {laneDetail?.type === "pickup" ? "Pickup" : "Delivery"} lanes —{" "}
@@ -549,18 +549,19 @@ export default function BeverlyHeatmapFacilities() {
           ) : detailLanes.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">No loads found.</div>
           ) : (
-            <div className="max-h-[60vh] overflow-auto border rounded-lg">
+            <div className="max-h-[70vh] overflow-auto border rounded-lg">
               <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[100px]">Load #</TableHead>
-                    <TableHead className="w-[180px]">Broker</TableHead>
-                    <TableHead className="w-[220px]">Lane</TableHead>
+                    <TableHead className="w-[110px]">Load #</TableHead>
+                    <TableHead className="w-[220px]">Broker</TableHead>
+                    <TableHead className="w-[300px]">Lane</TableHead>
                     <TableHead className="w-[110px]">PU date</TableHead>
                     <TableHead className="w-[110px]">DEL date</TableHead>
-                    <TableHead className="w-[100px] text-right">Rate</TableHead>
+                    <TableHead className="w-[110px] text-right">Rate</TableHead>
                     <TableHead className="w-[90px] text-right">Miles</TableHead>
                     <TableHead className="w-[80px] text-right">RPM</TableHead>
+                    <TableHead className="w-[70px] text-center">RC</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -583,8 +584,24 @@ export default function BeverlyHeatmapFacilities() {
                           ? (Number(l.freight_amount) / Number(l.loaded_miles)).toFixed(2)
                           : "—"}
                       </TableCell>
+                      <TableCell className="text-center">
+                        {rcFiles[l.order_id] ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            title="Open rate confirmation"
+                            onClick={() => openRc(l.order_id)}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
+
                 </TableBody>
               </Table>
             </div>
