@@ -30,6 +30,23 @@ interface RecoveryBadge {
 export const useRecoveryLoadsCount = (options?: { enabled?: boolean }) => {
   const enabled = options?.enabled ?? true;
 
+/**
+ * Pure normalizer for the RPC payload (unit-tested).
+ * The RPC returns a single row; PostgREST may hand it back as an object or as
+ * a one-element array depending on the client version.
+ */
+export const normalizeBadgeRow = (data: unknown): RecoveryBadge => {
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { total?: number | null; has_mine?: boolean | null }
+    | null
+    | undefined;
+  return {
+    count: row?.total ?? 0,
+    hasMine: row?.has_mine ?? false,
+  };
+};
+
+
   return useQuery<RecoveryBadge>({
     queryKey: ["recovery-loads-count"],
     queryFn: async () => {
