@@ -4843,6 +4843,57 @@ export type Database = {
           },
         ]
       }
+      trailer_company_history: {
+        Row: {
+          changed_by: string | null
+          changed_by_name_snapshot: string | null
+          company_id: string | null
+          company_name_snapshot: string | null
+          created_at: string
+          ended_at: string | null
+          id: string
+          started_at: string
+          trailer_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_name_snapshot?: string | null
+          company_id?: string | null
+          company_name_snapshot?: string | null
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          trailer_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_name_snapshot?: string | null
+          company_id?: string | null
+          company_name_snapshot?: string | null
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          trailer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trailer_company_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trailer_company_history_trailer_id_fkey"
+            columns: ["trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trailer_files: {
         Row: {
           content_type: string | null
