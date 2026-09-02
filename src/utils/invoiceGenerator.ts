@@ -315,9 +315,9 @@ export const generateInvoicePDF = async (
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         safePdfText(doc, "MC 1442603", 20, 30);
-        safePdfText(doc, "1426 W ROSEMONT AVE,", 20, 38);
-        safePdfText(doc, "CHICAGO, IL 60660", 20, 42);
-        safePdfText(doc, "(312) 995-9909", 60, 42);
+        safePdfText(doc, "1426 W ROSEMONT AVE, CHICAGO, IL 60660", 20, 34);
+        safePdfText(doc, "(312) 995-9909", 20, 38);
+
         doc.setTextColor(0, 0, 0); // Reset to black for the rest of the invoice
       }
 
