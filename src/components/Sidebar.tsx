@@ -147,7 +147,12 @@ export const Sidebar = () => {
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
   const { data: dispatchAlertCount = 0 } = useDispatchAlertCount();
-  const { data: recoveryLoads } = useRecoveryLoadsCount();
+  // Hook is always called (Rules of Hooks); it only issues requests for the
+  // primary roles that can actually open /recovery-loads (same gate as the nav item).
+  const canViewRecoveryLoads = ["dispatch", "supervisor", "manager", "admin"].includes(
+    getPrimaryRole() || ""
+  );
+  const { data: recoveryLoads } = useRecoveryLoadsCount({ enabled: canViewRecoveryLoads });
   const { canView: canViewDailyReport } = useDailyReportPermissions();
   const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
   const [scheduledDates, setScheduledDates] = useState<string[]>([]);
