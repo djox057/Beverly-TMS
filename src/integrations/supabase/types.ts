@@ -2041,6 +2041,41 @@ export type Database = {
           },
         ]
       }
+      driver_file_folders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_file_folders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_files: {
         Row: {
           content_type: string | null
@@ -2049,6 +2084,7 @@ export type Database = {
           file_name: string
           file_path: string
           file_size: number | null
+          folder: string | null
           id: string
           updated_at: string
           uploaded_by: string | null
@@ -2060,6 +2096,7 @@ export type Database = {
           file_name: string
           file_path: string
           file_size?: number | null
+          folder?: string | null
           id?: string
           updated_at?: string
           uploaded_by?: string | null
@@ -2071,6 +2108,7 @@ export type Database = {
           file_name?: string
           file_path?: string
           file_size?: number | null
+          folder?: string | null
           id?: string
           updated_at?: string
           uploaded_by?: string | null
