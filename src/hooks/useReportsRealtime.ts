@@ -6,6 +6,7 @@ import {
   injectOrdersIntoGlobalStore,
   removeOrdersFromGlobalStore,
 } from "./useReportsDateWindow";
+import { traceFetch } from "@/utils/fetchTrace";
 
 /**
  * App-level realtime subscription that invalidates the ["reports"] query family
@@ -32,6 +33,9 @@ export function useReportsRealtime() {
     let isFlushing = false;
 
     const flush = async () => {
+      traceFetch("useReportsRealtime", "realtime-flush", {
+        idCount: pendingChangedIds.size + pendingDeletedIds.size,
+      });
       if (isFlushing) return;
       isFlushing = true;
       const deleteIds = [...pendingDeletedIds];
