@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.log_truck_company_change() FROM PUBLIC, anon, authenticated;
