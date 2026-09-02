@@ -313,6 +313,20 @@ export const generateInvoicePDF = async (
       safePdfText(doc, displayCompanyName, 20, 25);
       //doc.text('INVOICE', 150, 25);
 
+      // BG Prime Inc letterhead (MC + address + phone) under the company name
+      const isBgPrimeLetterhead =
+        (order.bookedByCompanyName ?? derivedCompany) === "BG Prime Inc" ||
+        upperName.includes("BG PRIME");
+      if (isBgPrimeLetterhead) {
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        safePdfText(doc, "MC 1442603", 20, 30);
+        safePdfText(doc, "1426 W ROSEMONT AVE,", 20, 34);
+        safePdfText(doc, "CHICAGO, IL 60660", 20, 38);
+        safePdfText(doc, "(312) 995-9909", 60, 38);
+      }
+
+
       // Bill To section
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
