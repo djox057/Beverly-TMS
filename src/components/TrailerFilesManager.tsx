@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Trash2, Eye, Loader2 } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, Folder, FolderPlus, FolderOpen, ArrowLeft } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 interface TrailerFile {
@@ -17,6 +18,12 @@ interface TrailerFile {
   content_type: string;
   uploaded_by: string;
   created_at: string;
+  folder: string | null;
+}
+
+interface TrailerFileFolder {
+  id: string;
+  name: string;
 }
 
 interface TrailerFilesManagerProps {
@@ -26,6 +33,12 @@ interface TrailerFilesManagerProps {
 
 export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesManagerProps) => {
   const [files, setFiles] = useState<TrailerFile[]>([]);
+  const [folders, setFolders] = useState<TrailerFileFolder[]>([]);
+  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
@@ -39,17 +52,30 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
     }
   }, [trailerId]);
 
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [currentFolder]);
+
   const loadTrailerFiles = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('trailer_files')
-        .select('*')
-        .eq('trailer_id', trailerId)
-        .order('created_at', { ascending: false });
+      const [filesRes, foldersRes] = await Promise.all([
+        supabase
+          .from('trailer_files')
+          .select('*')
+          .eq('trailer_id', trailerId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('trailer_file_folders')
+          .select('id, name')
+          .eq('trailer_id', trailerId)
+          .order('name', { ascending: true }),
+      ]);
 
-      if (error) throw error;
-      setFiles(data || []);
+      if (filesRes.error) throw filesRes.error;
+      if (foldersRes.error) throw foldersRes.error;
+      setFiles((filesRes.data || []) as TrailerFile[]);
+      setFolders(foldersRes.data || []);
     } catch (error) {
       console.error('Error loading trailer files:', error);
       toast({
@@ -59,6 +85,69 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const visibleFiles = useMemo(
+    () => files.filter((f) => (f.folder || null) === currentFolder),
+    [files, currentFolder]
+  );
+
+  const folderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    files.forEach((f) => {
+      if (f.folder) counts[f.folder] = (counts[f.folder] || 0) + 1;
+    });
+    return counts;
+  }, [files]);
+
+  const handleCreateFolder = async () => {
+    const name = newFolderName.trim();
+    if (!name) return;
+
+    setIsCreatingFolder(true);
+    try {
+      const { error } = await supabase
+        .from('trailer_file_folders')
+        .insert({ trailer_id: trailerId, name, created_by: profile?.email || null });
+
+      if (error) throw error;
+
+      setNewFolderName("");
+      toast({ title: "Folder created", description: name });
+      loadTrailerFiles();
+    } catch (error: any) {
+      console.error('Error creating folder:', error);
+      toast({
+        title: "Error",
+        description: error?.code === '23505' ? "A folder with that name already exists" : "Failed to create folder",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingFolder(false);
+    }
+  };
+
+  const handleDeleteFolder = async (folder: TrailerFileFolder) => {
+    const count = folderCounts[folder.name] || 0;
+    if (count > 0) {
+      toast({
+        title: "Folder not empty",
+        description: `Delete or move the ${count} file(s) inside first`,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!confirm(`Delete folder "${folder.name}"?`)) return;
+
+    try {
+      const { error } = await supabase.from('trailer_file_folders').delete().eq('id', folder.id);
+      if (error) throw error;
+      if (currentFolder === folder.name) setCurrentFolder(null);
+      loadTrailerFiles();
+    } catch (error) {
+      console.error('Error deleting folder:', error);
+      toast({ title: "Error", description: "Failed to delete folder", variant: "destructive" });
     }
   };
 
@@ -78,7 +167,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
       const uploadPromises = Array.from(selectedFiles).map(async (file) => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${trailerId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from('trailer-files')
           .upload(fileName, file);
@@ -94,6 +183,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
             file_size: file.size,
             content_type: file.type,
             uploaded_by: profile?.email || 'unknown',
+            folder: currentFolder,
           });
 
         if (dbError) throw dbError;
@@ -109,7 +199,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
       setSelectedFiles(null);
       const fileInput = document.getElementById('trailer-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
-      
+
       loadTrailerFiles();
     } catch (error) {
       console.error('Error uploading files:', error);
@@ -143,30 +233,38 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
     }
   };
 
+  const deleteFiles = async (targets: TrailerFile[]) => {
+    const paths = targets.map((f) => f.file_path);
+    const ids = targets.map((f) => f.id);
+
+    const { error: storageError } = await supabase.storage
+      .from('trailer-files')
+      .remove(paths);
+
+    if (storageError) throw storageError;
+
+    const { error: dbError } = await supabase
+      .from('trailer_files')
+      .delete()
+      .in('id', ids);
+
+    if (dbError) throw dbError;
+  };
+
   const handleDeleteFile = async (file: TrailerFile) => {
     if (!confirm(`Are you sure you want to delete ${file.file_name}?`)) {
       return;
     }
 
     try {
-      const { error: storageError } = await supabase.storage
-        .from('trailer-files')
-        .remove([file.file_path]);
-
-      if (storageError) throw storageError;
-
-      const { error: dbError } = await supabase
-        .from('trailer_files')
-        .delete()
-        .eq('id', file.id);
-
-      if (dbError) throw dbError;
+      await deleteFiles([file]);
 
       toast({
         title: "Success",
         description: "File deleted successfully",
       });
 
+      setSelectedIds((prev) => prev.filter((id) => id !== file.id));
       loadTrailerFiles();
     } catch (error) {
       console.error('Error deleting file:', error);
@@ -177,6 +275,51 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
       });
     }
   };
+
+  const handleDeleteSelected = async () => {
+    const targets = visibleFiles.filter((f) => selectedIds.includes(f.id));
+    if (targets.length === 0) return;
+    if (!confirm(`Delete ${targets.length} selected file(s)?`)) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteFiles(targets);
+      toast({ title: "Success", description: `${targets.length} file(s) deleted` });
+      setSelectedIds([]);
+      loadTrailerFiles();
+    } catch (error) {
+      console.error('Error deleting files:', error);
+      toast({ title: "Error", description: "Failed to delete selected files", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleMoveSelected = async (targetFolder: string | null) => {
+    if (selectedIds.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from('trailer_files')
+        .update({ folder: targetFolder })
+        .in('id', selectedIds);
+      if (error) throw error;
+      toast({
+        title: "Moved",
+        description: `${selectedIds.length} file(s) moved to ${targetFolder || 'All files'}`,
+      });
+      setSelectedIds([]);
+      loadTrailerFiles();
+    } catch (error) {
+      console.error('Error moving files:', error);
+      toast({ title: "Error", description: "Failed to move files", variant: "destructive" });
+    }
+  };
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
+  };
+
+  const allSelected = visibleFiles.length > 0 && selectedIds.length === visibleFiles.length;
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -213,7 +356,72 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="trailer-file-input">Upload Files</Label>
+          <Label>Folders</Label>
+          <div className="flex gap-2">
+            <Input
+              placeholder="New folder name"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleCreateFolder();
+                }
+              }}
+              className="flex-1"
+            />
+            <Button
+              variant="outline"
+              onClick={handleCreateFolder}
+              disabled={isCreatingFolder || !newFolderName.trim()}
+            >
+              {isCreatingFolder ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FolderPlus className="mr-2 h-4 w-4" />
+              )}
+              Create folder
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant={currentFolder === null ? "default" : "outline"}
+              onClick={() => setCurrentFolder(null)}
+            >
+              <FolderOpen className="mr-2 h-4 w-4" />
+              All files ({files.filter((f) => !f.folder).length})
+            </Button>
+            {folders.map((folder) => (
+              <div key={folder.id} className="flex items-center">
+                <Button
+                  size="sm"
+                  variant={currentFolder === folder.name ? "default" : "outline"}
+                  onClick={() => setCurrentFolder(folder.name)}
+                  className="rounded-r-none"
+                >
+                  <Folder className="mr-2 h-4 w-4" />
+                  {folder.name} ({folderCounts[folder.name] || 0})
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-l-none border-l-0 px-2"
+                  onClick={() => handleDeleteFolder(folder)}
+                  title="Delete folder"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="trailer-file-input">
+            Upload Files {currentFolder ? `into "${currentFolder}"` : ''}
+          </Label>
           <div
             className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
               isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
@@ -239,8 +447,8 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
                   onChange={(e) => setSelectedFiles(e.target.files)}
                   className="flex-1"
                 />
-                <Button 
-                  onClick={handleFileUpload} 
+                <Button
+                  onClick={handleFileUpload}
                   disabled={isUploading || !selectedFiles}
                 >
                   {isUploading ? (
@@ -266,23 +474,87 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
         </div>
 
         <div className="space-y-2">
-          <Label>Uploaded Files</Label>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <Label className="flex items-center gap-2">
+              {currentFolder && (
+                <Button size="sm" variant="ghost" className="px-1" onClick={() => setCurrentFolder(null)}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              )}
+              {currentFolder ? `Files in "${currentFolder}"` : 'Uploaded Files'}
+            </Label>
+            {visibleFiles.length > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    id="trailer-files-select-all"
+                    checked={allSelected}
+                    onCheckedChange={(checked) =>
+                      setSelectedIds(checked ? visibleFiles.map((f) => f.id) : [])
+                    }
+                  />
+                  <label htmlFor="trailer-files-select-all" className="cursor-pointer">
+                    Select all
+                  </label>
+                </div>
+                {selectedIds.length > 0 && (
+                  <>
+                    <select
+                      className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                      value=""
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        handleMoveSelected(e.target.value === '__root__' ? null : e.target.value);
+                      }}
+                    >
+                      <option value="">Move to…</option>
+                      {currentFolder !== null && <option value="__root__">All files (no folder)</option>}
+                      {folders
+                        .filter((f) => f.name !== currentFolder)
+                        .map((f) => (
+                          <option key={f.id} value={f.name}>
+                            {f.name}
+                          </option>
+                        ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={handleDeleteSelected}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="mr-2 h-4 w-4" />
+                      )}
+                      Delete selected ({selectedIds.length})
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           {isLoading ? (
             <div className="flex items-center justify-center p-8">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
-          ) : files.length === 0 ? (
+          ) : visibleFiles.length === 0 ? (
             <div className="text-center p-8 text-muted-foreground">
               No files uploaded yet
             </div>
           ) : (
             <div className="space-y-2">
-              {files.map((file) => (
-                <div 
-                  key={file.id} 
+              {visibleFiles.map((file) => (
+                <div
+                  key={file.id}
                   className="flex items-center justify-between p-3 border rounded-lg"
                 >
                   <div className="flex items-center gap-3">
+                    <Checkbox
+                      checked={selectedIds.includes(file.id)}
+                      onCheckedChange={(checked) => toggleSelected(file.id, checked === true)}
+                    />
                     <FileText className="h-5 w-5 text-muted-foreground" />
                     <div>
                       <p className="font-medium">{file.file_name}</p>
