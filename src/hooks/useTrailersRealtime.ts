@@ -139,27 +139,12 @@ export function useTrailersRealtime() {
     const handleTruckChange = (
       payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
     ) => {
-      const newRec = payload.new as any;
-      const oldRec = payload.old as any;
-
-      const newTrailerId = newRec?.trailer_id ?? null;
-      const oldTrailerId = oldRec?.trailer_id ?? null;
-
-      if (payload.eventType === "UPDATE") {
-        // `trucks` uses REPLICA IDENTITY FULL, so `old` should be complete.
-        // If it is not (missing row or missing key), fail open and refresh.
-        const oldIsUsable = oldRec && Object.keys(oldRec).length > 1;
-        if (oldIsUsable && newTrailerId === oldTrailerId) return; // unrelated truck update
-      }
-
-      const affected = new Set<string>();
-      if (newTrailerId) affected.add(newTrailerId);
-      if (oldTrailerId) affected.add(oldTrailerId);
-      if (affected.size === 0) return;
-
+      const affected = affectedTrailerIdsFromTruckEvent(payload);
+      if (affected.length === 0) return;
       for (const id of affected) pendingTrailerIds.add(id);
       scheduleFlush();
     };
+
 
     const channel = supabase
       .channel("trailers-realtime-advanced")
