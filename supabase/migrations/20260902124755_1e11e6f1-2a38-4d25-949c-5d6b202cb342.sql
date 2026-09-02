@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.tmp_test_dispatch_assignment_rls(uuid, uuid, uuid, uuid) TO PUBLIC;
