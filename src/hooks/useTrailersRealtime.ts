@@ -19,7 +19,39 @@ import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
  * (`trucks` has REPLICA IDENTITY FULL, so `payload.old` carries the old value;
  * if it does not, we fall back to treating the event as relevant).
  */
+/**
+ * Pure helper (unit-tested): which trailer IDs does a `trucks` event affect?
+ * Returns [] for truck updates that did not change `trailer_id` — those are the
+ * high-volume mileage/location syncs we must ignore. Fails open (returns the
+ * ids) when `payload.old` is not usable.
+ */
+export const affectedTrailerIdsFromTruckEvent = (
+  payload: Pick<RealtimePostgresChangesPayload<{ [key: string]: any }>, "eventType"> & {
+    new?: any;
+    old?: any;
+  }
+): string[] => {
+  const newRec = payload.new as any;
+  const oldRec = payload.old as any;
+
+  const newTrailerId = newRec?.trailer_id ?? null;
+  const oldTrailerId = oldRec?.trailer_id ?? null;
+
+  if (payload.eventType === "UPDATE") {
+    // `trucks` uses REPLICA IDENTITY FULL, so `old` should be complete.
+    // If it is not (missing row or missing key), fail open and refresh.
+    const oldIsUsable = oldRec && Object.keys(oldRec).length > 1;
+    if (oldIsUsable && newTrailerId === oldTrailerId) return [];
+  }
+
+  const affected = new Set<string>();
+  if (newTrailerId) affected.add(newTrailerId);
+  if (oldTrailerId) affected.add(oldTrailerId);
+  return [...affected];
+};
+
 export function useTrailersRealtime() {
+
   const queryClient = useQueryClient();
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const isSubscribedRef = useRef(false);
