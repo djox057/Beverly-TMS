@@ -28,6 +28,10 @@ export const AssignmentHistoryDialog = ({
   const { data: companyTenures = [], isLoading: companyLoading } = useDriverCompanyHistory(
     entityType === 'driver' ? entityId : null
   );
+  const { data: truckCompanyTenures = [], isLoading: truckCompanyLoading } = useTruckCompanyHistory(
+    entityType === 'truck' ? entityId : null
+  );
+
 
   // Calculate tenures based on entity type
   const { driverTenures, trailerTenures, truckTenures, dispatcherTenures } = useMemo(() => {
