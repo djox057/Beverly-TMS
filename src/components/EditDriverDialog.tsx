@@ -722,7 +722,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       }
 
       // Log trailer change separately if trailer changed
-      if (trailerChanged) {
+      if (trailerChanged && assignmentApplied) {
         await supabase.from("assignment_history").insert({
           truck_id: formData.truck_id || origTruckId || null,
           trailer_id: formData.trailer_id || null,
