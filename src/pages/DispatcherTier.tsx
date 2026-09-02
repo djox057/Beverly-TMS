@@ -235,7 +235,8 @@ const DispatcherTier = () => {
     const avgRpm = withData.reduce((s, r) => s + r.rpm, 0) / n || 1;
     const totalGross = withData.reduce((s, r) => s + r.gross, 0);
     const totalCut = withData.reduce((s, r) => s + r.cut, 0);
-    const totalAvgDrivers = withData.reduce((s, r) => s + r.avgDrivers, 0) / n || 1;
+    // Sum (not mean) of avgDrivers — needed so gross/cut per driver benchmarks are fleet-wide.
+    const totalAvgDrivers = withData.reduce((s, r) => s + r.avgDrivers, 0) || 1;
     const avgGrossPerDriver = totalAvgDrivers > 0 ? totalGross / totalAvgDrivers : 0;
     const avgCutPerDriver = totalAvgDrivers > 0 ? totalCut / totalAvgDrivers : 0;
     const W_RPM = 1.08,
