@@ -4,8 +4,20 @@ import { supabase } from "@/integrations/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 /**
- * Hook that subscribes to real-time changes on trailers and related tables.
- * Uses setQueryData to patch cache directly - no full refetch needed.
+ * Realtime subscription for the trailers list.
+ *
+ * Perf notes (2026-09-02): the previous version fired one `trailers` fetch +
+ * one `trucks` fetch *per affected trailer, per event*, inside a sequential
+ * `for` loop with no debounce — and it reacted to EVERY `trucks` UPDATE,
+ * including mileage/location/distance syncs that never touch `trailer_id`.
+ * With ~1,745 truck PATCHes/hour that loop alone produced thousands of
+ * pointless REST calls per hour.
+ *
+ * Now: events are coalesced into a deduplicated ID set, flushed once per
+ * 1s debounce window, and fetched with a single `.in()` pair of queries.
+ * `trucks` events are ignored unless `trailer_id` actually changed
+ * (`trucks` has REPLICA IDENTITY FULL, so `payload.old` carries the old value;
+ * if it does not, we fall back to treating the event as relevant).
  */
 export function useTrailersRealtime() {
   const queryClient = useQueryClient();
@@ -13,120 +25,142 @@ export function useTrailersRealtime() {
   const isSubscribedRef = useRef(false);
 
   useEffect(() => {
-    // Only subscribe once globally
     if (isSubscribedRef.current) return;
     isSubscribedRef.current = true;
 
     const QUERY_KEY = ["trailers", "v2"];
 
-    // Fetch a single trailer with truck relationships (same shape as list query)
-    const fetchSingleTrailer = async (trailerId: string) => {
-      const { data: trailer, error } = await supabase
-        .from("trailers")
-        .select("*")
-        .eq("id", trailerId)
-        .maybeSingle();
+    // ─── Debounce state ───
+    const pendingTrailerIds = new Set<string>();
+    const pendingDeletes = new Set<string>();
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let isFlushing = false;
 
-      if (error) {
-        console.error("[TrailersRealtime] Error fetching trailer:", error);
-        return null;
+    /**
+     * Batch-fetch trailers with their assigned trucks.
+     * The list query (`useTrailers`) caches the full trailer row, so the
+     * trailer select stays `*` for shape parity; the trucks join uses the
+     * three columns the list actually renders.
+     */
+    const fetchTrailersBatch = async (trailerIds: string[]) => {
+      if (trailerIds.length === 0) return [];
+
+      const [{ data: trailers, error }, { data: trucks }] = await Promise.all([
+        supabase.from("trailers").select("*").in("id", trailerIds),
+        supabase
+          .from("trucks")
+          .select("id, truck_number, trailer_id")
+          .in("trailer_id", trailerIds),
+      ]);
+
+      if (error || !trailers || trailers.length === 0) {
+        if (error) console.error("[TrailersRT] Batch fetch error:", error);
+        return [];
       }
 
-      if (!trailer) return null;
+      const trucksByTrailer = new Map<string, any[]>();
+      for (const t of trucks || []) {
+        if (!t.trailer_id) continue;
+        const list = trucksByTrailer.get(t.trailer_id);
+        if (list) list.push(t);
+        else trucksByTrailer.set(t.trailer_id, [t]);
+      }
 
-      // Fetch trucks that have this trailer assigned
-      const { data: trucks } = await supabase
-        .from("trucks")
-        .select("id, truck_number, trailer_id")
-        .eq("trailer_id", trailerId);
-
-      return {
+      return trailers.map((trailer) => ({
         ...trailer,
-        trucks: trucks || [],
-      };
+        trucks: trucksByTrailer.get(trailer.id) || [],
+      }));
     };
 
-    // Update cache with the transformed trailer
     const updateCache = (
       trailerId: string,
       transformedTrailer: any | null,
-      isDelete: boolean = false
+      isDelete = false
     ) => {
       queryClient.setQueryData(QUERY_KEY, (old: any[] | undefined) => {
         if (!old) return isDelete ? old : transformedTrailer ? [transformedTrailer] : old;
-
-        if (isDelete) {
-          console.log(`[TrailersRealtime] Removing trailer ${trailerId} from cache`);
-          return old.filter((t) => t.id !== trailerId);
-        }
-
+        if (isDelete) return old.filter((t) => t.id !== trailerId);
         if (!transformedTrailer) return old;
-
-        const existingIndex = old.findIndex((t) => t.id === trailerId);
-        if (existingIndex >= 0) {
-          console.log(`[TrailersRealtime] Updating trailer ${trailerId} in cache`);
+        const idx = old.findIndex((t) => t.id === trailerId);
+        if (idx >= 0) {
           const updated = [...old];
-          updated[existingIndex] = transformedTrailer;
+          updated[idx] = transformedTrailer;
           return updated;
-        } else {
-          console.log(`[TrailersRealtime] Inserting new trailer ${trailerId} into cache`);
-          return [...old, transformedTrailer];
         }
+        return [...old, transformedTrailer];
       });
     };
 
-    // Handle trailer changes
-    const handleTrailerChange = async (
-      payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
-    ) => {
-      const eventType = payload.eventType;
-      const newRecord = payload.new as any;
-      const oldRecord = payload.old as any;
-      const trailerId = newRecord?.id || oldRecord?.id;
+    const flushPending = async () => {
+      if (isFlushing) return;
+      isFlushing = true;
 
-      console.log(`[TrailersRealtime] Trailer ${eventType}:`, trailerId);
+      const deleteIds = [...pendingDeletes];
+      pendingDeletes.clear();
+      const fetchIds = [...pendingTrailerIds].filter((id) => !deleteIds.includes(id));
+      pendingTrailerIds.clear();
 
-      if (eventType === "DELETE") {
-        updateCache(oldRecord.id, null, true);
-        return;
-      }
-
-      if (!trailerId) return;
-
-      const fullTrailer = await fetchSingleTrailer(trailerId);
-      if (!fullTrailer) {
-        console.warn("[TrailersRealtime] Could not fetch trailer, falling back to invalidation");
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-        return;
-      }
-
-      updateCache(trailerId, fullTrailer);
-    };
-
-    // Handle truck changes (affects trailer.trucks array)
-    const handleTruckChange = async (
-      payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
-    ) => {
-      const newRecord = payload.new as any;
-      const oldRecord = payload.old as any;
-
-      // Find affected trailers (old and new trailer_id)
-      const affectedTrailerIds = new Set<string>();
-      if (newRecord?.trailer_id) affectedTrailerIds.add(newRecord.trailer_id);
-      if (oldRecord?.trailer_id) affectedTrailerIds.add(oldRecord.trailer_id);
-
-      console.log(`[TrailersRealtime] Truck change affecting trailers:`, [...affectedTrailerIds]);
-
-      // Update each affected trailer
-      for (const trailerId of affectedTrailerIds) {
-        const fullTrailer = await fetchSingleTrailer(trailerId);
-        if (fullTrailer) {
-          updateCache(trailerId, fullTrailer);
+      try {
+        for (const id of deleteIds) updateCache(id, null, true);
+        if (fetchIds.length > 0) {
+          const fetched = await fetchTrailersBatch(fetchIds);
+          const fetchedIds = new Set(fetched.map((t: any) => t.id));
+          for (const t of fetched) updateCache(t.id, t);
+          // Rows that vanished (deleted or now invisible under RLS)
+          for (const id of fetchIds) {
+            if (!fetchedIds.has(id)) updateCache(id, null, true);
+          }
         }
+      } catch (err) {
+        console.error("[TrailersRT] Flush error:", err);
+      } finally {
+        isFlushing = false;
+        if (pendingTrailerIds.size > 0 || pendingDeletes.size > 0) scheduleFlush();
       }
     };
 
-    // Create channel and subscribe
+    const scheduleFlush = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(flushPending, 1000);
+    };
+
+    const handleTrailerChange = (
+      payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
+    ) => {
+      const newRec = payload.new as any;
+      const oldRec = payload.old as any;
+      const trailerId = newRec?.id || oldRec?.id;
+      if (!trailerId) return;
+      if (payload.eventType === "DELETE") pendingDeletes.add(trailerId);
+      else pendingTrailerIds.add(trailerId);
+      scheduleFlush();
+    };
+
+    const handleTruckChange = (
+      payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
+    ) => {
+      const newRec = payload.new as any;
+      const oldRec = payload.old as any;
+
+      const newTrailerId = newRec?.trailer_id ?? null;
+      const oldTrailerId = oldRec?.trailer_id ?? null;
+
+      if (payload.eventType === "UPDATE") {
+        // `trucks` uses REPLICA IDENTITY FULL, so `old` should be complete.
+        // If it is not (missing row or missing key), fail open and refresh.
+        const oldIsUsable = oldRec && Object.keys(oldRec).length > 1;
+        if (oldIsUsable && newTrailerId === oldTrailerId) return; // unrelated truck update
+      }
+
+      const affected = new Set<string>();
+      if (newTrailerId) affected.add(newTrailerId);
+      if (oldTrailerId) affected.add(oldTrailerId);
+      if (affected.size === 0) return;
+
+      for (const id of affected) pendingTrailerIds.add(id);
+      scheduleFlush();
+    };
+
     const channel = supabase
       .channel("trailers-realtime-advanced")
       .on(
@@ -139,15 +173,13 @@ export function useTrailersRealtime() {
         { event: "*", schema: "public", table: "trucks" },
         handleTruckChange
       )
-      .subscribe((status) => {
-        console.log("[TrailersRealtime] Subscription status:", status);
-      });
+      .subscribe();
 
     channelRef.current = channel;
 
     return () => {
-      console.log("[TrailersRealtime] Unsubscribing from trailers channel");
       isSubscribedRef.current = false;
+      if (debounceTimer) clearTimeout(debounceTimer);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
