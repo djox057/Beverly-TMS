@@ -111,7 +111,13 @@ const toFiniteNumber = (value: unknown): number => {
 
 const formatPdfCurrency = (value: unknown): string => formatCurrency(toFiniteNumber(value));
 
-const safePdfText = (doc: jsPDF, value: unknown, x: number, y: number, options?: Parameters<jsPDF["text"]>[3]) => {
+const safePdfText = (
+  doc: jsPDF,
+  value: unknown,
+  x: number,
+  y: number,
+  options?: Parameters<jsPDF["text"]>[3],
+) => {
   const safeX = Number.isFinite(x) ? x : 0;
   const safeY = Number.isFinite(y) ? y : 0;
   const text = toPdfTextLines(value);
@@ -258,8 +264,7 @@ export const generateInvoicePDF = async (
   const companiesMap = orders.reduce(
     (acc, order) => {
       // Use suffix-derived company from internal load number (frozen at creation)
-      const derivedCompany =
-        resolveLoadCompanyName(order.internalLoadNumber, (order as any).loadCompanyCode) || order.companyName;
+      const derivedCompany = resolveLoadCompanyName(order.internalLoadNumber, (order as any).loadCompanyCode) || order.companyName;
       if (!acc[derivedCompany]) {
         acc[derivedCompany] = [];
       }
@@ -294,13 +299,14 @@ export const generateInvoicePDF = async (
       const doc = new jsPDF();
 
       // Header - Use bookedByCompanyName for display, fallback to suffix-derived company
-      const derivedCompany =
-        resolveLoadCompanyName(order.internalLoadNumber, (order as any).loadCompanyCode) || companyName;
+      const derivedCompany = resolveLoadCompanyName(order.internalLoadNumber, (order as any).loadCompanyCode) || companyName;
       const rawDisplayCompanyName = order.bookedByCompanyName || derivedCompany;
       // Page 1 header-only override: append DBA suffix only for BF Prime LLC
       const upperName = rawDisplayCompanyName.toUpperCase();
       const isBfPrime = upperName.includes("BF PRIME");
-      const displayCompanyName = isBfPrime ? `${upperName} dba TITAN TRANSPORT GROUP` : upperName;
+      const displayCompanyName = isBfPrime
+        ? `${upperName} dba TITAN TRANSPORT GROUP`
+        : upperName;
 
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
@@ -309,17 +315,20 @@ export const generateInvoicePDF = async (
 
       // BG Prime Inc letterhead (MC + address + phone) under the company name
       const isBgPrimeLetterhead =
-        (order.bookedByCompanyName ?? derivedCompany) === "BG Prime Inc" || upperName.includes("BG PRIME");
+        (order.bookedByCompanyName ?? derivedCompany) === "BG Prime Inc" ||
+        upperName.includes("BG PRIME");
       if (isBgPrimeLetterhead) {
-        doc.setTextColor(150, 110, 0); // Yellow text for BG Prime letterhead only
+        doc.setTextColor(255, 255, 0); // Yellow text for BG Prime letterhead only
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         safePdfText(doc, "MC 1442603", 20, 30);
+        safePdfText(doc, "BG PRIME INC", 20, 34);
         safePdfText(doc, "1426 W ROSEMONT AVE,", 20, 38);
         safePdfText(doc, "CHICAGO, IL 60660", 20, 42);
         safePdfText(doc, "(312) 995-9909", 60, 42);
         doc.setTextColor(0, 0, 0); // Reset to black for the rest of the invoice
       }
+
 
       // Bill To section
       doc.setFontSize(10);
@@ -391,6 +400,7 @@ export const generateInvoicePDF = async (
         dueDate.setDate(dueDate.getDate() + 30);
         safePdfText(doc, dueDate.toLocaleDateString(), 162, 70);
       }
+
 
       // Main table headers
       let yPosition = 90;
@@ -577,9 +587,7 @@ export const generateInvoicePDF = async (
 
         yPosition += 6;
         doc.setFont("helvetica", "normal");
-        safePdfText(doc, "This invoice is assigned to, owned by and only payable to:", 105, yPosition, {
-          align: "center",
-        });
+        safePdfText(doc, "This invoice is assigned to, owned by and only payable to:", 105, yPosition, { align: "center" });
 
         yPosition += 8;
         doc.setFont("helvetica", "bold");
@@ -637,8 +645,7 @@ export const generateInvoicePDF = async (
       });
 
       // Add order data to company's XLSX data (use suffix-derived company)
-      const derivedCompanyForXlsx =
-        resolveLoadCompanyName(order.internalLoadNumber, (order as any).loadCompanyCode) || order.companyName;
+      const derivedCompanyForXlsx = resolveLoadCompanyName(order.internalLoadNumber, (order as any).loadCompanyCode) || order.companyName;
       xlsxDataByCompany[sanitizedCompanyName].push({
         ClientNo: brokerMcMap.get(toPdfText(order.brokerName)) || "",
         "Invoice#": formatInternalLoadNumber(toPdfText(order.internalLoadNumber), derivedCompanyForXlsx),
