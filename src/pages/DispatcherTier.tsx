@@ -278,7 +278,7 @@ const DispatcherTier = () => {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return enriched;
-  }, [dispatchers, search, officeFilter, sortKey, sortDir, avgMap, dispMetrics]);
+  }, [dispatchers, search, officeFilter, sortKey, sortDir, avgDriverMap, dispMetrics]);
 
   return (
     <div className="p-6 space-y-6">
