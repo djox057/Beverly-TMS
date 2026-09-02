@@ -611,6 +611,15 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       const truckChanged = (formData.truck_id || null) !== origTruckId;
       const trailerChanged = (formData.trailer_id || null) !== origTrailerId;
 
+      const assignmentWillChange = truckChanged || trailerChanged;
+      if (assignmentWillChange && !canChangeAssignment) {
+        throw new Error("You don't have permission to change truck/trailer assignment.");
+      }
+
+      // Tracks whether the trucks table actually accepted the assignment write.
+      // RLS rejections return zero rows without an error, so we must verify.
+      let assignmentApplied = !assignmentWillChange;
+
       if (formData.truck_id) {
         if (formData.trailer_id) {
           await supabase
@@ -621,15 +630,22 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
         }
 
         // Update truck with driver and inherit driver's company
-        const { error: truckError } = await supabase
+        const { data: truckUpdated, error: truckError } = await supabase
           .from("trucks")
           .update({
             driver1_id: editingDriver.id,
             trailer_id: formData.trailer_id || null,
             company_id: formData.company_id || null,
           })
-          .eq("id", formData.truck_id);
+          .eq("id", formData.truck_id)
+          .select("id");
         if (truckError) throw truckError;
+        if (assignmentWillChange) {
+          if (!truckUpdated || truckUpdated.length === 0) {
+            throw new Error("You don't have permission to change truck/trailer assignment.");
+          }
+          assignmentApplied = true;
+        }
 
         await supabase
           .from("trucks")
@@ -649,25 +665,46 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           .eq("trailer_id", formData.trailer_id)
           .neq("id", existingTruckId);
 
-        const { error: trailerError } = await supabase
+        const { data: trailerUpdated, error: trailerError } = await supabase
           .from("trucks")
           .update({
             driver1_id: editingDriver.id,
             trailer_id: formData.trailer_id,
           })
-          .eq("id", existingTruckId);
+          .eq("id", existingTruckId)
+          .select("id");
         if (trailerError) throw trailerError;
+        if (assignmentWillChange) {
+          if (!trailerUpdated || trailerUpdated.length === 0) {
+            throw new Error("You don't have permission to change truck/trailer assignment.");
+          }
+          assignmentApplied = true;
+        }
       } else if (!formData.truck_id && !formData.trailer_id) {
-        await supabase.from("trucks").update({ driver1_id: null }).eq("driver1_id", editingDriver.id);
-        await supabase.from("trucks").update({ driver2_id: null }).eq("driver2_id", editingDriver.id);
+        const { data: clearedD1 } = await supabase
+          .from("trucks")
+          .update({ driver1_id: null })
+          .eq("driver1_id", editingDriver.id)
+          .select("id");
+        const { data: clearedD2 } = await supabase
+          .from("trucks")
+          .update({ driver2_id: null })
+          .eq("driver2_id", editingDriver.id)
+          .select("id");
+        if (assignmentWillChange) {
+          if ((clearedD1?.length || 0) + (clearedD2?.length || 0) === 0) {
+            throw new Error("You don't have permission to change truck/trailer assignment.");
+          }
+          assignmentApplied = true;
+        }
       }
 
-      // Insert assignment history for any assignment change
+      // Insert assignment history ONLY for changes that were actually applied
       // HARDENED: Include old_ values for accurate "from → to" display
       const { data: userData } = await supabase.auth.getUser();
 
       // Log truck change separately if truck changed
-      if (truckChanged) {
+      if (truckChanged && assignmentApplied) {
         await supabase.from("assignment_history").insert({
           truck_id: formData.truck_id || null,
           trailer_id: formData.trailer_id || origTrailerId || null,
