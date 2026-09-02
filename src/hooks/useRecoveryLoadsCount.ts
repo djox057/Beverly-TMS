@@ -27,6 +27,23 @@ interface RecoveryBadge {
  * ~90 seconds. The RecoveryLoads page itself stays live via its own scoped
  * subscription.
  */
+/**
+
+ * Pure normalizer for the RPC payload (unit-tested).
+ * The RPC returns a single row; PostgREST may hand it back as an object or as
+ * a one-element array depending on the client version.
+ */
+export const normalizeBadgeRow = (data: unknown): RecoveryBadge => {
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { total?: number | null; has_mine?: boolean | null }
+    | null
+    | undefined;
+  return {
+    count: row?.total ?? 0,
+    hasMine: row?.has_mine ?? false,
+  };
+};
+
 export const useRecoveryLoadsCount = (options?: { enabled?: boolean }) => {
   const enabled = options?.enabled ?? true;
 
@@ -42,12 +59,9 @@ export const useRecoveryLoadsCount = (options?: { enabled?: boolean }) => {
         throw error;
       }
 
-      const row = Array.isArray(data) ? data[0] : data;
-      return {
-        count: row?.total ?? 0,
-        hasMine: row?.has_mine ?? false,
-      };
+      return normalizeBadgeRow(data);
     },
+
     enabled,
     staleTime: 60000,
     refetchInterval: enabled ? 90000 : false,
