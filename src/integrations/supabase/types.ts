@@ -5989,6 +5989,17 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       sign_out_all_users: { Args: never; Returns: Json }
+      tmp_verify_recovery_badge: {
+        Args: never
+        Returns: {
+          matches: boolean
+          old_has_mine: boolean
+          old_total: number
+          rpc_has_mine: boolean
+          rpc_total: number
+          who: string
+        }[]
+      }
       try_advisory_lock_truck_distances: { Args: never; Returns: boolean }
       validate_driver_email: { Args: { p_email: string }; Returns: Json }
     }
