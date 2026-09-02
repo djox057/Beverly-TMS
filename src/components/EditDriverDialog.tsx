@@ -96,6 +96,15 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   const queryClient = useQueryClient();
   const { hasRole, profile } = useAuthContext();
   const canViewSensitiveData = hasRole("manager") || hasRole("admin") || hasRole("accounting");
+  // Mirrors the trucks UPDATE policy — dispatch-only users cannot change truck/trailer assignment
+  const canChangeAssignment =
+    hasRole("admin") ||
+    hasRole("manager") ||
+    hasRole("accounting") ||
+    hasRole("safety") ||
+    hasRole("supervisor") ||
+    hasRole("maintenance") ||
+    hasRole("afterhours");
   const { allDispatchers } = useFleetManagement();
   const { data: companies } = useCompanies();
   const { data: allTrucks } = useAvailableTrucks();
@@ -602,6 +611,15 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       const truckChanged = (formData.truck_id || null) !== origTruckId;
       const trailerChanged = (formData.trailer_id || null) !== origTrailerId;
 
+      const assignmentWillChange = truckChanged || trailerChanged;
+      if (assignmentWillChange && !canChangeAssignment) {
+        throw new Error("You don't have permission to change truck/trailer assignment.");
+      }
+
+      // Tracks whether the trucks table actually accepted the assignment write.
+      // RLS rejections return zero rows without an error, so we must verify.
+      let assignmentApplied = !assignmentWillChange;
+
       if (formData.truck_id) {
         if (formData.trailer_id) {
           await supabase
@@ -612,15 +630,22 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
         }
 
         // Update truck with driver and inherit driver's company
-        const { error: truckError } = await supabase
+        const { data: truckUpdated, error: truckError } = await supabase
           .from("trucks")
           .update({
             driver1_id: editingDriver.id,
             trailer_id: formData.trailer_id || null,
             company_id: formData.company_id || null,
           })
-          .eq("id", formData.truck_id);
+          .eq("id", formData.truck_id)
+          .select("id");
         if (truckError) throw truckError;
+        if (assignmentWillChange) {
+          if (!truckUpdated || truckUpdated.length === 0) {
+            throw new Error("You don't have permission to change truck/trailer assignment.");
+          }
+          assignmentApplied = true;
+        }
 
         await supabase
           .from("trucks")
@@ -640,25 +665,46 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           .eq("trailer_id", formData.trailer_id)
           .neq("id", existingTruckId);
 
-        const { error: trailerError } = await supabase
+        const { data: trailerUpdated, error: trailerError } = await supabase
           .from("trucks")
           .update({
             driver1_id: editingDriver.id,
             trailer_id: formData.trailer_id,
           })
-          .eq("id", existingTruckId);
+          .eq("id", existingTruckId)
+          .select("id");
         if (trailerError) throw trailerError;
+        if (assignmentWillChange) {
+          if (!trailerUpdated || trailerUpdated.length === 0) {
+            throw new Error("You don't have permission to change truck/trailer assignment.");
+          }
+          assignmentApplied = true;
+        }
       } else if (!formData.truck_id && !formData.trailer_id) {
-        await supabase.from("trucks").update({ driver1_id: null }).eq("driver1_id", editingDriver.id);
-        await supabase.from("trucks").update({ driver2_id: null }).eq("driver2_id", editingDriver.id);
+        const { data: clearedD1 } = await supabase
+          .from("trucks")
+          .update({ driver1_id: null })
+          .eq("driver1_id", editingDriver.id)
+          .select("id");
+        const { data: clearedD2 } = await supabase
+          .from("trucks")
+          .update({ driver2_id: null })
+          .eq("driver2_id", editingDriver.id)
+          .select("id");
+        if (assignmentWillChange) {
+          if ((clearedD1?.length || 0) + (clearedD2?.length || 0) === 0) {
+            throw new Error("You don't have permission to change truck/trailer assignment.");
+          }
+          assignmentApplied = true;
+        }
       }
 
-      // Insert assignment history for any assignment change
+      // Insert assignment history ONLY for changes that were actually applied
       // HARDENED: Include old_ values for accurate "from → to" display
       const { data: userData } = await supabase.auth.getUser();
 
       // Log truck change separately if truck changed
-      if (truckChanged) {
+      if (truckChanged && assignmentApplied) {
         await supabase.from("assignment_history").insert({
           truck_id: formData.truck_id || null,
           trailer_id: formData.trailer_id || origTrailerId || null,
@@ -676,7 +722,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       }
 
       // Log trailer change separately if trailer changed
-      if (trailerChanged) {
+      if (trailerChanged && assignmentApplied) {
         await supabase.from("assignment_history").insert({
           truck_id: formData.truck_id || origTruckId || null,
           trailer_id: formData.trailer_id || null,
@@ -957,8 +1003,9 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                         setFormData({ ...formData, truck_id: v, trailer_id: selectedTruck?.trailer_id || "" });
                         setSelectedTruckId(v);
                       }}
-                      placeholder="Select truck..."
-                      emptyText="No available trucks"
+                       placeholder={canChangeAssignment ? "Select truck..." : "No permission to change"}
+                       emptyText="No available trucks"
+                       disabled={!canChangeAssignment}
                     />
                   </div>
                   <div className="space-y-2 col-span-5">
@@ -967,9 +1014,16 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       options={(availableTrailers || []).map((t) => ({ value: t.id, label: t.trailer_number }))}
                       value={formData.trailer_id}
                       onValueChange={(v) => setFormData({ ...formData, trailer_id: v })}
-                      placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"}
-                      emptyText="No available trailers"
-                    />
+                       placeholder={
+                         !canChangeAssignment
+                           ? "No permission to change"
+                           : formData.truck_id
+                            ? "Select trailer..."
+                            : "Select truck first"
+                       }
+                       emptyText="No available trailers"
+                       disabled={!canChangeAssignment}
+                     />
                   </div>
                   <div className="col-span-2">
                     <Button
@@ -977,6 +1031,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       variant="outline"
                       size="sm"
                       onClick={() => setFormData({ ...formData, truck_id: "", trailer_id: "" })}
+                      disabled={!canChangeAssignment}
                       className="w-full"
                     >
                       <RefreshCw className="h-4 w-4" />
