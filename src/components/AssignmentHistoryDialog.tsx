@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAssignmentHistory } from "@/hooks/useAssignmentHistory";
 import { useDriverCompanyHistory } from "@/hooks/useDriverCompanyHistory";
 import { useTruckCompanyHistory } from "@/hooks/useTruckCompanyHistory";
+import { useTrailerCompanyHistory } from "@/hooks/useTrailerCompanyHistory";
 import { calculateTenures, calculateCombinedDriverTenures, Tenure } from "@/utils/tenureCalculator";
 import { TenureList } from "@/components/TenureCard";
 import { Loader2 } from "lucide-react";
@@ -30,6 +31,9 @@ export const AssignmentHistoryDialog = ({
   );
   const { data: truckCompanyTenures = [], isLoading: truckCompanyLoading } = useTruckCompanyHistory(
     entityType === 'truck' ? entityId : null
+  );
+  const { data: trailerCompanyTenures = [], isLoading: trailerCompanyLoading } = useTrailerCompanyHistory(
+    entityType === 'trailer' ? entityId : null
   );
 
 
@@ -132,18 +136,12 @@ export const AssignmentHistoryDialog = ({
         );
 
       case 'trailer':
-        if (!history || history.length === 0) {
-          return (
-            <div className="text-center py-8 text-muted-foreground">
-              No assignment history found
-            </div>
-          );
-        }
         return (
           <Tabs defaultValue="trucks" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="trucks">Truck Tenures</TabsTrigger>
               <TabsTrigger value="drivers">Driver Tenures</TabsTrigger>
+              <TabsTrigger value="companies">Companies</TabsTrigger>
             </TabsList>
             <TabsContent value="trucks" className="mt-4">
               {renderTenureContent(truckTenures, 'truck')}
@@ -151,8 +149,12 @@ export const AssignmentHistoryDialog = ({
             <TabsContent value="drivers" className="mt-4">
               {renderTenureContent(driverTenures, 'driver')}
             </TabsContent>
+            <TabsContent value="companies" className="mt-4">
+              {renderCompanyContent(trailerCompanyTenures, trailerCompanyLoading)}
+            </TabsContent>
           </Tabs>
         );
+
 
       default:
         return null;
