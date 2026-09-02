@@ -132,6 +132,11 @@ const RecoveryLoads = () => {
       return (data || []) as unknown as RetrievalOrder[];
     },
     staleTime: 30000,
+    // The sidebar badge no longer invalidates this key on every `orders`
+    // realtime event, so keep the open page fresh on its own. This only runs
+    // while the page is mounted and only for the few users who can open it.
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
   });
 
   const rows = useMemo(() => {
