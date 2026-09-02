@@ -46,6 +46,8 @@ export const normalizeBadgeRow = (data: unknown): RecoveryBadge => {
   };
 };
 
+export const useRecoveryLoadsCount = (options?: { enabled?: boolean }) => {
+  const enabled = options?.enabled ?? true;
 
   return useQuery<RecoveryBadge>({
     queryKey: ["recovery-loads-count"],
@@ -59,12 +61,9 @@ export const normalizeBadgeRow = (data: unknown): RecoveryBadge => {
         throw error;
       }
 
-      const row = Array.isArray(data) ? data[0] : data;
-      return {
-        count: row?.total ?? 0,
-        hasMine: row?.has_mine ?? false,
-      };
+      return normalizeBadgeRow(data);
     },
+
     enabled,
     staleTime: 60000,
     refetchInterval: enabled ? 90000 : false,
