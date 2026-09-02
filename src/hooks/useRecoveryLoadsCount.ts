@@ -27,10 +27,8 @@ interface RecoveryBadge {
  * ~90 seconds. The RecoveryLoads page itself stays live via its own scoped
  * subscription.
  */
-export const useRecoveryLoadsCount = (options?: { enabled?: boolean }) => {
-  const enabled = options?.enabled ?? true;
-
 /**
+
  * Pure normalizer for the RPC payload (unit-tested).
  * The RPC returns a single row; PostgREST may hand it back as an object or as
  * a one-element array depending on the client version.
