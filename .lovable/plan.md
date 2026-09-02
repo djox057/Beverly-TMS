@@ -1,83 +1,114 @@
-# Database load analysis (last 3 hours) and fix plan
+# Corrected database load analysis and fix plan
 
-## What the logs actually show
+## Corrections to my earlier analysis
 
-**Request volume, not errors, caused the 90%+ usage.**
+- `pg_stat_statements.total_exec_time` is **cumulative query execution time** (includes I/O and waiting), not CPU time. The `drivers` figure is "≈68 hours of cumulative database execution time", not CPU-hours.
+- Those cumulative totals are **not** last-3-hours activity. Verified: `stats_reset = 2026-06-17 14:03 UTC`, so every cumulative number covers a **77-day window**. They rank query shapes by lifetime cost; they do not prove current load.
+- The "85 idle / 1 active connection" reading is a **single point-in-time sample** at 13:37 UTC. It shows connections were not exhausted at that instant; it does not rule out earlier spikes. Supabase does not retain per-minute connection history in the log sources available here, so earlier spikes remain unverified.
+- React Query cache is **per browser tab**. Raising `staleTime` removes duplicate fetches between components inside one tab; each additional tab still issues its own requests. So caching alone cannot fix fan-out.
 
-- 118,186 REST requests hit the database in the 13:00 UTC hour alone (~33 requests/second) from a small number of logged-in users.
-- Only 12 database errors in the last 3 hours: 9 statement timeouts (8s cap) and 3 `column drivers.full_name does not exist`. Both are symptoms, not the cause — the timeouts happen because the server is saturated.
-- 85 idle client connections were open, one active. So it is not connection exhaustion either; it is CPU burned on a few query shapes repeated constantly.
+## Evidence, separated by source
 
-## The four load sources, in order of cost
+**A. Current-hour edge logs (13:00-14:00 UTC, the only hour retained)**
 
-### 1. Recovery-loads badge in the sidebar (worst single query)
+- 118,186 total requests (~33 req/s).
+- Client concentration: 83,469 requests from a single Chrome version across **7 IPs**, plus 17,579 from another across 6. This is a handful of browsers, not a large user base.
+- Top single query: `GET /orders?select=booked_by&retrieval=eq.true&canceled=eq.false` — **9,512 calls in one hour**.
+- Writes in the same hour: `PATCH /rest/v1/trucks` **1,745 calls**, all from `Deno/SupabaseEdgeRuntime`, each `?id=eq.<one-uuid>` — an edge function updating trucks **one row at a time**, roughly 350 rows × 5 runs/hour.
+- Only 18 `PATCH /orders` and 21 `PATCH /pickup_drops` in that hour.
+- Dozens of distinct `GET /orders?select=*&id=in.(1-2 uuids)` shapes at ~175-182 calls each per hour (≈ every 20 s per shape), plus matching single-id `order_files`, `order_transfers`, `trucks`, `drivers`, `trailers`, `companies`, `brokers` lookups (~360-575/hr each).
+- 476 `POST /storage/v1/object/list/truck-odometer-files` and 456 `POST /dat_lane_lookups`.
 
-`GET /orders?select=booked_by&retrieval=eq.true&canceled=eq.false` ran **10,535 times in one hour**, mean 273 ms, peak 7.3 s. Cumulatively 300,892 calls / 82,163 seconds of database time.
+**B. Last-3-hour Postgres logs**
 
-Why: the hook behind the sidebar badge is mounted on every page for every user. It polls every 30 seconds *and* invalidates itself on **every single change to the orders table** (no debounce, no filtering). It also downloads every matching row just to count them and check one name.
+- 12 errors total: 9 × `canceling statement due to statement timeout` and 3 × `column drivers.full_name does not exist`.
+- All 9 timeouts are the same Reports statement: `orders` + lateral `pickup_drops` + lateral `order_files`, filtered `orders.truck_id = ANY($5) AND orders.canceled = $6 AND orders.pickup_datetime >= $7`, ordered by `orders.pickup_datetime DESC`.
 
-### 2. Realtime fan-out fetching one order at a time
+**C. Cumulative pg_stat_statements (77 days since 2026-06-17)**
 
-Two global realtime subscriptions (orders grid + reports) both listen to `orders`, `pickup_drops` and `order_transfers`. Every change triggers a flush that issues ~10 separate REST calls, and the logs show those calls carry a **single id** per request:
-
-```text
-order_files?order_id=in.(one-id)      574 calls/hr for one order
-order_transfers?order_id=in.(one-id)  361 calls/hr for the same order
-orders?id=in.(one-id)                 361 calls/hr
-companies?id=in.(one-id)            2,941 calls/hr
-brokers / drivers / trucks / trailers  ~370 calls/hr each, per id
-```
-
-Cumulative totals confirm this is the top consumer overall: 18.8M calls on the single-order `order_files` fetch (304,325 s of DB time), 12.0M on `pickup_drops`, 12.8M on `trailers` by id, 10.2M on `orders` by id. Each call is cheap (3-17 ms) — the cost is the count, multiplied by every open browser tab.
-
-### 3. Unbounded `select('*')` on wide reference tables
-
-| Query | Calls | Mean | Total DB time |
+| Query shape | Calls | Mean | Cumulative exec time |
 |---|---|---|---|
-| `drivers` where `is_active` (all columns) | 1,481,480 | 165 ms | 244,962 s |
-| `drivers` ordered by name (all rows) | 299,561 | 444 ms | 132,917 s |
-| `brokers` (all rows) | 256,929 | 492 ms | 126,438 s |
-| `trucks` where `is_active` (all columns) | 414,696 | 190 ms | 78,956 s |
-| `driver_drug_tests` (all rows) | 104,836 | 511 ms | 53,544 s |
+| `order_files` by `order_id = ANY(...)` | 18.8M | 16 ms | 304,326 s |
+| `drivers` where `is_active`, all columns | 1.48M | 165 ms | 244,963 s |
+| `order_files` (order_id, file_category) | 1.38M | 164 ms | 226,198 s |
+| `pickup_drops` by `order_id = ANY(...)` | 12.0M | 16 ms | 193,044 s |
+| `drivers` ordered by name, all rows | 299K | 444 ms | 132,917 s |
+| `brokers` all rows | 257K | 492 ms | 126,438 s |
+| `orders?select=booked_by&retrieval` | 301K | 273 ms | 82,164 s |
+| Reports lateral-join query | 10,735 | **3,603 ms** (max 7.95 s) | 38,682 s |
 
-These are lists refetched by many components with no shared cache window and no column narrowing. `drivers` alone accounts for roughly 68 CPU-hours.
+## Confirmed root causes
 
-### 4. Trailer realtime loop reacting to bulk truck updates
+1. **Recovery-loads badge (`src/hooks/useRecoveryLoadsCount.ts`)** — confirmed. Mounted in `src/components/Sidebar.tsx:150` for every user on every page. It (a) polls every 30 s, (b) invalidates on **every** `orders` change via a wildcard subscription, and (c) downloads all matching rows to count them and test one name in JS. 9,512 calls/hour, mean 273 ms.
+2. **Per-row `PATCH /trucks` from an edge function** — confirmed as the realtime amplifier. `public.trucks` has `REPLICA IDENTITY FULL`, so each of those 1,745 updates/hour broadcasts a full-row payload to every subscribed tab. `useTrucksRealtime` and `useTrailersRealtime` both listen to `table: "trucks"`/`"trailers"` with no field filter, so a routine sync makes every open tab re-fetch trucks and trailers.
+3. **`useTrailersRealtime` sequential loop** — confirmed by reading `src/hooks/useTrailersRealtime.ts:107-127`: on every `trucks` event it `await`s one `fetchSingleTrailer` per affected trailer inside a `for` loop, with no debounce and no batching.
+4. **`drivers.full_name` does not exist** — confirmed, two callers: `supabase/functions/send-stop-amount-approval/index.ts:126-131` (`.from("drivers").select("full_name")`) and `supabase/functions/mcp/index.ts:79`. The column is `drivers.name`. Effect: driver name silently missing from stop-amount approval emails, plus a 400 per call.
+5. **Unbounded `select('*')` reference reads** — confirmed by the cumulative table above and by `.select("*")` in `useTrailersRealtime`, `useTrucksRealtime` and the reports flush path.
 
-The trailers realtime hook reacts to **every** `trucks` row change and then fetches each affected trailer individually, in a loop, with no debounce. The periodic truck-distance/mileage sync updates trucks in bulk, so one background job makes every open tab issue hundreds of sequential trailer fetches. This matches the 12.8M cumulative single-id trailer lookups.
+## Hypotheses still to prove before touching code
 
-### 5. The two error types (minor, but worth fixing)
+- **What produces the repeated 1-2 id fetch shapes every ~20 s.** Realtime cannot explain it: only 18 order PATCHes and 21 pickup_drop PATCHes happened in that hour. Candidates: multiple simultaneously-mounted realtime hooks (`useOrdersRealtime` is called from `useOrders`, `useOrdersProgressive` **and** `useOrdersWithProgress`, all creating the same channel topic `orders-realtime-global`, while `useReportsRealtime` runs a second overlapping global subscription from `App.tsx:100`), or a per-row hook refetching on a short interval. This must be measured in an instrumented browser session before changing the realtime code.
+- **Whether the Reports statement needs a new index.** Confirmed that `pickup_datetime` belongs to `public.orders` (it appears as `"public"."orders"."pickup_datetime"` in the captured SQL), so an `orders`-side index is at least on the right table — but no index gets added until `EXPLAIN (ANALYZE, BUFFERS)` on the reconstructed statement shows the plan needs it, and any partial predicate must match the real `canceled` semantics including NULLs.
+- **Whether earlier connection spikes occurred.** Unverified; no retained history.
 
-- 9 × statement timeout, all on the Reports query joining `orders` + lateral `pickup_drops` + `order_files` filtered by `truck_id IN (...)` and `pickup_datetime >=`, mean 3.6 s and max 7.95 s across 10,735 calls. It only times out under load.
-- 3 × `column drivers.full_name does not exist` — a caller selects `full_name` from `drivers` (the column is `name`). Returns 400 every time it runs. Needs to be located (no frontend match; likely an edge function or the load-suggestion path).
+## Changed-field detection: what is actually possible
 
-## Fix plan
+Verified replica identities: `orders`, `trucks`, `pickup_drops`, `order_files` = **FULL**; `trailers`, `drivers`, `companies`, `order_transfers` = **default** (old record carries only the primary key).
 
-**Phase 1 — stop the badge storm (largest single win, smallest change)**
-- Switch the recovery badge to a `head: true, count: 'exact'` count query plus a separate tiny "mine" check, so no rows are transferred.
-- Remove the per-orders-change invalidation; keep a single polling interval (60 s) and refetch-on-focus, or debounce the realtime invalidation to one call per 30 s.
-- Only mount the hook for roles that can see the badge.
+So for `trucks` events, comparing `payload.old.trailer_id` vs `payload.new.trailer_id` is reliable **today**, but it depends on a replica-identity setting that is easy to change by accident. Plan: gate on the comparison only where `FULL` is confirmed, and treat the durable fix as narrowing the subscription itself (drop the blanket `trucks` listener from the trailers hook and let assignment writes publish a dedicated signal). No behaviour will rely on `old` values for `trailers`/`drivers`.
 
-**Phase 2 — batch the realtime flush**
-- Widen the debounce window from 1 s to 3-5 s in both realtime hooks so bursts coalesce into one multi-id fetch instead of one fetch per order.
-- Merge the two overlapping global subscriptions (orders grid + reports) into one shared flush so relations are fetched once, not twice.
-- Skip the enrichment round-trips for entity ids already present in the query cache (trucks/drivers/trailers/companies/brokers lists are already loaded).
+## Files and database objects to change
 
-**Phase 3 — trailer/truck realtime**
-- Debounce the trailers hook and collect affected trailer ids into one batched `.in()` fetch instead of a sequential loop.
-- Ignore `trucks` events whose changed fields do not include `trailer_id` (bulk mileage syncs then cost nothing).
+| Target | Change |
+|---|---|
+| `src/hooks/useRecoveryLoadsCount.ts` | Remove per-orders-change invalidation; call one RPC; 60-120 s poll; accept a gating flag |
+| `src/components/Sidebar.tsx` | Only mount/enable the badge hook for roles that can open Recovery Loads |
+| new DB function `public.get_recovery_loads_badge()` | Returns `(total int, has_mine bool)` in one indexed query, using `idx_orders_retrieval` |
+| `src/hooks/useTrailersRealtime.ts` | Debounce + single batched `.in()` fetch; stop reacting to unrelated `trucks` updates |
+| `src/hooks/useOrdersRealtime.ts`, `src/hooks/useReportsRealtime.ts`, `src/App.tsx` | One shared in-tab realtime coordinator; single channel; one batched request per relation |
+| `src/hooks/useTrucksRealtime.ts` | Explicit columns instead of `select("*")`; ignore non-assignment truck updates |
+| `supabase/functions/send-stop-amount-approval/index.ts`, `supabase/functions/mcp/index.ts` | `full_name` → `name` |
+| The edge function issuing per-row `PATCH /trucks` | Batch the writes (or write to a side table) so one sync is not 350 realtime broadcasts |
 
-**Phase 4 — narrow the reference-table reads**
-- Replace `select('*')` with explicit column lists for the `drivers`, `trucks`, `brokers`, `driver_drug_tests` list queries.
-- Raise `staleTime` on those list queries (they change rarely) so tabs share one fetch instead of refetching per mount.
+## Phased implementation
 
-**Phase 5 — errors**
-- Add a composite index supporting the Reports lateral query (`orders(truck_id, pickup_datetime desc) where not canceled`) and re-check the plan with EXPLAIN to remove the 8 s timeouts.
-- Track down and fix the `drivers.full_name` selection.
+**Phase 0 — baseline (no code change).** Snapshot `pg_stat_statements` rows for the target shapes with a timestamp, plus current-hour edge-log counts, so every later claim is a delta over a known interval.
 
-Phases 1-3 are where the CPU is; 4 and 5 are follow-up hardening. All of it is caching/query-shape work — no behavior or UI change.
+**Phase 1 — recovery badge (largest confirmed win).**
+1. Delete the `orders` wildcard invalidation (immediate kill switch).
+2. Add `get_recovery_loads_badge()` returning total + `has_mine` in one query; badge calls it with a 60-120 s interval and refetch-on-focus.
+3. Gate mounting to eligible roles.
 
-## Technical notes
+**Phase 2 — realtime fan-out.**
+1. Instrument a browser session to record exactly what triggers each repeated single-id fetch, and confirm/refute the duplicate-subscription hypothesis.
+2. Build one shared coordinator: a single channel per tab, one accumulator, and **one multi-id request per relation** per flush. Batching and dedup is the fix; the debounce window is only the batching boundary.
+3. Remove the duplicate global subscription so orders-grid and reports enrichment happen once.
 
-- All figures come from `pg_stat_statements` (cumulative) and the `edge_logs` / `postgres_logs` analytics sources (last 1-6 hours). Edge log retention only covered the current hour, so per-hour trend before 13:00 UTC is unavailable.
-- Relevant indexes already exist (`idx_orders_retrieval`, `idx_order_files_order_id`, `idx_pickup_drops_order_covering`, `idx_drivers_is_active`), so this is not a missing-index problem except for the Reports lateral query.
+**Phase 3 — trailers/trucks.** Batch trailer ids into one `.in()` call, delete the sequential loop, and stop trailer/truck refreshes for mileage-only updates. Batch the edge function's per-row truck PATCHes.
+
+**Phase 4 — narrow reads.** Explicit column lists for `drivers`, `trucks`, `trailers`, `brokers`, `driver_drug_tests` list queries; raise `staleTime` on slow-changing lists (in-tab dedup only — stated as such, not as a cross-user fix).
+
+**Phase 5 — Reports query.** Reconstruct the exact statement with real parameters, run `EXPLAIN (ANALYZE, BUFFERS)`, and add an index **only if** the plan shows it is needed; re-EXPLAIN to confirm use.
+
+**Phase 6 — `full_name` fix** in both edge functions, then verify the approval email carries a driver name.
+
+## Behaviour impact (explicit)
+
+UI and business rules stay as they are, with one honest tradeoff: polling at 60-120 s and batching realtime flushes introduce **bounded staleness**. The recovery badge and some grid cells may update a few seconds to two minutes later than today. No feature, permission, calculation or layout changes.
+
+## Acceptance criteria
+
+- Normal REST traffic drops from ~33 req/s to **under 3-5 req/s** at comparable user load.
+- Recovery badge: **≤2 DB requests per minute per eligible active tab**, ideally 1.
+- One realtime burst = **one batched request per relation**, never one per changed row.
+- No sequential per-trailer fetch loop remains in the codebase.
+- Database CPU stays **below 50%** at peak.
+- Reports statement p95 **under 2 s**, zero statement timeouts over a full business day.
+- All before/after numbers come from timestamped snapshots and `pg_stat_statements` deltas over a stated interval — never from lifetime totals.
+
+## Risks and follow-ups
+
+- Changed-field gating depends on `REPLICA IDENTITY FULL` on `trucks`; if that is ever relaxed the gate must fall back to "always refresh", so it is written defensively.
+- Merging two realtime subscriptions touches both the Orders grid and Reports; regression checks needed on BOL/POD upload, order cancel/recovery, and driver/truck reassignment flows (the reports flush already carries a comment about rows vanishing when the shape is wrong).
+- Batching the edge function's truck writes is a backend change with its own verification (row counts before/after must match).
+- 476 storage `object/list` calls and 456 `dat_lane_lookups` inserts per hour are not yet explained; queued as follow-up.
