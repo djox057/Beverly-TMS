@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAssignmentHistory } from "@/hooks/useAssignmentHistory";
 import { useDriverCompanyHistory } from "@/hooks/useDriverCompanyHistory";
 import { useTruckCompanyHistory } from "@/hooks/useTruckCompanyHistory";
+import { useTrailerCompanyHistory } from "@/hooks/useTrailerCompanyHistory";
 import { calculateTenures, calculateCombinedDriverTenures, Tenure } from "@/utils/tenureCalculator";
 import { TenureList } from "@/components/TenureCard";
 import { Loader2 } from "lucide-react";
