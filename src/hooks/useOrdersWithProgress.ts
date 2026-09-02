@@ -3,6 +3,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
 import { useOrdersRealtime } from "./useOrdersRealtime";
+import { traceFetch } from "@/utils/fetchTrace";
 
 interface LoadingProgress {
   unlockedLoaded: number;
@@ -66,6 +67,11 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
     : ["orders", "analytics-full"];
 
   useOrdersRealtime();
+
+  useEffect(() => {
+    traceFetch("useOrdersWithProgress", "mount");
+    return () => traceFetch("useOrdersWithProgress", "unmount");
+  }, []);
 
   const fetchDispatcherDriverIds = useCallback(async (): Promise<string[]> => {
     if (!dispatcherUserId) return [];

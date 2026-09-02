@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { transformOrders } from "@/utils/ordersTransform";
+import { traceFetch } from "@/utils/fetchTrace";
 
 // Flat column list - NO joins (matches edge function pattern)
 const ORDER_COLUMNS = `
@@ -179,6 +180,9 @@ export function useOrdersRealtime() {
      * This runs at most once per second, no matter how many events arrive.
      */
     const flushPending = async () => {
+      traceFetch("useOrdersRealtime", "realtime-flush", {
+        idCount: pendingOrderIds.size + pendingDeletes.size,
+      });
       if (isFlushing) return;
       isFlushing = true;
 
