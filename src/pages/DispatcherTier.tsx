@@ -31,7 +31,7 @@ const DispatcherTier = () => {
   const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("overall");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [avgDriverMap, setAvgDriverMap] = useState<Record<string, number>>({});
+  const [avgDriverMap, setAvgDriverMap] = useState<Record<string, { total: number; days: number }>>({});
   // Aggregates keyed by booked_by (full_name or user_id), matching Analytics
   const [dispMetrics, setDispMetrics] = useState<Record<string, { freight: number; pay: number; miles: number }>>({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
@@ -73,11 +73,7 @@ const DispatcherTier = () => {
         acc[r.dispatcher_id].total += count;
         acc[r.dispatcher_id].days += 1;
       });
-      const out: Record<string, number> = {};
-      Object.entries(acc).forEach(([id, s]) => {
-        out[id] = s.days > 0 ? s.total / s.days : 0;
-      });
-      setAvgDriverMap(out);
+      setAvgDriverMap(acc);
     };
     fetchAvg();
   }, []);
@@ -213,7 +209,11 @@ const DispatcherTier = () => {
         const miles = m?.miles || 0;
         const rpm = miles > 0 ? freight / miles : 0;
         const cut = freight - pay;
-        const avgDrivers = avgDriverMap[d.dispatcher.id] ?? 0;
+        // Include the current truck count as one extra day in the MTD average
+        const hist = avgDriverMap[d.dispatcher.id];
+        const totalDrivers = (hist?.total ?? 0) + currentTrucks;
+        const totalDays = (hist?.days ?? 0) + 1;
+        const avgDrivers = totalDays > 0 ? totalDrivers / totalDays : 0;
         return {
           id: d.dispatcher.id,
           name: d.dispatcher.full_name || d.dispatcher.email,
