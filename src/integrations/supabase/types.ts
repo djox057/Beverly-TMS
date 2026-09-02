@@ -5885,6 +5885,13 @@ export type Database = {
         }[]
       }
       get_orders_summary: { Args: { p_filters?: Json }; Returns: Json }
+      get_recovery_loads_badge: {
+        Args: never
+        Returns: {
+          has_mine: boolean
+          total: number
+        }[]
+      }
       get_us_map_city_stats: {
         Args: { p_direction: string; p_from: string; p_min_loads?: number }
         Returns: {

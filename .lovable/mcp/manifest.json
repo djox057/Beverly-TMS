@@ -30,11 +30,11 @@
           "properties": {
             "active_only": {
               "type": "boolean",
-              "description": "If true, only return drivers with status = 'active'."
+              "description": "If true, only return active drivers."
             },
             "name_contains": {
               "type": "string",
-              "description": "Case-insensitive substring match on driver full name."
+              "description": "Case-insensitive substring match on driver name."
             },
             "limit": {
               "type": "integer",

@@ -125,10 +125,10 @@ const handler = async (req: Request): Promise<Response> => {
     if (driverId && !driverName) {
       const { data: driverRow } = await admin
         .from("drivers")
-        .select("full_name")
+        .select("name")
         .eq("id", driverId)
         .maybeSingle();
-      driverName = driverRow?.full_name || null;
+      driverName = driverRow?.name || null;
     }
 
     // Weekly (Mon–Sun Chicago) totals for that driver, including this load.

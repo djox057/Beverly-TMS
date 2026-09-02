@@ -1,57 +1,58 @@
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuthContext } from "@/contexts/AuthContext";
 
-export const useRecoveryLoadsCount = () => {
-  const { profile } = useAuthContext();
-  const fullName = profile?.full_name || null;
-  const queryClient = useQueryClient();
+interface RecoveryBadge {
+  count: number;
+  hasMine: boolean;
+}
 
-  useEffect(() => {
-    const channel = supabase
-      .channel(`recovery-loads-count-${Math.random().toString(36).slice(2)}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["recovery-loads-count"] });
-          queryClient.invalidateQueries({ queryKey: ["recovery-loads"] });
-        }
-      )
-      .subscribe();
+/**
+ * Sidebar badge for active recovery loads.
+ *
+ * Perf notes (2026-09-02): this hook previously invalidated itself on EVERY
+ * `orders` realtime change AND polled every 30s AND downloaded every matching
+ * row to count them client-side. That single query was 9,512 REST calls/hour
+ * (≈4.4M lifetime calls) — the highest-volume request shape in the project.
+ *
+ * It now calls one aggregate RPC (`get_recovery_loads_badge`) that returns the
+ * total and "is one of them mine" from a single index scan
+ * (Index Scan using idx_orders_retrieval, 0.18ms — verified with
+ * EXPLAIN ANALYZE, BUFFERS), and it no longer subscribes to realtime.
+ *
+ * Request budget: staleTime 60s + refetchInterval 90s means at most 2 requests
+ * per minute per eligible tab, including focus refetches (a focus refetch is a
+ * no-op while the data is still fresh, which is what throttles tab-switching).
+ *
+ * Tradeoff: bounded staleness — the badge can lag a new recovery load by up to
+ * ~90 seconds. The RecoveryLoads page itself stays live via its own scoped
+ * subscription.
+ */
+export const useRecoveryLoadsCount = (options?: { enabled?: boolean }) => {
+  const enabled = options?.enabled ?? true;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
-  const query = useQuery({
-    queryKey: ["recovery-loads-count", fullName],
+  return useQuery<RecoveryBadge>({
+    queryKey: ["recovery-loads-count"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("booked_by")
-        .eq("retrieval", true)
-        .eq("canceled", false);
+      // Identity is derived server-side from auth.uid(); nothing is sent from
+      // the client, and the function runs SECURITY INVOKER so RLS still applies.
+      const { data, error } = await supabase.rpc("get_recovery_loads_badge");
 
       if (error) {
-        console.error("Error fetching recovery loads count:", error);
+        console.error("Error fetching recovery loads badge:", error);
         throw error;
       }
 
-      const rows = data || [];
-      const hasMine = fullName
-        ? rows.some((r: any) => (r.booked_by || "").trim().toLowerCase() === fullName.trim().toLowerCase())
-        : false;
-
-      return { count: rows.length, hasMine };
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
+        count: row?.total ?? 0,
+        hasMine: row?.has_mine ?? false,
+      };
     },
-    staleTime: 15000,
-    refetchInterval: 30000,
+    enabled,
+    staleTime: 60000,
+    refetchInterval: enabled ? 90000 : false,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     retry: false,
   });
-
-  return query;
 };
