@@ -318,14 +318,12 @@ export const generateInvoicePDF = async (
         (order.bookedByCompanyName ?? derivedCompany) === "BG Prime Inc" ||
         upperName.includes("BG PRIME");
       if (isBgPrimeLetterhead) {
-        doc.setTextColor(255, 255, 0); // yellow highlight
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         safePdfText(doc, "MC 1442603", 20, 30);
         safePdfText(doc, "1426 W ROSEMONT AVE,", 20, 34);
         safePdfText(doc, "CHICAGO, IL 60660", 20, 38);
         safePdfText(doc, "(312) 995-9909", 60, 38);
-        doc.setTextColor(0, 0, 0); // reset to black
       }
 
 
