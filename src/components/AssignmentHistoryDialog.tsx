@@ -60,15 +60,15 @@ export const AssignmentHistoryDialog = ({
     </ScrollArea>
   );
 
-  const renderCompanyContent = () => (
+  const renderCompanyContent = (tenures: Tenure[] = companyTenures, loading: boolean = companyLoading) => (
     <ScrollArea className="h-[400px] pr-4">
-      {companyLoading ? (
+      {loading ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
         <TenureList
-          tenures={companyTenures}
+          tenures={tenures}
           entityType="company"
           emptyMessage="No company history found"
         />
@@ -87,18 +87,12 @@ export const AssignmentHistoryDialog = ({
 
     switch (entityType) {
       case 'truck':
-        if (!history || history.length === 0) {
-          return (
-            <div className="text-center py-8 text-muted-foreground">
-              No assignment history found
-            </div>
-          );
-        }
         return (
           <Tabs defaultValue="drivers" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="drivers">Driver Tenures</TabsTrigger>
               <TabsTrigger value="trailers">Trailer Tenures</TabsTrigger>
+              <TabsTrigger value="companies">Companies</TabsTrigger>
             </TabsList>
             <TabsContent value="drivers" className="mt-4">
               {renderTenureContent(driverTenures, 'driver')}
@@ -106,8 +100,12 @@ export const AssignmentHistoryDialog = ({
             <TabsContent value="trailers" className="mt-4">
               {renderTenureContent(trailerTenures, 'trailer')}
             </TabsContent>
+            <TabsContent value="companies" className="mt-4">
+              {renderCompanyContent(truckCompanyTenures, truckCompanyLoading)}
+            </TabsContent>
           </Tabs>
         );
+
 
       case 'driver':
         return (
