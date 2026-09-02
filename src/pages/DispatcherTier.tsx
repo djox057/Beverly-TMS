@@ -31,7 +31,7 @@ const DispatcherTier = () => {
   const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("overall");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [avgDriverMap, setAvgDriverMap] = useState<Record<string, number>>({});
+  const [avgDriverMap, setAvgDriverMap] = useState<Record<string, { total: number; days: number }>>({});
   // Aggregates keyed by booked_by (full_name or user_id), matching Analytics
   const [dispMetrics, setDispMetrics] = useState<Record<string, { freight: number; pay: number; miles: number }>>({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
@@ -73,11 +73,7 @@ const DispatcherTier = () => {
         acc[r.dispatcher_id].total += count;
         acc[r.dispatcher_id].days += 1;
       });
-      const out: Record<string, number> = {};
-      Object.entries(acc).forEach(([id, s]) => {
-        out[id] = s.days > 0 ? s.total / s.days : 0;
-      });
-      setAvgDriverMap(out);
+      setAvgDriverMap(acc);
     };
     fetchAvg();
   }, []);
