@@ -209,7 +209,11 @@ const DispatcherTier = () => {
         const miles = m?.miles || 0;
         const rpm = miles > 0 ? freight / miles : 0;
         const cut = freight - pay;
-        const avgDrivers = avgDriverMap[d.dispatcher.id] ?? 0;
+        // Include the current truck count as one extra day in the MTD average
+        const hist = avgDriverMap[d.dispatcher.id];
+        const totalDrivers = (hist?.total ?? 0) + currentTrucks;
+        const totalDays = (hist?.days ?? 0) + 1;
+        const avgDrivers = totalDays > 0 ? totalDrivers / totalDays : 0;
         return {
           id: d.dispatcher.id,
           name: d.dispatcher.full_name || d.dispatcher.email,
