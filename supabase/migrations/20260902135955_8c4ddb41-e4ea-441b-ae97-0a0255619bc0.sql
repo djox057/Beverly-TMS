@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.tmp_verify_recovery_badge() TO authenticator, postgres, service_role, authenticated;
