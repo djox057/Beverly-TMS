@@ -4932,6 +4932,41 @@ export type Database = {
           },
         ]
       }
+      trailer_file_folders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          trailer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          trailer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          trailer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trailer_file_folders_trailer_id_fkey"
+            columns: ["trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trailer_files: {
         Row: {
           content_type: string | null
@@ -4939,6 +4974,7 @@ export type Database = {
           file_name: string
           file_path: string
           file_size: number | null
+          folder: string | null
           id: string
           trailer_id: string
           updated_at: string
@@ -4950,6 +4986,7 @@ export type Database = {
           file_name: string
           file_path: string
           file_size?: number | null
+          folder?: string | null
           id?: string
           trailer_id: string
           updated_at?: string
@@ -4961,6 +4998,7 @@ export type Database = {
           file_name?: string
           file_path?: string
           file_size?: number | null
+          folder?: string | null
           id?: string
           trailer_id?: string
           updated_at?: string
