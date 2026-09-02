@@ -31,7 +31,7 @@ describe("fetchTrace (development-only tracer)", () => {
     localStorage.setItem("debugFetchTrace", "1");
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     traceFetch("useOrdersProgressive", "realtime", { queryKey: ["orders", "active"], idCount: 12 });
-    const dump = (window as any).__fetchTraceDump();
+    const dump = (window as unknown as { __fetchTraceDump: () => { events: Record<string, unknown>[] } }).__fetchTraceDump();
     const serialized = JSON.stringify(dump);
     expect(serialized).toContain("useOrdersProgressive");
     expect(serialized).not.toMatch(/token|jwt|password|email|Bearer/i);
