@@ -31,6 +31,9 @@ export const AssignmentHistoryDialog = ({
   const { data: truckCompanyTenures = [], isLoading: truckCompanyLoading } = useTruckCompanyHistory(
     entityType === 'truck' ? entityId : null
   );
+  const { data: trailerCompanyTenures = [], isLoading: trailerCompanyLoading } = useTrailerCompanyHistory(
+    entityType === 'trailer' ? entityId : null
+  );
 
 
   // Calculate tenures based on entity type
