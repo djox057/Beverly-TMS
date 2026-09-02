@@ -5093,6 +5093,57 @@ export type Database = {
         }
         Relationships: []
       }
+      truck_company_history: {
+        Row: {
+          changed_by: string | null
+          changed_by_name_snapshot: string | null
+          company_id: string | null
+          company_name_snapshot: string | null
+          created_at: string
+          ended_at: string | null
+          id: string
+          started_at: string
+          truck_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_name_snapshot?: string | null
+          company_id?: string | null
+          company_name_snapshot?: string | null
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          truck_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_name_snapshot?: string | null
+          company_id?: string | null
+          company_name_snapshot?: string | null
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          truck_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_company_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "truck_company_history_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       truck_files: {
         Row: {
           content_type: string | null
