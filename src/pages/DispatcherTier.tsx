@@ -21,7 +21,7 @@ const monthToDateRange = () => {
   return { from, to };
 };
 
-type SortKey = "name" | "currentTrucks" | "avgTrucks" | "rpm" | "gross" | "cut" | "overall";
+type SortKey = "name" | "currentTrucks" | "avgDrivers" | "rpm" | "gross" | "cut" | "overall";
 type SortDir = "asc" | "desc";
 
 const DispatcherTier = () => {
@@ -31,7 +31,7 @@ const DispatcherTier = () => {
   const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("overall");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [avgMap, setAvgMap] = useState<Record<string, number>>({});
+  const [avgDriverMap, setAvgDriverMap] = useState<Record<string, number>>({});
   // Aggregates keyed by booked_by (full_name or user_id), matching Analytics
   const [dispMetrics, setDispMetrics] = useState<Record<string, { freight: number; pay: number; miles: number }>>({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
@@ -68,7 +68,7 @@ const DispatcherTier = () => {
       if (!data) return;
       const acc: Record<string, { total: number; days: number }> = {};
       data.forEach((r: any) => {
-        const count = r.truck_count ?? r.driver_count ?? 0;
+        const count = r.driver_count ?? r.truck_count ?? 0;
         if (!acc[r.dispatcher_id]) acc[r.dispatcher_id] = { total: 0, days: 0 };
         acc[r.dispatcher_id].total += count;
         acc[r.dispatcher_id].days += 1;
@@ -77,7 +77,7 @@ const DispatcherTier = () => {
       Object.entries(acc).forEach(([id, s]) => {
         out[id] = s.days > 0 ? s.total / s.days : 0;
       });
-      setAvgMap(out);
+      setAvgDriverMap(out);
     };
     fetchAvg();
   }, []);
@@ -213,7 +213,7 @@ const DispatcherTier = () => {
         const miles = m?.miles || 0;
         const rpm = miles > 0 ? freight / miles : 0;
         const cut = freight - pay;
-        const avgTrucks = avgMap[d.dispatcher.id] ?? 0;
+        const avgDrivers = avgDriverMap[d.dispatcher.id] ?? 0;
         return {
           id: d.dispatcher.id,
           name: d.dispatcher.full_name || d.dispatcher.email,
@@ -223,35 +223,39 @@ const DispatcherTier = () => {
           roles: d.dispatcher.roles || [],
           isActive: d.isActive,
           currentTrucks,
-          avgTrucks,
+          avgDrivers,
           rpm,
           gross: freight,
           cut,
         };
       });
     // Compute averages from the FULL dataset so search/filters don't change Overall score.
-    const withData = data.filter((r) => r.gross > 0 && r.avgTrucks > 1);
+    const withData = data.filter((r) => r.gross > 0 && r.avgDrivers > 1);
     const n = withData.length || 1;
     const avgRpm = withData.reduce((s, r) => s + r.rpm, 0) / n || 1;
-    const avgGross = withData.reduce((s, r) => s + r.gross, 0) / n || 1;
-    const avgCut = withData.reduce((s, r) => s + r.cut, 0) / n || 1;
-    const avgTrucksMean = withData.reduce((s, r) => s + r.avgTrucks, 0) / n || 1;
-    // Weighted-average score: rpm dominates. Example: rpm 16.67% above avg => +18% overall.
-    // Trucks add a tiny bonus so larger fleets get a slight edge when all else is equal.
+    const totalGross = withData.reduce((s, r) => s + r.gross, 0);
+    const totalCut = withData.reduce((s, r) => s + r.cut, 0);
+    const totalAvgDrivers = withData.reduce((s, r) => s + r.avgDrivers, 0) / n || 1;
+    const avgGrossPerDriver = totalAvgDrivers > 0 ? totalGross / totalAvgDrivers : 0;
+    const avgCutPerDriver = totalAvgDrivers > 0 ? totalCut / totalAvgDrivers : 0;
     const W_RPM = 1.08,
-      W_GROSS = 0.2,
-      W_CUT = 0.2,
-      W_TRUCKS = 0.05;
+      W_GROSS_PER_DRIVER = 0.35,
+      W_CUT_PER_DRIVER = 0.10,
+      W_DRIVERS = 0.05;
     const enrichedAll = data.map((r) => {
-      if (!(r.avgTrucks > 1)) {
+      if (!(r.avgDrivers > 1)) {
         return { ...r, overall: NaN };
       }
       const rRpm = avgRpm > 0 ? r.rpm / avgRpm : 0;
-      const rGross = avgGross > 0 ? r.gross / avgGross : 0;
-      const rCut = avgCut !== 0 ? r.cut / avgCut : 0;
-      const rTrucks = avgTrucksMean > 0 ? r.avgTrucks / avgTrucksMean : 0;
-      const overall = 1 + W_RPM * (rRpm - 1) + W_GROSS * (rGross - 1) + W_CUT * (rCut - 1) + W_TRUCKS * (rTrucks - 1);
-      return { ...r, overall };
+      const dispatcherGrossPerDriver = r.avgDrivers > 0 ? r.gross / r.avgDrivers : 0;
+      const dispatcherCutPerDriver = r.avgDrivers > 0 ? r.cut / r.avgDrivers : 0;
+      const rGrossPerDriver = avgGrossPerDriver > 0 ? dispatcherGrossPerDriver / avgGrossPerDriver : 0;
+      const rCutPerDriver = avgCutPerDriver !== 0 ? dispatcherCutPerDriver / avgCutPerDriver : 0;
+      const rDrivers = r.avgDrivers / 3;
+      const overallPercent =
+        100 *
+        (1 + W_RPM * (rRpm - 1) + W_GROSS_PER_DRIVER * (rGrossPerDriver - 1) + W_CUT_PER_DRIVER * (rCutPerDriver - 1) + W_DRIVERS * (rDrivers - 1));
+      return { ...r, overall: overallPercent };
     });
     const enriched = enrichedAll.filter((r) => {
       if (officeFilter !== "all" && r.office !== officeFilter) return false;
@@ -262,7 +266,7 @@ const DispatcherTier = () => {
       let cmp = 0;
       if (sortKey === "name") cmp = (a.name || "").localeCompare(b.name || "");
       else if (sortKey === "currentTrucks") cmp = a.currentTrucks - b.currentTrucks;
-      else if (sortKey === "avgTrucks") cmp = a.avgTrucks - b.avgTrucks;
+      else if (sortKey === "avgDrivers") cmp = a.avgDrivers - b.avgDrivers;
       else if (sortKey === "rpm") cmp = a.rpm - b.rpm;
       else if (sortKey === "gross") cmp = a.gross - b.gross;
       else if (sortKey === "cut") cmp = a.cut - b.cut;
@@ -315,7 +319,7 @@ const DispatcherTier = () => {
           <SelectContent>
             <SelectItem value="name">Sort: Name</SelectItem>
             <SelectItem value="currentTrucks">Sort: Current Trucks</SelectItem>
-            <SelectItem value="avgTrucks">Sort: Avg Trucks (MTD)</SelectItem>
+            <SelectItem value="avgDrivers">Sort: Avg Drivers (MTD)</SelectItem>
             <SelectItem value="rpm">Sort: RPM (MTD)</SelectItem>
             <SelectItem value="gross">Sort: Gross (MTD)</SelectItem>
             <SelectItem value="cut">Sort: Cut (MTD)</SelectItem>
@@ -384,7 +388,7 @@ const DispatcherTier = () => {
                       {r.currentTrucks} now
                     </Badge>
                     <Badge variant="secondary" className="text-xs">
-                      Avg {r.avgTrucks.toFixed(1)} MTD
+                      Avg {r.avgDrivers.toFixed(1)} drivers MTD
                     </Badge>
                     {r.office !== "—" && (
                       <Badge variant="secondary" className="text-xs whitespace-nowrap">
@@ -397,8 +401,8 @@ const DispatcherTier = () => {
                     <Badge variant="outline">RPM ${r.rpm.toFixed(2)}</Badge>
                     <Badge variant="outline">Gross ${Math.round(r.gross).toLocaleString()}</Badge>
                     <Badge variant="outline">Cut ${Math.round(r.cut).toLocaleString()}</Badge>
-                    <Badge variant={Number.isFinite(r.overall) && r.overall >= 1 ? "default" : "secondary"}>
-                      Overall {Number.isFinite(r.overall) ? `${(r.overall * 100).toFixed(0)}%` : "NaN"}
+                    <Badge variant={Number.isFinite(r.overall) && r.overall >= 100 ? "default" : "secondary"}>
+                      Overall {Number.isFinite(r.overall) ? `${r.overall.toFixed(0)}%` : "NaN"}
                     </Badge>
                   </div>
                   {canViewPhone && phoneByUser.has(r.id) && (
