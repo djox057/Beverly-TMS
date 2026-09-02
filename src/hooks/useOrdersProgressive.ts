@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { transformOrders } from "@/utils/ordersTransform";
 import { useOrdersRealtime } from "./useOrdersRealtime";
+import { traceFetch } from "@/utils/fetchTrace";
 
 const PAGE_SIZE = 100;
 
@@ -48,6 +49,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   
   // Subscribe to real-time updates
   useOrdersRealtime();
+
+  useEffect(() => {
+    traceFetch("useOrdersProgressive", "mount");
+    return () => traceFetch("useOrdersProgressive", "unmount");
+  }, []);
 
   // Cache for loaded pages: Map<pageNumber, orders[]>
   const loadedPagesRef = useRef<Map<number, any[]>>(new Map());
