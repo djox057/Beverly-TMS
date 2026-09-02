@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.tmp_test_dispatch_assignment_rls(uuid, uuid, uuid, uuid);

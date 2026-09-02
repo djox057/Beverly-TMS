@@ -236,6 +236,7 @@ const Trailers = () => {
     try {
       // Update the trailer
       const {
+        data: updatedTrailerRows,
         error: trailerError
       } = await supabase.from('trailers').update({
         trailer_number: formData.trailer_number,
@@ -246,8 +247,12 @@ const Trailers = () => {
         plate_expiration_date: formData.plate_expiration_date || null,
         insurance_expiration_date: formData.insurance_expiration_date || null,
         vented: formData.vented
-      }).eq('id', editingTrailer.id);
+      }).eq('id', editingTrailer.id).select('id');
       if (trailerError) throw trailerError;
+      // RLS blocks trailer updates for dispatch-only users: 0 rows means the write silently did nothing
+      if (!updatedTrailerRows || updatedTrailerRows.length === 0) {
+        throw new Error("No permission to update trailers.");
+      }
 
       // Handle truck assignment changes
       const currentTruck = editingTrailer.trucks?.[0];
@@ -256,22 +261,31 @@ const Trailers = () => {
       // If there was a truck assigned and now it's different, clear the old assignment
       if (currentTruck && currentTruck.id !== newTruckId) {
         const {
+          data: clearedRows,
           error: clearError
         } = await supabase.from('trucks').update({
           trailer_id: null
-        }).eq('id', currentTruck.id);
+        }).eq('id', currentTruck.id).select('id');
         if (clearError) throw clearError;
+        if (!clearedRows || clearedRows.length === 0) {
+          throw new Error("No permission to change truck/trailer assignments.");
+        }
       }
 
       // If a new truck is selected, assign this trailer to it
       if (newTruckId) {
         const {
+          data: assignedRows,
           error: assignError
         } = await supabase.from('trucks').update({
           trailer_id: editingTrailer.id
-        }).eq('id', newTruckId);
+        }).eq('id', newTruckId).select('id');
         if (assignError) throw assignError;
+        if (!assignedRows || assignedRows.length === 0) {
+          throw new Error("No permission to change truck/trailer assignments.");
+        }
       }
+
       toast({
         title: "Success",
         description: "Trailer updated successfully"

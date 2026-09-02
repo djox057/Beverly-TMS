@@ -431,6 +431,7 @@ const Trucks = () => {
 
       // ATOMIC OPERATION: Update the truck with new driver assignments FIRST
       const {
+        data: updatedTruckRows,
         error
       } = await supabase.from('trucks').update({
         truck_number: formData.truck_number,
@@ -452,8 +453,13 @@ const Trucks = () => {
         tires_swap_date: formData.tires_swap_date || null,
         maintenance_check_date: formData.maintenance_check_date || null,
         oos: formData.oos
-      }).eq('id', editingTruck.id);
+      }).eq('id', editingTruck.id).select('id');
       if (error) throw error;
+      // RLS blocks truck updates for dispatch-only users: 0 rows means the write silently did nothing
+      if (!updatedTruckRows || updatedTruckRows.length === 0) {
+        throw new Error("No permission to update this truck (truck/trailer/driver assignments require manager, admin, safety, supervisor, accounting, maintenance or afterhours role).");
+      }
+
 
       // Log assignment history if there was a change
       // HARDENED: Include old_ values for accurate "from → to" display
