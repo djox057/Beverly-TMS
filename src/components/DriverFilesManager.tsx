@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 import {
   DRIVER_DOCUMENT_PICKER,
   detectDriverDocumentType,
-  detectDriverDocumentType,
   getDocumentTypeById,
 } from "@/lib/driverDocumentKeywords";
 import { searchDriverFiles } from "@/lib/driverFileSearch";
