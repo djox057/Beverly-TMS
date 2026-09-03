@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { cn } from "@/lib/utils";
 import {
   DRIVER_DOCUMENT_PICKER,
-  detectDriverFileKeywords,
+  detectDriverDocumentType,
   detectDriverDocumentType,
   getDocumentTypeById,
 } from "@/lib/driverDocumentKeywords";
