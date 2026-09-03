@@ -6,17 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Trash2, Eye, Loader2, Folder, FolderPlus, FolderOpen, ArrowLeft } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, Folder, FolderPlus, FolderOpen, ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandItem, CommandGroup } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import {
   DRIVER_DOCUMENT_PICKER,
   detectDriverFileKeywords,
   getDocumentTypeById,
 } from "@/lib/driverDocumentKeywords";
+
 
 
 interface DriverFile {
@@ -51,6 +53,8 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [openDocTypeId, setOpenDocTypeId] = useState<string | null>(null);
+
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -625,68 +629,94 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
             </div>
           ) : (
             <div className="space-y-2">
-              {visibleFiles.map((file) => (
-                <div 
-                  key={file.id} 
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={selectedIds.includes(file.id)}
-                      onCheckedChange={(checked) => toggleSelected(file.id, checked === true)}
-                    />
-                    <FileText className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">{file.file_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(file.file_size / 1024).toFixed(2)} KB • {new Date(file.created_at).toLocaleDateString()}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-1 mt-1">
-                        {(file.keywords || []).length > 0 ? (
-                          (file.keywords || []).slice(1).map((k) => (
-                            <Badge key={k} variant="secondary" className="text-[10px] font-normal">
-                              {k}
-                            </Badge>
-                          ))
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground">No keywords</span>
-                        )}
+              {visibleFiles.map((file) => {
+                const currentDocId = (file.keywords || []).find((k) => getDocumentTypeById(k)) || "";
+                const currentDoc = currentDocId ? getDocumentTypeById(currentDocId) : null;
+                return (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={selectedIds.includes(file.id)}
+                        onCheckedChange={(checked) => toggleSelected(file.id, checked === true)}
+                      />
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{file.file_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.file_size / 1024).toFixed(2)} KB • {new Date(file.created_at).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
+                    <div className="flex gap-2">
+                      <Popover
+                        open={openDocTypeId === file.id}
+                        onOpenChange={(open) => setOpenDocTypeId(open ? file.id : null)}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            size="sm"
+                            aria-expanded={openDocTypeId === file.id}
+                            className="w-[200px] justify-between text-xs"
+                          >
+                            {currentDoc?.label || "No document type"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[220px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search document type..." />
+                            <CommandList>
+                              <CommandEmpty>No type found.</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  onSelect={() => {
+                                    handleSetDocumentType(file, "");
+                                    setOpenDocTypeId(null);
+                                  }}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", !currentDocId ? "opacity-100" : "opacity-0")} />
+                                  No document type
+                                </CommandItem>
+                                {DRIVER_DOCUMENT_PICKER.map((doc) => (
+                                  <CommandItem
+                                    key={doc.id}
+                                    onSelect={() => {
+                                      handleSetDocumentType(file, doc.id);
+                                      setOpenDocTypeId(null);
+                                    }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4", currentDocId === doc.id ? "opacity-100" : "opacity-0")} />
+                                    {doc.label}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewFile(file)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteFile(file)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <select
-                      className="h-9 rounded-md border border-input bg-background px-2 text-xs max-w-[180px]"
-                      value={
-                        (file.keywords || []).find((k) => !!getDocumentTypeById(k)) || ''
-                      }
-                      onChange={(e) => handleSetDocumentType(file, e.target.value)}
-                      title="Document type / keywords"
-                    >
-                      <option value="">No document type</option>
-                      {DRIVER_DOCUMENT_PICKER.map((doc) => (
-                        <option key={doc.id} value={doc.id}>
-                          {doc.label}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleViewFile(file)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteFile(file)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
