@@ -187,12 +187,12 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
   const addPendingFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const additions: PendingUpload[] = Array.from(files).map((file) => {
-      const docId = detectTrailerDocumentType(file.name);
+      const doc = detectTrailerDocumentType(file.name);
       return {
         id: `${Date.now()}-${Math.random().toString(36).substring(2)}`,
         file,
-        docId,
-        autoDetected: !!docId,
+        docId: doc ? doc.id : null,
+        autoDetected: !!doc,
       };
     });
     setPendingUploads((prev) => [...prev, ...additions]);
