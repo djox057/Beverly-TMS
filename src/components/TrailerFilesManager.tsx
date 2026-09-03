@@ -176,8 +176,27 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
     }
   };
 
+  const addPendingFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const additions: PendingUpload[] = Array.from(files).map((file) => {
+      const docId = detectTrailerDocumentType(file.name);
+      return {
+        id: `${Date.now()}-${Math.random().toString(36).substring(2)}`,
+        file,
+        docId,
+        autoDetected: !!docId,
+      };
+    });
+    setPendingUploads((prev) => [...prev, ...additions]);
+  };
+
+  const clearPendingInput = () => {
+    const fileInput = document.getElementById('trailer-file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+  };
+
   const handleFileUpload = async () => {
-    if (!selectedFiles || selectedFiles.length === 0) {
+    if (pendingUploads.length === 0) {
       toast({
         title: "No files selected",
         description: "Please select files to upload",
@@ -189,7 +208,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
     setIsUploading(true);
 
     try {
-      const uploadPromises = Array.from(selectedFiles).map(async (file) => {
+      const uploadPromises = pendingUploads.map(async ({ file, docId }) => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${trailerId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
 
@@ -198,6 +217,8 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
           .upload(fileName, file);
 
         if (uploadError) throw uploadError;
+
+        const doc = docId ? getTrailerDocumentTypeById(docId) : null;
 
         const { error: dbError } = await supabase
           .from('trailer_files')
@@ -209,7 +230,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
             content_type: file.type,
             uploaded_by: profile?.email || 'unknown',
             folder: currentFolder,
-            keywords: detectTrailerFileKeywords(file.name),
+            keywords: doc ? [doc.id, ...doc.keywords] : [],
           });
 
         if (dbError) throw dbError;
@@ -222,9 +243,8 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
         description: "Files uploaded successfully",
       });
 
-      setSelectedFiles(null);
-      const fileInput = document.getElementById('trailer-file-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
+      setPendingUploads([]);
+      clearPendingInput();
 
       loadTrailerFiles();
     } catch (error) {
