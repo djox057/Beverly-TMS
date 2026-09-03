@@ -3669,12 +3669,15 @@ const Reports = () => {
                 const searchLower = debouncedTruckDriverFilter.toLowerCase();
                 const isNumericSearch = /^\d+$/.test(debouncedTruckDriverFilter);
 
-                // For numeric searches, use exact match for truck number
+                // For numeric searches, use exact match for truck or trailer number
                 const matchesTruck = isNumericSearch
                   ? truck.truckNumber?.toLowerCase() === searchLower
                   : truck.truckNumber?.toLowerCase().includes(searchLower);
+                const matchesTrailer = isNumericSearch
+                  ? truck.trailerNumber?.toLowerCase() === searchLower
+                  : truck.trailerNumber?.toLowerCase().includes(searchLower);
                 const matchesDriver = truck.driver?.toLowerCase().includes(searchLower);
-                if (!matchesTruck && !matchesDriver) return false;
+                if (!matchesTruck && !matchesTrailer && !matchesDriver) return false;
               }
 
               // Check load number filter (searches both internal and broker load numbers)
@@ -4480,7 +4483,7 @@ const Reports = () => {
               )}
               <div className="relative">
                 <Input
-                  placeholder="Truck # / Driver name"
+                  placeholder="Unit# /driver name"
                   value={truckDriverFilter}
                   onChange={(e) => setTruckDriverFilter(e.target.value)}
                   className={cn(
