@@ -6,8 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Trash2, Eye, Loader2, Folder, FolderPlus, FolderOpen, ArrowLeft } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, FolderPlus, ArrowLeft, Check, ChevronsUpDown, Search, X } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandItem, CommandGroup } from "@/components/ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import {
+  TRAILER_DOCUMENT_PICKER,
+  detectTrailerFileKeywords,
+  getTrailerDocumentTypeById,
+} from "@/lib/trailerDocumentKeywords";
+import { searchTrailerFiles } from "@/lib/trailerFileSearch";
 
 interface TrailerFile {
   id: string;
@@ -19,6 +30,7 @@ interface TrailerFile {
   uploaded_by: string;
   created_at: string;
   folder: string | null;
+  keywords: string[] | null;
 }
 
 interface TrailerFileFolder {
@@ -37,6 +49,9 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [openDocTypeId, setOpenDocTypeId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,7 +69,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
 
   useEffect(() => {
     setSelectedIds([]);
-  }, [currentFolder]);
+  }, [currentFolder, searchQuery]);
 
   const loadTrailerFiles = async () => {
     try {
@@ -88,9 +103,19 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
     }
   };
 
+  const searchHits = useMemo(
+    () => (searchQuery.trim() ? searchTrailerFiles(files, searchQuery) : []),
+    [files, searchQuery]
+  );
+
+  const isSearching = searchQuery.trim().length > 0;
+
   const visibleFiles = useMemo(
-    () => files.filter((f) => (f.folder || null) === currentFolder),
-    [files, currentFolder]
+    () =>
+      isSearching
+        ? searchHits.map((h) => h.file)
+        : files.filter((f) => (f.folder || null) === currentFolder),
+    [files, currentFolder, isSearching, searchHits]
   );
 
   const folderCounts = useMemo(() => {
@@ -184,6 +209,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
             content_type: file.type,
             uploaded_by: profile?.email || 'unknown',
             folder: currentFolder,
+            keywords: detectTrailerFileKeywords(file.name),
           });
 
         if (dbError) throw dbError;
@@ -315,6 +341,35 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
     }
   };
 
+  const handleSetDocumentType = async (file: TrailerFile, docId: string) => {
+    const doc = getTrailerDocumentTypeById(docId);
+    const keywords = doc ? [doc.id, ...doc.keywords] : [];
+    try {
+      const { error } = await supabase
+        .from('trailer_files')
+        .update({ keywords })
+        .eq('id', file.id);
+      if (error) throw error;
+      setFiles((prev) => prev.map((f) => (f.id === file.id ? { ...f, keywords } : f)));
+      toast({ title: "Keywords updated", description: doc ? doc.label : "Cleared" });
+    } catch (error) {
+      console.error('Error updating keywords:', error);
+      toast({ title: "Error", description: "Failed to update keywords", variant: "destructive" });
+    }
+  };
+
+  const presentDocIds = useMemo(() => {
+    const set = new Set<string>();
+    files.forEach((f) => (f.keywords || []).forEach((k) => set.add(k)));
+    return set;
+  }, [files]);
+
+  const missingDocs = useMemo(
+    () => TRAILER_DOCUMENT_PICKER.filter((doc) => !presentDocIds.has(doc.id)),
+    [presentDocIds]
+  );
+  const presentRequiredCount = TRAILER_DOCUMENT_PICKER.length - missingDocs.length;
+
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
   };
@@ -355,68 +410,130 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
         <CardTitle>Trailer Files {trailerNumber && `- ${trailerNumber}`}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder='Search files by meaning — e.g. "cab card", "annual inspection"'
+              className="pl-9 pr-9"
+            />
+            {isSearching && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {isSearching && (
+            <p className="text-xs text-muted-foreground">
+              {visibleFiles.length} match{visibleFiles.length === 1 ? '' : 'es'} across all folders
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Label className="mb-0">Required Documents</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant={missingDocs.length === 0 ? "default" : "outline"} className="h-7 px-2 text-xs">
+                {presentRequiredCount}/{TRAILER_DOCUMENT_PICKER.length}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72 p-3">
+              {missingDocs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">All required documents are present.</p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Missing ({missingDocs.length})</p>
+                  <ul className="space-y-1 max-h-64 overflow-auto">
+                    {missingDocs.map((doc) => (
+                      <li key={doc.id} className="text-sm text-muted-foreground">• {doc.label}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+
         <div className="space-y-2">
           <Label>Folders</Label>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={currentFolder ?? "__all__"}
+              onValueChange={(v) => setCurrentFolder(v === "__all__" ? null : v)}
+            >
+              <SelectTrigger className="w-[240px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">
+                  All files ({files.filter((f) => !f.folder).length})
+                </SelectItem>
+                {folders.map((folder) => (
+                  <SelectItem key={folder.id} value={folder.name}>
+                    {folder.name} ({folderCounts[folder.name] || 0})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button variant="outline" onClick={() => setFolderDialogOpen(true)}>
+              <FolderPlus className="mr-2 h-4 w-4" />
+              Create folder
+            </Button>
+
+            {currentFolder && (
+              <Button
+                variant="outline"
+                size="icon"
+                title="Delete folder"
+                onClick={() => {
+                  const folder = folders.find((f) => f.name === currentFolder);
+                  if (folder) handleDeleteFolder(folder);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>New folder</DialogTitle>
+            </DialogHeader>
             <Input
-              placeholder="New folder name"
+              autoFocus
+              placeholder="Folder name"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  handleCreateFolder();
+                  handleCreateFolder().then(() => setFolderDialogOpen(false));
                 }
               }}
-              className="flex-1"
             />
-            <Button
-              variant="outline"
-              onClick={handleCreateFolder}
-              disabled={isCreatingFolder || !newFolderName.trim()}
-            >
-              {isCreatingFolder ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <FolderPlus className="mr-2 h-4 w-4" />
-              )}
-              Create folder
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant={currentFolder === null ? "default" : "outline"}
-              onClick={() => setCurrentFolder(null)}
-            >
-              <FolderOpen className="mr-2 h-4 w-4" />
-              All files ({files.filter((f) => !f.folder).length})
-            </Button>
-            {folders.map((folder) => (
-              <div key={folder.id} className="flex items-center">
-                <Button
-                  size="sm"
-                  variant={currentFolder === folder.name ? "default" : "outline"}
-                  onClick={() => setCurrentFolder(folder.name)}
-                  className="rounded-r-none"
-                >
-                  <Folder className="mr-2 h-4 w-4" />
-                  {folder.name} ({folderCounts[folder.name] || 0})
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-l-none border-l-0 px-2"
-                  onClick={() => handleDeleteFolder(folder)}
-                  title="Delete folder"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setFolderDialogOpen(false)}>Cancel</Button>
+              <Button
+                disabled={isCreatingFolder || !newFolderName.trim()}
+                onClick={() => handleCreateFolder().then(() => setFolderDialogOpen(false))}
+              >
+                {isCreatingFolder ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Create
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div className="space-y-2">
           <Label htmlFor="trailer-file-input">
@@ -476,12 +593,16 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="flex items-center gap-2">
-              {currentFolder && (
+              {currentFolder && !isSearching && (
                 <Button size="sm" variant="ghost" className="px-1" onClick={() => setCurrentFolder(null)}>
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               )}
-              {currentFolder ? `Files in "${currentFolder}"` : 'Uploaded Files'}
+              {isSearching
+                ? `Search results (${visibleFiles.length})`
+                : currentFolder
+                  ? `Files in "${currentFolder}"`
+                  : 'Uploaded Files'}
             </Label>
             {visibleFiles.length > 0 && (
               <div className="flex items-center gap-2">
@@ -541,46 +662,98 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
             </div>
           ) : visibleFiles.length === 0 ? (
             <div className="text-center p-8 text-muted-foreground">
-              No files uploaded yet
+              {isSearching ? 'No files match your search' : 'No files uploaded yet'}
             </div>
           ) : (
             <div className="space-y-2">
-              {visibleFiles.map((file) => (
-                <div
-                  key={file.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={selectedIds.includes(file.id)}
-                      onCheckedChange={(checked) => toggleSelected(file.id, checked === true)}
-                    />
-                    <FileText className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">{file.file_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(file.file_size / 1024).toFixed(2)} KB • {new Date(file.created_at).toLocaleDateString()}
-                      </p>
+              {visibleFiles.map((file) => {
+                const currentDocId = (file.keywords || []).find((k) => getTrailerDocumentTypeById(k)) || "";
+                const currentDoc = currentDocId ? getTrailerDocumentTypeById(currentDocId) : null;
+                return (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={selectedIds.includes(file.id)}
+                        onCheckedChange={(checked) => toggleSelected(file.id, checked === true)}
+                      />
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{file.file_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.file_size / 1024).toFixed(2)} KB • {new Date(file.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Popover
+                        open={openDocTypeId === file.id}
+                        onOpenChange={(open) => setOpenDocTypeId(open ? file.id : null)}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            size="sm"
+                            aria-expanded={openDocTypeId === file.id}
+                            className="w-[200px] justify-between text-xs"
+                          >
+                            {currentDoc?.label || "No document type"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[220px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search document type..." />
+                            <CommandList>
+                              <CommandEmpty>No type found.</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  onSelect={() => {
+                                    handleSetDocumentType(file, "");
+                                    setOpenDocTypeId(null);
+                                  }}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", !currentDocId ? "opacity-100" : "opacity-0")} />
+                                  No document type
+                                </CommandItem>
+                                {TRAILER_DOCUMENT_PICKER.map((doc) => (
+                                  <CommandItem
+                                    key={doc.id}
+                                    onSelect={() => {
+                                      handleSetDocumentType(file, doc.id);
+                                      setOpenDocTypeId(null);
+                                    }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4", currentDocId === doc.id ? "opacity-100" : "opacity-0")} />
+                                    {doc.label}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewFile(file)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteFile(file)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleViewFile(file)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteFile(file)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -4979,6 +4979,7 @@ export type Database = {
           file_size: number | null
           folder: string | null
           id: string
+          keywords: string[] | null
           trailer_id: string
           updated_at: string
           uploaded_by: string | null
@@ -4991,6 +4992,7 @@ export type Database = {
           file_size?: number | null
           folder?: string | null
           id?: string
+          keywords?: string[] | null
           trailer_id: string
           updated_at?: string
           uploaded_by?: string | null
@@ -5003,6 +5005,7 @@ export type Database = {
           file_size?: number | null
           folder?: string | null
           id?: string
+          keywords?: string[] | null
           trailer_id?: string
           updated_at?: string
           uploaded_by?: string | null
