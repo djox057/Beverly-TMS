@@ -418,6 +418,33 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
         <CardTitle>Driver Files {driverName && `- ${driverName}`}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder='Search files by meaning — e.g. "cab card", "physical", "driving record"'
+              className="pl-9 pr-9"
+            />
+            {isSearching && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {isSearching && (
+            <p className="text-xs text-muted-foreground">
+              {visibleFiles.length} match{visibleFiles.length === 1 ? '' : 'es'} across all folders
+            </p>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <Label className="mb-0">Required Documents</Label>
           <Popover>
