@@ -248,10 +248,33 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
 
       await Promise.all(uploadPromises);
 
+      // Samsara / ELD documents notify safety by email + SMS
+      const deviceDocs = pendingUploads
+        .filter((p) => p.docId === 'samsara' || p.docId === 'eld')
+        .map((p) => ({
+          docLabel: getTruckDocumentTypeById(p.docId as string)?.label || p.docId,
+          fileName: p.file.name,
+        }));
+
+      if (deviceDocs.length > 0) {
+        supabase.functions
+          .invoke('notify-truck-device-doc', {
+            body: {
+              truckNumber: truckNumber || null,
+              uploadedBy: profile?.email || null,
+              documents: deviceDocs,
+            },
+          })
+          .then(({ error }) => {
+            if (error) console.error('Failed to send Samsara/ELD notification:', error);
+          });
+      }
+
       toast({
         title: "Success",
         description: "Files uploaded successfully",
       });
+
 
       setPendingUploads([]);
       clearPendingInput();
