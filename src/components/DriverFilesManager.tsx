@@ -48,6 +48,8 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
