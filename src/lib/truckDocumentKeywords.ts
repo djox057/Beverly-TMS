@@ -17,6 +17,19 @@ export interface TruckDocumentType {
 
 export const TRUCK_DOCUMENT_TYPES: TruckDocumentType[] = [
   {
+    id: "samsara",
+    label: "Samsara",
+    keywords: ["samsara", "samsara device", "gps", "tracking device"],
+    patterns: [/\bsamsara\b/i],
+  },
+  {
+    id: "eld",
+    label: "ELD",
+    keywords: ["eld", "electronic logging device", "elog", "e-log"],
+    patterns: [/\beld\b/i, /\be[\s_-]?logs?\b/i, /\belectronic[\s_-]*logging\b/i],
+  },
+  {
+
     id: "registration_affirmation",
     label: "Registration Affirmation",
     keywords: ["registration affirmation", "affirmation", "registration"],
@@ -90,7 +103,10 @@ export const REQUIRED_TRUCK_DOCUMENT_IDS = [
   "nm_permit",
   "registration",
   "ifta_licence",
+  "samsara",
+  "eld",
 ] as const;
+
 
 export const getTruckDocumentTypeById = (id: string): TruckDocumentType | undefined =>
   TRUCK_DOCUMENT_TYPES.find((d) => d.id === id);
