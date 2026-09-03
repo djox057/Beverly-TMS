@@ -189,12 +189,16 @@ export function useAutoSwitchOffice({
       if (filterType === "truck") {
         group.trucks?.forEach((truck: any) => {
           const truckNumberValue = String(truck.truckNumber ?? truck.truck_number ?? "").toLowerCase();
+          const trailerNumberValue = String(truck.trailerNumber ?? truck.trailer_number ?? "").toLowerCase();
           if (isNumeric) {
-            // Truck number numeric search is exact-only
+            // Truck/trailer number numeric search is exact-only
             if (truckNumberValue === term) bump(1);
+            if (trailerNumberValue === term) bump(1);
           } else {
             if (truckNumberValue === term) bump(1);
             else if (truckNumberValue.includes(term)) bump(2);
+            if (trailerNumberValue === term) bump(1);
+            else if (trailerNumberValue.includes(term)) bump(2);
             // Driver names — prefer word-boundary
             if (isWordBoundaryMatch(truck.driver, term) || isWordBoundaryMatch(truck.driver2Name, term)) {
               bump(1);
