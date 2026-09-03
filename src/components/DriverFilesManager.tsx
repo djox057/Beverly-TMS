@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Trash2, Eye, Loader2, Folder, FolderPlus, FolderOpen, ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, Folder, FolderPlus, FolderOpen, ArrowLeft, Check, ChevronsUpDown, Search, X } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandItem, CommandGroup } from "@/components/ui/command";
@@ -75,7 +75,7 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
 
   useEffect(() => {
     setSelectedIds([]);
-  }, [currentFolder]);
+  }, [currentFolder, searchQuery]);
 
   const loadDriverFiles = async () => {
     try {
