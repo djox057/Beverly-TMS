@@ -176,8 +176,27 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
     }
   };
 
+  const addPendingFiles = (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const next: PendingUpload[] = Array.from(list).map((file) => {
+      const detected = detectTruckDocumentType(file.name);
+      return {
+        id: `${Date.now()}-${Math.random().toString(36).substring(2)}`,
+        file,
+        docId: detected?.id ?? null,
+        autoDetected: !!detected,
+      };
+    });
+    setPendingUploads((prev) => [...prev, ...next]);
+  };
+
+  const clearPendingInput = () => {
+    const fileInput = document.getElementById('truck-file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+  };
+
   const handleFileUpload = async () => {
-    if (!selectedFiles || selectedFiles.length === 0) {
+    if (pendingUploads.length === 0) {
       toast({
         title: "No files selected",
         description: "Please select files to upload",
@@ -189,7 +208,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
     setIsUploading(true);
 
     try {
-      const uploadPromises = Array.from(selectedFiles).map(async (file) => {
+      const uploadPromises = pendingUploads.map(async ({ file, docId }) => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${truckId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         
@@ -198,6 +217,9 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
           .upload(fileName, file);
 
         if (uploadError) throw uploadError;
+
+        const doc = docId ? getTruckDocumentTypeById(docId) : null;
+        const keywords = doc ? [doc.id, ...doc.keywords] : [];
 
         const { error: dbError } = await supabase
           .from('truck_files')
@@ -209,7 +231,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
             content_type: file.type,
             uploaded_by: profile?.email || 'unknown',
             folder: currentFolder,
-            keywords: detectTruckFileKeywords(file.name),
+            keywords,
           });
 
         if (dbError) throw dbError;
@@ -222,9 +244,8 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
         description: "Files uploaded successfully",
       });
 
-      setSelectedFiles(null);
-      const fileInput = document.getElementById('truck-file-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
+      setPendingUploads([]);
+      clearPendingInput();
       
       loadTruckFiles();
     } catch (error) {
