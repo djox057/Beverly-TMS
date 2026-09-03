@@ -400,7 +400,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
 
     const droppedFiles = e.dataTransfer.files;
     if (droppedFiles && droppedFiles.length > 0) {
-      setSelectedFiles(droppedFiles);
+      addPendingFiles(droppedFiles);
     }
   };
 
