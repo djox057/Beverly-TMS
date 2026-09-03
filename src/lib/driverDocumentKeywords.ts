@@ -55,7 +55,7 @@ export const DRIVER_DOCUMENT_TYPES: DriverDocumentType[] = [
     id: "medical_card",
     label: "Medical card",
     keywords: ["medical card", "med card", "dot physical", "medical certificate"],
-    patterns: [/\bmed(ical)?[\s_-]*(card|cert(ificate)?|exam)\b/i, /\bdot[\s_-]*physical\b/i, /\bmedcard\b/i],
+    patterns: [/\bmed(ical)?[\s_-]*(card|cert\w*|exam)\b/i, /\bdot[\s_-]*physical\b/i, /\bmedcard\b/i, /\bmedical\b/i],
   },
   {
     id: "ccf",
@@ -121,7 +121,7 @@ export const DRIVER_DOCUMENT_TYPES: DriverDocumentType[] = [
     id: "driver_consent",
     label: "Driver consent",
     keywords: ["driver consent", "consent"],
-    patterns: [/\bdriver\b[\s_-]*consent\b/i],
+    patterns: [/\bdriver\w*\b[\s_-]*conse\w*\b/i, /\bconsent\b/i],
   },
   {
     id: "legal_authorization",

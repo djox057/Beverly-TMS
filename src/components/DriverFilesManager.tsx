@@ -8,6 +8,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, Trash2, Eye, Loader2, Folder, FolderPlus, FolderOpen, ArrowLeft } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { Badge } from "@/components/ui/badge";
+import {
+  DRIVER_DOCUMENT_PICKER,
+  detectDriverFileKeywords,
+  getDocumentTypeById,
+} from "@/lib/driverDocumentKeywords";
 
 interface DriverFile {
   id: string;
@@ -19,6 +25,7 @@ interface DriverFile {
   uploaded_by: string;
   created_at: string;
   folder: string | null;
+  keywords: string[] | null;
 }
 
 interface DriverFileFolder {
@@ -184,6 +191,7 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
             content_type: file.type,
             uploaded_by: profile?.email || 'unknown',
             folder: currentFolder,
+            keywords: detectDriverFileKeywords(file.name),
           });
 
         if (dbError) throw dbError;
@@ -315,6 +323,29 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
     }
   };
 
+  const handleSetDocumentType = async (file: DriverFile, docId: string) => {
+    const doc = getDocumentTypeById(docId);
+    const keywords = doc ? [doc.id, ...doc.keywords] : [];
+    try {
+      const { error } = await supabase
+        .from('driver_files')
+        .update({ keywords })
+        .eq('id', file.id);
+      if (error) throw error;
+      setFiles((prev) => prev.map((f) => (f.id === file.id ? { ...f, keywords } : f)));
+      toast({ title: "Keywords updated", description: doc ? doc.label : "Cleared" });
+    } catch (error) {
+      console.error('Error updating keywords:', error);
+      toast({ title: "Error", description: "Failed to update keywords", variant: "destructive" });
+    }
+  };
+
+  const presentDocIds = useMemo(() => {
+    const set = new Set<string>();
+    files.forEach((f) => (f.keywords || []).forEach((k) => set.add(k)));
+    return set;
+  }, [files]);
+
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
   };
@@ -355,6 +386,21 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
         <CardTitle>Driver Files {driverName && `- ${driverName}`}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>Required Documents</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {DRIVER_DOCUMENT_PICKER.map((doc) => {
+              const has = presentDocIds.has(doc.id);
+              return (
+                <Badge key={doc.id} variant={has ? "default" : "outline"} className="text-xs font-normal">
+                  {has ? "✓ " : "• "}
+                  {doc.label}
+                </Badge>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label>Folders</Label>
           <div className="flex gap-2">
@@ -561,9 +607,35 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
                       <p className="text-xs text-muted-foreground">
                         {(file.file_size / 1024).toFixed(2)} KB • {new Date(file.created_at).toLocaleDateString()}
                       </p>
+                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                        {(file.keywords || []).length > 0 ? (
+                          (file.keywords || []).slice(1).map((k) => (
+                            <Badge key={k} variant="secondary" className="text-[10px] font-normal">
+                              {k}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">No keywords</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-2">
+                    <select
+                      className="h-9 rounded-md border border-input bg-background px-2 text-xs max-w-[180px]"
+                      value={
+                        (file.keywords || []).find((k) => !!getDocumentTypeById(k)) || ''
+                      }
+                      onChange={(e) => handleSetDocumentType(file, e.target.value)}
+                      title="Document type / keywords"
+                    >
+                      <option value="">No document type</option>
+                      {DRIVER_DOCUMENT_PICKER.map((doc) => (
+                        <option key={doc.id} value={doc.id}>
+                          {doc.label}
+                        </option>
+                      ))}
+                    </select>
                     <Button
                       size="sm"
                       variant="outline"
