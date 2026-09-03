@@ -350,6 +350,13 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
     return set;
   }, [files]);
 
+  const missingDocs = useMemo(
+    () => DRIVER_DOCUMENT_PICKER.filter((doc) => !presentDocIds.has(doc.id)),
+    [presentDocIds]
+  );
+  const presentRequiredCount = DRIVER_DOCUMENT_PICKER.length - missingDocs.length;
+
+
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
   };
