@@ -15,10 +15,17 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { cn } from "@/lib/utils";
 import {
   TRAILER_DOCUMENT_PICKER,
-  detectTrailerFileKeywords,
+  detectTrailerDocumentType,
   getTrailerDocumentTypeById,
 } from "@/lib/trailerDocumentKeywords";
 import { searchTrailerFiles } from "@/lib/trailerFileSearch";
+
+interface PendingUpload {
+  id: string;
+  file: File;
+  docId: string | null;
+  autoDetected: boolean;
+}
 
 interface TrailerFile {
   id: string;
