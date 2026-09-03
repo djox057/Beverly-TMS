@@ -575,13 +575,18 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="flex items-center gap-2">
-              {currentFolder && (
+              {currentFolder && !isSearching && (
                 <Button size="sm" variant="ghost" className="px-1" onClick={() => setCurrentFolder(null)}>
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               )}
-              {currentFolder ? `Files in "${currentFolder}"` : 'Uploaded Files'}
+              {isSearching
+                ? `Search results (${visibleFiles.length})`
+                : currentFolder
+                  ? `Files in "${currentFolder}"`
+                  : 'Uploaded Files'}
             </Label>
+
             {visibleFiles.length > 0 && (
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 text-sm">
