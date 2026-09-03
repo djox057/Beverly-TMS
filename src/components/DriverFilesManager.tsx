@@ -16,9 +16,18 @@ import { cn } from "@/lib/utils";
 import {
   DRIVER_DOCUMENT_PICKER,
   detectDriverFileKeywords,
+  detectDriverDocumentType,
   getDocumentTypeById,
 } from "@/lib/driverDocumentKeywords";
 import { searchDriverFiles } from "@/lib/driverFileSearch";
+
+interface PendingUpload {
+  id: string;
+  file: File;
+  /** null = "Other" (no required document type) */
+  docId: string | null;
+  autoDetected: boolean;
+}
 
 
 
