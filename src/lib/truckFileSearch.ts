@@ -19,7 +19,10 @@ const DOC_ALIASES: Record<string, string[]> = {
   nm_permit: ["nm permit", "new mexico permit", "new mexico", "nm weight distance", "nm"],
   registration: ["registration", "cab card", "cabcard", "vehicle registration", "truck registration", "irp", "apportioned registration", "plate registration"],
   ifta_licence: ["ifta", "ifta licence", "ifta license", "fuel tax", "fuel tax licence", "international fuel tax agreement"],
+  samsara: ["samsara", "samsara device", "gps", "gps device", "tracking device", "telematics"],
+  eld: ["eld", "e log", "elog", "elogs", "electronic logging device", "electronic log", "logbook device"],
 };
+
 
 /** Search-only concepts for useful files outside the required-truck checklist. */
 const FILE_CONCEPTS: Array<{ aliases: string[]; terms: string[] }> = [
