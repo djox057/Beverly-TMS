@@ -93,14 +93,14 @@ const resolveDocIds = (queryTokens: string[]): Set<string> => {
   return ids;
 };
 
-const resolveConceptTerms = (queryTokens: string[]): string[] => {
+const resolveConceptTerms = (queryTokens: string[]): string[][] => {
   const concept = FILE_CONCEPTS.find(({ aliases }) =>
     aliases.some((alias) => {
       const aliasTokens = tokenize(alias);
       return queryTokens.every((q) => aliasTokens.some((token) => similar(token, q)));
     })
   );
-  return concept ? concept.terms.flatMap((term) => tokenize(term)) : [];
+  return concept ? concept.terms.map((term) => tokenize(term)) : [];
 };
 
 export interface SearchableDriverFile {
@@ -153,8 +153,10 @@ export const searchDriverFiles = <T extends SearchableDriverFile>(
     // 5. search-only concept match, e.g. "cab card" -> "registration" / "IRP"
     const conceptMatch =
       conceptTerms.length > 0 &&
-      conceptTerms.some((term) =>
-        [...nameTokens, ...keywordTokens].some((candidate) => similar(candidate, term))
+      conceptTerms.some((termTokens) =>
+        termTokens.every((term) =>
+          [...nameTokens, ...keywordTokens].some((candidate) => similar(candidate, term))
+        )
       );
     if (conceptMatch) score += 10;
 
