@@ -439,7 +439,7 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
 
     const droppedFiles = e.dataTransfer.files;
     if (droppedFiles && droppedFiles.length > 0) {
-      setSelectedFiles(droppedFiles);
+      addPendingFiles(droppedFiles);
     }
   };
 
