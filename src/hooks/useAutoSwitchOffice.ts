@@ -326,6 +326,26 @@ export function useAutoSwitchOffice({
         return resolveOfficesFromDispatcherIds(dispatcherIds);
       };
       
+      
+      // Helper: resolve offices from trucks whose trailer_number matches the term
+      const resolveOfficesFromTrailerNumber = async (term: string, exact: boolean): Promise<string[] | null> => {
+        const trailerQuery = exact
+          ? supabase.from("trailers").select("id").eq("trailer_number", term).limit(5)
+          : supabase.from("trailers").select("id").ilike("trailer_number", `%${term}%`).limit(10);
+        const { data: trailerRows, error: trailerError } = await trailerQuery;
+        if (trailerError) throw trailerError;
+        if (!trailerRows || trailerRows.length === 0) return null;
+        const trailerIds = trailerRows.map(r => r.id);
+        const { data: trucksByTrailer, error: trucksError } = await supabase
+          .from("trucks")
+          .select("driver1_id, driver2_id")
+          .in("trailer_id", trailerIds)
+          .limit(10);
+        if (trucksError) throw trucksError;
+        if (!trucksByTrailer || trucksByTrailer.length === 0) return null;
+        return resolveOfficesFromTruckRows(trucksByTrailer);
+      };
+      
       // 1) If numeric, ONLY do exact match - no prefix/partial matching
       if (isNumeric) {
         const { data: exactTrucks, error: exactTruckError } = await supabase
@@ -363,6 +383,13 @@ export function useAutoSwitchOffice({
           if (foundOffices.length > 1) return { type: "ambiguous", offices: foundOffices };
         }
         
+        // For numeric searches, if no exact truck match, also try exact trailer number match
+        const trailerOffices = await resolveOfficesFromTrailerNumber(term, true);
+        if (trailerOffices) {
+          if (trailerOffices.length === 1) return { type: "found", office: trailerOffices[0] };
+          if (trailerOffices.length > 1) return { type: "ambiguous", offices: trailerOffices };
+        }
+
         // For numeric searches, if no exact match found, return not_found immediately
         // (don't fall through to prefix/substring matching)
       } else {
@@ -383,6 +410,13 @@ export function useAutoSwitchOffice({
           } else if (foundOffices.length > 1) {
             return { type: "ambiguous", offices: foundOffices };
           }
+        }
+
+        // If no truck match, also try substring match on trailer number
+        const trailerOffices = await resolveOfficesFromTrailerNumber(term, false);
+        if (trailerOffices) {
+          if (trailerOffices.length === 1) return { type: "found", office: trailerOffices[0] };
+          if (trailerOffices.length > 1) return { type: "ambiguous", offices: trailerOffices };
         }
       }
       
