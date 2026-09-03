@@ -103,7 +103,10 @@ export const REQUIRED_TRUCK_DOCUMENT_IDS = [
   "nm_permit",
   "registration",
   "ifta_licence",
+  "samsara",
+  "eld",
 ] as const;
+
 
 export const getTruckDocumentTypeById = (id: string): TruckDocumentType | undefined =>
   TRUCK_DOCUMENT_TYPES.find((d) => d.id === id);
