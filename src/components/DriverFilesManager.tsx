@@ -193,8 +193,27 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
     }
   };
 
+  const addPendingFiles = (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const next: PendingUpload[] = Array.from(list).map((file) => {
+      const detected = detectDriverDocumentType(file.name);
+      return {
+        id: `${Date.now()}-${Math.random().toString(36).substring(2)}`,
+        file,
+        docId: detected?.id ?? null,
+        autoDetected: !!detected,
+      };
+    });
+    setPendingUploads((prev) => [...prev, ...next]);
+  };
+
+  const clearPendingInput = () => {
+    const fileInput = document.getElementById('driver-file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+  };
+
   const handleFileUpload = async () => {
-    if (!selectedFiles || selectedFiles.length === 0) {
+    if (pendingUploads.length === 0) {
       toast({
         title: "No files selected",
         description: "Please select files to upload",
@@ -206,7 +225,7 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
     setIsUploading(true);
 
     try {
-      const uploadPromises = Array.from(selectedFiles).map(async (file) => {
+      const uploadPromises = pendingUploads.map(async ({ file, docId }) => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${driverId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         
@@ -215,6 +234,9 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
           .upload(fileName, file);
 
         if (uploadError) throw uploadError;
+
+        const doc = docId ? getDocumentTypeById(docId) : null;
+        const keywords = doc ? [doc.id, ...doc.keywords] : [];
 
         const { error: dbError } = await supabase
           .from('driver_files')
@@ -226,7 +248,7 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
             content_type: file.type,
             uploaded_by: profile?.email || 'unknown',
             folder: currentFolder,
-            keywords: detectDriverFileKeywords(file.name),
+            keywords,
           });
 
         if (dbError) throw dbError;
@@ -239,9 +261,8 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
         description: "Files uploaded successfully",
       });
 
-      setSelectedFiles(null);
-      const fileInput = document.getElementById('driver-file-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
+      setPendingUploads([]);
+      clearPendingInput();
       
       loadDriverFiles();
     } catch (error) {
