@@ -105,10 +105,21 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
     }
   };
 
-  const visibleFiles = useMemo(
-    () => files.filter((f) => (f.folder || null) === currentFolder),
-    [files, currentFolder]
+  const searchHits = useMemo(
+    () => (searchQuery.trim() ? searchDriverFiles(files, searchQuery) : []),
+    [files, searchQuery]
   );
+
+  const isSearching = searchQuery.trim().length > 0;
+
+  const visibleFiles = useMemo(
+    () =>
+      isSearching
+        ? searchHits.map((h) => h.file)
+        : files.filter((f) => (f.folder || null) === currentFolder),
+    [files, currentFolder, isSearching, searchHits]
+  );
+
 
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {};
