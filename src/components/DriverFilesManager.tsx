@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, Trash2, Eye, Loader2, Folder, FolderPlus, FolderOpen, ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
+import { Upload, FileText, Trash2, Eye, Loader2, Folder, FolderPlus, FolderOpen, ArrowLeft, Check, ChevronsUpDown, Search, X } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandItem, CommandGroup } from "@/components/ui/command";
@@ -18,6 +18,8 @@ import {
   detectDriverFileKeywords,
   getDocumentTypeById,
 } from "@/lib/driverDocumentKeywords";
+import { searchDriverFiles } from "@/lib/driverFileSearch";
+
 
 
 
@@ -54,6 +56,8 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [openDocTypeId, setOpenDocTypeId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
 
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,7 +75,7 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
 
   useEffect(() => {
     setSelectedIds([]);
-  }, [currentFolder]);
+  }, [currentFolder, searchQuery]);
 
   const loadDriverFiles = async () => {
     try {
@@ -105,10 +109,21 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
     }
   };
 
-  const visibleFiles = useMemo(
-    () => files.filter((f) => (f.folder || null) === currentFolder),
-    [files, currentFolder]
+  const searchHits = useMemo(
+    () => (searchQuery.trim() ? searchDriverFiles(files, searchQuery) : []),
+    [files, searchQuery]
   );
+
+  const isSearching = searchQuery.trim().length > 0;
+
+  const visibleFiles = useMemo(
+    () =>
+      isSearching
+        ? searchHits.map((h) => h.file)
+        : files.filter((f) => (f.folder || null) === currentFolder),
+    [files, currentFolder, isSearching, searchHits]
+  );
+
 
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -403,6 +418,33 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
         <CardTitle>Driver Files {driverName && `- ${driverName}`}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder='Search files by meaning — e.g. "cab card", "physical", "driving record"'
+              className="pl-9 pr-9"
+            />
+            {isSearching && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {isSearching && (
+            <p className="text-xs text-muted-foreground">
+              {visibleFiles.length} match{visibleFiles.length === 1 ? '' : 'es'} across all folders
+            </p>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <Label className="mb-0">Required Documents</Label>
           <Popover>
@@ -560,13 +602,18 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="flex items-center gap-2">
-              {currentFolder && (
+              {currentFolder && !isSearching && (
                 <Button size="sm" variant="ghost" className="px-1" onClick={() => setCurrentFolder(null)}>
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               )}
-              {currentFolder ? `Files in "${currentFolder}"` : 'Uploaded Files'}
+              {isSearching
+                ? `Search results (${visibleFiles.length})`
+                : currentFolder
+                  ? `Files in "${currentFolder}"`
+                  : 'Uploaded Files'}
             </Label>
+
             {visibleFiles.length > 0 && (
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2 text-sm">
@@ -625,7 +672,7 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
             </div>
           ) : visibleFiles.length === 0 ? (
             <div className="text-center p-8 text-muted-foreground">
-              No files uploaded yet
+              {isSearching ? 'No files match your search' : 'No files uploaded yet'}
             </div>
           ) : (
             <div className="space-y-2">
