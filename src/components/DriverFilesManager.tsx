@@ -54,6 +54,8 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [openDocTypeId, setOpenDocTypeId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
 
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
