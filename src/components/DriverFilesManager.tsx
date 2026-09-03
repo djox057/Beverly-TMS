@@ -386,83 +386,104 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
         <CardTitle>Driver Files {driverName && `- ${driverName}`}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>Required Documents</Label>
-          <div className="flex flex-wrap gap-1.5">
-            {DRIVER_DOCUMENT_PICKER.map((doc) => {
-              const has = presentDocIds.has(doc.id);
-              return (
-                <Badge key={doc.id} variant={has ? "default" : "outline"} className="text-xs font-normal">
-                  {has ? "✓ " : "• "}
-                  {doc.label}
-                </Badge>
-              );
-            })}
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Label className="mb-0">Required Documents</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant={missingDocs.length === 0 ? "default" : "outline"} className="h-7 px-2 text-xs">
+                {presentRequiredCount}/{DRIVER_DOCUMENT_PICKER.length}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72 p-3">
+              {missingDocs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">All required documents are present.</p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Missing ({missingDocs.length})</p>
+                  <ul className="space-y-1 max-h-64 overflow-auto">
+                    {missingDocs.map((doc) => (
+                      <li key={doc.id} className="text-sm text-muted-foreground">• {doc.label}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="space-y-2">
           <Label>Folders</Label>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={currentFolder ?? "__all__"}
+              onValueChange={(v) => setCurrentFolder(v === "__all__" ? null : v)}
+            >
+              <SelectTrigger className="w-[240px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">
+                  All files ({files.filter((f) => !f.folder).length})
+                </SelectItem>
+                {folders.map((folder) => (
+                  <SelectItem key={folder.id} value={folder.name}>
+                    {folder.name} ({folderCounts[folder.name] || 0})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button variant="outline" onClick={() => setFolderDialogOpen(true)}>
+              <FolderPlus className="mr-2 h-4 w-4" />
+              Create folder
+            </Button>
+
+            {currentFolder && (
+              <Button
+                variant="outline"
+                size="icon"
+                title="Delete folder"
+                onClick={() => {
+                  const folder = folders.find((f) => f.name === currentFolder);
+                  if (folder) handleDeleteFolder(folder);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>New folder</DialogTitle>
+            </DialogHeader>
             <Input
-              placeholder="New folder name"
+              autoFocus
+              placeholder="Folder name"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  handleCreateFolder();
+                  handleCreateFolder().then(() => setFolderDialogOpen(false));
                 }
               }}
-              className="flex-1"
             />
-            <Button
-              variant="outline"
-              onClick={handleCreateFolder}
-              disabled={isCreatingFolder || !newFolderName.trim()}
-            >
-              {isCreatingFolder ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <FolderPlus className="mr-2 h-4 w-4" />
-              )}
-              Create folder
-            </Button>
-          </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setFolderDialogOpen(false)}>Cancel</Button>
+              <Button
+                disabled={isCreatingFolder || !newFolderName.trim()}
+                onClick={() => handleCreateFolder().then(() => setFolderDialogOpen(false))}
+              >
+                {isCreatingFolder ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Create
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant={currentFolder === null ? "default" : "outline"}
-              onClick={() => setCurrentFolder(null)}
-            >
-              <FolderOpen className="mr-2 h-4 w-4" />
-              All files ({files.filter((f) => !f.folder).length})
-            </Button>
-            {folders.map((folder) => (
-              <div key={folder.id} className="flex items-center">
-                <Button
-                  size="sm"
-                  variant={currentFolder === folder.name ? "default" : "outline"}
-                  onClick={() => setCurrentFolder(folder.name)}
-                  className="rounded-r-none"
-                >
-                  <Folder className="mr-2 h-4 w-4" />
-                  {folder.name} ({folderCounts[folder.name] || 0})
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-l-none border-l-0 px-2"
-                  onClick={() => handleDeleteFolder(folder)}
-                  title="Delete folder"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
 
         <div className="space-y-2">
           <Label htmlFor="driver-file-input">
