@@ -39,6 +39,18 @@ const DOC_ALIASES: Record<string, string[]> = {
   app_updated: ["app updated", "updated application", "revised application"],
 };
 
+/** Search-only concepts for useful files outside the required-driver checklist. */
+const FILE_CONCEPTS: Array<{ aliases: string[]; terms: string[] }> = [
+  {
+    aliases: ["cab card", "cabcard", "registration", "vehicle registration", "truck registration", "irp", "apportioned registration"],
+    terms: ["cab card", "cabcard", "registration", "vehicle registration", "truck registration", "irp", "apportioned"],
+  },
+  {
+    aliases: ["insurance", "insurance card", "proof of insurance"],
+    terms: ["insurance", "insurance card", "proof of insurance", "liability insurance"],
+  },
+];
+
 const STOP_WORDS = new Set([
   "the", "a", "an", "of", "and", "for", "to", "file", "files", "form", "copy", "scan", "scanned",
   "pdf", "doc", "docx", "jpg", "jpeg", "png", "side", "new",
@@ -81,6 +93,16 @@ const resolveDocIds = (queryTokens: string[]): Set<string> => {
   return ids;
 };
 
+const resolveConceptTerms = (queryTokens: string[]): string[][] => {
+  const concept = FILE_CONCEPTS.find(({ aliases }) =>
+    aliases.some((alias) => {
+      const aliasTokens = tokenize(alias);
+      return queryTokens.every((q) => aliasTokens.some((token) => similar(token, q)));
+    })
+  );
+  return concept ? concept.terms.map((term) => tokenize(term)) : [];
+};
+
 export interface SearchableDriverFile {
   id: string;
   file_name: string;
@@ -101,6 +123,7 @@ export const searchDriverFiles = <T extends SearchableDriverFile>(
   if (queryTokens.length === 0) return [];
 
   const docIds = resolveDocIds(queryTokens);
+  const conceptTerms = resolveConceptTerms(queryTokens);
   const lowerQuery = query.trim().toLowerCase().replace(/\s+/g, " ");
 
   const hits: DriverFileSearchHit<T>[] = [];
@@ -126,6 +149,16 @@ export const searchDriverFiles = <T extends SearchableDriverFile>(
     const allInKeywords =
       keywordTokens.length > 0 && queryTokens.every((q) => keywordTokens.some((k) => similar(k, q)));
     if (allInKeywords) score += 5;
+
+    // 5. search-only concept match, e.g. "cab card" -> "registration" / "IRP"
+    const conceptMatch =
+      conceptTerms.length > 0 &&
+      conceptTerms.some((termTokens) =>
+        termTokens.every((term) =>
+          [...nameTokens, ...keywordTokens].some((candidate) => similar(candidate, term))
+        )
+      );
+    if (conceptMatch) score += 10;
 
     if (score > 0) hits.push({ file, score });
   });
