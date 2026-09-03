@@ -67,7 +67,8 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
   const [openPendingDocId, setOpenPendingDocId] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const { toast } = useToast();
-  const { profile } = useAuthContext();
+  const { profile, hasRole } = useAuthContext();
+  const canDelete = hasRole('admin') || hasRole('accounting') || hasRole('safety') || hasRole('maintenance');
 
   useEffect(() => {
     if (trailerId) {
@@ -517,7 +518,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
               Create folder
             </Button>
 
-            {currentFolder && (
+            {currentFolder && canDelete && (
               <Button
                 variant="outline"
                 size="icon"
@@ -759,7 +760,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
                           </option>
                         ))}
                     </select>
-                    <Button
+                    {canDelete && <Button
                       size="sm"
                       variant="destructive"
                       onClick={handleDeleteSelected}
@@ -771,7 +772,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
                         <Trash2 className="mr-2 h-4 w-4" />
                       )}
                       Delete selected ({selectedIds.length})
-                    </Button>
+                    </Button>}
                   </>
                 )}
               </div>
@@ -864,13 +865,15 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteFile(file)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canDelete && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteFile(file)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
