@@ -561,12 +561,15 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
                   id="truck-file-input"
                   type="file"
                   multiple
-                  onChange={(e) => setSelectedFiles(e.target.files)}
+                  onChange={(e) => {
+                    addPendingFiles(e.target.files);
+                    clearPendingInput();
+                  }}
                   className="flex-1"
                 />
                 <Button 
                   onClick={handleFileUpload} 
-                  disabled={isUploading || !selectedFiles}
+                  disabled={isUploading || pendingUploads.length === 0}
                 >
                   {isUploading ? (
                     <>
@@ -576,15 +579,105 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
                   ) : (
                     <>
                       <Upload className="mr-2 h-4 w-4" />
-                      Upload
+                      Upload{pendingUploads.length > 0 ? ` (${pendingUploads.length})` : ''}
                     </>
                   )}
                 </Button>
               </div>
-              {selectedFiles && selectedFiles.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected
-                </p>
+
+              {pendingUploads.length > 0 && (
+                <div className="w-full space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Confirm what each file is before uploading:
+                  </p>
+                  {pendingUploads.map((pending) => {
+                    const doc = pending.docId ? getTruckDocumentTypeById(pending.docId) : null;
+                    return (
+                      <div
+                        key={pending.id}
+                        className="flex items-center gap-2 rounded-md border bg-background p-2"
+                      >
+                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm truncate">{pending.file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {pending.autoDetected ? 'Detected from file name' : 'Not recognized — pick a type'}
+                          </p>
+                        </div>
+                        <Popover
+                          open={openPendingDocId === pending.id}
+                          onOpenChange={(o) => setOpenPendingDocId(o ? pending.id : null)}
+                          modal={false}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 w-[200px] justify-between">
+                              <span className="truncate">{doc ? doc.label : 'Other'}</span>
+                              <ChevronsUpDown className="ml-2 h-3 w-3 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" className="w-[260px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Search document type..." />
+                              <CommandList>
+                                <CommandEmpty>No document type found.</CommandEmpty>
+                                <CommandGroup>
+                                  <CommandItem
+                                    value="Other"
+                                    onSelect={() => {
+                                      setPendingUploads((prev) =>
+                                        prev.map((p) => (p.id === pending.id ? { ...p, docId: null } : p))
+                                      );
+                                      setOpenPendingDocId(null);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        pending.docId === null ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    Other
+                                  </CommandItem>
+                                  {TRUCK_DOCUMENT_PICKER.map((d) => (
+                                    <CommandItem
+                                      key={d.id}
+                                      value={d.label}
+                                      onSelect={() => {
+                                        setPendingUploads((prev) =>
+                                          prev.map((p) => (p.id === pending.id ? { ...p, docId: d.id } : p))
+                                        );
+                                        setOpenPendingDocId(null);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          pending.docId === d.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {d.label}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Remove"
+                          onClick={() =>
+                            setPendingUploads((prev) => prev.filter((p) => p.id !== pending.id))
+                          }
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
