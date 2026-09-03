@@ -672,7 +672,7 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
             </div>
           ) : visibleFiles.length === 0 ? (
             <div className="text-center p-8 text-muted-foreground">
-              No files uploaded yet
+              {isSearching ? 'No files match your search' : 'No files uploaded yet'}
             </div>
           ) : (
             <div className="space-y-2">
