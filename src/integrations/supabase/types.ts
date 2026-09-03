@@ -2076,6 +2076,24 @@ export type Database = {
           },
         ]
       }
+      driver_file_keyword_catalog: {
+        Row: {
+          kw: string[]
+          pattern: string
+          prio: number
+        }
+        Insert: {
+          kw: string[]
+          pattern: string
+          prio: number
+        }
+        Update: {
+          kw?: string[]
+          pattern?: string
+          prio?: number
+        }
+        Relationships: []
+      }
       driver_files: {
         Row: {
           content_type: string | null
