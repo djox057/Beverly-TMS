@@ -15,10 +15,18 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { cn } from "@/lib/utils";
 import {
   TRUCK_DOCUMENT_PICKER,
-  detectTruckFileKeywords,
+  detectTruckDocumentType,
   getTruckDocumentTypeById,
 } from "@/lib/truckDocumentKeywords";
 import { searchTruckFiles } from "@/lib/truckFileSearch";
+
+interface PendingUpload {
+  id: string;
+  file: File;
+  /** null = "Other" (no required document type) */
+  docId: string | null;
+  autoDetected: boolean;
+}
 
 interface TruckFile {
   id: string;
