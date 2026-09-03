@@ -1,0 +1,2 @@
+ALTER TABLE public.driver_files ADD COLUMN IF NOT EXISTS keywords text[] NOT NULL DEFAULT '{}'::text[];
+CREATE INDEX IF NOT EXISTS idx_driver_files_keywords ON public.driver_files USING GIN (keywords);
