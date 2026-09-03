@@ -9,11 +9,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, Trash2, Eye, Loader2, Folder, FolderPlus, FolderOpen, ArrowLeft } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DRIVER_DOCUMENT_PICKER,
   detectDriverFileKeywords,
   getDocumentTypeById,
 } from "@/lib/driverDocumentKeywords";
+
 
 interface DriverFile {
   id: string;
