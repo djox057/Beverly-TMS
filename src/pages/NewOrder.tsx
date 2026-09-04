@@ -447,6 +447,52 @@ const NewOrder = () => {
     }
   }, [companies, bookedByCompany, companiesLoading, companiesError]);
 
+  // ===== Beverly Freight: max 20 loads per broker per pickup day =====
+  const BEVERLY_BROKER_DAILY_LIMIT = 20;
+  const bookedByCompanyName = companies?.find((c) => c.id === bookedByCompany)?.name;
+  const isBeverlyFreightBooking = bookedByCompanyName === "Beverly Freight Inc";
+  const firstPickupDateKey = (() => {
+    const from = pickupsDrops.find((item) => item.type === "pickup")?.dateRange?.from;
+    if (!from) return null;
+    return `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}-${String(from.getDate()).padStart(2, "0")}`;
+  })();
+  const [brokerDayCount, setBrokerDayCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isBeverlyFreightBooking || !broker || !firstPickupDateKey || isPartial) {
+      setBrokerDayCount(null);
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      const { count, error } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("broker_id", broker)
+        .eq("booked_by_company_id", bookedByCompany)
+        .eq("canceled", false)
+        .not("status", "eq", "canceled")
+        .gte("pickup_datetime", `${firstPickupDateKey}T00:00:00`)
+        .lte("pickup_datetime", `${firstPickupDateKey}T23:59:59`);
+      if (cancelled) return;
+      if (error) {
+        console.error("Failed to count broker daily loads:", error);
+        setBrokerDayCount(null);
+        return;
+      }
+      setBrokerDayCount(count ?? 0);
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isBeverlyFreightBooking, broker, bookedByCompany, firstPickupDateKey, isPartial]);
+
+  // This new load would be number (brokerDayCount + 1) for that broker/day
+  const brokerLimitExceeded = brokerDayCount !== null && brokerDayCount + 1 > BEVERLY_BROKER_DAILY_LIMIT;
+
+
+
   // Initialize with one pickup and one delivery
   useEffect(() => {
     const defaultPickup: PickupDrop = {
