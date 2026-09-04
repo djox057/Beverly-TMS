@@ -842,6 +842,12 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                                   : 'Not recognized — pick a type'}
 
                           </p>
+                          {pending.mismatchNote && (
+                            <p className="text-xs text-destructive">
+                              Possible wrong driver: {pending.mismatchNote}
+                            </p>
+                          )}
+
                         </div>
                         <Popover
                           open={openPendingDocId === pending.id}
