@@ -2632,6 +2632,199 @@ export type Database = {
           },
         ]
       }
+      efs_card_secrets: {
+        Row: {
+          card_id: string
+          card_number: string
+          created_at: string
+          efs_card_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          card_id: string
+          card_number: string
+          created_at?: string
+          efs_card_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          card_id?: string
+          card_number?: string
+          created_at?: string
+          efs_card_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "efs_card_secrets_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: true
+            referencedRelation: "efs_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      efs_card_status_audit: {
+        Row: {
+          card_last_four: string | null
+          carrier_account_id: string | null
+          confirmed_status: string | null
+          created_at: string
+          failure_reason: string | null
+          id: string
+          previous_raw_status: string | null
+          request_id: string
+          requested_status: string
+          result: string
+          truck_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          card_last_four?: string | null
+          carrier_account_id?: string | null
+          confirmed_status?: string | null
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          previous_raw_status?: string | null
+          request_id: string
+          requested_status: string
+          result: string
+          truck_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          card_last_four?: string | null
+          carrier_account_id?: string | null
+          confirmed_status?: string | null
+          created_at?: string
+          failure_reason?: string | null
+          id?: string
+          previous_raw_status?: string | null
+          request_id?: string
+          requested_status?: string
+          result?: string
+          truck_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "efs_card_status_audit_carrier_account_id_fkey"
+            columns: ["carrier_account_id"]
+            isOneToOne: false
+            referencedRelation: "efs_carrier_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "efs_card_status_audit_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      efs_cards: {
+        Row: {
+          card_last_four: string | null
+          carrier_account_id: string
+          controllable_status: string | null
+          created_at: string
+          id: string
+          last_checked_at: string | null
+          last_error: string | null
+          last_status_change_at: string | null
+          last_synced_at: string | null
+          raw_status: string | null
+          truck_id: string
+          updated_at: string
+        }
+        Insert: {
+          card_last_four?: string | null
+          carrier_account_id: string
+          controllable_status?: string | null
+          created_at?: string
+          id?: string
+          last_checked_at?: string | null
+          last_error?: string | null
+          last_status_change_at?: string | null
+          last_synced_at?: string | null
+          raw_status?: string | null
+          truck_id: string
+          updated_at?: string
+        }
+        Update: {
+          card_last_four?: string | null
+          carrier_account_id?: string
+          controllable_status?: string | null
+          created_at?: string
+          id?: string
+          last_checked_at?: string | null
+          last_error?: string | null
+          last_status_change_at?: string | null
+          last_synced_at?: string | null
+          raw_status?: string | null
+          truck_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "efs_cards_carrier_account_id_fkey"
+            columns: ["carrier_account_id"]
+            isOneToOne: false
+            referencedRelation: "efs_carrier_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "efs_cards_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: true
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      efs_carrier_accounts: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          credential_secret_name: string
+          environment: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          credential_secret_name: string
+          environment?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          credential_secret_name?: string
+          environment?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "efs_carrier_accounts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       efs_other_requests: {
         Row: {
           amount: number
@@ -2702,6 +2895,50 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      efs_sync_runs: {
+        Row: {
+          cards_changed: number
+          cards_received: number
+          carrier_account_id: string | null
+          created_at: string
+          error_summary: string | null
+          finished_at: string | null
+          id: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          cards_changed?: number
+          cards_received?: number
+          carrier_account_id?: string | null
+          created_at?: string
+          error_summary?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          cards_changed?: number
+          cards_received?: number
+          carrier_account_id?: string | null
+          created_at?: string
+          error_summary?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "efs_sync_runs_carrier_account_id_fkey"
+            columns: ["carrier_account_id"]
+            isOneToOne: false
+            referencedRelation: "efs_carrier_accounts"
             referencedColumns: ["id"]
           },
         ]
