@@ -11,7 +11,6 @@ import {
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const CC = ["tommyj@bfprime.net", "bob.i@bfprime.net", "kyle@bfprime.net"];
-const FALLBACK_TO = ["tommyj@bfprime.net"];
 
 interface Item {
   truckId: string;
@@ -52,7 +51,9 @@ serve(async (req: Request): Promise<Response> => {
     for (const t of (trucks ?? []) as any[]) {
       const status = getMileageUpdateStatus(t.miles_updated_at);
       if (status === "none") continue;
+      // Only trucks whose assigned driver has a dispatcher.
       const dispatcherId = t.driver1?.dispatcher_id ?? t.dispatcher_id ?? null;
+      if (!dispatcherId) continue;
       items.push({
         truckId: t.id,
         truckNumber: t.truck_number,
@@ -63,7 +64,6 @@ serve(async (req: Request): Promise<Response> => {
         days: daysSinceMileageUpdate(t.miles_updated_at),
         status,
       });
-      void dispatcherId;
     }
 
     const dispatcherOf = new Map<string, string | null>();
@@ -112,16 +112,16 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
 
-    const groups = new Map<string, { email: string | null; name: string; items: Item[] }>();
+    const groups = new Map<string, { email: string; name: string; items: Item[] }>();
     for (const i of pending) {
       const dispatcherId = dispatcherOf.get(i.truckId) ?? null;
       const profile = dispatcherId ? profileMap.get(dispatcherId) : null;
-      const email = profile?.email ?? null;
-      const bucket = email ?? "__unassigned__";
-      if (!groups.has(bucket)) {
-        groups.set(bucket, { email, name: profile?.full_name ?? "Team", items: [] });
+      const email = profile?.email;
+      if (!email) continue;
+      if (!groups.has(email)) {
+        groups.set(email, { email, name: profile?.full_name ?? "Dispatcher", items: [] });
       }
-      groups.get(bucket)!.items.push(i);
+      groups.get(email)!.items.push(i);
     }
 
     let emailsSent = 0;
@@ -177,7 +177,7 @@ serve(async (req: Request): Promise<Response> => {
 
       const response = await resend.emails.send({
         from: FROM,
-        to: group.email ? [group.email] : FALLBACK_TO,
+        to: [group.email],
         cc: CC.filter((c) => c !== group.email),
         subject,
         html,
@@ -185,8 +185,8 @@ serve(async (req: Request): Promise<Response> => {
 
       const errorMessage = (response as any)?.error?.message || null;
       if (errorMessage) {
-        console.error(`Resend error for ${group.email ?? "unassigned"}: ${errorMessage}`);
-        failures.push(`${group.email ?? "unassigned"}: ${errorMessage}`);
+        console.error(`Resend error for ${group.email}: ${errorMessage}`);
+        failures.push(`${group.email}: ${errorMessage}`);
         continue;
       }
 
@@ -200,7 +200,7 @@ serve(async (req: Request): Promise<Response> => {
           milestone: i.status === "red" ? 0 : 5,
           due_date: null,
           send_date: today,
-          sent_to: group.email ?? "unassigned",
+          sent_to: group.email,
         });
       }
     }
