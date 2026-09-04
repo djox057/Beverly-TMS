@@ -131,3 +131,9 @@ verify_jwt = true
 
 [functions.send-mileage-update-reminders]
 verify_jwt = false
+
+[functions.efs-card-status]
+verify_jwt = false
+
+[functions.efs-sync-card-statuses]
+verify_jwt = false

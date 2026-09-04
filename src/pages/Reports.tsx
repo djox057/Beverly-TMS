@@ -148,6 +148,7 @@ import { useTruckOosOverrides } from "@/hooks/useTruckOosOverrides";
 import { usePrefetchTruckMatches } from "@/hooks/useLoadSuggestions";
 import LoadSuggestionsDialog from "@/components/reports/LoadSuggestionsDialog";
 import RateCalculatorDialog from "@/components/reports/RateCalculatorDialog";
+import EfsCardStatusDialog from "@/components/reports/EfsCardStatusDialog";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useReportsDialogs } from "./Reports/useReportsDialogs";
@@ -1201,6 +1202,14 @@ const Reports = () => {
 
   // Samsara Live Share dialog state
   const [liveShareDialog, setLiveShareDialog] = useState<{ truckNumber: string } | null>(null);
+
+  // EFS fuel card status dialog state
+  const [efsCardDialog, setEfsCardDialog] = useState<{
+    truckId: string;
+    truckNumber: string;
+    driverName: string | null;
+  } | null>(null);
+
 
   // HOS Request dialog state
   const [hosRequestDialog, setHosRequestDialog] = useState<{
@@ -6784,10 +6793,33 @@ const Reports = () => {
                                                 size={31}
                                                 strokeWidth={3}
                                               />
-                                              {/* Fuel Indicator */}
+                                              {/* Fuel Indicator — opens EFS fuel card status */}
                                               <div
-                                                className="relative flex items-center justify-center"
+                                                role="button"
+                                                tabIndex={0}
+                                                aria-label={`EFS fuel card for unit ${truck.truckNumber}`}
+                                                title="EFS fuel card status"
+                                                className="relative flex items-center justify-center cursor-pointer rounded hover:bg-muted/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                                 style={{ width: 31, height: 42 }}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setEfsCardDialog({
+                                                    truckId: truck.id,
+                                                    truckNumber: truck.truckNumber,
+                                                    driverName: truck.driver || null,
+                                                  });
+                                                }}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setEfsCardDialog({
+                                                      truckId: truck.id,
+                                                      truckNumber: truck.truckNumber,
+                                                      driverName: truck.driver || null,
+                                                    });
+                                                  }
+                                                }}
                                               >
                                                 <img
                                                   src={gasStationIcon}
@@ -8962,6 +8994,15 @@ const Reports = () => {
         truckId={suggestionsDialog?.truckId ?? null}
         truckNumber={suggestionsDialog?.truckNumber ?? null}
         driverName={suggestionsDialog?.driverName ?? null}
+      />
+
+      {/* EFS Fuel Card Status Dialog */}
+      <EfsCardStatusDialog
+        open={!!efsCardDialog}
+        onOpenChange={(open) => !open && setEfsCardDialog(null)}
+        truckId={efsCardDialog?.truckId ?? null}
+        truckNumber={efsCardDialog?.truckNumber ?? null}
+        driverName={efsCardDialog?.driverName ?? null}
       />
 
       {/* Rate Calculator Dialog */}
