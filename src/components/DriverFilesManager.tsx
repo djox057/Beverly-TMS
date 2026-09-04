@@ -28,6 +28,8 @@ interface PendingUpload {
   autoDetected: boolean;
   analyzing?: boolean;
   aiDetected?: boolean;
+  /** Set when the AI thinks the document belongs to a different driver */
+  mismatchNote?: string;
 }
 
 export interface DriverCdlSuggestion {
@@ -36,7 +38,19 @@ export interface DriverCdlSuggestion {
   home_address?: string;
   home_city?: string;
   home_state?: string;
+  mvr_date?: string;
+  clearing_house?: string;
+  medical_card_expiration_date?: string;
 }
+
+/** Annual documents (MVR, Clearinghouse) expire one year after their date. */
+export const addOneYear = (date: string): string => {
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return date;
+  const next = new Date(Date.UTC(y + 1, m - 1, d));
+  return next.toISOString().slice(0, 10);
+};
+
 
 
 
@@ -87,6 +101,7 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
   const [openPendingDocId, setOpenPendingDocId] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [cdlSuggestion, setCdlSuggestion] = useState<DriverCdlSuggestion | null>(null);
+  const [driverRecord, setDriverRecord] = useState<Record<string, any> | null>(null);
   const { toast } = useToast();
   const { profile } = useAuthContext();
 
@@ -96,6 +111,21 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
       loadDriverFiles();
     }
   }, [driverId]);
+
+  useEffect(() => {
+    if (!driverId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('drivers')
+        .select('name, first_name, last_name, cdl_number, home_city, home_state')
+        .eq('id', driverId)
+        .maybeSingle();
+      if (!cancelled) setDriverRecord(data || null);
+    })();
+    return () => { cancelled = true; };
+  }, [driverId]);
+
 
   useEffect(() => {
     setSelectedIds([]);
@@ -218,6 +248,17 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
         "types",
         JSON.stringify(DRIVER_DOCUMENT_PICKER.map((d) => ({ id: d.id, label: d.label })))
       );
+      body.append(
+        "driver",
+        JSON.stringify({
+          name: driverRecord?.name || driverName || null,
+          first_name: driverRecord?.first_name || null,
+          last_name: driverRecord?.last_name || null,
+          cdl_number: driverRecord?.cdl_number || null,
+          home_city: driverRecord?.home_city || null,
+          home_state: driverRecord?.home_state || null,
+        })
+      );
 
       const response = await fetch(
         "https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/classify-driver-document",
@@ -227,6 +268,12 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
       if (!response.ok || !json?.success) throw new Error(json?.error || "AI read failed");
 
       const result = json.data || {};
+      const expectedName = driverRecord?.name || driverName || "";
+      const mismatchNote =
+        result.name_matches_driver === false
+          ? `Looks like it belongs to ${result.person_name || "someone else"}${expectedName ? `, not ${expectedName}` : ""}`
+          : undefined;
+
       setPendingUploads((prev) =>
         prev.map((p) =>
           p.id === pending.id
@@ -235,10 +282,19 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                 analyzing: false,
                 docId: result.docId ?? p.docId,
                 aiDetected: !!result.docId,
+                mismatchNote,
               }
             : p
         )
       );
+
+      if (mismatchNote) {
+        toast({
+          title: "Possible wrong driver",
+          description: `${pending.file.name}: ${mismatchNote}. You can still upload it.`,
+          variant: "destructive",
+        });
+      }
 
       const suggestion: DriverCdlSuggestion = {};
       if (result.cdl_number) suggestion.cdl_number = result.cdl_number;
@@ -246,10 +302,15 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
       if (result.home_address) suggestion.home_address = result.home_address;
       if (result.home_city) suggestion.home_city = result.home_city;
       if (result.home_state) suggestion.home_state = result.home_state;
+      if (result.mvr_date) suggestion.mvr_date = result.mvr_date;
+      if (result.clearinghouse_date) suggestion.clearing_house = result.clearinghouse_date;
+      if (result.medical_card_expiration_date)
+        suggestion.medical_card_expiration_date = result.medical_card_expiration_date;
 
       if (Object.keys(suggestion).length > 0 && onApplyDriverFields) {
         setCdlSuggestion((prev) => ({ ...(prev || {}), ...suggestion }));
       }
+
     } catch (error) {
       console.error("AI document analysis failed:", error);
       setPendingUploads((prev) =>
@@ -645,7 +706,7 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
         <Dialog open={!!cdlSuggestion} onOpenChange={(o) => { if (!o) setCdlSuggestion(null); }}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>CDL details found</DialogTitle>
+              <DialogTitle>Document details found</DialogTitle>
             </DialogHeader>
             <div className="space-y-2 text-sm">
               <p className="text-muted-foreground">
@@ -668,8 +729,24 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                 {cdlSuggestion?.home_state && (
                   <li><span className="text-muted-foreground">Home State:</span> <strong>{cdlSuggestion.home_state}</strong></li>
                 )}
+                {cdlSuggestion?.mvr_date && (
+                  <li>
+                    <span className="text-muted-foreground">MVR Date:</span> <strong>{cdlSuggestion.mvr_date}</strong>
+                    <span className="text-muted-foreground"> — expires {addOneYear(cdlSuggestion.mvr_date)} (1 year)</span>
+                  </li>
+                )}
+                {cdlSuggestion?.clearing_house && (
+                  <li>
+                    <span className="text-muted-foreground">Clearing House Date:</span> <strong>{cdlSuggestion.clearing_house}</strong>
+                    <span className="text-muted-foreground"> — expires {addOneYear(cdlSuggestion.clearing_house)} (1 year)</span>
+                  </li>
+                )}
+                {cdlSuggestion?.medical_card_expiration_date && (
+                  <li><span className="text-muted-foreground">Medical Card Expiration:</span> <strong>{cdlSuggestion.medical_card_expiration_date}</strong></li>
+                )}
               </ul>
             </div>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setCdlSuggestion(null)}>Ignore</Button>
               <Button
@@ -765,6 +842,12 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                                   : 'Not recognized — pick a type'}
 
                           </p>
+                          {pending.mismatchNote && (
+                            <p className="text-xs text-destructive">
+                              Possible wrong driver: {pending.mismatchNote}
+                            </p>
+                          )}
+
                         </div>
                         <Popover
                           open={openPendingDocId === pending.id}

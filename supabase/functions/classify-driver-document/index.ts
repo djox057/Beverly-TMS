@@ -54,6 +54,7 @@ serve(async (req) => {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const typesRaw = (formData.get("types") as string) || "[]";
+    const driverRaw = (formData.get("driver") as string) || "{}";
     if (!file) throw new Error("No file provided");
 
     let docTypes: { id: string; label: string }[] = [];
@@ -61,6 +62,13 @@ serve(async (req) => {
       docTypes = JSON.parse(typesRaw);
     } catch {
       docTypes = [];
+    }
+
+    let driverInfo: Record<string, unknown> = {};
+    try {
+      driverInfo = JSON.parse(driverRaw);
+    } catch {
+      driverInfo = {};
     }
 
     const mime = file.type || "application/octet-stream";
@@ -78,23 +86,48 @@ serve(async (req) => {
 
     const typeList = docTypes.map((t) => `- ${t.id}: ${t.label}`).join("\n");
 
+    const driverLines = Object.entries(driverInfo)
+      .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
+      .map(([k, v]) => `- ${k}: ${v}`)
+      .join("\n");
+
     const prompt = `You classify US trucking driver-qualification-file documents. Use OCR if needed.
 
 Document file name: "${file.name}"
+
+This document is being uploaded to the file folder of this driver:
+${driverLines || "- (no driver details provided)"}
 
 Choose the single best matching document type id from this list, or "other" if none fits:
 ${typeList}
 - other: none of the above
 
-If (and only if) the document is a commercial driver license (CDL), also extract:
+Always extract, when the document shows it:
+- person_name: the full name of the person the document is about, exactly as printed
+- document_date: the issue / report / exam / query date printed on the document, in YYYY-MM-DD
+
+If the document is a commercial driver license (CDL), also extract:
 - cdl_number: the license/CDL number exactly as printed
-- cdl_expiration_date: expiration date in YYYY-MM-DD format
+- cdl_expiration_date: expiration date in YYYY-MM-DD
 - home_address: street address line only (no city/state/zip)
 - home_city: city name
 - home_state: 2-letter US state code
 
+If the document is a Motor Vehicle Record (MVR), extract:
+- mvr_date: the date the record was pulled/issued, YYYY-MM-DD
+
+If the document is an FMCSA Clearinghouse query/report, extract:
+- clearinghouse_date: the query/report date, YYYY-MM-DD
+
+If the document is a medical examiner's certificate / medical card, extract:
+- medical_card_expiration_date: the certificate expiration date, YYYY-MM-DD
+- medical_exam_date: the exam date, YYYY-MM-DD
+
+Compare person_name with the driver above (ignore middle names, suffixes, order and case):
+- name_matches_driver: true if it is clearly the same person, false if clearly a different person, null if you cannot tell
+
 Return ONLY minified JSON, no markdown fences:
-{"docId":"<id or other>","confidence":<0-1>,"cdl_number":null,"cdl_expiration_date":null,"home_address":null,"home_city":null,"home_state":null}
+{"docId":"<id or other>","confidence":<0-1>,"person_name":null,"name_matches_driver":null,"document_date":null,"cdl_number":null,"cdl_expiration_date":null,"home_address":null,"home_city":null,"home_state":null,"mvr_date":null,"clearinghouse_date":null,"medical_card_expiration_date":null,"medical_exam_date":null}
 Use null for any value you cannot read. Never guess.`;
 
     const aiResponse = await fetch(
@@ -138,21 +171,41 @@ Use null for any value you cannot read. Never guess.`;
     const docId = parsed.docId && validIds.has(parsed.docId) ? parsed.docId : null;
 
     const isCdl = docId === "cdl" || docId === "cdl_front" || docId === "cdl_back";
+    const isMvr = docId === "mvr";
+    const isClearinghouse = docId === "clearinghouse";
+    const isMedical = docId === "medical_card";
+
     const clean = (v: unknown) => {
       const s = typeof v === "string" ? v.trim() : "";
       return s && s.toLowerCase() !== "null" ? s : null;
     };
+    const cleanDate = (v: unknown) => {
+      const s = clean(v);
+      return s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+    };
+
+    const documentDate = cleanDate(parsed.document_date);
 
     const data = {
       docId,
       confidence: typeof parsed.confidence === "number" ? parsed.confidence : null,
+      person_name: clean(parsed.person_name),
+      name_matches_driver:
+        parsed.name_matches_driver === true
+          ? true
+          : parsed.name_matches_driver === false
+            ? false
+            : null,
+      document_date: documentDate,
       cdl_number: isCdl ? clean(parsed.cdl_number) : null,
-      cdl_expiration_date: isCdl && /^\d{4}-\d{2}-\d{2}$/.test(String(parsed.cdl_expiration_date ?? ""))
-        ? parsed.cdl_expiration_date
-        : null,
+      cdl_expiration_date: isCdl ? cleanDate(parsed.cdl_expiration_date) : null,
       home_address: isCdl ? clean(parsed.home_address) : null,
       home_city: isCdl ? clean(parsed.home_city) : null,
       home_state: isCdl ? (clean(parsed.home_state)?.toUpperCase().slice(0, 2) ?? null) : null,
+      mvr_date: isMvr ? (cleanDate(parsed.mvr_date) ?? documentDate) : null,
+      clearinghouse_date: isClearinghouse ? (cleanDate(parsed.clearinghouse_date) ?? documentDate) : null,
+      medical_card_expiration_date: isMedical ? cleanDate(parsed.medical_card_expiration_date) : null,
+      medical_exam_date: isMedical ? (cleanDate(parsed.medical_exam_date) ?? documentDate) : null,
     };
 
     return new Response(JSON.stringify({ success: true, data }), {
