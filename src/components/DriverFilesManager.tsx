@@ -658,7 +658,7 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
               Create folder
             </Button>
 
-            {currentFolder && (
+            {currentFolder && canDelete && (
               <Button
                 variant="outline"
                 size="icon"
