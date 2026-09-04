@@ -1831,7 +1831,14 @@ export default function Alerts() {
                   <Input id="random_drug_test_date" name="random_drug_test_date" type="date" defaultValue={editingDriver.random_drug_test_date || ""} />
                 </div>
               </div>
-              <DriverFilesManager driverId={editingDriver.id} />
+              <DriverFilesManager
+                driverId={editingDriver.id}
+                driverName={editingDriver.name}
+                onApplyDriverFields={(fields) => {
+                  setEditingDriver((prev: any) => ({ ...prev, ...fields }));
+                  setDriverFormKey((k) => k + 1);
+                }}
+              />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsEditDriverDialogOpen(false)}>
                   Cancel
