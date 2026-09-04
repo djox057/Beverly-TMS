@@ -3162,7 +3162,14 @@ const Drivers = () => {
             </TabsContent>
 
             <TabsContent value="files">
-              {editingDriver && <DriverFilesManager driverId={editingDriver.id} driverName={editingDriver.name} />}
+              {editingDriver && (
+                <DriverFilesManager
+                  driverId={editingDriver.id}
+                  driverName={editingDriver.name}
+                  onApplyDriverFields={(fields) => setFormData((prev) => ({ ...prev, ...fields }))}
+                />
+              )}
+
             </TabsContent>
           </Tabs>
 

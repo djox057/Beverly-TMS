@@ -26,7 +26,18 @@ interface PendingUpload {
   /** null = "Other" (no required document type) */
   docId: string | null;
   autoDetected: boolean;
+  analyzing?: boolean;
+  aiDetected?: boolean;
 }
+
+export interface DriverCdlSuggestion {
+  cdl_number?: string;
+  cdl_expiration_date?: string;
+  home_address?: string;
+  home_city?: string;
+  home_state?: string;
+}
+
 
 
 
@@ -52,9 +63,11 @@ interface DriverFileFolder {
 interface DriverFilesManagerProps {
   driverId: string;
   driverName?: string;
+  /** When provided, CDL values read from an uploaded CDL can be pushed into the driver form. */
+  onApplyDriverFields?: (fields: DriverCdlSuggestion) => void;
 }
 
-export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerProps) => {
+export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }: DriverFilesManagerProps) => {
   const [files, setFiles] = useState<DriverFile[]>([]);
   const [folders, setFolders] = useState<DriverFileFolder[]>([]);
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
@@ -73,8 +86,10 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [openPendingDocId, setOpenPendingDocId] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [cdlSuggestion, setCdlSuggestion] = useState<DriverCdlSuggestion | null>(null);
   const { toast } = useToast();
   const { profile } = useAuthContext();
+
 
   useEffect(() => {
     if (driverId) {
@@ -192,6 +207,57 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
     }
   };
 
+  const analyzeWithAi = async (pending: PendingUpload) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Session expired");
+
+      const body = new FormData();
+      body.append("file", pending.file);
+      body.append(
+        "types",
+        JSON.stringify(DRIVER_DOCUMENT_PICKER.map((d) => ({ id: d.id, label: d.label })))
+      );
+
+      const response = await fetch(
+        "https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/classify-driver-document",
+        { method: "POST", headers: { Authorization: `Bearer ${session.access_token}` }, body }
+      );
+      const json = await response.json();
+      if (!response.ok || !json?.success) throw new Error(json?.error || "AI read failed");
+
+      const result = json.data || {};
+      setPendingUploads((prev) =>
+        prev.map((p) =>
+          p.id === pending.id
+            ? {
+                ...p,
+                analyzing: false,
+                docId: result.docId ?? p.docId,
+                aiDetected: !!result.docId,
+              }
+            : p
+        )
+      );
+
+      const suggestion: DriverCdlSuggestion = {};
+      if (result.cdl_number) suggestion.cdl_number = result.cdl_number;
+      if (result.cdl_expiration_date) suggestion.cdl_expiration_date = result.cdl_expiration_date;
+      if (result.home_address) suggestion.home_address = result.home_address;
+      if (result.home_city) suggestion.home_city = result.home_city;
+      if (result.home_state) suggestion.home_state = result.home_state;
+
+      if (Object.keys(suggestion).length > 0 && onApplyDriverFields) {
+        setCdlSuggestion((prev) => ({ ...(prev || {}), ...suggestion }));
+      }
+    } catch (error) {
+      console.error("AI document analysis failed:", error);
+      setPendingUploads((prev) =>
+        prev.map((p) => (p.id === pending.id ? { ...p, analyzing: false } : p))
+      );
+    }
+  };
+
   const addPendingFiles = (list: FileList | null) => {
     if (!list || list.length === 0) return;
     const next: PendingUpload[] = Array.from(list).map((file) => {
@@ -201,10 +267,13 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
         file,
         docId: detected?.id ?? null,
         autoDetected: !!detected,
+        analyzing: true,
       };
     });
     setPendingUploads((prev) => [...prev, ...next]);
+    next.forEach((p) => { void analyzeWithAi(p); });
   };
+
 
   const clearPendingInput = () => {
     const fileInput = document.getElementById('driver-file-input') as HTMLInputElement;
@@ -573,6 +642,53 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
           </DialogContent>
         </Dialog>
 
+        <Dialog open={!!cdlSuggestion} onOpenChange={(o) => { if (!o) setCdlSuggestion(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>CDL details found</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 text-sm">
+              <p className="text-muted-foreground">
+                These values will be filled into the driver form. You still need to click
+                <strong> Update Driver</strong> to save them.
+              </p>
+              <ul className="space-y-1">
+                {cdlSuggestion?.cdl_number && (
+                  <li><span className="text-muted-foreground">CDL Number:</span> <strong>{cdlSuggestion.cdl_number}</strong></li>
+                )}
+                {cdlSuggestion?.cdl_expiration_date && (
+                  <li><span className="text-muted-foreground">CDL Expiration:</span> <strong>{cdlSuggestion.cdl_expiration_date}</strong></li>
+                )}
+                {cdlSuggestion?.home_address && (
+                  <li><span className="text-muted-foreground">Home Address:</span> <strong>{cdlSuggestion.home_address}</strong></li>
+                )}
+                {cdlSuggestion?.home_city && (
+                  <li><span className="text-muted-foreground">Home City:</span> <strong>{cdlSuggestion.home_city}</strong></li>
+                )}
+                {cdlSuggestion?.home_state && (
+                  <li><span className="text-muted-foreground">Home State:</span> <strong>{cdlSuggestion.home_state}</strong></li>
+                )}
+              </ul>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCdlSuggestion(null)}>Ignore</Button>
+              <Button
+                onClick={() => {
+                  if (cdlSuggestion) onApplyDriverFields?.(cdlSuggestion);
+                  setCdlSuggestion(null);
+                  toast({
+                    title: "Fields filled in",
+                    description: "Click Update Driver to save the changes",
+                  });
+                }}
+              >
+                Fill in form
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+
 
         <div className="space-y-2">
           <Label htmlFor="driver-file-input">
@@ -640,7 +756,14 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
                         <div className="min-w-0 flex-1">
                           <p className="text-sm truncate">{pending.file.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {pending.autoDetected ? 'Detected from file name' : 'Not recognized — pick a type'}
+                            {pending.analyzing
+                              ? 'Reading document with AI…'
+                              : pending.aiDetected
+                                ? 'Detected by AI'
+                                : pending.autoDetected
+                                  ? 'Detected from file name'
+                                  : 'Not recognized — pick a type'}
+
                           </p>
                         </div>
                         <Popover
