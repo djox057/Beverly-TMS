@@ -188,7 +188,7 @@ serve(async (req) => {
     // --- Fetch trucks from DB ---
     const { data: trucks, error: trucksError } = await supabase
       .from('trucks')
-      .select('id, truck_number, company_id');
+      .select('id, truck_number, company_id, samsara_insured, samsara_account');
 
     if (trucksError) throw trucksError;
     // --- Fetch from Samsara with 15s AbortController per call ---
@@ -364,14 +364,25 @@ serve(async (req) => {
     // --- Persist insured / not-insured source per truck (non-fatal) ---
     try {
       const nowIso = new Date().toISOString();
+      // Only write rows whose value actually changed. `trucks` is published to
+      // realtime, so re-writing an unchanged value for every truck on every
+      // run broadcast hundreds of pointless messages to every connected client.
+      const currentByTruckId = new Map<string, { samsara_insured: boolean | null; samsara_account: string | null }>(
+        (trucks || []).map((t: any) => [t.id as string, { samsara_insured: t.samsara_insured ?? null, samsara_account: t.samsara_account ?? null }]),
+      );
       const updates = allLocations
         // Beverly Freight Inc insurance status is maintained manually — never overwrite it
         .filter((l: any) => typeof l.insured === 'boolean' && l.companyId !== BEVERLY_FREIGHT_COMPANY_ID)
         .map((l: any) => ({
           truck_id: l.truck_id,
           insured: l.insured as boolean,
-          account: l.samsaraAccount as string | null,
-        }));
+          account: (l.samsaraAccount ?? null) as string | null,
+        }))
+        .filter((u: any) => {
+          const cur = currentByTruckId.get(u.truck_id);
+          if (!cur) return true;
+          return cur.samsara_insured !== u.insured || (cur.samsara_account ?? null) !== u.account;
+        });
 
       for (let i = 0; i < updates.length; i += 25) {
         const chunk = updates.slice(i, i + 25);
