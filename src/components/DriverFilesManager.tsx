@@ -103,7 +103,8 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
   const [cdlSuggestion, setCdlSuggestion] = useState<DriverCdlSuggestion | null>(null);
   const [driverRecord, setDriverRecord] = useState<Record<string, any> | null>(null);
   const { toast } = useToast();
-  const { profile } = useAuthContext();
+  const { profile, hasRole } = useAuthContext();
+  const canDelete = hasRole('admin') || hasRole('accounting') || hasRole('safety') || hasRole('maintenance');
 
 
   useEffect(() => {
@@ -657,7 +658,7 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
               Create folder
             </Button>
 
-            {currentFolder && (
+            {currentFolder && canDelete && (
               <Button
                 variant="outline"
                 size="icon"
@@ -977,6 +978,7 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                           </option>
                         ))}
                     </select>
+                    {canDelete && (
                     <Button
                       size="sm"
                       variant="destructive"
@@ -990,6 +992,7 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                       )}
                       Delete selected ({selectedIds.length})
                     </Button>
+                    )}
                   </>
                 )}
               </div>
@@ -1082,13 +1085,15 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteFile(file)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canDelete && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteFile(file)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
