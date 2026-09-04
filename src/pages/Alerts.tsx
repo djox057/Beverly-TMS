@@ -497,6 +497,7 @@ export default function Alerts() {
   const [editingTruck, setEditingTruck] = useState<any>(null);
   const [editingTrailer, setEditingTrailer] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
+  const [driverFormKey, setDriverFormKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Generic comparators
