@@ -113,16 +113,16 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
 
-    const groups = new Map<string, { email: string | null; name: string; items: Item[] }>();
+    const groups = new Map<string, { email: string; name: string; items: Item[] }>();
     for (const i of pending) {
       const dispatcherId = dispatcherOf.get(i.truckId) ?? null;
       const profile = dispatcherId ? profileMap.get(dispatcherId) : null;
-      const email = profile?.email ?? null;
-      const bucket = email ?? "__unassigned__";
-      if (!groups.has(bucket)) {
-        groups.set(bucket, { email, name: profile?.full_name ?? "Team", items: [] });
+      const email = profile?.email;
+      if (!email) continue;
+      if (!groups.has(email)) {
+        groups.set(email, { email, name: profile?.full_name ?? "Dispatcher", items: [] });
       }
-      groups.get(bucket)!.items.push(i);
+      groups.get(email)!.items.push(i);
     }
 
     let emailsSent = 0;
