@@ -497,6 +497,7 @@ export default function Alerts() {
   const [editingTruck, setEditingTruck] = useState<any>(null);
   const [editingTrailer, setEditingTrailer] = useState<any>(null);
   const [editingDriver, setEditingDriver] = useState<any>(null);
+  const [driverFormKey, setDriverFormKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Generic comparators
@@ -1803,7 +1804,7 @@ export default function Alerts() {
             <DialogTitle>Edit Driver</DialogTitle>
           </DialogHeader>
           {editingDriver && (
-            <form onSubmit={handleEditDriver} className="space-y-4">
+            <form key={driverFormKey} onSubmit={handleEditDriver} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Driver Name *</Label>
@@ -1830,7 +1831,14 @@ export default function Alerts() {
                   <Input id="random_drug_test_date" name="random_drug_test_date" type="date" defaultValue={editingDriver.random_drug_test_date || ""} />
                 </div>
               </div>
-              <DriverFilesManager driverId={editingDriver.id} />
+              <DriverFilesManager
+                driverId={editingDriver.id}
+                driverName={editingDriver.name}
+                onApplyDriverFields={(fields) => {
+                  setEditingDriver((prev: any) => ({ ...prev, ...fields }));
+                  setDriverFormKey((k) => k + 1);
+                }}
+              />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsEditDriverDialogOpen(false)}>
                   Cancel

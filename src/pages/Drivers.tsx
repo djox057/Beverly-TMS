@@ -2118,6 +2118,7 @@ const Drivers = () => {
                     <DriverFilesManager
                       driverId={newlyCreatedDriverId}
                       driverName={`${formData.first_name} ${formData.last_name}`.trim()}
+                      onApplyDriverFields={(fields) => setFormData((prev) => ({ ...prev, ...fields }))}
                     />
                   ) : (
                     <DriverFilesManagerPending
