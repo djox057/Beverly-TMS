@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { setTruckOosOverride } from "@/hooks/useTruckOosOverrides";
+import { OOS_BROADCAST_CHANNEL, OOS_BROADCAST_EVENT } from "@/hooks/useTruckOosRealtime";
 
 interface TruckOosCheckboxProps {
   truckId: string;
@@ -37,6 +38,18 @@ export const TruckOosCheckbox: React.FC<TruckOosCheckboxProps> = ({ truckId, che
       setTruckOosOverride(truckId, !next);
       toast.error("Failed to update OOS status");
       return;
+    }
+    // Tell other open sessions directly. `trucks` is deliberately not in the
+    // realtime publication (background jobs rewrite every row every few
+    // minutes), so one broadcast per click replaces table-level realtime.
+    try {
+      await supabase.channel(OOS_BROADCAST_CHANNEL).send({
+        type: "broadcast",
+        event: OOS_BROADCAST_EVENT,
+        payload: { truckId, oos: next },
+      });
+    } catch {
+      // Broadcast is best-effort; the value is already saved.
     }
     toast.success(next ? "Truck marked out of service" : "OOS removed");
     queryClient.invalidateQueries({ queryKey: ["reports"], exact: false });

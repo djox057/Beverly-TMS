@@ -151,7 +151,7 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
       setHomeRows((homeRes.data ?? []) as Row[]);
     };
     load();
-    const ch = busChannel()
+    const ch = busChannel(() => load())
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_report_entries" },

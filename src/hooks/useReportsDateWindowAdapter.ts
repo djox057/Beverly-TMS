@@ -973,7 +973,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     }
     
     // Subscribe to order_files changes
-    const channel = busChannel()
+    const channel = busChannel(() => {
+      queryClient.invalidateQueries({ queryKey: ['reports-date-window'] });
+    })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_files" },
@@ -1143,7 +1145,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     
     const channelName = `adapter-lost-day-notes-realtime-${priorityOffice || 'default'}`;
     
-    const channel = busChannel()
+    const channel = busChannel(() => {
+      queryClient.invalidateQueries({ queryKey: ['adapter-lost-day-notes'] });
+      queryClient.invalidateQueries({ queryKey: ['reports-date-window'] });
+    })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "lost_day_notes" },

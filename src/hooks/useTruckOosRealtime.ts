@@ -1,26 +1,37 @@
 import { useEffect } from "react";
-import { subscribeTable } from "@/hooks/realtimeBus";
+import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { setTruckOosOverride } from "@/hooks/useTruckOosOverrides";
 
+export const OOS_BROADCAST_CHANNEL = "truck-oos";
+export const OOS_BROADCAST_EVENT = "oos-changed";
+
 /**
- * Live-updates OOS (out of service) truck flags across pages.
- * Subscribes to UPDATE events on public.trucks and refreshes the
- * reports/trucks caches when the `oos` value changes.
+ * Live-updates OOS (out of service) truck flags across sessions.
+ *
+ * Uses a lightweight broadcast channel instead of listening to row changes on
+ * `trucks`: that table is rewritten by background jobs every few minutes, so
+ * table-level realtime cost millions of messages a day. A broadcast costs one
+ * message per actual click.
  */
 export const useTruckOosRealtime = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    return subscribeTable("trucks", (payload) => {
-      if (payload.eventType !== "UPDATE") return;
-      const oldOos = (payload.old as any)?.oos;
-      const newOos = (payload.new as any)?.oos;
-      const truckId = (payload.new as any)?.id;
-      if (oldOos === newOos) return;
-      if (truckId) setTruckOosOverride(truckId, !!newOos);
-      queryClient.invalidateQueries({ queryKey: ["reports"], exact: false });
-      queryClient.invalidateQueries({ queryKey: ["trucks"], exact: false });
-    });
+    const channel = supabase
+      .channel(OOS_BROADCAST_CHANNEL)
+      .on("broadcast", { event: OOS_BROADCAST_EVENT }, ({ payload }) => {
+        const truckId = (payload as any)?.truckId as string | undefined;
+        const oos = !!(payload as any)?.oos;
+        if (!truckId) return;
+        setTruckOosOverride(truckId, oos);
+        queryClient.invalidateQueries({ queryKey: ["reports"], exact: false });
+        queryClient.invalidateQueries({ queryKey: ["trucks"], exact: false });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [queryClient]);
 };

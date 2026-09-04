@@ -101,7 +101,9 @@ export function useWeeklyPlans(driverIds: string[]) {
   useEffect(() => {
     if (driverIds.length === 0) return;
 
-    const channel = busChannel()
+    const channel = busChannel(() => {
+      fetchPlans();
+    })
       .on(
         "postgres_changes",
         {

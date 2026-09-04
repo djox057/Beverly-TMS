@@ -125,7 +125,9 @@ export function WeeklyPlanDialog({
   useEffect(() => {
     if (!open || !driverId) return;
 
-    const channel = busChannel()
+    const channel = busChannel(() => {
+      if (!isSavingRef.current) fetchPlan();
+    })
       .on(
         "postgres_changes",
         {

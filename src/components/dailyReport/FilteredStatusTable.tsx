@@ -77,7 +77,7 @@ export const FilteredStatusTable = ({
     };
     load();
 
-    const ch = busChannel()
+    const ch = busChannel(() => load())
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_report_entries", filter: `date=eq.${dateStr}` },
