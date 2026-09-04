@@ -28,6 +28,8 @@ interface PendingUpload {
   autoDetected: boolean;
   analyzing?: boolean;
   aiDetected?: boolean;
+  /** Set when the AI thinks the document belongs to a different driver */
+  mismatchNote?: string;
 }
 
 export interface DriverCdlSuggestion {
@@ -36,7 +38,19 @@ export interface DriverCdlSuggestion {
   home_address?: string;
   home_city?: string;
   home_state?: string;
+  mvr_date?: string;
+  clearing_house?: string;
+  medical_card_expiration_date?: string;
 }
+
+/** Annual documents (MVR, Clearinghouse) expire one year after their date. */
+export const addOneYear = (date: string): string => {
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return date;
+  const next = new Date(Date.UTC(y + 1, m - 1, d));
+  return next.toISOString().slice(0, 10);
+};
+
 
 
 
