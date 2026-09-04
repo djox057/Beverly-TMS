@@ -11,7 +11,6 @@ import {
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const CC = ["tommyj@bfprime.net", "bob.i@bfprime.net", "kyle@bfprime.net"];
-const FALLBACK_TO = ["tommyj@bfprime.net"];
 
 interface Item {
   truckId: string;
