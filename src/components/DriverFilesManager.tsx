@@ -642,6 +642,53 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
           </DialogContent>
         </Dialog>
 
+        <Dialog open={!!cdlSuggestion} onOpenChange={(o) => { if (!o) setCdlSuggestion(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>CDL details found</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 text-sm">
+              <p className="text-muted-foreground">
+                These values will be filled into the driver form. You still need to click
+                <strong> Update Driver</strong> to save them.
+              </p>
+              <ul className="space-y-1">
+                {cdlSuggestion?.cdl_number && (
+                  <li><span className="text-muted-foreground">CDL Number:</span> <strong>{cdlSuggestion.cdl_number}</strong></li>
+                )}
+                {cdlSuggestion?.cdl_expiration_date && (
+                  <li><span className="text-muted-foreground">CDL Expiration:</span> <strong>{cdlSuggestion.cdl_expiration_date}</strong></li>
+                )}
+                {cdlSuggestion?.home_address && (
+                  <li><span className="text-muted-foreground">Home Address:</span> <strong>{cdlSuggestion.home_address}</strong></li>
+                )}
+                {cdlSuggestion?.home_city && (
+                  <li><span className="text-muted-foreground">Home City:</span> <strong>{cdlSuggestion.home_city}</strong></li>
+                )}
+                {cdlSuggestion?.home_state && (
+                  <li><span className="text-muted-foreground">Home State:</span> <strong>{cdlSuggestion.home_state}</strong></li>
+                )}
+              </ul>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCdlSuggestion(null)}>Ignore</Button>
+              <Button
+                onClick={() => {
+                  if (cdlSuggestion) onApplyDriverFields?.(cdlSuggestion);
+                  setCdlSuggestion(null);
+                  toast({
+                    title: "Fields filled in",
+                    description: "Click Update Driver to save the changes",
+                  });
+                }}
+              >
+                Fill in form
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+
 
         <div className="space-y-2">
           <Label htmlFor="driver-file-input">
