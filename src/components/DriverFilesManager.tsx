@@ -26,7 +26,18 @@ interface PendingUpload {
   /** null = "Other" (no required document type) */
   docId: string | null;
   autoDetected: boolean;
+  analyzing?: boolean;
+  aiDetected?: boolean;
 }
+
+export interface DriverCdlSuggestion {
+  cdl_number?: string;
+  cdl_expiration_date?: string;
+  home_address?: string;
+  home_city?: string;
+  home_state?: string;
+}
+
 
 
 
