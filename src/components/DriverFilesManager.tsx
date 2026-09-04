@@ -101,6 +101,7 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
   const [openPendingDocId, setOpenPendingDocId] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [cdlSuggestion, setCdlSuggestion] = useState<DriverCdlSuggestion | null>(null);
+  const [driverRecord, setDriverRecord] = useState<Record<string, any> | null>(null);
   const { toast } = useToast();
   const { profile } = useAuthContext();
 
@@ -110,6 +111,21 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
       loadDriverFiles();
     }
   }, [driverId]);
+
+  useEffect(() => {
+    if (!driverId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('drivers')
+        .select('name, first_name, last_name, cdl_number, home_city, home_state')
+        .eq('id', driverId)
+        .maybeSingle();
+      if (!cancelled) setDriverRecord(data || null);
+    })();
+    return () => { cancelled = true; };
+  }, [driverId]);
+
 
   useEffect(() => {
     setSelectedIds([]);
