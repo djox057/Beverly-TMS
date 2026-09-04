@@ -24,6 +24,8 @@ import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { MileageHistoryPopover } from "@/components/liveOilChange/MileageHistoryPopover";
 import { OdometerHistoryPopover } from "@/components/liveOilChange/OdometerHistoryPopover";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
+import { getMileageUpdateStatus } from "@/lib/mileageUpdateStatus";
+
 
 
 
@@ -516,12 +518,22 @@ const LiveOilChange = () => {
                         ? t.miles - t.air_filter
                         : null;
                     const { yellow: yThr, red: rThr } = getOilChangeThresholds(t.source);
+                    // Mileage-update freshness (1st / 15th, grace to 5th / 20th)
+                    // overrides the miles-since-oil-change coloring.
+                    const updateStatus = getMileageUpdateStatus(t.miles_updated_at);
+                    const redTone = "bg-red-100 hover:bg-red-200 dark:bg-red-950/40 dark:hover:bg-red-950/60";
+                    const yellowTone = "bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-950/40 dark:hover:bg-yellow-950/60";
                     const rowTone =
-                      milesSinceOil != null && milesSinceOil > rThr
-                        ? "bg-red-100 hover:bg-red-200 dark:bg-red-950/40 dark:hover:bg-red-950/60"
+                      updateStatus === "red"
+                        ? redTone
+                        : updateStatus === "yellow"
+                        ? yellowTone
+                        : milesSinceOil != null && milesSinceOil > rThr
+                        ? redTone
                         : milesSinceOil != null && milesSinceOil > yThr
-                        ? "bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-950/40 dark:hover:bg-yellow-950/60"
+                        ? yellowTone
                         : "";
+
                     return (
                       <TableRow key={t.id} className={rowTone}>
                         <TableCell>
