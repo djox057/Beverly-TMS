@@ -62,9 +62,8 @@ serve(async (req: Request): Promise<Response> => {
         lastUpdate: t.miles_updated_at ? String(t.miles_updated_at).slice(0, 10) : null,
         days: daysSinceMileageUpdate(t.miles_updated_at),
         status,
-        // deno-lint-ignore no-explicit-any
-        ...({ dispatcherId } as any),
       });
+      void dispatcherId;
     }
 
     const dispatcherOf = new Map<string, string | null>();
