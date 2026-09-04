@@ -63,9 +63,11 @@ interface DriverFileFolder {
 interface DriverFilesManagerProps {
   driverId: string;
   driverName?: string;
+  /** When provided, CDL values read from an uploaded CDL can be pushed into the driver form. */
+  onApplyDriverFields?: (fields: DriverCdlSuggestion) => void;
 }
 
-export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerProps) => {
+export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }: DriverFilesManagerProps) => {
   const [files, setFiles] = useState<DriverFile[]>([]);
   const [folders, setFolders] = useState<DriverFileFolder[]>([]);
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
@@ -84,8 +86,10 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [openPendingDocId, setOpenPendingDocId] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [cdlSuggestion, setCdlSuggestion] = useState<DriverCdlSuggestion | null>(null);
   const { toast } = useToast();
   const { profile } = useAuthContext();
+
 
   useEffect(() => {
     if (driverId) {
