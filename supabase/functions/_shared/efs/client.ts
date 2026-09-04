@@ -129,7 +129,7 @@ async function login(account: CarrierAccount): Promise<Session> {
   const result = await postSoap(
     endpointFor(account.environment),
     "login",
-    `<ws:login>${xmlField("loginId", creds.username)}${xmlField("password", creds.password)}</ws:login>`,
+    `<ws:login>${xmlField("user", creds.username)}${xmlField("password", creds.password)}</ws:login>`,
     cookies,
   );
   if (result.faultCode) {
