@@ -1096,6 +1096,9 @@ export default function YardArrivals() {
                     <div className="space-y-3">
                       {actions.map((action) => (
                         <div key={action.id} className={`border rounded-lg p-3 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                          <div className="text-xs text-muted-foreground">
+                            Arrival Date & Time: {formatArrivalDateTime(action.arrival_datetime)}
+                          </div>
                           {action.truck?.make && (
                             <p className="text-xs text-muted-foreground">
                               {action.truck.make} {action.truck.model} {action.truck.year}
@@ -1163,7 +1166,7 @@ export default function YardArrivals() {
                             </div>
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            Date: {formatDateTime(action.created_at)}
+                            Creation Date: {formatDateTime(action.created_at)}
                             {action.creator?.full_name && ` • Created by: ${action.creator.full_name}`}
                           </div>
                           <div className="flex items-center justify-between">
