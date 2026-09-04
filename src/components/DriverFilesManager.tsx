@@ -706,7 +706,7 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
         <Dialog open={!!cdlSuggestion} onOpenChange={(o) => { if (!o) setCdlSuggestion(null); }}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>CDL details found</DialogTitle>
+              <DialogTitle>Document details found</DialogTitle>
             </DialogHeader>
             <div className="space-y-2 text-sm">
               <p className="text-muted-foreground">
@@ -729,8 +729,24 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                 {cdlSuggestion?.home_state && (
                   <li><span className="text-muted-foreground">Home State:</span> <strong>{cdlSuggestion.home_state}</strong></li>
                 )}
+                {cdlSuggestion?.mvr_date && (
+                  <li>
+                    <span className="text-muted-foreground">MVR Date:</span> <strong>{cdlSuggestion.mvr_date}</strong>
+                    <span className="text-muted-foreground"> — expires {addOneYear(cdlSuggestion.mvr_date)} (1 year)</span>
+                  </li>
+                )}
+                {cdlSuggestion?.clearing_house && (
+                  <li>
+                    <span className="text-muted-foreground">Clearing House Date:</span> <strong>{cdlSuggestion.clearing_house}</strong>
+                    <span className="text-muted-foreground"> — expires {addOneYear(cdlSuggestion.clearing_house)} (1 year)</span>
+                  </li>
+                )}
+                {cdlSuggestion?.medical_card_expiration_date && (
+                  <li><span className="text-muted-foreground">Medical Card Expiration:</span> <strong>{cdlSuggestion.medical_card_expiration_date}</strong></li>
+                )}
               </ul>
             </div>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setCdlSuggestion(null)}>Ignore</Button>
               <Button
