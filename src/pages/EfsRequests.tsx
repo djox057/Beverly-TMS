@@ -443,19 +443,19 @@ export default function EfsRequests() {
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg overflow-hidden">
-        <Table>
+      <div className="border rounded-lg overflow-x-auto overflow-y-hidden touch-pan-x cursor-grab active:cursor-grabbing">
+        <Table className="min-w-max">
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Driver</TableHead>
-              <TableHead>Truck #</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead>Requested By</TableHead>
-              <TableHead>Receipt</TableHead>
-              {isAdmin && <TableHead className="w-[60px]">Actions</TableHead>}
+              <TableHead className="whitespace-nowrap">Date</TableHead>
+              <TableHead className="whitespace-nowrap">Driver</TableHead>
+              <TableHead className="whitespace-nowrap">Truck #</TableHead>
+              <TableHead className="whitespace-nowrap">Type</TableHead>
+              <TableHead className="whitespace-nowrap">Location</TableHead>
+              <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
+              <TableHead className="whitespace-nowrap">Requested By</TableHead>
+              <TableHead className="whitespace-nowrap">Receipt</TableHead>
+              {isAdmin && <TableHead className="w-[60px] whitespace-nowrap">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
