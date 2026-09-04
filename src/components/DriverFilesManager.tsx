@@ -248,6 +248,17 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
         "types",
         JSON.stringify(DRIVER_DOCUMENT_PICKER.map((d) => ({ id: d.id, label: d.label })))
       );
+      body.append(
+        "driver",
+        JSON.stringify({
+          name: driverRecord?.name || driverName || null,
+          first_name: driverRecord?.first_name || null,
+          last_name: driverRecord?.last_name || null,
+          cdl_number: driverRecord?.cdl_number || null,
+          home_city: driverRecord?.home_city || null,
+          home_state: driverRecord?.home_state || null,
+        })
+      );
 
       const response = await fetch(
         "https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/classify-driver-document",
@@ -257,6 +268,12 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
       if (!response.ok || !json?.success) throw new Error(json?.error || "AI read failed");
 
       const result = json.data || {};
+      const expectedName = driverRecord?.name || driverName || "";
+      const mismatchNote =
+        result.name_matches_driver === false
+          ? `Looks like it belongs to ${result.person_name || "someone else"}${expectedName ? `, not ${expectedName}` : ""}`
+          : undefined;
+
       setPendingUploads((prev) =>
         prev.map((p) =>
           p.id === pending.id
@@ -265,10 +282,19 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                 analyzing: false,
                 docId: result.docId ?? p.docId,
                 aiDetected: !!result.docId,
+                mismatchNote,
               }
             : p
         )
       );
+
+      if (mismatchNote) {
+        toast({
+          title: "Possible wrong driver",
+          description: `${pending.file.name}: ${mismatchNote}. You can still upload it.`,
+          variant: "destructive",
+        });
+      }
 
       const suggestion: DriverCdlSuggestion = {};
       if (result.cdl_number) suggestion.cdl_number = result.cdl_number;
@@ -276,10 +302,15 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
       if (result.home_address) suggestion.home_address = result.home_address;
       if (result.home_city) suggestion.home_city = result.home_city;
       if (result.home_state) suggestion.home_state = result.home_state;
+      if (result.mvr_date) suggestion.mvr_date = result.mvr_date;
+      if (result.clearinghouse_date) suggestion.clearing_house = result.clearinghouse_date;
+      if (result.medical_card_expiration_date)
+        suggestion.medical_card_expiration_date = result.medical_card_expiration_date;
 
       if (Object.keys(suggestion).length > 0 && onApplyDriverFields) {
         setCdlSuggestion((prev) => ({ ...(prev || {}), ...suggestion }));
       }
+
     } catch (error) {
       console.error("AI document analysis failed:", error);
       setPendingUploads((prev) =>
