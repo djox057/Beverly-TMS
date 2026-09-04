@@ -1,0 +1,9 @@
+ALTER PUBLICATION supabase_realtime DROP TABLE public.trucks;
+ALTER PUBLICATION supabase_realtime DROP TABLE public.user_roles;
+ALTER PUBLICATION supabase_realtime DROP TABLE public.recruiter_salary_payments;
+ALTER PUBLICATION supabase_realtime DROP TABLE public.driver_company_history;
+ALTER PUBLICATION supabase_realtime DROP TABLE public.truck_note_history;
+ALTER PUBLICATION supabase_realtime DROP TABLE public.order_files;
+ALTER PUBLICATION supabase_realtime DROP TABLE public.lost_day_notes;
+ALTER PUBLICATION supabase_realtime DROP TABLE public.weekly_plans;
+ALTER PUBLICATION supabase_realtime DROP TABLE public.daily_report_entries;
