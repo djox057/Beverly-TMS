@@ -10,7 +10,7 @@ import {
   type EfsCardConfiguration,
 } from "./cardStatus.ts";
 
-const NS = "http://ws.efsllc.com/";
+const NS = "http://com.tch.cards.service";
 
 export interface CarrierAccount {
   id: string;
@@ -120,7 +120,7 @@ async function postSoap(
 }
 
 function xmlField(name: string, value: unknown): string {
-  return `<ws:${name}>${escapeXml(String(value))}</ws:${name}>`;
+  return `<${name}>${escapeXml(String(value))}</${name}>`;
 }
 
 async function login(account: CarrierAccount): Promise<Session> {
