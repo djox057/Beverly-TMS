@@ -1,45 +1,46 @@
-# Cut realtime messages drastically
+# Cut realtime messages drastically — root cause found in the Aug 31 changes
 
-## What the measurements show
+## What went wrong on August 31
 
-Checked directly against the database just now:
+You are right about the date. While adding the OOS (out of service) checkbox that afternoon, the truck list was switched on for live updates so the checkbox would flip for everyone instantly:
 
-- Only 13 tables broadcast live updates: `trucks`, `orders`, `pickup_drops`, `order_transfers`, `daily_report_entries`, `order_files`, `truck_notes`, `truck_note_history`, `lost_day_notes`, `weekly_plans`, `user_roles`, `driver_company_history`, `recruiter_salary_payments`.
-- Over a 2-minute sample tonight, row changes on all of those were essentially zero, and in the last hour: 12 orders, 12 stops, 15 daily-report rows, 0 trucks. The background fuel/miles writes now go to the silent telemetry table, as intended.
-- So the remaining volume is not caused by the number of database changes. It is caused by **fan-out**: every change is delivered once per open listener, and the published app still runs the old code with several listeners per table per person (measured earlier: ~1,100 open listeners for ~40 people). One order change becomes several hundred billed messages.
-- On top of that, each listener re-joins on every hourly token refresh and on every page navigation that mounts a page-level listener.
+- 17:24 — a live-update watcher was added on the truck list and mounted on both Reports and Trucks.
+- 17:32 — a migration put the whole **truck list** into the live-update feed.
 
-Note: the exact message counter lives in the Supabase dashboard and cannot be read from here, so the target below is an estimate based on listener count and change rate.
+That one line is the bill. The truck list is the single busiest table in the system: background jobs (fuel, mileage/ETA, Samsara locations) rewrite all ~490 trucks every few minutes. Confirmed against the database: the truck list has ~31.4 million row updates recorded lifetime, versus ~260,000 for orders and ~305,000 for stops. Every one of those truck rewrites is delivered once per open listener, and every signed-in person keeps several truck listeners open — so a single background job pass turns into tens of thousands of billed messages.
+
+Everything since then (moving fuel and miles into a silent table, the Samsara "only write real changes" fix) reduced the *writes*, but the truck list is still in the live feed, so any remaining truck write still fans out to everyone.
+
+Also verified now: row changes on the live-enabled tables are currently tiny (last hour: 12 orders, 12 stops, 15 daily-report rows, 0 trucks), so the remaining cost is fan-out and re-joins, not database activity.
 
 ## Plan
 
-### 1. Publish the consolidation that is already written (prerequisite)
-The shared one-connection-per-table bus and the background-tab pause are already in the code but not live. Publishing alone should take ~1,100 listeners down to roughly 40 x 13 and remove all-day background-tab traffic.
+### 1. Take the truck list out of the live feed (the actual fix)
+Remove `trucks` from the live-update publication — undoing the Aug 31 migration.
 
-### 2. Shrink the broadcast list to what genuinely needs to be live
-Remove from live broadcasting the tables nobody needs instant updates for, and let the app's existing refresh-on-focus / interval refresh cover them:
-`user_roles`, `recruiter_salary_payments`, `driver_company_history`, `truck_note_history`, `order_files`, `lost_day_notes`, `weekly_plans`, `daily_report_entries`.
+### 2. Keep the OOS checkbox instant without the truck feed
+The instant-flip behavior stays, using a tiny message channel instead: when someone ticks OOS, the app sends one small broadcast that the other open sessions apply to the shared OOS store already in place. Cost: one message per actual click instead of one per truck rewrite. Result is visually identical to today.
 
-Keep live: `orders`, `pickup_drops`, `order_transfers`, `trucks`, `truck_notes` — the five that drive the Reports grid people watch together.
+### 3. Convert the other truck watchers to refresh
+Truck list, Truck Sales, Drivers, Trailers and Live Oil Change watchers stop listening to the truck feed and instead refresh when the window regains focus plus every 60 seconds. Same freshness people actually perceive, zero live messages.
 
-### 3. One connection per person, not thirteen
-Replace the per-table connections with a single connection per signed-in person that carries all remaining tables, so joins and deliveries stop multiplying by table count.
+### 4. Trim the rest of the live feed
+Remove from live updates the tables that don't need instant delivery, letting the same refresh-on-focus pattern cover them: `user_roles`, `recruiter_salary_payments`, `driver_company_history`, `truck_note_history`, `order_files`, `lost_day_notes`, `weekly_plans`, `daily_report_entries`.
+Keep live: `orders`, `pickup_drops`, `order_transfers`, `truck_notes` — the ones the Reports grid depends on while several people work in it together.
 
-### 4. Only subscribe on the screens that need it
-Today several listeners are mounted app-wide for the whole session. Scope truck/notes/stop listeners to the pages that display them (Reports, Trucks, Daily Report, Live Oil Change) and drop them on navigation away. People sitting on Analytics, EFS, Fleets etc. stop receiving anything.
+### 5. Publish the consolidation already written
+The shared single-connection bus and the background-tab pause are in the code but not live yet. Publishing collapses the measured ~1,100 open listeners (for ~40 people) to one per table, and stops all-day traffic to tabs nobody is looking at.
 
-### 5. Stop the re-join storm
-Reuse the existing socket on token refresh instead of tearing down and re-joining, and add a short debounce so a page that mounts and unmounts quickly does not join at all.
+### 6. Stop the re-join storm
+Reuse the existing connection when the login token refreshes instead of tearing down and re-joining, and debounce joins so briefly visited pages never join.
 
-### 6. Replace live updates with refresh where the data is not collaborative
-Pages that only need "reasonably fresh" (Truck Sales, Transfer List, Yard Loads, Weekly Plan, Truck Note History, Live Oil Change) switch to refresh-on-focus plus a 60-second interval. No live messages at all for those.
-
-Expected outcome: from hundreds of thousands per hour to low thousands per hour, with the Reports grid still updating live as it does today.
+Expected outcome: from hundreds of thousands of messages per hour to low thousands, with no visible change — including the OOS checkbox still flipping instantly for everyone.
 
 ## Technical notes
 
-- Migration: `ALTER PUBLICATION supabase_realtime DROP TABLE ...` for the eight tables in step 2 (reversible with ADD TABLE).
-- `src/hooks/realtimeBus.ts`: switch from one channel per table to a single multiplexed channel with N `postgres_changes` bindings; keep the ref-counted subscribe API and the hidden-tab pause so callers stay unchanged; add a 500 ms join debounce and a socket-level `setAuth` path that does not re-join.
-- Hooks to rescope from app-level to page-level: `useTruckSalesRealtime`, `useTrucksRealtime`, `useDriversRealtime`, `useTrailersRealtime`, `useTruckOosRealtime`; convert `useTruckNoteHistory`, `useWeeklyPlans`, `TransferList`, `YardLoads`, `LiveOilChange`, `WeeklyPlanDialog` and the `dailyReport` tables to `refetchOnWindowFocus` + 60 s `refetchInterval`.
-- `useReportsRealtime` stays app-level (it is the one shared watcher) and keeps its 1 s debounce.
-- Verification: after publishing, compare the Supabase realtime message count over 24 hours against today's baseline, and confirm Reports still patches rows on order/stop edits.
+- Migration: `ALTER PUBLICATION supabase_realtime DROP TABLE public.trucks;` plus the eight tables in step 4 (each reversible with `ADD TABLE`).
+- `src/hooks/useTruckOosRealtime.ts`: replace the `postgres_changes` binding on `trucks` with a `supabase.channel('oos').on('broadcast', …)`; `src/components/reports/TruckOosCheckbox.tsx` sends the broadcast after the RPC succeeds; `useTruckOosOverrides` store is unchanged.
+- Convert to `refetchOnWindowFocus` + 60 s `refetchInterval` and drop `subscribeTable("trucks", …)`: `useTrucksRealtime`, `useTruckSalesRealtime`, `useDriversRealtime`, `useTrailersRealtime`, `LiveOilChange`, `useTruckNoteHistory`, `useWeeklyPlans`, `TransferList`, `YardLoads`, `WeeklyPlanDialog`, the `dailyReport` tables.
+- `src/hooks/realtimeBus.ts`: multiplex the remaining four tables onto one channel, add a 500 ms join debounce, and route token refresh through `realtime.setAuth` without re-joining.
+- `useReportsRealtime` stays app-level with its 1 s debounce — it is the one shared watcher for orders/stops/transfers.
+- Verification: after publishing, compare the Supabase realtime message count over 24 hours against the current baseline; check OOS still flips across two sessions and Reports still patches rows on order/stop edits.
