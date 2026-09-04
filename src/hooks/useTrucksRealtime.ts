@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { subscribeTable } from "@/hooks/realtimeBus";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { isValidUUID } from "@/utils/validation";
 
@@ -160,22 +161,17 @@ export function useTrucksRealtime() {
       if (affected.length > 0) scheduleFlush();
     };
 
-    const channel = supabase
-      .channel("trucks-realtime-advanced")
-      .on("postgres_changes", { event: "*", schema: "public", table: "trucks" }, handleTruckChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "trailers" }, handleRelatedTableChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, handleRelatedTableChange)
-      .subscribe();
-
-    channelRef.current = channel;
+    // Single shared `trucks` channel (see realtimeBus). `trailers`, `drivers`
+    // and `companies` are NOT in the realtime publication, so listening to
+    // them produced nothing — those bindings were removed.
+    const unsubscribe = subscribeTable("trucks", handleTruckChange, () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY, exact: false });
+    });
 
     return () => {
       isSubscribedRef.current = false;
       if (debounceTimer) clearTimeout(debounceTimer);
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      unsubscribe();
     };
   }, [queryClient]);
 }

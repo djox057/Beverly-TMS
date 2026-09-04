@@ -7,6 +7,7 @@ import {
   removeOrdersFromGlobalStore,
 } from "./useReportsDateWindow";
 import { traceFetch } from "@/utils/fetchTrace";
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 
 /**
  * App-level realtime subscription that invalidates the ["reports"] query family
@@ -20,7 +21,7 @@ import { traceFetch } from "@/utils/fetchTrace";
  */
 export function useReportsRealtime() {
   const queryClient = useQueryClient();
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const channelRef = useRef<BusChannel | null>(null);
   const isSubscribedRef = useRef(false);
 
   useEffect(() => {
@@ -119,8 +120,7 @@ export function useReportsRealtime() {
       scheduleFlush();
     };
 
-    const channel = supabase
-      .channel("reports-realtime-global")
+    const channel = busChannel()
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, handleOrderChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "pickup_drops" }, handleRelatedChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "order_transfers" }, handleRelatedChange)
@@ -132,7 +132,7 @@ export function useReportsRealtime() {
       isSubscribedRef.current = false;
       if (debounceTimer) clearTimeout(debounceTimer);
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+        channelRef.current?.unsubscribe();
         channelRef.current = null;
       }
     };

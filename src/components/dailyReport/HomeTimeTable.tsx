@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 
 const colorBg = (c?: string | null) =>
   ROW_COLORS.find((x) => x.value === c)?.bg ?? "";
@@ -150,8 +151,7 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
       setHomeRows((homeRes.data ?? []) as Row[]);
     };
     load();
-    const ch = supabase
-      .channel(`daily_report_home_time:${Math.random().toString(36).slice(2)}`)
+    const ch = busChannel()
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_report_entries" },
@@ -160,7 +160,7 @@ export const HomeTimeTable = ({ truckFilter }: { truckFilter?: string }) => {
       .subscribe();
     return () => {
       cancelled = true;
-      supabase.removeChannel(ch);
+      ch?.unsubscribe();
     };
   }, []);
 

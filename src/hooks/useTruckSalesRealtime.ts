@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { subscribeTable } from "@/hooks/realtimeBus";
 
 /**
  * App-level realtime subscription that invalidates the ["truck-sales"] query
@@ -11,7 +11,6 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export function useTruckSalesRealtime() {
   const queryClient = useQueryClient();
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const isSubscribedRef = useRef(false);
 
   useEffect(() => {
@@ -27,23 +26,14 @@ export function useTruckSalesRealtime() {
       }, 1000);
     };
 
-    const channel = supabase
-      .channel("truck-sales-realtime-global")
-      .on("postgres_changes", { event: "*", schema: "public", table: "trucks" }, scheduleInvalidate)
-      .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, scheduleInvalidate)
-      .on("postgres_changes", { event: "*", schema: "public", table: "companies" }, scheduleInvalidate)
-      .on("postgres_changes", { event: "*", schema: "public", table: "driver_yard_actions" }, scheduleInvalidate)
-      .subscribe();
-
-    channelRef.current = channel;
+    // Only `trucks` is published to realtime; drivers / companies /
+    // driver_yard_actions bindings never delivered anything.
+    const unsubscribe = subscribeTable("trucks", scheduleInvalidate, scheduleInvalidate);
 
     return () => {
       isSubscribedRef.current = false;
       if (debounceTimer) clearTimeout(debounceTimer);
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      unsubscribe();
     };
   }, [queryClient]);
 }

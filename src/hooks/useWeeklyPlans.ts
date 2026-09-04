@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfWeek, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 
 const CHICAGO_TZ = "America/Chicago";
 
@@ -100,8 +101,7 @@ export function useWeeklyPlans(driverIds: string[]) {
   useEffect(() => {
     if (driverIds.length === 0) return;
 
-    const channel = supabase
-      .channel("weekly-plans-realtime")
+    const channel = busChannel()
       .on(
         "postgres_changes",
         {
@@ -128,7 +128,7 @@ export function useWeeklyPlans(driverIds: string[]) {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      channel?.unsubscribe();
     };
   }, [driverIds, weekStart]);
 

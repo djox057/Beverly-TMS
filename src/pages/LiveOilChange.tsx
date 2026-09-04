@@ -23,6 +23,7 @@ import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { MileageHistoryPopover } from "@/components/liveOilChange/MileageHistoryPopover";
 import { OdometerHistoryPopover } from "@/components/liveOilChange/OdometerHistoryPopover";
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 
 
 
@@ -160,8 +161,7 @@ const MaintenanceDateCell = ({
 const LiveOilChange = () => {
   const queryClient = useQueryClient();
   useEffect(() => {
-    const channel = supabase
-      .channel(`live-oil-change-trucks-${Math.random().toString(36).slice(2)}`)
+    const channel = busChannel()
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "trucks" },
@@ -192,16 +192,9 @@ const LiveOilChange = () => {
           );
         },
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "drivers" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
-        },
-      )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      channel?.unsubscribe();
     };
   }, [queryClient]);
 

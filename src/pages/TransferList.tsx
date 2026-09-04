@@ -1,3 +1,4 @@
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -547,22 +548,16 @@ const useTransferList = () => {
   });
 
   useEffect(() => {
-    const channel = supabase
-      .channel("transfer-list-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "transfer_list" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "driver_drug_tests" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["driver-drug-tests-transfer"] });
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "drivers" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["drivers"] });
-      })
+    // Only `trucks` is in the realtime publication — transfer_list,
+    // driver_drug_tests and drivers bindings never delivered anything.
+    const channel = busChannel()
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "trucks" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+        queryClient.invalidateQueries({ queryKey: ["drivers"] });
         queryClient.invalidateQueries({ queryKey: ["trucks"] });
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { channel?.unsubscribe(); };
   }, [queryClient]);
 
   return query;
