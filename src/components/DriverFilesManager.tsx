@@ -207,6 +207,57 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
     }
   };
 
+  const analyzeWithAi = async (pending: PendingUpload) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Session expired");
+
+      const body = new FormData();
+      body.append("file", pending.file);
+      body.append(
+        "types",
+        JSON.stringify(DRIVER_DOCUMENT_PICKER.map((d) => ({ id: d.id, label: d.label })))
+      );
+
+      const response = await fetch(
+        "https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/classify-driver-document",
+        { method: "POST", headers: { Authorization: `Bearer ${session.access_token}` }, body }
+      );
+      const json = await response.json();
+      if (!response.ok || !json?.success) throw new Error(json?.error || "AI read failed");
+
+      const result = json.data || {};
+      setPendingUploads((prev) =>
+        prev.map((p) =>
+          p.id === pending.id
+            ? {
+                ...p,
+                analyzing: false,
+                docId: result.docId ?? p.docId,
+                aiDetected: !!result.docId,
+              }
+            : p
+        )
+      );
+
+      const suggestion: DriverCdlSuggestion = {};
+      if (result.cdl_number) suggestion.cdl_number = result.cdl_number;
+      if (result.cdl_expiration_date) suggestion.cdl_expiration_date = result.cdl_expiration_date;
+      if (result.home_address) suggestion.home_address = result.home_address;
+      if (result.home_city) suggestion.home_city = result.home_city;
+      if (result.home_state) suggestion.home_state = result.home_state;
+
+      if (Object.keys(suggestion).length > 0 && onApplyDriverFields) {
+        setCdlSuggestion((prev) => ({ ...(prev || {}), ...suggestion }));
+      }
+    } catch (error) {
+      console.error("AI document analysis failed:", error);
+      setPendingUploads((prev) =>
+        prev.map((p) => (p.id === pending.id ? { ...p, analyzing: false } : p))
+      );
+    }
+  };
+
   const addPendingFiles = (list: FileList | null) => {
     if (!list || list.length === 0) return;
     const next: PendingUpload[] = Array.from(list).map((file) => {
@@ -216,10 +267,13 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
         file,
         docId: detected?.id ?? null,
         autoDetected: !!detected,
+        analyzing: true,
       };
     });
     setPendingUploads((prev) => [...prev, ...next]);
+    next.forEach((p) => { void analyzeWithAi(p); });
   };
+
 
   const clearPendingInput = () => {
     const fileInput = document.getElementById('driver-file-input') as HTMLInputElement;
