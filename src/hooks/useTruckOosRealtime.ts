@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { subscribeTable } from "@/hooks/realtimeBus";
 import { useQueryClient } from "@tanstack/react-query";
 import { setTruckOosOverride } from "@/hooks/useTruckOosOverrides";
 
@@ -12,25 +12,15 @@ export const useTruckOosRealtime = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`truck-oos-${Math.random().toString(36).slice(2)}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "trucks" },
-        (payload) => {
-          const oldOos = (payload.old as any)?.oos;
-          const newOos = (payload.new as any)?.oos;
-          const truckId = (payload.new as any)?.id;
-          if (oldOos === newOos) return;
-          if (truckId) setTruckOosOverride(truckId, !!newOos);
-          queryClient.invalidateQueries({ queryKey: ["reports"], exact: false });
-          queryClient.invalidateQueries({ queryKey: ["trucks"], exact: false });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return subscribeTable("trucks", (payload) => {
+      if (payload.eventType !== "UPDATE") return;
+      const oldOos = (payload.old as any)?.oos;
+      const newOos = (payload.new as any)?.oos;
+      const truckId = (payload.new as any)?.id;
+      if (oldOos === newOos) return;
+      if (truckId) setTruckOosOverride(truckId, !!newOos);
+      queryClient.invalidateQueries({ queryKey: ["reports"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["trucks"], exact: false });
+    });
   }, [queryClient]);
 };

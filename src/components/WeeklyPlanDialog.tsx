@@ -8,6 +8,7 @@ import { startOfWeek, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { Loader2, Lock, Unlock } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 
 const CHICAGO_TZ = "America/Chicago";
 
@@ -124,8 +125,7 @@ export function WeeklyPlanDialog({
   useEffect(() => {
     if (!open || !driverId) return;
 
-    const channel = supabase
-      .channel(`weekly-plan-${driverId}-${weekStart}`)
+    const channel = busChannel()
       .on(
         "postgres_changes",
         {
@@ -161,7 +161,7 @@ export function WeeklyPlanDialog({
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      channel?.unsubscribe();
     };
   }, [open, driverId, weekStart]);
 

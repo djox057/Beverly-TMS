@@ -10,6 +10,7 @@ const queryWithTimeout = async <T,>(queryFn: () => Promise<T>, timeoutMs: number
   return Promise.race([queryFn(), timeoutPromise]);
 };
 import { parseSimpleDateTime } from "@/utils/dateUtils";
+import { mergeTruckTelemetry, setTruckMilesAway } from "@/utils/truckTelemetry";
 import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
 import {
   upsertLostDayNoteInAccumulator,
@@ -249,8 +250,7 @@ export const useReports = (options?: UseReportsOptions) => {
 
   const updateTruckMilesAway = useMutation({
     mutationFn: async ({ truckId, milesAway }: { truckId: string; milesAway: number }) => {
-      const { error } = await supabase.from("trucks").update({ miles_away: milesAway }).eq("id", truckId);
-      if (error) throw error;
+      await setTruckMilesAway(truckId, milesAway);
     },
     onMutate: async ({ truckId, milesAway }) => {
       await queryClient.cancelQueries({ queryKey: ["reports"] });
@@ -865,12 +865,13 @@ export const useReports = (options?: UseReportsOptions) => {
     // driver.dispatcher_id differs from truck.dispatcher_id. JS filtering is faster than 
     // additional database queries and ensures complete data for priority office.
     // Fetch trucks FLAT (no joins) - eliminates RLS amplification from lateral joins
-    const { data: trucksFlat, error: trucksError } = await supabase
+    const { data: trucksFlatRaw, error: trucksError } = await supabase
       .from("trucks")
       .select("*")
       .order("id", { ascending: true });
 
     if (trucksError) throw trucksError;
+    const trucksFlat = await mergeTruckTelemetry(trucksFlatRaw || []);
 
     // Collect unique IDs for batch fetching
     const truckDriverIdsBatch = new Set<string>();
@@ -2201,7 +2202,9 @@ export const useReports = (options?: UseReportsOptions) => {
                   .select("id, truck_number, driver1_id, miles_away")
                   .in("driver1_id", driverIds)
               : { data: [] };
-            const truckByDriverId = new Map((trucksForOffDuty || []).map(t => [t.driver1_id, t]));
+            const truckByDriverId = new Map(
+              (await mergeTruckTelemetry(trucksForOffDuty || [])).map(t => [t.driver1_id, t])
+            );
             
             // Resolve current dispatcher profiles for these drivers.
             // The main `dispatchersByUserId` map may be missing dispatchers from

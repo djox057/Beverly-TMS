@@ -1,3 +1,4 @@
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -241,12 +242,7 @@ export const DailyReportTable = ({
       `date=eq.${dateStr}` +
       (office === null ? "" : ""); // office/type filters applied client-side below
 
-    const channel = supabase
-      .channel(
-        `daily_report:${dateStr}:${type}:${ignoreOffice ? "any" : office ?? "null"}:${Math.random()
-          .toString(36)
-          .slice(2)}`
-      )
+    const channel = busChannel()
       .on(
         "postgres_changes",
         {
@@ -266,7 +262,7 @@ export const DailyReportTable = ({
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      channel?.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateStr, type, office, ignoreOffice]);

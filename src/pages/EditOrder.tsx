@@ -1,3 +1,4 @@
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -1201,8 +1202,7 @@ const EditOrder = () => {
   useEffect(() => {
     if (!id || id === ":id") return;
     console.log("Setting up real-time subscription for order:", id);
-    const channel = supabase
-      .channel(`order-${id}-changes`)
+    const channel = busChannel()
       .on(
         "postgres_changes",
         {
@@ -1232,7 +1232,7 @@ const EditOrder = () => {
       .subscribe();
     return () => {
       console.log("Cleaning up real-time subscription for order:", id);
-      supabase.removeChannel(channel);
+      channel?.unsubscribe();
     };
   }, [id, loadOrderData]);
 

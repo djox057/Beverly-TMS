@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { subscribeTable } from "@/hooks/realtimeBus";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 /**
@@ -178,29 +179,16 @@ export function useTrailersRealtime() {
     };
 
 
-    const channel = supabase
-      .channel("trailers-realtime-advanced")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "trailers" },
-        handleTrailerChange
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "trucks" },
-        handleTruckChange
-      )
-      .subscribe();
-
-    channelRef.current = channel;
+    // `trailers` is not in the realtime publication — only truck events
+    // (trailer attach/detach) can reach us, via the shared trucks channel.
+    const unsubscribe = subscribeTable("trucks", handleTruckChange, () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY, exact: false });
+    });
 
     return () => {
       isSubscribedRef.current = false;
       if (debounceTimer) clearTimeout(debounceTimer);
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      unsubscribe();
     };
   }, [queryClient]);
 }

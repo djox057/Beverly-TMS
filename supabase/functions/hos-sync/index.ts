@@ -293,9 +293,12 @@ serve(async (req) => {
 
     // Batch update truck fuel levels
     if (fuelUpdates.length > 0) {
-      await Promise.all(fuelUpdates.map(u =>
-        supabase.from('trucks').update({ fuel_level: u.fuel }).eq('id', u.id)
-      ));
+      // Writes go to truck_telemetry (not published to realtime) so this
+      // 5-minute job no longer broadcasts a change for every truck.
+      await supabase.from('truck_telemetry').upsert(
+        fuelUpdates.map(u => ({ truck_id: u.id, fuel_level: u.fuel })),
+        { onConflict: 'truck_id' }
+      );
       console.log(`Updated fuel levels for ${fuelUpdates.length} trucks`);
     }
 

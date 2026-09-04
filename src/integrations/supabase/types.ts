@@ -5543,6 +5543,44 @@ export type Database = {
           },
         ]
       }
+      truck_telemetry: {
+        Row: {
+          created_at: string
+          eta_minutes: number | null
+          fuel_level: number | null
+          miles_away: number | null
+          miles_away_updated_at: string | null
+          truck_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          eta_minutes?: number | null
+          fuel_level?: number | null
+          miles_away?: number | null
+          miles_away_updated_at?: string | null
+          truck_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          eta_minutes?: number | null
+          fuel_level?: number | null
+          miles_away?: number | null
+          miles_away_updated_at?: string | null
+          truck_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_telemetry_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: true
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       truck_termination_notes: {
         Row: {
           created_at: string

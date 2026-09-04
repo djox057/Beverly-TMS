@@ -3,6 +3,7 @@ import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { ROW_COLORS } from "./DailyReportTable";
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 
 const colorBg = (c?: string | null) =>
   ROW_COLORS.find((x) => x.value === c)?.bg ?? "";
@@ -73,8 +74,7 @@ export const TruckSearchAllOfficesTable = ({
     };
     load();
 
-    const ch = supabase
-      .channel(`daily_report_truck_search:${Math.random().toString(36).slice(2)}`)
+    const ch = busChannel()
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_report_entries" },
@@ -84,7 +84,7 @@ export const TruckSearchAllOfficesTable = ({
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(ch);
+      ch?.unsubscribe();
     };
   }, [q]);
 

@@ -244,9 +244,12 @@ serve(async (req) => {
       if (!truck) continue;
 
       const { error: updateError } = await supabase
-        .from('trucks')
-        .update({ miles_away: Math.round(result.miles_away) })
-        .eq('id', truck.truck_id);
+        .from('truck_telemetry')
+        .upsert({
+          truck_id: truck.truck_id,
+          miles_away: Math.round(result.miles_away),
+          miles_away_updated_at: new Date().toISOString(),
+        }, { onConflict: 'truck_id' });
 
       if (updateError) {
         console.error(`❌ Failed to update ${result.truck_number}:`, updateError);

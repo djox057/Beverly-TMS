@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { transformOrders } from "@/utils/ordersTransform";
 import { traceFetch } from "@/utils/fetchTrace";
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 
 // Flat column list - NO joins (matches edge function pattern)
 const ORDER_COLUMNS = `
@@ -31,7 +32,7 @@ const ORDER_COLUMNS = `
  */
 export function useOrdersRealtime() {
   const queryClient = useQueryClient();
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const channelRef = useRef<BusChannel | null>(null);
   const isSubscribedRef = useRef(false);
 
   useEffect(() => {
@@ -258,8 +259,7 @@ export function useOrdersRealtime() {
     };
 
     // Create channel and subscribe
-    const channel = supabase
-      .channel("orders-realtime-global")
+    const channel = busChannel()
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, handleOrderChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "pickup_drops" }, handleRelatedTableChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "order_transfers" }, handleRelatedTableChange)
@@ -271,7 +271,7 @@ export function useOrdersRealtime() {
       isSubscribedRef.current = false;
       if (debounceTimer) clearTimeout(debounceTimer);
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+        channelRef.current?.unsubscribe();
         channelRef.current = null;
       }
     };

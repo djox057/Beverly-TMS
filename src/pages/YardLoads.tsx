@@ -40,6 +40,7 @@ import { DateRange } from "react-day-picker";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import { AssignTransferDriverDialog, TransferDriverData } from "@/components/AssignTransferDriverDialog";
 import { useQueryClient } from "@tanstack/react-query";
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -147,8 +148,7 @@ export default function YardLoads() {
 
   // Realtime subscription for bol_location updates
   useEffect(() => {
-    const channel = supabase
-      .channel("yard-loads-bol-location")
+    const channel = busChannel()
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "orders" },
@@ -166,7 +166,7 @@ export default function YardLoads() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { channel?.unsubscribe(); };
   }, [queryClient]);
 
 

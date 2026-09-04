@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 
 export interface NoteHistoryEntry {
   id: string;
@@ -14,7 +15,7 @@ export interface NoteHistoryEntry {
 
 export const useTruckNoteHistory = (driverId: string | null) => {
   const queryClient = useQueryClient();
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const channelRef = useRef<BusChannel | null>(null);
 
   // Live updates while the dialog is open: truck_note_history is append-only (INSERT per edit)
   useEffect(() => {
@@ -22,12 +23,11 @@ export const useTruckNoteHistory = (driverId: string | null) => {
 
     // Ensure we never keep a subscription for the wrong driver
     if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
+      channelRef.current?.unsubscribe();
       channelRef.current = null;
     }
 
-    const channel = supabase
-      .channel(`truck-note-history-${driverId}`)
+    const channel = busChannel()
       .on(
         "postgres_changes",
         {
@@ -88,7 +88,7 @@ export const useTruckNoteHistory = (driverId: string | null) => {
 
     return () => {
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+        channelRef.current?.unsubscribe();
         channelRef.current = null;
       }
     };

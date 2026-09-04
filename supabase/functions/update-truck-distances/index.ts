@@ -283,9 +283,7 @@ Deno.serve(async (req) => {
         id,
         truck_number,
         status,
-        miles_away,
-        eta_minutes,
-        miles_away_updated_at,
+        truck_telemetry(miles_away, eta_minutes, miles_away_updated_at),
         orders!orders_truck_id_fkey(
           id,
           load_number,
@@ -329,10 +327,12 @@ Deno.serve(async (req) => {
         // No fresh GPS. If we have a recent (<24h) miles_away value, leave it
         // alone so dispatchers keep seeing the last known distance. Only clear
         // out if the cached value is missing or older than 24h.
-        const lastUpdatedRaw = (truck as any).miles_away_updated_at;
+        const telemetry = (truck as any).truck_telemetry ?? {};
+        const lastUpdatedRaw = telemetry.miles_away_updated_at;
         const lastUpdatedMs = lastUpdatedRaw ? new Date(lastUpdatedRaw).getTime() : 0;
         const hasRecentValue =
-          (truck as any).miles_away !== null &&
+          telemetry.miles_away !== null &&
+          telemetry.miles_away !== undefined &&
           lastUpdatedMs > 0 &&
           now - lastUpdatedMs < STALE_PRESERVE_MS;
         if (hasRecentValue) {
@@ -402,22 +402,22 @@ Deno.serve(async (req) => {
     for (let i = 0; i < allUpdates.length; i += DB_BATCH_SIZE) {
       const batch = allUpdates.slice(i, i + DB_BATCH_SIZE);
 
-      const results = await Promise.all(
-        batch.map(async (update) => {
-          const patch: Record<string, unknown> = {
-            miles_away: update.miles_away,
-            eta_minutes: update.eta_minutes,
-          };
-          if (update.miles_away !== null) {
-            patch.miles_away_updated_at = new Date().toISOString();
-          }
-          const { error } = await supabase
-            .from('trucks')
-            .update(patch)
-            .eq('id', update.truckId);
-          return { truckNumber: update.truckNumber, error };
-        })
+      // Writes go to truck_telemetry (not published to realtime) so this
+      // 10-minute job no longer broadcasts a change for every truck.
+      const nowIso = new Date().toISOString();
+      const { error: batchError } = await supabase.from('truck_telemetry').upsert(
+        batch.map((update) => ({
+          truck_id: update.truckId,
+          miles_away: update.miles_away,
+          eta_minutes: update.eta_minutes,
+          ...(update.miles_away !== null ? { miles_away_updated_at: nowIso } : {}),
+        })),
+        { onConflict: 'truck_id' }
       );
+      const results = batch.map((update) => ({
+        truckNumber: update.truckNumber,
+        error: batchError,
+      }));
 
       for (const { truckNumber, error } of results) {
         if (error) {

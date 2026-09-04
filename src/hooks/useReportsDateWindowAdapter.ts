@@ -14,8 +14,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders, fetchOrderTransfersForOrders, patchOrderInGlobalStore, removeOrderFromGlobalStore, flushGlobalStoreNotifications, hasOrderInGlobalStore } from "./useReportsDateWindow";
 import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
+import { mergeTruckTelemetry } from "@/utils/truckTelemetry";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 
 // Feature flag - set to true to use date-window based loading
 export const USE_DATE_WINDOW_LOADING = true;
@@ -541,7 +543,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         .eq("is_active", true);
       console.timeEnd('[perf] adapter-trucks');
       if (error) throw error;
-      return data || [];
+      return await mergeTruckTelemetry(data || []);
     },
     staleTime: 60000,
     refetchOnWindowFocus: true,
@@ -959,20 +961,19 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   });
 
   // P2: Subscribe to order_files realtime changes to invalidate adapter cache
-  const orderFilesChannelRef = useRef<RealtimeChannel | null>(null);
+  const orderFilesChannelRef = useRef<BusChannel | null>(null);
   
   useEffect(() => {
     if (!scopeEnabled) return;
     
     // Clean up existing channel before creating a fresh one (e.g., on office switch)
     if (orderFilesChannelRef.current) {
-      supabase.removeChannel(orderFilesChannelRef.current);
+      orderFilesChannelRef.current?.unsubscribe();
       orderFilesChannelRef.current = null;
     }
     
     // Subscribe to order_files changes
-    const channel = supabase
-      .channel(`adapter-order-files-realtime-${priorityOffice || 'default'}`)
+    const channel = busChannel()
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_files" },
@@ -1000,16 +1001,16 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     
     return () => {
       if (orderFilesChannelRef.current) {
-        supabase.removeChannel(orderFilesChannelRef.current);
+        orderFilesChannelRef.current?.unsubscribe();
         orderFilesChannelRef.current = null;
       }
     };
   }, [scopeEnabled, priorityOffice, queryClient]);
 
   // P3: Subscribe to truck_notes realtime changes and patch cache directly (no refetch)
-  const truckNotesChannelRef = useRef<RealtimeChannel | null>(null);
+  const truckNotesChannelRef = useRef<BusChannel | null>(null);
   // P4: Subscribe to lost_day_notes realtime changes and patch cache directly
-  const lostDayNotesChannelRef = useRef<RealtimeChannel | null>(null);
+  const lostDayNotesChannelRef = useRef<BusChannel | null>(null);
   const driverIdsSetRef = useRef<Set<string>>(new Set());
   
   // Keep driver IDs in a ref to avoid stale closures in subscription callback
@@ -1021,7 +1022,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     if (!scopeEnabled || driverIdsForScope.length === 0) {
       // Cleanup any existing channel when disabled
       if (truckNotesChannelRef.current) {
-        supabase.removeChannel(truckNotesChannelRef.current);
+        truckNotesChannelRef.current?.unsubscribe();
         truckNotesChannelRef.current = null;
       }
       return;
@@ -1029,14 +1030,13 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     
     // Clean up existing channel before creating a fresh one (e.g., on office switch)
     if (truckNotesChannelRef.current) {
-      supabase.removeChannel(truckNotesChannelRef.current);
+      truckNotesChannelRef.current?.unsubscribe();
       truckNotesChannelRef.current = null;
     }
     
     const channelName = `adapter-truck-notes-realtime-${priorityOffice || 'default'}`;
     
-    const channel = supabase
-      .channel(channelName)
+    const channel = busChannel()
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "truck_notes" },
@@ -1107,7 +1107,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return () => {
       if (truckNotesChannelRef.current) {
         console.log(`[adapter] Unsubscribing from truck_notes realtime for office: ${priorityOffice}`);
-        supabase.removeChannel(truckNotesChannelRef.current);
+        truckNotesChannelRef.current?.unsubscribe();
         truckNotesChannelRef.current = null;
       }
     };
@@ -1129,7 +1129,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     if (!scopeEnabled || driverIdsForScope.length === 0) {
       // Cleanup any existing channel when disabled
       if (lostDayNotesChannelRef.current) {
-        supabase.removeChannel(lostDayNotesChannelRef.current);
+        lostDayNotesChannelRef.current?.unsubscribe();
         lostDayNotesChannelRef.current = null;
       }
       return;
@@ -1137,14 +1137,13 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     
     // Clean up existing channel before creating a fresh one (e.g., on office switch)
     if (lostDayNotesChannelRef.current) {
-      supabase.removeChannel(lostDayNotesChannelRef.current);
+      lostDayNotesChannelRef.current?.unsubscribe();
       lostDayNotesChannelRef.current = null;
     }
     
     const channelName = `adapter-lost-day-notes-realtime-${priorityOffice || 'default'}`;
     
-    const channel = supabase
-      .channel(channelName)
+    const channel = busChannel()
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "lost_day_notes" },
@@ -1240,7 +1239,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     return () => {
       if (lostDayNotesChannelRef.current) {
         console.log(`[adapter] Unsubscribing from lost_day_notes realtime for office: ${priorityOffice}`);
-        supabase.removeChannel(lostDayNotesChannelRef.current);
+        lostDayNotesChannelRef.current?.unsubscribe();
         lostDayNotesChannelRef.current = null;
       }
     };
@@ -1282,12 +1281,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // P5: Subscribe to orders, pickup_drops, and order_transfers realtime changes
   // Patches globalAccumulatedOrders directly with debounced batch fetching
-  const ordersRealtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const ordersRealtimeChannelRef = useRef<BusChannel | null>(null);
 
   useEffect(() => {
     if (!scopeEnabled || driverIdsForScope.length === 0) {
       if (ordersRealtimeChannelRef.current) {
-        supabase.removeChannel(ordersRealtimeChannelRef.current);
+        ordersRealtimeChannelRef.current?.unsubscribe();
         ordersRealtimeChannelRef.current = null;
       }
       return;
@@ -1295,7 +1294,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
     // Clean up existing channel before creating a fresh one (e.g., on office switch)
     if (ordersRealtimeChannelRef.current) {
-      supabase.removeChannel(ordersRealtimeChannelRef.current);
+      ordersRealtimeChannelRef.current?.unsubscribe();
       ordersRealtimeChannelRef.current = null;
     }
 
@@ -1431,8 +1430,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
     const channelName = "adapter-orders-realtime-global";
 
-    const channel = supabase
-      .channel(channelName)
+    const channel = busChannel()
       // Orders table
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
         const newRecord = payload.new as any;
@@ -1504,7 +1502,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       if (debounceTimer) clearTimeout(debounceTimer);
       if (ordersRealtimeChannelRef.current) {
         console.log("[adapter] Unsubscribing from orders realtime (global)");
-        supabase.removeChannel(ordersRealtimeChannelRef.current);
+        ordersRealtimeChannelRef.current?.unsubscribe();
         ordersRealtimeChannelRef.current = null;
       }
     };
