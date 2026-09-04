@@ -443,7 +443,7 @@ export default function EfsRequests() {
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg overflow-x-auto overflow-y-hidden touch-pan-x cursor-grab active:cursor-grabbing">
+      <div className="border rounded-lg overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing">
         <Table className="min-w-max">
           <TableHeader>
             <TableRow>
