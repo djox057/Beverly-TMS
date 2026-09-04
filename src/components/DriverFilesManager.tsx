@@ -103,7 +103,8 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
   const [cdlSuggestion, setCdlSuggestion] = useState<DriverCdlSuggestion | null>(null);
   const [driverRecord, setDriverRecord] = useState<Record<string, any> | null>(null);
   const { toast } = useToast();
-  const { profile } = useAuthContext();
+  const { profile, hasRole } = useAuthContext();
+  const canDelete = hasRole('admin') || hasRole('accounting') || hasRole('safety') || hasRole('maintenance');
 
 
   useEffect(() => {
