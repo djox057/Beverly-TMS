@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.extract-coi-vins]
 verify_jwt = true
+
+[functions.send-mileage-update-reminders]
+verify_jwt = false
