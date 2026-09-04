@@ -709,7 +709,14 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                         <div className="min-w-0 flex-1">
                           <p className="text-sm truncate">{pending.file.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {pending.autoDetected ? 'Detected from file name' : 'Not recognized — pick a type'}
+                            {pending.analyzing
+                              ? 'Reading document with AI…'
+                              : pending.aiDetected
+                                ? 'Detected by AI'
+                                : pending.autoDetected
+                                  ? 'Detected from file name'
+                                  : 'Not recognized — pick a type'}
+
                           </p>
                         </div>
                         <Popover
