@@ -2107,6 +2107,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
           const driverOrders = ordersByDriverId.get(driver.id) || [];
           const truck = allTruckByDriverId.get(driver.id);
           const driverCompanyName = realDriver?.company_id ? companyMap.get(realDriver.company_id) || null : null;
+          // Off-duty rows get the same notes as regular rows (truck note + lost/empty day notes)
+          const offDutyNote = notesByDriverId.get(driver.id);
+          const offDutyLostNotes = lostNotesByDriverId.get(driver.id) || [];
 
           // Build home string
           const homeCity = realDriver?.home_city;
@@ -2280,15 +2283,16 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
             twoWeekBlockDate: null,
             randomDrugTestDate: null,
             doNotTouchHos: realDriver?.do_not_touch_hos || false,
-            note: "",
-            lastEdit: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }),
-            editDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            note: offDutyNote?.note || "",
+            lastEdit: (() => { const d = offDutyNote?.updated_at ? new Date(offDutyNote.updated_at) : new Date(); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
+            editDate: (() => { const d = offDutyNote?.updated_at ? new Date(offDutyNote.updated_at) : new Date(); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })(),
             allOrders: allOrdersWithStops,
             activeOrders: allOrdersWithStops.filter(o => o.isActive),
             activeOrdersCount: allOrdersWithStops.filter(o => o.isActive).length,
             totalOrdersCount: driverOrders.length || 0,
             hasMultipleOrders: (driverOrders.length || 0) > 1,
-            lost_day_notes: [],
+            lost_day_notes: offDutyLostNotes,
+            lostDayNotes: offDutyLostNotes,
             milesAway: truck?.miles_away ?? null,
             totalMiles: (sortedOrders.find((o: any) => !o.order_files?.some((f: any) => f.file_category === 'POD'))?.loaded_miles) ?? currentOrder?.loaded_miles ?? 0,
             goingYard: false,

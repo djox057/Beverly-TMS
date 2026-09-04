@@ -2231,6 +2231,9 @@ export const useReports = (options?: UseReportsOptions) => {
             const offDutyTrucks = inactiveDrivers.map((driver: any) => {
               // Find the driver's orders
               const driverOrders = ordersByDriver.get(driver.id) || [];
+              // Off-duty rows show the same notes as regular rows
+              const offDutyNote = truckNotesByDriverId.get(driver.id);
+              const offDutyLostNotes = lostDayNotesByDriverId.get(driver.id) || [];
               
               // Build allOrdersWithStops similar to regular trucks
               const allOrdersWithStops = driverOrders
@@ -2424,15 +2427,15 @@ export const useReports = (options?: UseReportsOptions) => {
                 twoWeekBlockDate: null,
                 randomDrugTestDate: null,
                 doNotTouchHos: realDriver?.do_not_touch_hos || false,
-                note: "",
-                lastEdit: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }),
-                editDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                note: offDutyNote?.note || "",
+                lastEdit: (() => { const d = offDutyNote?.updated_at ? new Date(offDutyNote.updated_at) : new Date(); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
+                editDate: (() => { const d = offDutyNote?.updated_at ? new Date(offDutyNote.updated_at) : new Date(); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })(),
                 allOrders: allOrdersWithStops,
                 activeOrders: allOrdersWithStops.filter(o => o.isActive),
                 activeOrdersCount: allOrdersWithStops.filter(o => o.isActive).length,
                 totalOrdersCount: driverOrders.length || 0,
                 hasMultipleOrders: (driverOrders.length || 0) > 1,
-                lost_day_notes: [],
+                lost_day_notes: offDutyLostNotes,
                 milesAway: truckData?.miles_away ?? null,
                 totalMiles: (allSortedOrders.find((o) => !o.order_files?.some((f: any) => f.file_category === 'POD'))?.loaded_miles) ?? currentOrder?.loaded_miles ?? 0,
                 goingYard: false,
