@@ -447,6 +447,52 @@ const NewOrder = () => {
     }
   }, [companies, bookedByCompany, companiesLoading, companiesError]);
 
+  // ===== Beverly Freight: max 20 loads per broker per pickup day =====
+  const BEVERLY_BROKER_DAILY_LIMIT = 20;
+  const bookedByCompanyName = companies?.find((c) => c.id === bookedByCompany)?.name;
+  const isBeverlyFreightBooking = bookedByCompanyName === "Beverly Freight Inc";
+  const firstPickupDateKey = (() => {
+    const from = pickupsDrops.find((item) => item.type === "pickup")?.dateRange?.from;
+    if (!from) return null;
+    return `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}-${String(from.getDate()).padStart(2, "0")}`;
+  })();
+  const [brokerDayCount, setBrokerDayCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isBeverlyFreightBooking || !broker || !firstPickupDateKey || isPartial) {
+      setBrokerDayCount(null);
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      const { count, error } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("broker_id", broker)
+        .eq("booked_by_company_id", bookedByCompany)
+        .eq("canceled", false)
+        .not("status", "eq", "canceled")
+        .gte("pickup_datetime", `${firstPickupDateKey}T00:00:00`)
+        .lte("pickup_datetime", `${firstPickupDateKey}T23:59:59`);
+      if (cancelled) return;
+      if (error) {
+        console.error("Failed to count broker daily loads:", error);
+        setBrokerDayCount(null);
+        return;
+      }
+      setBrokerDayCount(count ?? 0);
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isBeverlyFreightBooking, broker, bookedByCompany, firstPickupDateKey, isPartial]);
+
+  // This new load would be number (brokerDayCount + 1) for that broker/day
+  const brokerLimitExceeded = brokerDayCount !== null && brokerDayCount + 1 > BEVERLY_BROKER_DAILY_LIMIT;
+
+
+
   // Initialize with one pickup and one delivery
   useEffect(() => {
     const defaultPickup: PickupDrop = {
@@ -2249,6 +2295,29 @@ const NewOrder = () => {
       // Store the created order ID for email logging
       setCreatedOrderId(orderId);
 
+      // Beverly Freight: alert via RingCentral SMS when the 20 loads/broker/day limit is exceeded
+      if (brokerLimitExceeded) {
+        const phoneNumbers = getMilesChangeSmsRecipients(profile?.office);
+        if (phoneNumbers.length > 0) {
+          const brokerNameForSms = allBrokers?.find((br) => br.id === broker)?.name || "Unknown broker";
+          const smsTruck = trucks?.find((t) => t.id === truck)?.truck_number || "N/A";
+          const message = [
+            `Beverly Freight broker daily limit exceeded (max ${BEVERLY_BROKER_DAILY_LIMIT}/day)`,
+            `Broker: ${brokerNameForSms}`,
+            `Pickup date: ${firstPickupDateKey}`,
+            `Loads with this broker that day: ${(brokerDayCount ?? 0) + 1}`,
+            `Internal Load #${newInternalLoadNumber ?? "N/A"}, Broker load #${brokerLoadNumber || "N/A"}, Truck #${smsTruck}`,
+            profile?.full_name || "Unknown",
+          ].join("\n");
+          try {
+            await supabase.functions.invoke("send-sms", { body: { message, phoneNumbers } });
+          } catch (err) {
+            console.error("Failed to send broker limit SMS:", err);
+          }
+        }
+      }
+
+
       // Notify the selected manager that a below-90% Stop Amount was approved
       if (needsStopAmountApproval && approvalManagerId) {
         const approvalTruck = trucks?.find((t) => t.id === truck);
@@ -3020,7 +3089,14 @@ const NewOrder = () => {
                     placeholder="Select broker"
                     searchPlaceholder="Search brokers..."
                   />
+                  {brokerLimitExceeded && (
+                    <p className="text-sm font-medium text-red-600">
+                      Warning: Beverly Freight already has {brokerDayCount} loads with this broker on this pickup date.
+                      This load would be #{(brokerDayCount ?? 0) + 1}, over the 20 trucks per broker per day limit.
+                    </p>
+                  )}
                 </div>
+
               </div>
             )}
 
