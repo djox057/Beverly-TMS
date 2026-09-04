@@ -2295,6 +2295,29 @@ const NewOrder = () => {
       // Store the created order ID for email logging
       setCreatedOrderId(orderId);
 
+      // Beverly Freight: alert via RingCentral SMS when the 20 loads/broker/day limit is exceeded
+      if (brokerLimitExceeded) {
+        const phoneNumbers = getMilesChangeSmsRecipients(profile?.office);
+        if (phoneNumbers.length > 0) {
+          const brokerNameForSms = allBrokers?.find((br) => br.id === broker)?.name || "Unknown broker";
+          const smsTruck = trucks?.find((t) => t.id === truck)?.truck_number || "N/A";
+          const message = [
+            `Beverly Freight broker daily limit exceeded (max ${BEVERLY_BROKER_DAILY_LIMIT}/day)`,
+            `Broker: ${brokerNameForSms}`,
+            `Pickup date: ${firstPickupDateKey}`,
+            `Loads with this broker that day: ${(brokerDayCount ?? 0) + 1}`,
+            `Internal Load #${newInternalLoadNumber ?? "N/A"}, Broker load #${brokerLoadNumber || "N/A"}, Truck #${smsTruck}`,
+            profile?.full_name || "Unknown",
+          ].join("\n");
+          try {
+            await supabase.functions.invoke("send-sms", { body: { message, phoneNumbers } });
+          } catch (err) {
+            console.error("Failed to send broker limit SMS:", err);
+          }
+        }
+      }
+
+
       // Notify the selected manager that a below-90% Stop Amount was approved
       if (needsStopAmountApproval && approvalManagerId) {
         const approvalTruck = trucks?.find((t) => t.id === truck);
