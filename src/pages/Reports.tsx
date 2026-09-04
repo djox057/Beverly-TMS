@@ -8162,6 +8162,11 @@ const Reports = () => {
                         variant="destructive"
                         size="sm"
                         onClick={() => {
+                          // Prefill DH miles with the load's current value (still editable)
+                          setCancelFormData((prev) => ({
+                            ...prev,
+                            dhMiles: zoomedLoad?.dhMiles ? String(zoomedLoad.dhMiles) : "",
+                          }));
                           setCancelDialogOpen(true);
                         }}
                       >
