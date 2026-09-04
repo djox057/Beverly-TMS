@@ -978,6 +978,7 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                           </option>
                         ))}
                     </select>
+                    {canDelete && (
                     <Button
                       size="sm"
                       variant="destructive"
@@ -991,6 +992,7 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
                       )}
                       Delete selected ({selectedIds.length})
                     </Button>
+                    )}
                   </>
                 )}
               </div>
