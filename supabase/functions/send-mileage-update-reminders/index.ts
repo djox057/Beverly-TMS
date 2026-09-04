@@ -52,7 +52,9 @@ serve(async (req: Request): Promise<Response> => {
     for (const t of (trucks ?? []) as any[]) {
       const status = getMileageUpdateStatus(t.miles_updated_at);
       if (status === "none") continue;
+      // Only trucks whose assigned driver has a dispatcher.
       const dispatcherId = t.driver1?.dispatcher_id ?? t.dispatcher_id ?? null;
+      if (!dispatcherId) continue;
       items.push({
         truckId: t.id,
         truckNumber: t.truck_number,
@@ -63,7 +65,6 @@ serve(async (req: Request): Promise<Response> => {
         days: daysSinceMileageUpdate(t.miles_updated_at),
         status,
       });
-      void dispatcherId;
     }
 
     const dispatcherOf = new Map<string, string | null>();
