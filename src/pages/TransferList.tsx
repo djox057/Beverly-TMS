@@ -550,7 +550,12 @@ const useTransferList = () => {
   useEffect(() => {
     // Only `trucks` is in the realtime publication — transfer_list,
     // driver_drug_tests and drivers bindings never delivered anything.
-    const channel = busChannel()
+    const refreshTransferData = () => {
+      queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
+    };
+    const channel = busChannel(refreshTransferData)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "trucks" }, () => {
         queryClient.invalidateQueries({ queryKey: ["transfer_list"] });
         queryClient.invalidateQueries({ queryKey: ["drivers"] });

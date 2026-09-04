@@ -163,7 +163,9 @@ const MaintenanceDateCell = ({
 const LiveOilChange = () => {
   const queryClient = useQueryClient();
   useEffect(() => {
-    const channel = busChannel()
+    const channel = busChannel(() => {
+      queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"], exact: false });
+    })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "trucks" },

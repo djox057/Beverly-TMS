@@ -242,7 +242,7 @@ export const DailyReportTable = ({
       `date=eq.${dateStr}` +
       (office === null ? "" : ""); // office/type filters applied client-side below
 
-    const channel = busChannel()
+    const channel = busChannel(() => reload())
       .on(
         "postgres_changes",
         {

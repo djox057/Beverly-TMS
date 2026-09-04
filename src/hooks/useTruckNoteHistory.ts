@@ -27,7 +27,9 @@ export const useTruckNoteHistory = (driverId: string | null) => {
       channelRef.current = null;
     }
 
-    const channel = busChannel()
+    const channel = busChannel(() => {
+      queryClient.invalidateQueries({ queryKey: ["truck-note-history", driverId] });
+    })
       .on(
         "postgres_changes",
         {
