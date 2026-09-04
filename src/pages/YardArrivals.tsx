@@ -30,6 +30,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { format as formatDate, startOfDay } from "date-fns";
 import { useState, useMemo } from "react";
+import { parseSimpleDateTime } from "@/utils/dateUtils";
+
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useDrivers } from "@/hooks/useDrivers";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
