@@ -800,6 +800,13 @@ export default function YardArrivals() {
     }).format(new Date(dateString));
   };
 
+  const formatArrivalDateTime = (arrivalDateTime: string | null) => {
+    if (!arrivalDateTime) return "N/A";
+    const parsed = parseSimpleDateTime(arrivalDateTime);
+    return `${parsed.dateString} ${parsed.timeString}`;
+  };
+
+
 
   if (isLoading || isLoadingTwoWeekNotice) {
     return (
