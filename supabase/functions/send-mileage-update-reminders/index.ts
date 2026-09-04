@@ -178,7 +178,7 @@ serve(async (req: Request): Promise<Response> => {
 
       const response = await resend.emails.send({
         from: FROM,
-        to: group.email ? [group.email] : FALLBACK_TO,
+        to: [group.email],
         cc: CC.filter((c) => c !== group.email),
         subject,
         html,
@@ -186,8 +186,8 @@ serve(async (req: Request): Promise<Response> => {
 
       const errorMessage = (response as any)?.error?.message || null;
       if (errorMessage) {
-        console.error(`Resend error for ${group.email ?? "unassigned"}: ${errorMessage}`);
-        failures.push(`${group.email ?? "unassigned"}: ${errorMessage}`);
+        console.error(`Resend error for ${group.email}: ${errorMessage}`);
+        failures.push(`${group.email}: ${errorMessage}`);
         continue;
       }
 
@@ -201,7 +201,7 @@ serve(async (req: Request): Promise<Response> => {
           milestone: i.status === "red" ? 0 : 5,
           due_date: null,
           send_date: today,
-          sent_to: group.email ?? "unassigned",
+          sent_to: group.email,
         });
       }
     }
