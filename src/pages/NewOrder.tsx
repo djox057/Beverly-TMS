@@ -3066,7 +3066,14 @@ const NewOrder = () => {
                     placeholder="Select broker"
                     searchPlaceholder="Search brokers..."
                   />
+                  {brokerLimitExceeded && (
+                    <p className="text-sm font-medium text-red-600">
+                      Warning: Beverly Freight already has {brokerDayCount} loads with this broker on this pickup date.
+                      This load would be #{(brokerDayCount ?? 0) + 1}, over the 20 trucks per broker per day limit.
+                    </p>
+                  )}
                 </div>
+
               </div>
             )}
 
