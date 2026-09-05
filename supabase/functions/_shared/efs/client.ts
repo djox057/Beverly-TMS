@@ -135,9 +135,12 @@ async function login(account: CarrierAccount): Promise<Session> {
   if (result.faultCode) {
     throw new Error(`EFS login failed for ${account.name}: ${result.faultMessage}`);
   }
-  const clientId = String(
-    (result.body as any)?.loginResponse?.return ?? (result.body as any)?.loginResponse?.clientId ?? "",
-  );
+  const loginBody = (result.body as any)?.loginResponse ?? (result.body as any)?.["login-response"] ?? result.body;
+  const rawClientId = typeof loginBody === "object" && loginBody !== null
+    ? (loginBody.return ?? loginBody.clientId ?? loginBody.loginReturn ?? Object.values(loginBody)[0])
+    : loginBody;
+  const clientId = rawClientId == null ? "" : String(rawClientId);
+  if (!clientId) console.error("EFS login response shape:", JSON.stringify(result.body).slice(0, 400));
   if (!clientId) throw new Error(`EFS login for ${account.name} returned no clientId`);
   const session: Session = { clientId, cookies, createdAt: Date.now() };
   sessions.set(account.id, session);
