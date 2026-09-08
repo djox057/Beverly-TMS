@@ -25,12 +25,11 @@ import { EfsRequestDialog } from "@/components/EfsRequestDialog";
 import { HosRequestDialog } from "@/components/HosRequestDialog";
 import { DriverComplaintDialog } from "@/components/complaints/DriverComplaintDialog";
 import { AllProblemsDialog } from "@/components/AllProblemsDialog";
-import { EditDriverDialog } from "@/components/EditDriverDialog";
+import { ReportDriverEditor } from "@/components/ReportDriverEditor";
 import { AddOrderSalaryChargeDialog } from "@/components/AddOrderSalaryChargeDialog";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
 import { useDriverComplaintIndicators } from "@/hooks/useDriverComplaintIndicators";
 import { COMPLAINT_TYPE_LABELS, type ComplaintTypeKey } from "@/components/complaints/complaintTypes";
-import { useDrivers } from "@/hooks/useDrivers";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useBrokers } from "@/hooks/useBrokers";
 import { Combobox } from "@/components/ui/combobox";
@@ -1250,7 +1249,6 @@ const Reports = () => {
   // All Problems dialog state
   const [allProblemsDialogOpen, setAllProblemsDialogOpen] = useState(false);
   const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
-  const { data: allDrivers } = useDrivers();
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
@@ -9069,13 +9067,13 @@ const Reports = () => {
       />
 
       {/* Edit Driver Dialog */}
-      <EditDriverDialog
-        open={!!editingDriverId}
-        onOpenChange={(open) => {
-          if (!open) setEditingDriverId(null);
-        }}
-        driver={allDrivers?.find((d: any) => d.id === editingDriverId) || null}
-      />
+      {editingDriverId && (
+        <ReportDriverEditor
+          key={editingDriverId}
+          driverId={editingDriverId}
+          onClose={() => setEditingDriverId(null)}
+        />
+      )}
 
       {/* Force Complete Confirmation Dialog */}
       <AlertDialog open={!!forceCompleteConfirm} onOpenChange={(open) => !open && setForceCompleteConfirm(null)}>
