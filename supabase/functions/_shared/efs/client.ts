@@ -10,7 +10,7 @@ import {
   type EfsCardConfiguration,
 } from "./cardStatus.ts";
 
-const NS = "http://com.tch.cards.service";
+const NS = "http://ws.efsllc.com/";
 
 export interface CarrierAccount {
   id: string;
@@ -120,7 +120,7 @@ async function postSoap(
 }
 
 function xmlField(name: string, value: unknown): string {
-  return `<${name}>${escapeXml(String(value))}</${name}>`;
+  return `<ws:${name}>${escapeXml(String(value))}</ws:${name}>`;
 }
 
 async function login(account: CarrierAccount): Promise<Session> {
@@ -129,18 +129,15 @@ async function login(account: CarrierAccount): Promise<Session> {
   const result = await postSoap(
     endpointFor(account.environment),
     "login",
-    `<ws:login>${xmlField("user", creds.username)}${xmlField("password", creds.password)}</ws:login>`,
+    `<ws:login>${xmlField("loginId", creds.username)}${xmlField("password", creds.password)}</ws:login>`,
     cookies,
   );
   if (result.faultCode) {
     throw new Error(`EFS login failed for ${account.name}: ${result.faultMessage}`);
   }
-  const loginBody = (result.body as any)?.loginResponse ?? (result.body as any)?.["login-response"] ?? result.body;
-  const rawClientId = typeof loginBody === "object" && loginBody !== null
-    ? (loginBody.return ?? loginBody.clientId ?? loginBody.loginReturn ?? Object.values(loginBody)[0])
-    : loginBody;
-  const clientId = rawClientId == null ? "" : String(rawClientId);
-  if (!clientId) console.error("EFS login response shape:", JSON.stringify(result.body).slice(0, 400));
+  const clientId = String(
+    (result.body as any)?.loginResponse?.return ?? (result.body as any)?.loginResponse?.clientId ?? "",
+  );
   if (!clientId) throw new Error(`EFS login for ${account.name} returned no clientId`);
   const session: Session = { clientId, cookies, createdAt: Date.now() };
   sessions.set(account.id, session);
