@@ -30,7 +30,7 @@ import { AddOrderSalaryChargeDialog } from "@/components/AddOrderSalaryChargeDia
 import { useDriverProblems } from "@/hooks/useDriverProblems";
 import { useDriverComplaintIndicators } from "@/hooks/useDriverComplaintIndicators";
 import { COMPLAINT_TYPE_LABELS, type ComplaintTypeKey } from "@/components/complaints/complaintTypes";
-import { useDrivers } from "@/hooks/useDrivers";
+import { useDriverById } from "@/hooks/useDriverById";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useBrokers } from "@/hooks/useBrokers";
 import { Combobox } from "@/components/ui/combobox";
@@ -1250,7 +1250,9 @@ const Reports = () => {
   // All Problems dialog state
   const [allProblemsDialogOpen, setAllProblemsDialogOpen] = useState(false);
   const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
-  const { data: allDrivers } = useDrivers();
+  // Load only the driver being edited (instead of keeping the whole driver list)
+  const { data: editingDriver } = useDriverById(editingDriverId);
+
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
@@ -9074,7 +9076,12 @@ const Reports = () => {
         onOpenChange={(open) => {
           if (!open) setEditingDriverId(null);
         }}
-        driver={allDrivers?.find((d: any) => d.id === editingDriverId) || null}
+        driver={editingDriver || null}
+        onSuccess={() => {
+          if (editingDriverId) queryClient.invalidateQueries({ queryKey: ["driver", editingDriverId] });
+          queryClient.invalidateQueries({ queryKey: ["reports"] });
+        }}
+
       />
 
       {/* Force Complete Confirmation Dialog */}
