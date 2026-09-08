@@ -6,3 +6,5 @@
 - [ ] 4. Targeted freshness: per-row invalidation instead of whole-list refetch
 - [ ] 5. Measure: reset pg_stat_statements, compare window
 - [ ] 2b. RLS rewrite via explicit ALTER POLICY on SELECT policies of hot tables only (drivers, trucks, trailers, brokers, companies, profiles, user_roles, files tables); preview, then verify plans under a real authenticated role; report execution time not CPU
+- [x] 2b-cleanup. 32 double-wrapped policies fixed via explicit ALTER POLICY (446 policies, 0 double-wrapped, permissions unchanged)
+- [ ] 2c. Verify plans/permissions under real signed-in roles (blocked: external Supabase, no test session; pg_stat_statements_reset not permitted — use Supabase dashboard Query Performance reset)
