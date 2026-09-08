@@ -166,7 +166,8 @@ export function useTrucksRealtime() {
     // them produced nothing — those bindings were removed.
     const unsubscribe = subscribeTable("trucks", handleTruckChange, () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY, exact: false });
-    });
+    }, "trucks-list");
+
 
     return () => {
       isSubscribedRef.current = false;

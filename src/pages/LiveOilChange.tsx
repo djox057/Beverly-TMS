@@ -203,33 +203,25 @@ const LiveOilChange = () => {
   }, [queryClient]);
 
   // Odometer files: map truckId -> filename (or null when missing)
-  const { data: trucksListForFiles } = useQuery({
-    queryKey: ["live-oil-change-truck-ids"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("trucks").select("id").eq("is_active", true);
-      if (error) throw error;
-      return (data ?? []).map(t => t.id as string);
-    },
-  });
 
+
+  // One database lookup for the newest odometer file of every truck.
+  // Previously this listed Storage once per active truck (~476 requests per load).
   const { data: odometerFileMap = {}, refetch: refetchOdometer } = useQuery({
-    queryKey: ["odometer-file-map", (trucksListForFiles ?? []).join(",")],
+    queryKey: ["odometer-file-map"],
     queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("get_latest_odometer_files");
+      if (error) throw error;
       const map: Record<string, string | null> = {};
-      const ids = trucksListForFiles ?? [];
-      await Promise.all(
-        ids.map(async (id) => {
-          const { data } = await supabase.storage
-            .from("truck-odometer-files")
-            .list(id, { limit: 1, sortBy: { column: "created_at", order: "desc" } });
-          map[id] = data && data.length > 0 ? data[0].name : null;
-        }),
-      );
+      for (const row of (data || []) as Array<{ truck_id: string; file_name: string }>) {
+        map[row.truck_id] = row.file_name;
+      }
       return map;
     },
-    enabled: (trucksListForFiles ?? []).length > 0,
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
+
 
   const uploadOdometer = async (truckId: string, file: File) => {
     const allowed = file.type.startsWith("image/") || file.type === "application/pdf";

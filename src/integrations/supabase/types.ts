@@ -6370,6 +6370,13 @@ export type Database = {
           zip_code: string
         }[]
       }
+      get_latest_odometer_files: {
+        Args: never
+        Returns: {
+          file_name: string
+          truck_id: string
+        }[]
+      }
       get_latest_truck_locations: {
         Args: never
         Returns: {

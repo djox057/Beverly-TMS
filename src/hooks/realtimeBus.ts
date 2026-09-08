@@ -37,10 +37,19 @@ type Handler = (payload: BusPayload) => void;
 interface Subscriber {
   handler: Handler;
   onResume?: () => void;
+  /**
+   * Optional dataset identity. All subscribers sharing a key are treated as ONE
+   * refresh owner: the fallback timer / focus refresh invokes a single
+   * `onResume` per key instead of one per mounted component. Without this, a
+   * page with 8 components using `useDrivers()` triggered 8 full driver-list
+   * refreshes every 60 seconds.
+   */
+  fallbackKey?: string;
 }
 
 const tables = new Map<string, Set<Subscriber>>();
 const fallbackSubs = new Set<Subscriber>();
+
 
 let channel: ReturnType<typeof supabase.channel> | null = null;
 let paused = false;
@@ -99,9 +108,10 @@ const scheduleJoin = () => {
 export const subscribeTable = (
   table: string,
   handler: Handler,
-  onResume?: () => void
+  onResume?: () => void,
+  fallbackKey?: string
 ): (() => void) => {
-  const sub: Subscriber = { handler, onResume };
+  const sub: Subscriber = { handler, onResume, fallbackKey };
 
   if (!PUBLISHED_TABLES.has(table)) {
     fallbackSubs.add(sub);
@@ -136,20 +146,37 @@ export const subscribeTable = (
 export const subscribeTables = (
   tableNames: string[],
   handler: Handler,
-  onResume?: () => void
+  onResume?: () => void,
+  fallbackKey?: string
 ): (() => void) => {
-  const unsubs = tableNames.map((t) => subscribeTable(t, handler, onResume));
+  const unsubs = tableNames.map((t) => subscribeTable(t, handler, onResume, fallbackKey));
   return () => unsubs.forEach((u) => u());
 };
 
+
 // ─── Fallback refresh for tables that no longer broadcast ───
 const FALLBACK_INTERVAL_MS = 60 * 1000;
+/** Minimum gap between two fallback sweeps, whatever triggered them. */
+const FALLBACK_MIN_GAP_MS = 30 * 1000;
 let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+let lastFallbackAt = 0;
 
-const runFallback = () => {
+const runFallback = (force = false) => {
   if (typeof document !== "undefined" && document.hidden) return;
+
+  const now = Date.now();
+  if (!force && now - lastFallbackAt < FALLBACK_MIN_GAP_MS) return;
+  lastFallbackAt = now;
+
+  // One refresh per dataset: subscribers that declared the same `fallbackKey`
+  // share a single refresh, so N mounted components cost 1 request, not N.
+  const seenKeys = new Set<string>();
   for (const sub of [...fallbackSubs]) {
     if (!sub.onResume) continue;
+    if (sub.fallbackKey) {
+      if (seenKeys.has(sub.fallbackKey)) continue;
+      seenKeys.add(sub.fallbackKey);
+    }
     try {
       sub.onResume();
     } catch (err) {
@@ -160,7 +187,7 @@ const runFallback = () => {
 
 const ensureFallbackTimer = () => {
   if (fallbackSubs.size > 0 && !fallbackTimer) {
-    fallbackTimer = setInterval(runFallback, FALLBACK_INTERVAL_MS);
+    fallbackTimer = setInterval(() => runFallback(), FALLBACK_INTERVAL_MS);
   } else if (fallbackSubs.size === 0 && fallbackTimer) {
     clearInterval(fallbackTimer);
     fallbackTimer = null;
@@ -168,8 +195,10 @@ const ensureFallbackTimer = () => {
 };
 
 if (typeof window !== "undefined") {
-  window.addEventListener("focus", runFallback);
+  // Focus bursts (alt-tabbing, dialog focus) must not each cost a sweep.
+  window.addEventListener("focus", () => runFallback());
 }
+
 
 // ─── Pause while the tab is hidden ───
 const HIDDEN_GRACE_MS = 2 * 60 * 1000;
@@ -186,8 +215,16 @@ const resumeAll = () => {
   paused = false;
   buildChannel();
   const resumeCallbacks: Array<() => void> = [];
+  const seenKeys = new Set<string>();
   for (const subs of tables.values()) {
-    for (const sub of subs) if (sub.onResume) resumeCallbacks.push(sub.onResume);
+    for (const sub of subs) {
+      if (!sub.onResume) continue;
+      if (sub.fallbackKey) {
+        if (seenKeys.has(sub.fallbackKey)) continue;
+        seenKeys.add(sub.fallbackKey);
+      }
+      resumeCallbacks.push(sub.onResume);
+    }
   }
   for (const cb of new Set(resumeCallbacks)) {
     try {
@@ -196,8 +233,10 @@ const resumeAll = () => {
       console.error("[realtimeBus] resume error:", err);
     }
   }
-  runFallback();
+  // Coming back from a hidden tab is exactly when a sweep is warranted.
+  runFallback(true);
 };
+
 
 if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", () => {
@@ -247,7 +286,7 @@ const matchesFilter = (payload: BusPayload, filter?: string): boolean => {
   return String(a ?? "") === value || String(b ?? "") === value;
 };
 
-export const busChannel = (refresh?: () => void): BusChannel => {
+export const busChannel = (refresh?: () => void, fallbackKey?: string): BusChannel => {
   const unsubs: Array<() => void> = [];
   const api: BusChannel = {
     on: (_event, cfg, handler) => {
@@ -259,11 +298,13 @@ export const busChannel = (refresh?: () => void): BusChannel => {
             if (!matchesFilter(payload, cfg.filter)) return;
             handler(payload);
           },
-          refresh
+          refresh,
+          fallbackKey
         )
       );
       return api;
     },
+
     subscribe: (cb) => {
       cb?.("SUBSCRIBED");
       return api;
