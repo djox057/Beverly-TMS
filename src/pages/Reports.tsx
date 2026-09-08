@@ -9077,6 +9077,11 @@ const Reports = () => {
           if (!open) setEditingDriverId(null);
         }}
         driver={editingDriver || null}
+        onSuccess={() => {
+          if (editingDriverId) queryClient.invalidateQueries({ queryKey: ["driver", editingDriverId] });
+          queryClient.invalidateQueries({ queryKey: ["reports"] });
+        }}
+
       />
 
       {/* Force Complete Confirmation Dialog */}
