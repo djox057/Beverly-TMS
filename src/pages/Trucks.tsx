@@ -1091,7 +1091,7 @@ const Trucks = () => {
                     </TableCell>
                   </TableRow> : (
                     <>
-                      {paginatedTrucks.map(truck => <TableRow key={truck.id}>
+                      {paginatedTrucks.map(truck => <TableRow key={truck.id} className={statusFilter === "changed" && changedTruckIds?.has(truck.id) ? "bg-destructive-light hover:bg-destructive-light" : undefined}>
                         <TableCell className="font-medium text-center whitespace-nowrap">
                           {resolveTruckOos(truck.id, truck.oos === true) ? (
                             <span className="inline-flex items-center rounded-md border-2 border-destructive bg-destructive/10 px-2 py-0.5 text-destructive font-semibold" title="Out of Service">
