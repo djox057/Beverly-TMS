@@ -151,6 +151,14 @@ export default function YardArrivals() {
     action_type: "maintenance" as YardAction["action_type"],
   });
 
+  const ACTION_TYPE_OPTIONS = [
+    { value: "maintenance", label: "Maintenance" },
+    { value: "return_truck", label: "Return Truck" },
+    { value: "safety", label: "Safety" },
+    { value: "recovery", label: "Recovery" },
+  ];
+
+
   const [removeTwoWeekDialogOpen, setRemoveTwoWeekDialogOpen] = useState(false);
   const [driverToRemoveTwoWeek, setDriverToRemoveTwoWeek] = useState<{ id: string; name: string } | null>(null);
   
