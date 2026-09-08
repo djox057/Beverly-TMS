@@ -15,8 +15,14 @@ interface AllProblemsDialogProps {
 }
 
 export function AllProblemsDialog({ open, onOpenChange }: AllProblemsDialogProps) {
+  // Only mount the data consumers while the dialog is actually open, so a
+  // closed dialog never downloads problems or driver records.
+  if (!open) return null;
+  return <AllProblemsDialogContent open={open} onOpenChange={onOpenChange} />;
+}
+
+function AllProblemsDialogContent({ open, onOpenChange }: AllProblemsDialogProps) {
   const { problems, isLoading, resolveProblem } = useDriverProblems();
-  const { data: drivers = [] } = useDrivers();
   const { roles } = useAuthContext();
   const [confirmResolveId, setConfirmResolveId] = useState<string | null>(null);
 
@@ -25,11 +31,15 @@ export function AllProblemsDialog({ open, onOpenChange }: AllProblemsDialogProps
   const isAfterhoursOnly = roles.includes('afterhours') && !roles.includes('admin') && !roles.includes('manager') && !roles.includes('supervisor') && !roles.includes('safety') && !roles.includes('accounting') && !roles.includes('chicago_management');
   const canSeeActions = !isDispatchOnly && !isAfterhoursOnly;
 
-  // Build a map of driver_id -> driver name (for fallback only)
-  const driverMap = new Map<string, string>();
-  drivers.forEach((driver: any) => {
-    driverMap.set(driver.id, driver.name || `${driver.first_name || ""} ${driver.last_name || ""}`.trim() || "Unknown");
-  });
+  // Resolve names for just the drivers referenced by the listed problems,
+  // in bounded batches (fallback only — rows usually carry their own labels).
+  const problemDriverIds = useMemo(
+    () => problems.filter((p) => !p.resolved_at).map((p) => p.driver_id),
+    [problems]
+  );
+  const { data: driverNames } = useDriverNames(problemDriverIds, open);
+  const driverMap = driverNames ?? new Map<string, string>();
+
 
   const formatChicagoTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleString("en-US", {
