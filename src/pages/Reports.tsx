@@ -30,7 +30,7 @@ import { AddOrderSalaryChargeDialog } from "@/components/AddOrderSalaryChargeDia
 import { useDriverProblems } from "@/hooks/useDriverProblems";
 import { useDriverComplaintIndicators } from "@/hooks/useDriverComplaintIndicators";
 import { COMPLAINT_TYPE_LABELS, type ComplaintTypeKey } from "@/components/complaints/complaintTypes";
-import { useDrivers } from "@/hooks/useDrivers";
+import { useDriverById } from "@/hooks/useDriverById";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useBrokers } from "@/hooks/useBrokers";
 import { Combobox } from "@/components/ui/combobox";
