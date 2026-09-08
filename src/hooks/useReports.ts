@@ -867,8 +867,12 @@ export const useReports = (options?: UseReportsOptions) => {
     // Fetch trucks FLAT (no joins) - eliminates RLS amplification from lateral joins
     const { data: trucksFlatRaw, error: trucksError } = await supabase
       .from("trucks")
-      .select("*")
+      // Only the columns normal, team and off-duty report rows actually use.
+      .select(
+        "id, truck_number, trailer_id, driver1_id, driver2_id, company_id, dispatcher_id, status, is_active, needs_recovery, miles, miles_away, eta_minutes, source, vin, oos, oil_change_date, tires_swap_date, maintenance_check_date, last_oil_change_miles, dot_inspection_date, samsara_insured, samsara_account, samsara_insured_updated_at, created_at, updated_at",
+      )
       .order("id", { ascending: true });
+
 
     if (trucksError) throw trucksError;
     const trucksFlat = await mergeTruckTelemetry(trucksFlatRaw || []);
