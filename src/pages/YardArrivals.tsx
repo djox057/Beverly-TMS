@@ -464,6 +464,7 @@ export default function YardArrivals() {
         .update({
           arrival_datetime: editForm.arrival_datetime,
           comment: editForm.comment,
+          action_type: editForm.action_type,
           ...(commentChanged ? { comment_eng: null } : {}),
         })
         .eq("id", actionToEdit.id);
@@ -491,8 +492,10 @@ export default function YardArrivals() {
     } finally {
       setEditDialogOpen(false);
       setActionToEdit(null);
+      setEditForm({ arrival_datetime: "", comment: "", action_type: "maintenance" });
     }
   };
+
 
   const handleRemoveTwoWeek = async () => {
     if (!driverToRemoveTwoWeek) return;
