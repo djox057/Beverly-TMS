@@ -215,8 +215,16 @@ const resumeAll = () => {
   paused = false;
   buildChannel();
   const resumeCallbacks: Array<() => void> = [];
+  const seenKeys = new Set<string>();
   for (const subs of tables.values()) {
-    for (const sub of subs) if (sub.onResume) resumeCallbacks.push(sub.onResume);
+    for (const sub of subs) {
+      if (!sub.onResume) continue;
+      if (sub.fallbackKey) {
+        if (seenKeys.has(sub.fallbackKey)) continue;
+        seenKeys.add(sub.fallbackKey);
+      }
+      resumeCallbacks.push(sub.onResume);
+    }
   }
   for (const cb of new Set(resumeCallbacks)) {
     try {
@@ -225,8 +233,10 @@ const resumeAll = () => {
       console.error("[realtimeBus] resume error:", err);
     }
   }
-  runFallback();
+  // Coming back from a hidden tab is exactly when a sweep is warranted.
+  runFallback(true);
 };
+
 
 if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", () => {
