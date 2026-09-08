@@ -906,6 +906,7 @@ export default function YardArrivals() {
                                     setEditForm({
                                       arrival_datetime: action.arrival_datetime || action.created_at,
                                       comment: action.comment,
+                                      action_type: action.action_type,
                                     });
                                     setEditDialogOpen(true);
                                   }}
@@ -1020,6 +1021,7 @@ export default function YardArrivals() {
                                   setEditForm({
                                     arrival_datetime: action.arrival_datetime || action.created_at,
                                     comment: action.comment,
+                                    action_type: action.action_type,
                                   });
                                   setEditDialogOpen(true);
                                 }}
@@ -1134,6 +1136,7 @@ export default function YardArrivals() {
                                   setEditForm({
                                     arrival_datetime: action.arrival_datetime || action.created_at,
                                     comment: action.comment,
+                                    action_type: action.action_type,
                                   });
                                   setEditDialogOpen(true);
                                 }}
@@ -1256,6 +1259,7 @@ export default function YardArrivals() {
                                   setEditForm({
                                     arrival_datetime: action.arrival_datetime || action.created_at,
                                     comment: action.comment,
+                                    action_type: action.action_type,
                                   });
                                   setEditDialogOpen(true);
                                 }}
