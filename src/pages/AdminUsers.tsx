@@ -94,6 +94,7 @@ const AdminUsers = () => {
   const [role, setRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims'>('dispatch');
   const [office, setOffice] = useState<OfficeLocation>(null);
   const [ext, setExt] = useState("");
+  const [newExtensions, setNewExtensions] = useState<{ company_id: string; extension: string }[]>([]);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [grossPercent, setGrossPercent] = useState<string>('1');
   const [cutPercent, setCutPercent] = useState<string>('5');
@@ -294,6 +295,25 @@ const AdminUsers = () => {
         throw new Error(data.error);
       }
       
+      // Save per-company extensions for the new user
+      const newUserId = data?.user?.user?.id || data?.user?.id || null;
+      const extRows = newExtensions
+        .filter((e) => e.company_id && e.extension.trim())
+        .map((e) => ({ user_id: newUserId, company_id: e.company_id, extension: e.extension.trim() }));
+      if (newUserId && extRows.length > 0) {
+        const { error: extError } = await (supabase as any)
+          .from('user_extensions')
+          .insert(extRows);
+        if (extError) {
+          console.error('Error saving extensions:', extError);
+          toast({
+            title: "Extensions not saved",
+            description: extError.message || "The user was created, but the extensions could not be saved.",
+            variant: "destructive",
+          });
+        }
+      }
+
       // Reset form
       setEmail("");
       setPassword("");
@@ -301,6 +321,7 @@ const AdminUsers = () => {
       setRole('dispatch');
       setOffice(null);
       setExt("");
+      setNewExtensions([]);
       setPhoneNumber("");
       setGrossPercent('1');
       setCutPercent('5');
@@ -852,13 +873,65 @@ const AdminUsers = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-ext">Extension (Optional)</Label>
+                <Label htmlFor="new-ext">Main Extension (Optional)</Label>
                 <Input
                   id="new-ext"
                   placeholder="e.g. 101"
                   value={ext}
                   onChange={(e) => setExt(e.target.value)}
                 />
+              </div>
+              <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+                <div className="flex items-center justify-between">
+                  <Label>Extensions per Company (Optional)</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setNewExtensions((prev) => [...prev, { company_id: '', extension: '' }])}
+                  >
+                    Add
+                  </Button>
+                </div>
+                {newExtensions.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No company extensions yet.</p>
+                )}
+                {newExtensions.map((row, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Select
+                      value={row.company_id}
+                      onValueChange={(v) =>
+                        setNewExtensions((prev) => prev.map((r, i) => (i === idx ? { ...r, company_id: v } : r)))
+                      }
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select company" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      className="w-28"
+                      value={row.extension}
+                      placeholder="e.g. 101"
+                      onChange={(e) =>
+                        setNewExtensions((prev) => prev.map((r, i) => (i === idx ? { ...r, extension: e.target.value } : r)))
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive"
+                      onClick={() => setNewExtensions((prev) => prev.filter((_, i) => i !== idx))}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
               {role === 'dispatch' && (
                 <div className="grid grid-cols-2 gap-3">
