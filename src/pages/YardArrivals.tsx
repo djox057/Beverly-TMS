@@ -148,7 +148,9 @@ export default function YardArrivals() {
   const [editForm, setEditForm] = useState({
     arrival_datetime: "",
     comment: "",
+    action_type: "maintenance" as YardAction["action_type"],
   });
+
   const [removeTwoWeekDialogOpen, setRemoveTwoWeekDialogOpen] = useState(false);
   const [driverToRemoveTwoWeek, setDriverToRemoveTwoWeek] = useState<{ id: string; name: string } | null>(null);
   
