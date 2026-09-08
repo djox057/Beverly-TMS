@@ -156,12 +156,27 @@ export const subscribeTables = (
 
 // ─── Fallback refresh for tables that no longer broadcast ───
 const FALLBACK_INTERVAL_MS = 60 * 1000;
+/** Minimum gap between two fallback sweeps, whatever triggered them. */
+const FALLBACK_MIN_GAP_MS = 30 * 1000;
 let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+let lastFallbackAt = 0;
 
-const runFallback = () => {
+const runFallback = (force = false) => {
   if (typeof document !== "undefined" && document.hidden) return;
+
+  const now = Date.now();
+  if (!force && now - lastFallbackAt < FALLBACK_MIN_GAP_MS) return;
+  lastFallbackAt = now;
+
+  // One refresh per dataset: subscribers that declared the same `fallbackKey`
+  // share a single refresh, so N mounted components cost 1 request, not N.
+  const seenKeys = new Set<string>();
   for (const sub of [...fallbackSubs]) {
     if (!sub.onResume) continue;
+    if (sub.fallbackKey) {
+      if (seenKeys.has(sub.fallbackKey)) continue;
+      seenKeys.add(sub.fallbackKey);
+    }
     try {
       sub.onResume();
     } catch (err) {
@@ -172,7 +187,7 @@ const runFallback = () => {
 
 const ensureFallbackTimer = () => {
   if (fallbackSubs.size > 0 && !fallbackTimer) {
-    fallbackTimer = setInterval(runFallback, FALLBACK_INTERVAL_MS);
+    fallbackTimer = setInterval(() => runFallback(), FALLBACK_INTERVAL_MS);
   } else if (fallbackSubs.size === 0 && fallbackTimer) {
     clearInterval(fallbackTimer);
     fallbackTimer = null;
@@ -180,8 +195,10 @@ const ensureFallbackTimer = () => {
 };
 
 if (typeof window !== "undefined") {
-  window.addEventListener("focus", runFallback);
+  // Focus bursts (alt-tabbing, dialog focus) must not each cost a sweep.
+  window.addEventListener("focus", () => runFallback());
 }
+
 
 // ─── Pause while the tab is hidden ───
 const HIDDEN_GRACE_MS = 2 * 60 * 1000;
