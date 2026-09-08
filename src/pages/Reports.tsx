@@ -1250,7 +1250,9 @@ const Reports = () => {
   // All Problems dialog state
   const [allProblemsDialogOpen, setAllProblemsDialogOpen] = useState(false);
   const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
-  const { data: allDrivers } = useDrivers();
+  // Load only the driver being edited (instead of keeping the whole driver list)
+  const { data: editingDriver } = useDriverById(editingDriverId);
+
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
