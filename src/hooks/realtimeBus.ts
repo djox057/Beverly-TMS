@@ -286,7 +286,7 @@ const matchesFilter = (payload: BusPayload, filter?: string): boolean => {
   return String(a ?? "") === value || String(b ?? "") === value;
 };
 
-export const busChannel = (refresh?: () => void): BusChannel => {
+export const busChannel = (refresh?: () => void, fallbackKey?: string): BusChannel => {
   const unsubs: Array<() => void> = [];
   const api: BusChannel = {
     on: (_event, cfg, handler) => {
@@ -298,11 +298,13 @@ export const busChannel = (refresh?: () => void): BusChannel => {
             if (!matchesFilter(payload, cfg.filter)) return;
             handler(payload);
           },
-          refresh
+          refresh,
+          fallbackKey
         )
       );
       return api;
     },
+
     subscribe: (cb) => {
       cb?.("SUBSCRIBED");
       return api;
