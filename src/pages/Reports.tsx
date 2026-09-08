@@ -9076,7 +9076,7 @@ const Reports = () => {
         onOpenChange={(open) => {
           if (!open) setEditingDriverId(null);
         }}
-        driver={allDrivers?.find((d: any) => d.id === editingDriverId) || null}
+        driver={editingDriver || null}
       />
 
       {/* Force Complete Confirmation Dialog */}
