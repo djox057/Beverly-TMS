@@ -21,3 +21,4 @@
 - [ ] A9. Analytics server-side aggregates (deferred by user until last)
 - [ ] A10. Restrict bulk_update_hos / legacy bulk_update_truck_distances to backend callers
 - Anon read access on drivers/trucks/trailers: user chose to keep for now (revisit)
+- [x] A4a (#1). Reports: Edit Driver loads one driver on open; All Problems mounts only while open (batched id/name); Reports truck query projected to used fields
