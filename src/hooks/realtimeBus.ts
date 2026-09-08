@@ -26,7 +26,9 @@ export const PUBLISHED_TABLES = new Set([
   "pickup_drops",
   "order_transfers",
   "truck_notes",
+  "profiles",
 ]);
+
 
 export type BusPayload = RealtimePostgresChangesPayload<{ [key: string]: any }> & {
   table?: string;
