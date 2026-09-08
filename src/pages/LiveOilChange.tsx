@@ -203,15 +203,7 @@ const LiveOilChange = () => {
   }, [queryClient]);
 
   // Odometer files: map truckId -> filename (or null when missing)
-  const { data: trucksListForFiles } = useQuery({
-    queryKey: ["live-oil-change-truck-ids"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("trucks").select("id").eq("is_active", true);
-      if (error) throw error;
-      return (data ?? []).map(t => t.id as string);
-    },
-  });
+
 
   // One database lookup for the newest odometer file of every truck.
   // Previously this listed Storage once per active truck (~476 requests per load).
