@@ -37,10 +37,19 @@ type Handler = (payload: BusPayload) => void;
 interface Subscriber {
   handler: Handler;
   onResume?: () => void;
+  /**
+   * Optional dataset identity. All subscribers sharing a key are treated as ONE
+   * refresh owner: the fallback timer / focus refresh invokes a single
+   * `onResume` per key instead of one per mounted component. Without this, a
+   * page with 8 components using `useDrivers()` triggered 8 full driver-list
+   * refreshes every 60 seconds.
+   */
+  fallbackKey?: string;
 }
 
 const tables = new Map<string, Set<Subscriber>>();
 const fallbackSubs = new Set<Subscriber>();
+
 
 let channel: ReturnType<typeof supabase.channel> | null = null;
 let paused = false;
@@ -99,9 +108,10 @@ const scheduleJoin = () => {
 export const subscribeTable = (
   table: string,
   handler: Handler,
-  onResume?: () => void
+  onResume?: () => void,
+  fallbackKey?: string
 ): (() => void) => {
-  const sub: Subscriber = { handler, onResume };
+  const sub: Subscriber = { handler, onResume, fallbackKey };
 
   if (!PUBLISHED_TABLES.has(table)) {
     fallbackSubs.add(sub);
@@ -136,11 +146,13 @@ export const subscribeTable = (
 export const subscribeTables = (
   tableNames: string[],
   handler: Handler,
-  onResume?: () => void
+  onResume?: () => void,
+  fallbackKey?: string
 ): (() => void) => {
-  const unsubs = tableNames.map((t) => subscribeTable(t, handler, onResume));
+  const unsubs = tableNames.map((t) => subscribeTable(t, handler, onResume, fallbackKey));
   return () => unsubs.forEach((u) => u());
 };
+
 
 // ─── Fallback refresh for tables that no longer broadcast ───
 const FALLBACK_INTERVAL_MS = 60 * 1000;
