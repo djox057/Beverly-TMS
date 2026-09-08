@@ -190,7 +190,8 @@ export function useDriversRealtime() {
     // list query's own polling / invalidations.
     const unsubscribe = subscribeTable("trucks", handleTruckChange, () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY, exact: false });
-    });
+    }, "drivers-list");
+
 
     return () => {
       isSubscribedRef.current = false;

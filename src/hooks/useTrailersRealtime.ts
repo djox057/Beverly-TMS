@@ -183,7 +183,8 @@ export function useTrailersRealtime() {
     // (trailer attach/detach) can reach us, via the shared trucks channel.
     const unsubscribe = subscribeTable("trucks", handleTruckChange, () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY, exact: false });
-    });
+    }, "trailers-list");
+
 
     return () => {
       isSubscribedRef.current = false;
