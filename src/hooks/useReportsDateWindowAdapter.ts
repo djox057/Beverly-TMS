@@ -1272,11 +1272,15 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     };
 
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (event.type === "updated" &&
-          (event.query.queryKey[0] === "trucks" || event.query.queryKey[0] === "drivers")) {
-        scheduleInvalidation();
-      }
+      if (event.type !== "updated") return;
+      // Only a genuinely fresh dataset should cost report reads. Every other
+      // query lifecycle tick (fetch start, observer add/remove, error, invalidate)
+      // used to trigger a full adapter refetch as well.
+      if ((event as any).action?.type !== "success") return;
+      const key = event.query.queryKey[0];
+      if (key === "trucks" || key === "drivers") scheduleInvalidation();
     });
+
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
