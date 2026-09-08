@@ -1,0 +1,36 @@
+const { PGlite } = await import(process.argv[2] || '@electric-sql/pglite');
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const sql = readFileSync(new URL('../supabase/migrations/20260908221411_reports_live_versions.sql', import.meta.url),'utf8');
+const tables = [...sql.matchAll(/FOREACH table_name IN ARRAY ARRAY\[([\s\S]*?)\] LOOP/g)][0][1].match(/'[^']+'/g).map(x=>x.slice(1,-1));
+const db = new PGlite();
+await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE TYPE public.app_role AS ENUM ('dispatch','afterhours','manager','admin','accounting','supervisor','safety','maintenance','chicago_management'); CREATE FUNCTION public.has_any_role(public.app_role[]) RETURNS boolean LANGUAGE sql AS 'select current_setting(''test.staff'',true) = ''yes'''; CREATE PUBLICATION supabase_realtime;`);
+for(const t of tables) {
+  const pk = t === "truck_telemetry" ? "truck_id" : t === "daily_report_permissions" ? "user_id" : "id";
+  await db.exec(`CREATE TABLE public.${t} (id text, truck_id text, user_id text, order_id text, name text, updated_at text, hos_status text, hos_drive_minutes int, hos_shift_minutes int, hos_break_minutes int, hos_cycle_minutes int, hos_last_updated text, PRIMARY KEY (${pk}));`);
+}
+await db.exec('BEGIN;'+sql+'COMMIT;');
+const version = async s => (await db.query('select * from reports_live_versions where source=$1',[s])).rows[0];
+await db.exec("insert into drivers(id,name,hos_status) select 'd'||i,'Driver'||i,'off' from generate_series(1,420) i;");
+assert.equal((await version('drivers')).revision,1); assert.equal((await version('driver_hos')).revision,1); assert.equal((await version('drivers')).keys,null);
+await db.exec("update drivers set hos_status='driving', hos_last_updated='now';");
+assert.equal((await version('drivers')).revision,1); assert.equal((await version('driver_hos')).revision,2);
+await db.exec("update drivers set name=name, updated_at='later';");
+assert.equal((await version('drivers')).revision,1); assert.equal((await version('driver_hos')).revision,2);
+await db.exec("update drivers set name='Changed' where id='d1';");
+assert.deepEqual((await version('drivers')).keys,['d1']); assert.equal((await version('driver_hos')).revision,2);
+await db.exec("insert into order_files(id,order_id) values('f','o1'); update order_files set order_id='o2' where id='f';");
+assert.deepEqual((await version('order_files')).keys,['o1','o2']);
+await db.exec("delete from order_files where id='f';"); assert.deepEqual((await version('order_files')).keys,['o2']);
+await db.exec("update drivers set name='unused' where false;"); assert.equal((await version('drivers')).revision,2);
+await db.exec("begin; update drivers set name='rolled back'; rollback;"); assert.equal((await version('drivers')).revision,2);
+await db.exec("insert into truck_telemetry(truck_id,name) values('t1','first'); update truck_telemetry set name='next' where truck_id='t1';");
+assert.deepEqual((await version('truck_telemetry')).keys,['t1']);
+await db.exec("insert into daily_report_permissions(user_id,name) values('u1','view'); delete from daily_report_permissions where user_id='u1';");
+assert.deepEqual((await version('daily_report_permissions')).keys,['u1']);
+await db.exec("set role authenticated; set test.staff='no';"); assert.equal((await db.query('select * from reports_live_versions')).rows.length,0);
+await assert.rejects(db.exec("update reports_live_versions set revision=999"),/permission denied/);
+await db.exec("set test.staff='yes';"); assert.equal((await db.query('select * from reports_live_versions')).rows.length,tables.length+1);
+await db.exec("reset role; set role anon;"); await assert.rejects(db.query('select * from reports_live_versions'),/permission denied/);
+await db.close();
+console.log('PASS: migration, 420-row batching, HOS split, no-ops, moved parent, deletion, empty statement, rollback, staff RLS, denied writes and anon reads');

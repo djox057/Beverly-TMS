@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 
@@ -15,25 +15,17 @@ export interface LumperMissingRevisedRC {
   lumper_revised_rc_path: string | null;
 }
 
-/**
- * Hook to get orders with lumper that are missing revised rate confirmation
- * Checks lumper_revised_rc_path column OR multiple RC files (indicating a revised RC was uploaded)
- */
-export function useLumperMissingRevisedRC() {
-  const queryClient = useQueryClient();
-
-  // Fetch orders with lumper > 0 that are missing revised RC
-  const { data: lumperRequests = [], isLoading, refetch } = useQuery({
-    queryKey: ["lumper-missing-revised-rc"],
-    queryFn: async () => {
+export async function fetchLumperMissingRevisedRC(onlyOrderIds?: string[]): Promise<LumperMissingRevisedRC[]> {
       // Flat fetch - no joins to eliminate RLS amplification
-      const { data, error } = await supabase
+      let request = supabase
         .from("orders")
         .select("id, internal_load_number, lumper, pickup_datetime, driver1_id, driver2_id, truck_id, lumper_revised_rc_bypassed")
         .gt("lumper", 0)
         .eq("lumper_revised_rc_bypassed", false)
         .gte("created_at", "2026-01-09T00:00:00Z")
         .order("pickup_datetime", { ascending: false });
+      if (onlyOrderIds) request = request.in("id", onlyOrderIds);
+      const { data, error } = await request;
 
       if (error) throw error;
       if (!data || data.length === 0) return [] as LumperMissingRevisedRC[];
@@ -72,6 +64,8 @@ export function useLumperMissingRevisedRC() {
         })(),
       ]);
 
+      if ("error" in driversRes && driversRes.error) throw driversRes.error;
+      if ("error" in trucksRes && trucksRes.error) throw trucksRes.error;
       const driverMap = new Map((driversRes.data || []).map((d: any) => [d.id, d]));
       const truckMap = new Map((trucksRes.data || []).map((t: any) => [t.id, t]));
       const filesByOrder = new Map<string, any[]>();
@@ -101,7 +95,43 @@ export function useLumperMissingRevisedRC() {
         pickup_datetime: order.pickup_datetime,
         lumper_revised_rc_path: null,
       })) as LumperMissingRevisedRC[];
-    },
+
+}
+
+/** Update only affected orders; keep the rest of this badge's cached result. */
+export async function refreshLumperMissingOrders(queryClient: QueryClient, ids: string[], isCurrent: () => boolean) {
+  const queryKey = ["lumper-missing-revised-rc"];
+  const query = queryClient.getQueryCache().find({ queryKey });
+  if (!query?.isActive()) {
+    await queryClient.invalidateQueries({ queryKey, refetchType: "none" });
+    return;
+  }
+  // If initial data is still loading, finish that snapshot before patching a subset.
+  if (!query.state.data) {
+    await queryClient.invalidateQueries({ queryKey }, { throwOnError: true });
+    return;
+  }
+  await queryClient.cancelQueries({ queryKey });
+  const rows: LumperMissingRevisedRC[] = [];
+  for (let i = 0; i < ids.length; i += 100) rows.push(...await fetchLumperMissingRevisedRC(ids.slice(i, i + 100)));
+  if (!isCurrent()) return;
+  const changed = new Set(ids);
+  queryClient.setQueryData<LumperMissingRevisedRC[]>(queryKey, old =>
+    [...(old || []).filter(row => !changed.has(row.id)), ...rows]
+      .sort((a, b) => (b.pickup_datetime || "").localeCompare(a.pickup_datetime || "")));
+}
+
+/**
+ * Hook to get orders with lumper that are missing revised rate confirmation
+ * Checks lumper_revised_rc_path column OR multiple RC files (indicating a revised RC was uploaded)
+ */
+export function useLumperMissingRevisedRC() {
+  const queryClient = useQueryClient();
+
+  // Fetch orders with lumper > 0 that are missing revised RC
+  const { data: lumperRequests = [], isLoading, refetch } = useQuery({
+    queryKey: ["lumper-missing-revised-rc"],
+    queryFn: () => fetchLumperMissingRevisedRC(),
     staleTime: 30 * 1000,
   });
 
