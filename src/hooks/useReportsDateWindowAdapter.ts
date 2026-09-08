@@ -15,6 +15,7 @@ import { useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders,
 import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { mergeTruckTelemetry } from "@/utils/truckTelemetry";
+import { REPORT_DRIVER_SELECT, REPORT_TRUCK_SELECT, watchReportReferenceChanges, type ReportReference } from "@/utils/reportReferenceFields";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
@@ -539,7 +540,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       console.time('[perf] adapter-trucks');
       const { data, error } = await supabase
         .from("trucks")
-        .select("*")
+        .select(REPORT_TRUCK_SELECT)
         .eq("is_active", true);
       console.timeEnd('[perf] adapter-trucks');
       if (error) throw error;
@@ -547,6 +548,9 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     },
     staleTime: 60000,
     refetchOnWindowFocus: true,
+    // Keep assignments, OOS, and telemetry fresh now that Reports no longer
+    // mounts the full driver-list fallback just to support closed dialogs.
+    refetchInterval: 60000,
     enabled: globalEnabled,
   });
 
@@ -591,7 +595,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       console.time('[perf] adapter-drivers');
       const { data, error } = await supabase
         .from("drivers")
-        .select("*")
+        .select(REPORT_DRIVER_SELECT)
         .eq("is_active", true);
       console.timeEnd('[perf] adapter-drivers');
       if (error) throw error;
@@ -1256,30 +1260,23 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const scheduleInvalidation = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
+    const dirtyReferences = new Set<ReportReference>();
+    const scheduleInvalidation = (kind: ReportReference) => {
+      dirtyReferences.add(kind);
+      if (debounceTimer) return;
       debounceTimer = setTimeout(() => {
-        console.log(`[adapter] trucks/drivers cache change: invalidating adapter queries`);
-        queryClient.invalidateQueries({
-          queryKey: ["adapter-trucks", modeKeySuffixRef.current],
-          refetchType: "active",
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["adapter-drivers", modeKeySuffixRef.current],
-          refetchType: "active",
-        });
+        debounceTimer = null;
+        for (const reference of dirtyReferences) {
+          void queryClient.invalidateQueries({
+            queryKey: [`adapter-${reference}`, modeKeySuffixRef.current],
+            refetchType: "active",
+          });
+        }
+        dirtyReferences.clear();
       }, 1000);
     };
 
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (event.type !== "updated") return;
-      // Only a genuinely fresh dataset should cost report reads. Every other
-      // query lifecycle tick (fetch start, observer add/remove, error, invalidate)
-      // used to trigger a full adapter refetch as well.
-      if ((event as any).action?.type !== "success") return;
-      const key = event.query.queryKey[0];
-      if (key === "trucks" || key === "drivers") scheduleInvalidation();
-    });
+    const unsubscribe = watchReportReferenceChanges(queryClient, scheduleInvalidation);
 
 
     return () => {

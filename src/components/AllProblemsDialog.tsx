@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
-import { useDrivers } from "@/hooks/useDrivers";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
@@ -15,9 +16,31 @@ interface AllProblemsDialogProps {
 }
 
 export function AllProblemsDialog({ open, onOpenChange }: AllProblemsDialogProps) {
+  return open ? <AllProblemsDialogContent open onOpenChange={onOpenChange} /> : null;
+}
+
+function AllProblemsDialogContent({ open, onOpenChange }: AllProblemsDialogProps) {
   const { problems, isLoading, resolveProblem } = useDriverProblems();
-  const { data: drivers = [] } = useDrivers();
-  const { roles } = useAuthContext();
+  const { roles, user } = useAuthContext();
+  const driverIds = [...new Set(problems.map(problem => problem.driver_id))].sort();
+  const { data: drivers = [], isLoading: namesLoading, isError: namesError, refetch: refetchNames } = useQuery({
+    queryKey: ["problem-driver-names", user?.id, driverIds],
+    queryFn: async ({ signal }) => {
+      const names: Array<{ id: string; name: string }> = [];
+      // Bound URL size and stay below the API row cap, including long histories.
+      for (let offset = 0; offset < driverIds.length; offset += 100) {
+        const { data, error } = await supabase.from("drivers")
+          .select("id, name")
+          .in("id", driverIds.slice(offset, offset + 100))
+          .abortSignal(signal);
+        if (error) throw error;
+        names.push(...(data || []));
+      }
+      return names;
+    },
+    enabled: !!user && driverIds.length > 0,
+    gcTime: 0,
+  });
   const [confirmResolveId, setConfirmResolveId] = useState<string | null>(null);
 
   // Hide actions ONLY for users who have dispatch or afterhours role and no other elevated roles
@@ -70,9 +93,14 @@ export function AllProblemsDialog({ open, onOpenChange }: AllProblemsDialogProps
           </DialogHeader>
 
           <div className="flex-1 overflow-auto">
-            {isLoading ? (
+            {isLoading || namesLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : namesError ? (
+              <div role="alert" className="py-8 text-center">
+                <p>Could not load driver names.</p>
+                <Button variant="outline" onClick={() => void refetchNames()}>Try again</Button>
               </div>
             ) : problems.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
