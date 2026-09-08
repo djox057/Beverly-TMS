@@ -4889,9 +4889,11 @@ const Reports = () => {
                                         )}
                                       </span>
                                       {group.ext && (
-                                        <span className="text-xs font-normal text-muted-foreground">
-                                          ext {group.ext}
-                                        </span>
+                                        <DispatcherExtensionsPopover
+                                          dispatcherId={group.dispatcherId}
+                                          ext={group.ext}
+                                          companies={companiesList}
+                                        />
                                       )}
                                     </div>
                                   </th>
@@ -9221,4 +9223,67 @@ const Reports = () => {
     </>
   );
 };
+
+// Shows all per-company extensions for a dispatcher when clicking "ext NNN".
+// The visible "ext NNN" text stays exactly as before.
+const DispatcherExtensionsPopover = ({
+  dispatcherId,
+  ext,
+  companies,
+}: {
+  dispatcherId: string;
+  ext: string;
+  companies: Array<{ id: string; name: string }>;
+}) => {
+  const [open, setOpen] = useState(false);
+
+  const { data: extensions = [], isLoading } = useQuery({
+    queryKey: ["user-extensions-popover", dispatcherId],
+    enabled: open && !!dispatcherId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_extensions" as any)
+        .select("id, company_id, extension")
+        .eq("user_id", dispatcherId);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  const companyName = (id: string) =>
+    companies.find((c) => c.id === id)?.name || "Unknown company";
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="text-xs font-normal text-muted-foreground hover:underline"
+        >
+          ext {ext}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" align="start" onClick={(e) => e.stopPropagation()}>
+        <div className="text-xs font-semibold mb-2">Extensions by company</div>
+        {isLoading ? (
+          <div className="text-xs text-muted-foreground">Loading…</div>
+        ) : extensions.length === 0 ? (
+          <div className="text-xs text-muted-foreground">No extensions found</div>
+        ) : (
+          <div className="space-y-1">
+            {extensions.map((row: any) => (
+              <div key={row.id} className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">{companyName(row.company_id)}</span>
+                <span className="font-medium">ext {row.extension}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 export default Reports;
