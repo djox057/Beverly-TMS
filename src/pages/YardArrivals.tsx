@@ -23,6 +23,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Combobox } from "@/components/ui/combobox";
+
 import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck, XCircle, Search, Languages } from "lucide-react";
 import { SetDriverStatusDialog } from "@/components/SetDriverStatusDialog";
 import { CompletedDriversDialog } from "@/components/CompletedDriversDialog";
@@ -146,7 +148,17 @@ export default function YardArrivals() {
   const [editForm, setEditForm] = useState({
     arrival_datetime: "",
     comment: "",
+    action_type: "maintenance" as YardAction["action_type"],
   });
+
+  const ACTION_TYPE_OPTIONS = [
+    { value: "maintenance", label: "Maintenance" },
+    { value: "return_truck", label: "Return Truck" },
+    { value: "safety", label: "Safety" },
+    { value: "recovery", label: "Recovery" },
+  ];
+
+
   const [removeTwoWeekDialogOpen, setRemoveTwoWeekDialogOpen] = useState(false);
   const [driverToRemoveTwoWeek, setDriverToRemoveTwoWeek] = useState<{ id: string; name: string } | null>(null);
   
@@ -460,6 +472,7 @@ export default function YardArrivals() {
         .update({
           arrival_datetime: editForm.arrival_datetime,
           comment: editForm.comment,
+          action_type: editForm.action_type,
           ...(commentChanged ? { comment_eng: null } : {}),
         })
         .eq("id", actionToEdit.id);
@@ -487,8 +500,10 @@ export default function YardArrivals() {
     } finally {
       setEditDialogOpen(false);
       setActionToEdit(null);
+      setEditForm({ arrival_datetime: "", comment: "", action_type: "maintenance" });
     }
   };
+
 
   const handleRemoveTwoWeek = async () => {
     if (!driverToRemoveTwoWeek) return;
@@ -902,6 +917,7 @@ export default function YardArrivals() {
                                     setEditForm({
                                       arrival_datetime: action.arrival_datetime || action.created_at,
                                       comment: action.comment,
+                                      action_type: action.action_type,
                                     });
                                     setEditDialogOpen(true);
                                   }}
@@ -1016,6 +1032,7 @@ export default function YardArrivals() {
                                   setEditForm({
                                     arrival_datetime: action.arrival_datetime || action.created_at,
                                     comment: action.comment,
+                                    action_type: action.action_type,
                                   });
                                   setEditDialogOpen(true);
                                 }}
@@ -1130,6 +1147,7 @@ export default function YardArrivals() {
                                   setEditForm({
                                     arrival_datetime: action.arrival_datetime || action.created_at,
                                     comment: action.comment,
+                                    action_type: action.action_type,
                                   });
                                   setEditDialogOpen(true);
                                 }}
@@ -1252,6 +1270,7 @@ export default function YardArrivals() {
                                   setEditForm({
                                     arrival_datetime: action.arrival_datetime || action.created_at,
                                     comment: action.comment,
+                                    action_type: action.action_type,
                                   });
                                   setEditDialogOpen(true);
                                 }}
@@ -1417,6 +1436,17 @@ export default function YardArrivals() {
           </p>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <Label htmlFor="action-type">Type</Label>
+              <Combobox
+                options={ACTION_TYPE_OPTIONS}
+                value={editForm.action_type}
+                onValueChange={(value) => setEditForm({ ...editForm, action_type: value as YardAction["action_type"] })}
+                placeholder="Select type..."
+                searchPlaceholder="Search type..."
+                emptyText="No type found"
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="arrival-datetime">Arrival Date & Time</Label>
               <Input
                 id="arrival-datetime"
@@ -1435,6 +1465,7 @@ export default function YardArrivals() {
               />
             </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Cancel
