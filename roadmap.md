@@ -5,3 +5,4 @@
 - [ ] 3. Reduce query size: drop select('*') on hot lists, split lightweight dropdown data
 - [ ] 4. Targeted freshness: per-row invalidation instead of whole-list refetch
 - [ ] 5. Measure: reset pg_stat_statements, compare window
+- [ ] 2b. RLS rewrite via explicit ALTER POLICY on SELECT policies of hot tables only (drivers, trucks, trailers, brokers, companies, profiles, user_roles, files tables); preview, then verify plans under a real authenticated role; report execution time not CPU
