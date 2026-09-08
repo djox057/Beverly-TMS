@@ -4889,9 +4889,11 @@ const Reports = () => {
                                         )}
                                       </span>
                                       {group.ext && (
-                                        <span className="text-xs font-normal text-muted-foreground">
-                                          ext {group.ext}
-                                        </span>
+                                        <DispatcherExtensionsPopover
+                                          dispatcherId={group.dispatcherId}
+                                          ext={group.ext}
+                                          companies={companiesList}
+                                        />
                                       )}
                                     </div>
                                   </th>
