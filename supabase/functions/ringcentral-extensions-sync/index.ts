@@ -90,6 +90,12 @@ serve(async (req) => {
       (lockedRows ?? []).map((r: any) => [String(r.rc_extension_id), { user_id: r.user_id, match_method: r.match_method }]),
     );
 
+    // Per-company extensions: a user may own one extension per company.
+    const { data: userExtensions, error: userExtError } = await admin
+      .from("user_extensions")
+      .select("user_id, extension");
+    if (userExtError) throw userExtError;
+
     const byPhone = new Map<string, string>();
     const byExt = new Map<string, string>();
     for (const p of profiles ?? []) {
@@ -98,6 +104,11 @@ serve(async (req) => {
       const ext = (p.ext ?? "").toString().trim();
       if (ext && !byExt.has(ext)) byExt.set(ext, p.user_id);
     }
+    for (const ue of userExtensions ?? []) {
+      const ext = (ue.extension ?? "").toString().trim();
+      if (ext && !byExt.has(ext)) byExt.set(ext, ue.user_id);
+    }
+
 
     // 4. Upsert roster
     const rows = extensions.map((ext) => {

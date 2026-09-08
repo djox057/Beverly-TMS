@@ -35,6 +35,7 @@ interface User {
   phone_number: string | null;
   office: OfficeLocation;
   ext: string | null;
+  extensions: { id: string; company_id: string; extension: string }[];
   roles: ('dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims')[];
   created_at: string;
   daily_report_can_view: boolean;
@@ -66,6 +67,8 @@ const AdminUsers = () => {
 
   const [editOffice, setEditOffice] = useState<OfficeLocation>(null);
   const [editExt, setEditExt] = useState('');
+  const [editExtensions, setEditExtensions] = useState<{ id?: string; company_id: string; extension: string }[]>([]);
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [editDailyView, setEditDailyView] = useState(false);
   const [editDailyEdit, setEditDailyEdit] = useState(false);
   const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
@@ -123,6 +126,14 @@ const AdminUsers = () => {
     }
   }, [hasRole]);
 
+  useEffect(() => {
+    if (!hasRole('admin')) return;
+    (async () => {
+      const { data } = await supabase.from('companies').select('id, name').order('name');
+      setCompanies((data as any[]) || []);
+    })();
+  }, [hasRole]);
+
   // Realtime: refresh user list when profiles or user_roles change
   useEffect(() => {
     if (!hasRole('admin')) return;
@@ -172,6 +183,17 @@ const AdminUsers = () => {
       const permsMap = new Map<string, { can_view: boolean; can_edit: boolean }>();
       ((permsData as any[]) || []).forEach((p) => permsMap.set(p.user_id, { can_view: !!p.can_view, can_edit: !!p.can_edit }));
 
+      // Fetch per-company extensions
+      const { data: extData } = await supabase
+        .from('user_extensions' as any)
+        .select('id, user_id, company_id, extension');
+      const extMap = new Map<string, { id: string; company_id: string; extension: string }[]>();
+      ((extData as any[]) || []).forEach((e) => {
+        const list = extMap.get(e.user_id) || [];
+        list.push({ id: e.id, company_id: e.company_id, extension: e.extension });
+        extMap.set(e.user_id, list);
+      });
+
       const usersWithRoles = (profilesData || []).map(profile => {
         const userRoles = (rolesData || [])
           .filter(r => r.user_id === profile.user_id)
@@ -182,6 +204,7 @@ const AdminUsers = () => {
           ...profile,
           office: profile.office as OfficeLocation,
           ext: profile.ext as string | null,
+          extensions: extMap.get(profile.user_id) || [],
           phone_number: (profile as any).phone_number as string | null,
           roles: userRoles,
           daily_report_can_view: isAdmin ? true : !!perm?.can_view,
@@ -404,6 +427,7 @@ const AdminUsers = () => {
     setEditPhoneNumber(user.phone_number || '');
     setEditOffice(user.office);
     setEditExt(user.ext || '');
+    setEditExtensions(user.extensions.map((e) => ({ ...e })));
     setEditDailyView(user.daily_report_can_view);
     setEditDailyEdit(user.daily_report_can_edit);
     setEditSuggestionsEnabled(user.suggestions_enabled);
@@ -480,6 +504,28 @@ const AdminUsers = () => {
         if (sugError) {
           console.error('Error updating Suggestions permission:', sugError);
           throw new Error(sugError.message || 'Failed to save Suggestions permission');
+        }
+      }
+
+      // Persist per-company extensions
+      {
+        const rows = editExtensions
+          .filter((e) => e.company_id && e.extension.trim())
+          .map((e) => ({ user_id: userToEdit.user_id, company_id: e.company_id, extension: e.extension.trim() }));
+        const companyIds = new Set(rows.map((r) => r.company_id));
+        if (companyIds.size !== rows.length) {
+          throw new Error('Each company can only have one extension per user');
+        }
+        const { error: delError } = await (supabase as any)
+          .from('user_extensions')
+          .delete()
+          .eq('user_id', userToEdit.user_id);
+        if (delError) throw new Error(delError.message || 'Failed to save extensions');
+        if (rows.length > 0) {
+          const { error: insError } = await (supabase as any)
+            .from('user_extensions')
+            .insert(rows);
+          if (insError) throw new Error(insError.message || 'Failed to save extensions');
         }
       }
 
@@ -919,7 +965,22 @@ const AdminUsers = () => {
                   <TableCell>{user.full_name || 'N/A'}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.phone_number || '-'}</TableCell>
-                  <TableCell>{user.ext || '-'}</TableCell>
+                  <TableCell>
+                    {user.extensions.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        {user.extensions.map((e) => (
+                          <span key={e.id} className="text-xs whitespace-nowrap">
+                            {e.extension}
+                            <span className="text-muted-foreground">
+                              {' '}· {companies.find((c) => c.id === e.company_id)?.name || 'Unknown'}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      user.ext || '-'
+                    )}
+                  </TableCell>
                   <TableCell>{user.office || '-'}</TableCell>
                   <TableCell>
                     {user.roles.length > 0 ? (
@@ -1108,13 +1169,66 @@ const AdminUsers = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-ext">Extension</Label>
+              <Label htmlFor="edit-ext">Main Extension</Label>
               <Input
                 id="edit-ext"
                 value={editExt}
                 onChange={(e) => setEditExt(e.target.value)}
                 placeholder="e.g. 101"
               />
+            </div>
+
+            <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+              <div className="flex items-center justify-between">
+                <Label>Extensions per Company</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditExtensions((prev) => [...prev, { company_id: '', extension: '' }])}
+                >
+                  Add
+                </Button>
+              </div>
+              {editExtensions.length === 0 && (
+                <p className="text-xs text-muted-foreground">No company extensions yet.</p>
+              )}
+              {editExtensions.map((row, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Select
+                    value={row.company_id}
+                    onValueChange={(v) =>
+                      setEditExtensions((prev) => prev.map((r, i) => (i === idx ? { ...r, company_id: v } : r)))
+                    }
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    className="w-28"
+                    value={row.extension}
+                    placeholder="e.g. 101"
+                    onChange={(e) =>
+                      setEditExtensions((prev) => prev.map((r, i) => (i === idx ? { ...r, extension: e.target.value } : r)))
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive"
+                    onClick={() => setEditExtensions((prev) => prev.filter((_, i) => i !== idx))}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
 
             {editRole === 'dispatch' && (
