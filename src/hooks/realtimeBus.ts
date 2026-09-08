@@ -27,6 +27,7 @@ export const PUBLISHED_TABLES = new Set([
   "order_transfers",
   "truck_notes",
   "profiles",
+  "user_roles",
 ]);
 
 
