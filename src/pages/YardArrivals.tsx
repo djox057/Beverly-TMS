@@ -1436,6 +1436,17 @@ export default function YardArrivals() {
           </p>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <Label htmlFor="action-type">Type</Label>
+              <Combobox
+                options={ACTION_TYPE_OPTIONS}
+                value={editForm.action_type}
+                onValueChange={(value) => setEditForm({ ...editForm, action_type: value as YardAction["action_type"] })}
+                placeholder="Select type..."
+                searchPlaceholder="Search type..."
+                emptyText="No type found"
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="arrival-datetime">Arrival Date & Time</Label>
               <Input
                 id="arrival-datetime"
@@ -1454,6 +1465,7 @@ export default function YardArrivals() {
               />
             </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Cancel
