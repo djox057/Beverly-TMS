@@ -939,7 +939,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                            <span className="truncate">
                                              {schedule.user?.full_name || schedule.user?.email || "Unknown"}
                                            </span>
-                                           {schedule.user?.isMaintenance && <EldTag />}
                                           {isExtra && (
                                             <Badge
                                               variant="outline"
@@ -1025,7 +1024,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                              <span className="truncate">
                                                {schedule.user?.full_name || schedule.user?.email || "Unknown"}
                                              </span>
-                                             {schedule.user?.isMaintenance && <EldTag />}
                                             {isExtra && (
                                               <Badge
                                                 variant="outline"
@@ -1164,7 +1162,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                   onCheckedChange={() => handleUserToggle(user.id, office)}
                                                 />
                                                  <span className="text-sm">{user.full_name || user.email}</span>
-                                                 {user.isMaintenance && <EldTag />}
                                               </label>
                                             ))}
                                           </div>
@@ -1217,7 +1214,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                    <span className="text-xs sm:text-sm flex-1 truncate">
                                                      {user.full_name || user.email}
                                                    </span>
-                                                   {user.isMaintenance && <EldTag />}
                                                   {hasNotWorked ? (
                                                     <Badge
                                                       variant="outline"
