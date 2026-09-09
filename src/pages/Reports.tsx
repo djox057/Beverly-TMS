@@ -8339,6 +8339,16 @@ const Reports = () => {
                   />
                   <span className="text-sm font-bold">AP Silver Trans LLC</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-16 h-8 rounded border"
+                    style={{
+                      backgroundColor: "hsl(var(--company-lale))",
+                      color: "hsl(var(--company-lale-foreground))",
+                    }}
+                  />
+                  <span className="text-sm font-bold">Lale Transport LLC</span>
+                </div>
               </div>
             </div>
 
