@@ -2691,28 +2691,28 @@ const Reports = () => {
               />
             )}
 
-            {/* Top half */}
-            <div
-              className="border-b border-gray-400 flex flex-col items-center justify-center bg-black"
-              style={{
-                height: "32px",
-                minHeight: "32px",
-                maxHeight: "32px",
-              }}
-            >
-              <div className="text-[11px] font-bold text-white leading-tight">{displayText.line1}</div>
-            </div>
+            <div className="flex flex-col h-full" style={{ minHeight: "64px" }}>
+              {/* Top half */}
+              <div
+                className="border-b border-gray-400 flex flex-col items-center justify-center bg-black flex-1"
+                style={{
+                  minHeight: "32px",
+                  flexBasis: "50%",
+                }}
+              >
+                <div className="text-[11px] font-bold text-white leading-tight">{displayText.line1}</div>
+              </div>
 
-            {/* Bottom half */}
-            <div
-              className="flex flex-col items-center justify-center bg-black"
-              style={{
-                height: "32px",
-                minHeight: "32px",
-                maxHeight: "32px",
-              }}
-            >
-              <div className="text-[11px] font-bold text-white leading-tight">{displayText.line2}</div>
+              {/* Bottom half */}
+              <div
+                className="flex flex-col items-center justify-center bg-black flex-1"
+                style={{
+                  minHeight: "32px",
+                  flexBasis: "50%",
+                }}
+              >
+                <div className="text-[11px] font-bold text-white leading-tight">{displayText.line2}</div>
+              </div>
             </div>
           </td>
         );
