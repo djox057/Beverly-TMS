@@ -2666,6 +2666,7 @@ const Reports = () => {
               maxWidth: "120px",
               width: "120px",
               height: "64px",
+              verticalAlign: "top",
             }}
           >
             {/* Red border overlay for today column */}
@@ -2690,28 +2691,28 @@ const Reports = () => {
               />
             )}
 
-            {/* Top half */}
-            <div
-              className="border-b border-gray-400 flex flex-col items-center justify-center bg-black"
-              style={{
-                height: "32px",
-                minHeight: "32px",
-                maxHeight: "32px",
-              }}
-            >
-              <div className="text-[11px] font-bold text-white leading-tight">{displayText.line1}</div>
-            </div>
+            <div className="flex flex-col h-full" style={{ minHeight: "64px" }}>
+              {/* Top half */}
+              <div
+                className="border-b border-gray-400 flex flex-col items-center justify-center bg-black flex-1"
+                style={{
+                  minHeight: "32px",
+                  flexBasis: "50%",
+                }}
+              >
+                <div className="text-[11px] font-bold text-white leading-tight">{displayText.line1}</div>
+              </div>
 
-            {/* Bottom half */}
-            <div
-              className="flex flex-col items-center justify-center bg-black"
-              style={{
-                height: "32px",
-                minHeight: "32px",
-                maxHeight: "32px",
-              }}
-            >
-              <div className="text-[11px] font-bold text-white leading-tight">{displayText.line2}</div>
+              {/* Bottom half */}
+              <div
+                className="flex flex-col items-center justify-center bg-black flex-1"
+                style={{
+                  minHeight: "32px",
+                  flexBasis: "50%",
+                }}
+              >
+                <div className="text-[11px] font-bold text-white leading-tight">{displayText.line2}</div>
+              </div>
             </div>
           </td>
         );
@@ -2978,6 +2979,7 @@ const Reports = () => {
             width: "120px",
             minWidth: "120px",
             maxWidth: "120px",
+            height: "64px",
             verticalAlign: "top",
             ...(showRightBorder
               ? {
@@ -3009,10 +3011,10 @@ const Reports = () => {
           )}
           {/* Golden outline overlay for load# search match (rendered outside cell, like today's red border) */}
           <div
-            className="flex flex-row relative"
+            className="flex flex-row relative h-full"
             style={{
               width: "120px",
-              height: "64px",
+              minHeight: "64px",
             }}
           >
             {/* Two Week Notice vertical strip */}
@@ -3038,11 +3040,10 @@ const Reports = () => {
             <div className="flex flex-col flex-1 min-w-0">
               {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
               <div
-                className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`}
+                className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col flex-1 ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`}
                 style={{
-                  height: "32px",
                   minHeight: "32px",
-                  maxHeight: "32px",
+                  flexBasis: "50%",
                 }}
               >
                 {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? (
@@ -3248,11 +3249,10 @@ const Reports = () => {
                       : "bg-muted";
                 return (
                   <div
-                    className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupBgClass} overflow-hidden`}
+                    className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col flex-1 ${pickupBgClass} overflow-hidden`}
                     style={{
-                      height: "32px",
                       minHeight: "32px",
-                      maxHeight: "32px",
+                      flexBasis: "50%",
                     }}
                   >
                     {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
