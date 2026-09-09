@@ -3009,10 +3009,10 @@ const Reports = () => {
           )}
           {/* Golden outline overlay for load# search match (rendered outside cell, like today's red border) */}
           <div
-            className="flex flex-row relative"
+            className="flex flex-row relative h-full"
             style={{
               width: "120px",
-              height: "64px",
+              minHeight: "64px",
             }}
           >
             {/* Two Week Notice vertical strip */}
