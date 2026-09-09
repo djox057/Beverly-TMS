@@ -51,8 +51,9 @@ serve(async (req: Request): Promise<Response> => {
     for (const t of (trucks ?? []) as any[]) {
       const status = getMileageUpdateStatus(t.miles_updated_at);
       if (status === "none") continue;
-      // Only trucks whose assigned driver has a dispatcher.
-      const dispatcherId = t.driver1?.dispatcher_id ?? t.dispatcher_id ?? null;
+      // Only trucks that actually have an assigned driver, and only that driver's dispatcher.
+      if (!t.driver1_id || !t.driver1) continue;
+      const dispatcherId = t.driver1?.dispatcher_id ?? null;
       if (!dispatcherId) continue;
       items.push({
         truckId: t.id,
@@ -68,7 +69,7 @@ serve(async (req: Request): Promise<Response> => {
 
     const dispatcherOf = new Map<string, string | null>();
     for (const t of (trucks ?? []) as any[]) {
-      dispatcherOf.set(t.id, t.driver1?.dispatcher_id ?? t.dispatcher_id ?? null);
+      dispatcherOf.set(t.id, t.driver1_id ? (t.driver1?.dispatcher_id ?? null) : null);
     }
 
     if (items.length === 0) {
