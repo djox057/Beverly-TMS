@@ -2691,7 +2691,7 @@ const Reports = () => {
               />
             )}
 
-            <div className="flex flex-col h-full" style={{ minHeight: "64px" }}>
+            <div className="absolute inset-0 flex flex-col">
               {/* Top half */}
               <div
                 className="border-b border-gray-400 flex flex-col items-center justify-center bg-black flex-1"
@@ -3010,13 +3010,7 @@ const Reports = () => {
             />
           )}
           {/* Golden outline overlay for load# search match (rendered outside cell, like today's red border) */}
-          <div
-            className="flex flex-row relative h-full"
-            style={{
-              width: "120px",
-              minHeight: "64px",
-            }}
-          >
+            <div className="absolute inset-0 flex flex-row">
             {/* Two Week Notice vertical strip */}
             {isBlockDay && (
               <div
@@ -3026,7 +3020,7 @@ const Reports = () => {
                     allDeliveryOrders.length > 0 || allPickupOrders.length > 0 || sameDayOrders.length > 0
                       ? "40%"
                       : "100%",
-                  height: "64px",
+                  height: "100%",
                 }}
               >
                 <span
