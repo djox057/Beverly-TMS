@@ -857,14 +857,20 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     kragujevac: 3,
                     cacak: 3,
                     beograd: 3,
-                    maintenance: 1,
+                    maintenance: EXTRA_CONFIG.maintenance.min,
+                    eld: EXTRA_CONFIG.eld.min,
                   };
 
-                  // Separate maintenance users from office users
-                  const maintenanceSchedules = existingForDate.filter((s) => s.user?.isMaintenance);
-                  const officeSchedulesOnly = existingForDate.filter((s) => !s.user?.isMaintenance);
+                  // Maintenance / ELD / office are separate buckets
+                  const scheduledByExtra: Record<ExtraKey, ScheduleEntry[]> = {
+                    maintenance: existingForDate.filter((s) => s.user?.isMaintenance && !s.user?.isEld),
+                    eld: existingForDate.filter((s) => !!s.user?.isEld),
+                  };
+                  const officeSchedulesOnly = existingForDate.filter(
+                    (s) => !s.user?.isMaintenance && !s.user?.isEld,
+                  );
 
-                  // Group non-maintenance scheduled users by office
+                  // Group office scheduled users by office
                   const scheduledByOffice = officeSchedulesOnly.reduce(
                     (acc, schedule) => {
                       const officeRaw = schedule.user?.office?.toLowerCase() || "";
@@ -887,8 +893,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   const officesBelowThreshold = (["kragujevac", "cacak", "beograd"] as OfficeKey[]).filter(
                     (office) => (scheduledByOffice[office]?.length || 0) < MIN_THRESHOLDS[office],
                   );
-                  const maintenanceBelowThreshold = maintenanceSchedules.length < MIN_THRESHOLDS.maintenance;
-                  const needsMoreDispatchers = officesBelowThreshold.length > 0 || maintenanceBelowThreshold;
+                  const extrasBelowThreshold = EXTRA_KEYS.filter(
+                    (key) => scheduledByExtra[key].length < MIN_THRESHOLDS[key],
+                  );
+                  const needsMoreDispatchers = officesBelowThreshold.length > 0 || extrasBelowThreshold.length > 0;
 
                   return (
                     <>
