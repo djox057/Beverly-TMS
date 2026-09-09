@@ -343,8 +343,23 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                   </CardContent>
                   )}
                 </Card>
+                );
+              };
+
+              return (
+                <>
+                  {officeFleets.map(renderCard)}
+                  {eldFleets.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      <h4 className="text-xs font-semibold text-sky-500 uppercase tracking-wider">
+                        ELD
+                      </h4>
+                      {eldFleets.map(renderCard)}
+                    </div>
+                  )}
+                </>
               );
-            })}
+            })()}
           </div>
         );
       })}
