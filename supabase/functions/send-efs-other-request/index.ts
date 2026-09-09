@@ -53,6 +53,7 @@ function getCompanyCode(companyName: string | null): string {
   if (normalized.includes("BF PRIME")) return "BFP";
   if (normalized.includes("BEVERLY GROUP")) return "BG";
   if (normalized.includes("AP SILVER")) return "AST";
+  if (normalized.includes("LALE")) return "LT";
   return "BFP";
 }
 
