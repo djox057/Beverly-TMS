@@ -238,7 +238,10 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
               </h3>
             </div>
 
-            {filteredFleets.map((fleet) => {
+            {(() => {
+              const officeFleets = filteredFleets.filter((f) => !f.user.isMaintenance);
+              const eldFleets = filteredFleets.filter((f) => f.user.isMaintenance);
+              const renderCard = (fleet: (typeof filteredFleets)[number]) => {
               const filteredDrivers = filterDriversBySearch(fleet.drivers);
               const fleetKey = `${fleet.user.id}_${dayData.date}`;
               const selected = selectedForRemoval[fleetKey] || new Set<string>();
