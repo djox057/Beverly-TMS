@@ -652,6 +652,10 @@ const EditOrder = () => {
       sender: "AP Silver Trans Dispatch <truckload@apsilvertrans.net>",
       cc: "dispatch@apsilvertrans.net",
     },
+    "Lale Transport LLC": {
+      sender: "Lale Transport Dispatch <dispatch@lalatransport.com>",
+      cc: "dispatch@lalatransport.com",
+    },
   };
 
   // Fetch profiles for booked by dropdown
