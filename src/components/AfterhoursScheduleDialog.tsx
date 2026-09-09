@@ -286,8 +286,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     setSelectedUsers((prev) => {
       const currentUsers = prev[category];
       const isSelected = currentUsers.includes(userId);
-      const maxSlots =
-        category === "maintenance" ? MAINTENANCE_CONFIG.slots : OFFICE_CONFIG[category as OfficeKey].slots;
+      const isExtra = (EXTRA_KEYS as string[]).includes(category);
+      const maxSlots = isExtra
+        ? EXTRA_CONFIG[category as ExtraKey].slots
+        : OFFICE_CONFIG[category as OfficeKey].slots;
 
       if (isSelected) {
         return {
@@ -296,8 +298,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         };
       } else {
         if (!bypassLimit && currentUsers.length >= maxSlots) {
-          const label =
-            category === "maintenance" ? MAINTENANCE_CONFIG.label : OFFICE_CONFIG[category as OfficeKey].label;
+          const label = isExtra
+            ? EXTRA_CONFIG[category as ExtraKey].label
+            : OFFICE_CONFIG[category as OfficeKey].label;
           toast.error(`Maximum ${maxSlots} users for ${label}`);
           return prev;
         }
@@ -370,7 +373,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
       if (error) throw error;
 
       toast.success(`Scheduled ${allSelectedUsers.length} user(s) for ${format(selectedDate, "EEEE, MMM d, yyyy")}`);
-      setSelectedUsers({ kragujevac: [], cacak: [], beograd: [], maintenance: [] });
+      setSelectedUsers({ kragujevac: [], cacak: [], beograd: [], maintenance: [], eld: [] });
       setSelectedDate(undefined);
       setForceShowOffice(null);
       fetchExistingSchedules();
@@ -396,11 +399,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     }
   };
 
-  // Separate maintenance users from office users
-  const maintenanceUsers = scheduleUsers.filter((u) => u.isMaintenance);
-  const officeUsers = scheduleUsers.filter((u) => !u.isMaintenance);
+  // Maintenance, ELD and office people are three separate buckets
+  const extraUsersByKey: Record<ExtraKey, ScheduleUser[]> = {
+    maintenance: scheduleUsers.filter((u) => u.isMaintenance && !u.isEld),
+    eld: scheduleUsers.filter((u) => !!u.isEld),
+  };
+  const officeUsers = scheduleUsers.filter((u) => !u.isMaintenance && !u.isEld);
 
-  // Group non-maintenance users by office (case-insensitive matching)
+  // Group office users by office (case-insensitive matching)
   const usersByOffice = officeUsers.reduce(
     (acc, user) => {
       const officeRaw = user.office?.toLowerCase() || "";
@@ -419,12 +425,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     {} as Record<OfficeKey, ScheduleUser[]>,
   );
 
-  // Maintenance (ELD) users have no office, but may be picked for any office
-  // bucket as well as the Maintenance bucket. They are appended to every
-  // office list and tagged "ELD" in the UI.
   (["kragujevac", "cacak", "beograd"] as OfficeKey[]).forEach((office) => {
     if (!usersByOffice[office]) usersByOffice[office] = [];
-    usersByOffice[office] = [...usersByOffice[office], ...maintenanceUsers];
   });
 
   // Group schedules by date
