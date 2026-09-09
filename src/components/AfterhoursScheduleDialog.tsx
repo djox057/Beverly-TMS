@@ -213,13 +213,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
         let profilesMap = new Map<
           string,
-          { user_id: string; email: string; full_name: string | null; office: string | null }
+          { user_id: string; email: string; full_name: string | null; office: string | null; is_eld?: boolean }
         >();
         let maintenanceUserIds = new Set<string>();
+        let eldUserIds = new Set<string>();
 
         if (userIds.length > 0) {
           const [profilesRes, roleRes] = await Promise.all([
-            supabase.from("profiles").select("user_id, email, full_name, office").in("user_id", userIds),
+            supabase.from("profiles").select("user_id, email, full_name, office, is_eld").in("user_id", userIds),
             supabase
               .from("user_roles")
               .select("user_id, role")
@@ -230,19 +231,24 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           if (profilesRes.error) console.error("Error fetching schedule profiles:", profilesRes.error);
           if (roleRes.error) console.error("Error fetching schedule roles:", roleRes.error);
 
-          (profilesRes.data || []).forEach((p) => profilesMap.set(p.user_id, p));
-          // Maintenance = role 'maintenance', OR role 'afterhours' with no office.
-          // Office-bearing afterhours users are dispatchers temporarily flipped
-          // by the daily role-switcher and must stay in their office bucket.
+          (profilesRes.data || []).forEach((p) => profilesMap.set(p.user_id, p as any));
+          // ELD = maintenance role with the ELD toggle on. Maintenance = other
+          // maintenance people, or afterhours users with no office. Office-bearing
+          // afterhours users are dispatchers temporarily flipped by the daily
+          // role-switcher and must stay in their office bucket.
           const rolesByUser = new Map<string, Set<string>>();
           (roleRes.data || []).forEach((r: any) => {
             if (!rolesByUser.has(r.user_id)) rolesByUser.set(r.user_id, new Set());
             rolesByUser.get(r.user_id)!.add(r.role);
           });
           maintenanceUserIds = new Set<string>();
+          eldUserIds = new Set<string>();
           for (const [uid, roles] of rolesByUser) {
-            const office = profilesMap.get(uid)?.office ?? null;
-            if (roles.has("maintenance") || (roles.has("afterhours") && !office)) {
+            const profile = profilesMap.get(uid);
+            const office = profile?.office ?? null;
+            if (roles.has("maintenance") && !!profile?.is_eld) {
+              eldUserIds.add(uid);
+            } else if (roles.has("maintenance") || (roles.has("afterhours") && !office)) {
               maintenanceUserIds.add(uid);
             }
           }
@@ -260,6 +266,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     full_name: profile.full_name,
                     office: profile.office as ScheduleUser["office"],
                     isMaintenance: maintenanceUserIds.has(profile.user_id),
+                    isEld: eldUserIds.has(profile.user_id),
                   }
                 : undefined,
             };
