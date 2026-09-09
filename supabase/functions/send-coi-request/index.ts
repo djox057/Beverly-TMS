@@ -20,10 +20,15 @@ const BodySchema = z.object({
 const WORLD = "Futurecertificates@worldinsurance.com";
 const ATS = "COI@atsinsure.com";
 
-// Map booked-by company name to the dispatch sender + recipients
+// Map booked-by company name to the dispatch sender + recipients.
+// Returns null when the company has no insurance contact configured yet
+// (currently Lale Transport) — no email should be sent.
 const resolveRouting = (companyName: string | null | undefined) => {
   const normalized = (companyName || "").toUpperCase();
 
+  if (normalized.includes("LALE")) {
+    return null;
+  }
   if (normalized.includes("BEVERLY FREIGHT")) {
     return { from: "dispatch@beverlyfreight.net", to: [WORLD] };
   }
