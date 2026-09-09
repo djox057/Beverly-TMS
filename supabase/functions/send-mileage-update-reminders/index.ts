@@ -69,7 +69,7 @@ serve(async (req: Request): Promise<Response> => {
 
     const dispatcherOf = new Map<string, string | null>();
     for (const t of (trucks ?? []) as any[]) {
-      dispatcherOf.set(t.id, t.driver1?.dispatcher_id ?? t.dispatcher_id ?? null);
+      dispatcherOf.set(t.id, t.driver1_id ? (t.driver1?.dispatcher_id ?? null) : null);
     }
 
     if (items.length === 0) {
