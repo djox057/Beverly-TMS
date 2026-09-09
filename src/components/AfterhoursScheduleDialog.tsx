@@ -18,6 +18,7 @@ interface ScheduleUser {
   full_name: string | null;
   office: "kragujevac" | "cacak" | "beograd" | null;
   isMaintenance?: boolean;
+  isEld?: boolean;
 }
 
 interface ScheduleEntry {
@@ -30,6 +31,7 @@ interface ScheduleEntry {
     full_name: string | null;
     office?: "kragujevac" | "cacak" | "beograd" | null;
     isMaintenance?: boolean;
+    isEld?: boolean;
   };
 }
 
@@ -45,21 +47,17 @@ const OFFICE_CONFIG = {
   beograd: { label: "Beograd (BG)", slots: 3 },
 } as const;
 
-const MAINTENANCE_CONFIG = { label: "Maintenance", slots: 10 };
-
-// Tag shown next to maintenance (ELD) people wherever they appear in the
-// weekend schedule, so they are recognisable inside office buckets.
-const EldTag = () => (
-  <Badge
-    variant="outline"
-    className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0 border-sky-500/50 text-sky-500 flex-shrink-0"
-  >
-    ELD
-  </Badge>
-);
+// Non-office buckets, shown as their own sections below the offices.
+const EXTRA_CONFIG = {
+  maintenance: { label: "Maintenance", slots: 10, min: 1 },
+  eld: { label: "ELD", slots: 10, min: 1 },
+} as const;
 
 type OfficeKey = keyof typeof OFFICE_CONFIG;
-type SelectionKey = OfficeKey | "maintenance";
+type ExtraKey = keyof typeof EXTRA_CONFIG;
+type SelectionKey = OfficeKey | ExtraKey;
+
+const EXTRA_KEYS = ["maintenance", "eld"] as ExtraKey[];
 
 // Special users who can manage weekend schedules regardless of role
 const SCHEDULE_MANAGER_EMAILS = ["tommyj@bfprime.net", "acccoc225@gmail.com"];
@@ -74,12 +72,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     cacak: [],
     beograd: [],
     maintenance: [],
+    eld: [],
   });
   const [expandedFilledOffices, setExpandedFilledOffices] = useState<Record<SelectionKey, boolean>>({
     kragujevac: false,
     cacak: false,
     beograd: false,
     maintenance: false,
+    eld: false,
   });
   // Force show office in selection area (for adding more users via + button)
   const [forceShowOffice, setForceShowOffice] = useState<SelectionKey | null>(null);
@@ -164,11 +164,15 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           eldByUser.set(p.user_id, !!(p as any).is_eld);
         });
         const maintenanceUserIds = new Set<string>();
+        const eldUserIds = new Set<string>();
         for (const [uid, roles] of rolesByUser) {
           const office = officeByUser.get(uid);
-          // Maintenance users are only ELD-selectable when their profile
-          // has the ELD toggle enabled (set in Admin > Users).
-          if ((roles.has("maintenance") && eldByUser.get(uid)) || (roles.has("afterhours") && !office)) {
+          // Maintenance people with the ELD toggle on (Admin > Users) form
+          // their own ELD bucket; everyone else without an office falls into
+          // the Maintenance bucket.
+          if (roles.has("maintenance") && eldByUser.get(uid)) {
+            eldUserIds.add(uid);
+          } else if (roles.has("maintenance") || (roles.has("afterhours") && !office)) {
             maintenanceUserIds.add(uid);
           }
         }
@@ -180,6 +184,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             full_name: p.full_name,
             office: p.office as ScheduleUser["office"],
             isMaintenance: maintenanceUserIds.has(p.user_id),
+            isEld: eldUserIds.has(p.user_id),
           })) || [],
         );
       }
