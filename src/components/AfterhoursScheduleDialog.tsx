@@ -1183,8 +1183,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                   checked={true}
                                                   onCheckedChange={() => handleUserToggle(user.id, office)}
                                                 />
-                                                 <span className="text-sm">{user.full_name || user.email}</span>
-                                                 {user.isMaintenance && <EldTag />}
+                                                  <span className="text-sm">{user.full_name || user.email}</span>
                                               </label>
                                             ))}
                                           </div>
@@ -1237,7 +1236,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                    <span className="text-xs sm:text-sm flex-1 truncate">
                                                      {user.full_name || user.email}
                                                    </span>
-                                                   {user.isMaintenance && <EldTag />}
                                                   {hasNotWorked ? (
                                                     <Badge
                                                       variant="outline"
@@ -1261,127 +1259,123 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     );
                                   })}
 
-                                  {/* Maintenance section at bottom - only if below threshold or forceShowOffice is maintenance */}
-                                  {(maintenanceBelowThreshold || forceShowOffice === "maintenance") &&
-                                    maintenanceUsers.length > 0 && (
-                                      <div className="mb-3 sm:mb-4 border-t pt-3 sm:pt-4 mt-3 sm:mt-4">
-                                        {(() => {
-                                          const existingMaintenanceCount = maintenanceSchedules.length;
-                                          const alreadyScheduledIds = new Set(
-                                            maintenanceSchedules.map((s) => s.user_id),
-                                          );
-                                          const availableMaintenanceUsers = maintenanceUsers.filter(
-                                            (u) => !alreadyScheduledIds.has(u.id),
-                                          );
-                                          const selectedCount = selectedUsers.maintenance.length;
-                                          const totalCount = existingMaintenanceCount + selectedCount;
-                                          const isFilled = totalCount >= MAINTENANCE_CONFIG.slots;
+                                  {/* Maintenance and ELD sections at bottom */}
+                                  {EXTRA_KEYS.map((key) => {
+                                    const config = EXTRA_CONFIG[key];
+                                    const groupUsers = extraUsersByKey[key];
+                                    const belowThreshold = scheduledByExtra[key].length < MIN_THRESHOLDS[key];
+                                    if ((!belowThreshold && forceShowOffice !== key) || groupUsers.length === 0)
+                                      return null;
 
-                                          if (isFilled && !expandedFilledOffices.maintenance) {
-                                            return (
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  setExpandedFilledOffices((prev) => ({ ...prev, maintenance: true }))
-                                                }
-                                                className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
+                                    const existingGroupCount = scheduledByExtra[key].length;
+                                    const alreadyScheduledIds = new Set(
+                                      scheduledByExtra[key].map((s) => s.user_id),
+                                    );
+                                    const availableGroupUsers = groupUsers.filter(
+                                      (u) => !alreadyScheduledIds.has(u.id),
+                                    );
+                                    const selectedCount = selectedUsers[key].length;
+                                    const totalCount = existingGroupCount + selectedCount;
+                                    const isFilled = totalCount >= config.slots;
+
+                                    let body: React.ReactNode;
+
+                                    if (isFilled && !expandedFilledOffices[key]) {
+                                      body = (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setExpandedFilledOffices((prev) => ({ ...prev, [key]: true }))
+                                          }
+                                          className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
+                                        >
+                                          <Badge variant="default" className="bg-green-600">
+                                            {config.label} ✓
+                                          </Badge>
+                                          <span className="text-xs text-muted-foreground">
+                                            {totalCount}/{config.slots} complete - click to view
+                                          </span>
+                                        </button>
+                                      );
+                                    } else if (isFilled && expandedFilledOffices[key]) {
+                                      const selectedGroupUsers = availableGroupUsers.filter((u) =>
+                                        selectedUsers[key].includes(u.id),
+                                      );
+                                      body = (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setExpandedFilledOffices((prev) => ({ ...prev, [key]: false }))
+                                            }
+                                            className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
+                                          >
+                                            <Badge variant="default" className="bg-green-600">
+                                              {config.label} ✓
+                                            </Badge>
+                                            <span className="text-xs text-muted-foreground">
+                                              {totalCount}/{config.slots} complete - click to hide
+                                            </span>
+                                          </button>
+                                          <div className="space-y-1 pl-2">
+                                            {selectedGroupUsers.map((user) => (
+                                              <label
+                                                key={user.id}
+                                                className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
                                               >
-                                                <Badge variant="default" className="bg-green-600">
-                                                  {MAINTENANCE_CONFIG.label} ✓
-                                                </Badge>
-                                                <span className="text-xs text-muted-foreground">
-                                                  {totalCount}/{MAINTENANCE_CONFIG.slots} complete - click to view
-                                                </span>
-                                              </button>
-                                            );
-                                          }
-
-                                          if (isFilled && expandedFilledOffices.maintenance) {
-                                            const selectedMaintenanceUsers = availableMaintenanceUsers.filter((u) =>
-                                              selectedUsers.maintenance.includes(u.id),
-                                            );
-                                            return (
-                                              <>
-                                                <button
-                                                  type="button"
-                                                  onClick={() =>
-                                                    setExpandedFilledOffices((prev) => ({
-                                                      ...prev,
-                                                      maintenance: false,
-                                                    }))
+                                                <Checkbox
+                                                  checked={true}
+                                                  onCheckedChange={() =>
+                                                    handleUserToggle(user.id, key, forceShowOffice === key)
                                                   }
-                                                  className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
-                                                >
-                                                  <Badge variant="default" className="bg-green-600">
-                                                    {MAINTENANCE_CONFIG.label} ✓
-                                                  </Badge>
-                                                  <span className="text-xs text-muted-foreground">
-                                                    {totalCount}/{MAINTENANCE_CONFIG.slots} complete - click to hide
-                                                  </span>
-                                                </button>
-                                                <div className="space-y-1 pl-2">
-                                                  {selectedMaintenanceUsers.map((user) => (
-                                                    <label
-                                                      key={user.id}
-                                                      className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                                                    >
-                                                      <Checkbox
-                                                        checked={true}
-                                                        onCheckedChange={() =>
-                                                          handleUserToggle(
-                                                            user.id,
-                                                            "maintenance",
-                                                            forceShowOffice === "maintenance",
-                                                          )
-                                                        }
-                                                      />
-                                                      <span className="text-sm">{user.full_name || user.email}</span>
-                                                    </label>
-                                                  ))}
-                                                </div>
-                                              </>
-                                            );
-                                          }
-
-                                          return (
-                                            <>
-                                              <div className="flex items-center gap-2 mb-1 sm:mb-2 sticky top-0 bg-background py-1">
-                                                <Badge variant="outline" className="text-xs">
-                                                  {MAINTENANCE_CONFIG.label}
-                                                </Badge>
-                                                <span className="text-[10px] sm:text-xs text-muted-foreground">
-                                                  {totalCount}/{MAINTENANCE_CONFIG.slots} (need{" "}
-                                                  {MIN_THRESHOLDS.maintenance - existingMaintenanceCount} more)
+                                                />
+                                                <span className="text-sm">{user.full_name || user.email}</span>
+                                              </label>
+                                            ))}
+                                          </div>
+                                        </>
+                                      );
+                                    } else {
+                                      body = (
+                                        <>
+                                          <div className="flex items-center gap-2 mb-1 sm:mb-2 sticky top-0 bg-background py-1">
+                                            <Badge variant="outline" className="text-xs">
+                                              {config.label}
+                                            </Badge>
+                                            <span className="text-[10px] sm:text-xs text-muted-foreground">
+                                              {totalCount}/{config.slots} (need{" "}
+                                              {Math.max(MIN_THRESHOLDS[key] - existingGroupCount, 0)} more)
+                                            </span>
+                                          </div>
+                                          <div className="space-y-1 pl-2">
+                                            {availableGroupUsers.map((user) => (
+                                              <label
+                                                key={user.id}
+                                                className="flex items-center gap-2 p-1 sm:p-1.5 rounded hover:bg-muted cursor-pointer"
+                                              >
+                                                <Checkbox
+                                                  checked={selectedUsers[key].includes(user.id)}
+                                                  onCheckedChange={() =>
+                                                    handleUserToggle(user.id, key, forceShowOffice === key)
+                                                  }
+                                                  className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                                                />
+                                                <span className="text-xs sm:text-sm truncate">
+                                                  {user.full_name || user.email}
                                                 </span>
-                                              </div>
-                                              <div className="space-y-1 pl-2">
-                                                {availableMaintenanceUsers.map((user) => (
-                                                  <label
-                                                    key={user.id}
-                                                    className="flex items-center gap-2 p-1 sm:p-1.5 rounded hover:bg-muted cursor-pointer"
-                                                  >
-                                                    <Checkbox
-                                                      checked={selectedUsers.maintenance.includes(user.id)}
-                                                      onCheckedChange={() =>
-                                                        handleUserToggle(
-                                                          user.id,
-                                                          "maintenance",
-                                                          forceShowOffice === "maintenance",
-                                                        )
-                                                      }
-                                                      className="h-3.5 w-3.5 sm:h-4 sm:w-4"
-                                                    />
-                                                    <span className="text-xs sm:text-sm truncate">
-                                                      {user.full_name || user.email}
-                                                    </span>
-                                                  </label>
-                                                ))}
-                                              </div>
-                                            </>
-                                          );
-                                        })()}
+                                              </label>
+                                            ))}
+                                          </div>
+                                        </>
+                                      );
+                                    }
+
+                                    return (
+                                      <div key={key} className="mb-3 sm:mb-4 border-t pt-3 sm:pt-4 mt-3 sm:mt-4">
+                                        {body}
                                       </div>
-                                    )}
+                                    );
+                                  })}
                                 </ScrollArea>
                               </>
                             )}
