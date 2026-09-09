@@ -1006,9 +1006,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                           className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
                                         >
                                           <span className="flex items-center gap-1 sm:gap-2 truncate">
-                                            <span className="truncate">
-                                              {schedule.user?.full_name || schedule.user?.email || "Unknown"}
-                                            </span>
+                                             <span className="truncate">
+                                               {schedule.user?.full_name || schedule.user?.email || "Unknown"}
+                                             </span>
+                                             {schedule.user?.isMaintenance && <EldTag />}
                                             {isExtra && (
                                               <Badge
                                                 variant="outline"
