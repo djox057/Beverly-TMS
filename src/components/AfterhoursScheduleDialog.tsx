@@ -45,18 +45,9 @@ const OFFICE_CONFIG = {
   beograd: { label: "Beograd (BG)", slots: 3 },
 } as const;
 
-const MAINTENANCE_CONFIG = { label: "Maintenance", slots: 10 };
-
-// Tag shown next to maintenance (ELD) people wherever they appear in the
-// weekend schedule, so they are recognisable inside office buckets.
-const EldTag = () => (
-  <Badge
-    variant="outline"
-    className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0 border-sky-500/50 text-sky-500 flex-shrink-0"
-  >
-    ELD
-  </Badge>
-);
+// ELD (maintenance) people live in their own section, listed separately from
+// the office sections.
+const MAINTENANCE_CONFIG = { label: "ELD", slots: 10 };
 
 type OfficeKey = keyof typeof OFFICE_CONFIG;
 type SelectionKey = OfficeKey | "maintenance";
