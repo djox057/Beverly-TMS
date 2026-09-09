@@ -269,11 +269,6 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                         <span className="text-sm sm:text-base">
                           {fleet.user.full_name || fleet.user.email}
                         </span>
-                        {fleet.user.isMaintenance && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-sky-500/50 text-sky-500">
-                            ELD
-                          </Badge>
-                        )}
                         <Badge variant="secondary" className="text-xs">
                           {fleet.drivers.length} drivers
                         </Badge>
