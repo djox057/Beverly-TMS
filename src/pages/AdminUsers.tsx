@@ -72,6 +72,7 @@ const AdminUsers = () => {
   const [editDailyView, setEditDailyView] = useState(false);
   const [editDailyEdit, setEditDailyEdit] = useState(false);
   const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
+  const [editIsEld, setEditIsEld] = useState(false);
   const [editGrossPercent, setEditGrossPercent] = useState<string>('');
   const [editCutPercent, setEditCutPercent] = useState<string>('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
@@ -452,6 +453,7 @@ const AdminUsers = () => {
     setEditDailyView(user.daily_report_can_view);
     setEditDailyEdit(user.daily_report_can_edit);
     setEditSuggestionsEnabled(user.suggestions_enabled);
+    setEditIsEld(!!(user as any).is_eld);
     setEditGrossPercent(user.gross_percent != null ? String(user.gross_percent) : (user.roles.includes('dispatch') ? '1' : ''));
     setEditCutPercent(user.cut_percent != null ? String(user.cut_percent) : (user.roles.includes('dispatch') ? '5' : ''));
     setIsEditDialogOpen(true);
@@ -516,11 +518,14 @@ const AdminUsers = () => {
         }
       }
 
-      // Persist Suggestions permission on the profile row
+      // Persist Suggestions permission and ELD flag on the profile row
       {
         const { error: sugError } = await (supabase as any)
           .from('profiles')
-          .update({ suggestions_enabled: editSuggestionsEnabled })
+          .update({
+            suggestions_enabled: editSuggestionsEnabled,
+            is_eld: editRole === 'maintenance' ? editIsEld : false,
+          })
           .eq('user_id', userToEdit.user_id);
         if (sugError) {
           console.error('Error updating Suggestions permission:', sugError);
@@ -1383,6 +1388,24 @@ const AdminUsers = () => {
                 />
               </div>
             </div>
+
+            {editRole === 'maintenance' && (
+              <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Weekend Schedule</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="edit-is-eld" className="text-sm cursor-pointer">
+                    Selectable as ELD
+                  </Label>
+                  <Switch
+                    id="edit-is-eld"
+                    checked={editIsEld}
+                    onCheckedChange={setEditIsEld}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button 

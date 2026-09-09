@@ -109,7 +109,7 @@ export const useAfterhoursAssignments = () => {
         const [profilesRes, maintenanceRes] = await Promise.all([
           supabase
             .from('profiles')
-            .select('user_id, full_name, email, office')
+            .select('user_id, full_name, email, office, is_eld')
             .in('user_id', afterhoursUserIds),
           supabase
             .from('user_roles')
@@ -126,7 +126,7 @@ export const useAfterhoursAssignments = () => {
             full_name: p.full_name,
             email: p.email,
             office: p.office,
-            isMaintenance: maintenanceUserIds.has(p.user_id),
+            isMaintenance: maintenanceUserIds.has(p.user_id) && !!(p as any).is_eld,
             scheduledDays: [...(userDaysMap.get(p.user_id) || [])],
             scheduledDatesList: [...(userDatesMap.get(p.user_id) || [])],
           }));
