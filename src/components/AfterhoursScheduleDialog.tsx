@@ -1196,9 +1196,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                     }
                                                     className="h-3.5 w-3.5 sm:h-4 sm:w-4"
                                                   />
-                                                  <span className="text-xs sm:text-sm flex-1 truncate">
-                                                    {user.full_name || user.email}
-                                                  </span>
+                                                   <span className="text-xs sm:text-sm flex-1 truncate">
+                                                     {user.full_name || user.email}
+                                                   </span>
+                                                   {user.isMaintenance && <EldTag />}
                                                   {hasNotWorked ? (
                                                     <Badge
                                                       variant="outline"
