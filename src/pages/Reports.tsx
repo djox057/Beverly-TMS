@@ -2978,6 +2978,7 @@ const Reports = () => {
             width: "120px",
             minWidth: "120px",
             maxWidth: "120px",
+            height: "64px",
             verticalAlign: "top",
             ...(showRightBorder
               ? {
