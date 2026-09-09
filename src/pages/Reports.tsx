@@ -3247,11 +3247,10 @@ const Reports = () => {
                       : "bg-muted";
                 return (
                   <div
-                    className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupBgClass} overflow-hidden`}
+                    className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col flex-1 ${pickupBgClass} overflow-hidden`}
                     style={{
-                      height: "32px",
                       minHeight: "32px",
-                      maxHeight: "32px",
+                      flexBasis: "50%",
                     }}
                   >
                     {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
