@@ -2666,6 +2666,7 @@ const Reports = () => {
               maxWidth: "120px",
               width: "120px",
               height: "64px",
+              verticalAlign: "top",
             }}
           >
             {/* Red border overlay for today column */}
