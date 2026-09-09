@@ -416,8 +416,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
     const workCounts: Record<string, { count: number; user: ScheduleUser }> = {};
 
-    // Initialize all non-maintenance users with 0 count
-    officeUsers.forEach((user) => {
+    // Initialize all schedulable users with 0 count
+    scheduleUsers.forEach((user) => {
       workCounts[user.id] = { count: 0, user };
     });
 
