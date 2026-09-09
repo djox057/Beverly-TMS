@@ -1389,6 +1389,24 @@ const AdminUsers = () => {
               </div>
             </div>
 
+            {editRole === 'maintenance' && (
+              <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Weekend Schedule</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="edit-is-eld" className="text-sm cursor-pointer">
+                    Selectable as ELD
+                  </Label>
+                  <Switch
+                    id="edit-is-eld"
+                    checked={editIsEld}
+                    onCheckedChange={setEditIsEld}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-4">
               <Button 
                 type="button" 
