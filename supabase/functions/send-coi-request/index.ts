@@ -20,10 +20,15 @@ const BodySchema = z.object({
 const WORLD = "Futurecertificates@worldinsurance.com";
 const ATS = "COI@atsinsure.com";
 
-// Map booked-by company name to the dispatch sender + recipients
+// Map booked-by company name to the dispatch sender + recipients.
+// Returns null when the company has no insurance contact configured yet
+// (currently Lale Transport) — no email should be sent.
 const resolveRouting = (companyName: string | null | undefined) => {
   const normalized = (companyName || "").toUpperCase();
 
+  if (normalized.includes("LALE")) {
+    return null;
+  }
   if (normalized.includes("BEVERLY FREIGHT")) {
     return { from: "dispatch@beverlyfreight.net", to: [WORLD] };
   }
@@ -87,7 +92,19 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { brokerName, brokerEmail, brokerAddress, bookedByCompanyName } = parsed.data;
 
-    const { from: fromEmail, to } = resolveRouting(bookedByCompanyName);
+    const routing = resolveRouting(bookedByCompanyName);
+    if (!routing) {
+      // Company has no insurance contact configured yet — intentionally send nothing.
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `No insurance contact is configured for ${bookedByCompanyName || "this company"} yet, so no COI request was sent.`,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const { from: fromEmail, to } = routing;
     const requesterEmail = userData.user.email ?? null;
     const ccAddress = buildCcAddress(requesterEmail, fromEmail);
 
