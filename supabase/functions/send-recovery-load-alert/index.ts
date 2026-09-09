@@ -94,6 +94,7 @@ const resolveSender = (companyName: string | null | undefined) => {
   if (n.includes("BEVERLY FREIGHT")) return "Recovery Loads <dispatch@beverlyfreight.net>";
   if (n.includes("UNITED ENTERPRISE")) return "Recovery Loads <Dispatch@unitedenterprisesolutions.net>";
   if (n.includes("AP SILVER")) return "Recovery Loads <dispatch@apsilvertrans.net>";
+  if (n.includes("LALE")) return "Recovery Loads <dispatch@lalatransport.com>";
   if (n.includes("BG PRIME") || n.includes("BEVERLY GROUP")) return "Recovery Loads <dispatch@bgprime.net>";
   return "Recovery Loads <dispatch@bfprime.net>";
 };

@@ -71,6 +71,11 @@ export const getCompanyBackgroundColor = (companyName: string | null) => {
       backgroundColor: "hsl(var(--company-ap-silver))",
       color: "hsl(var(--company-ap-silver-foreground))",
     };
+  } else if (normalizedName.includes("LALE")) {
+    return {
+      backgroundColor: "hsl(var(--company-lale))",
+      color: "hsl(var(--company-lale-foreground))",
+    };
   }
   return {};
 };
