@@ -617,7 +617,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             </Button>
           </div>
           <DialogDescription className="text-xs sm:text-sm">
-            Schedule users by office: 3x KG, 3x CA, 3x BG + Maintenance for weekends and holidays. Role changes: 6am →
+            Schedule users by office: 3x KG, 3x CA, 3x BG + ELD for weekends and holidays. Role changes: 6am →
             afterhours, 5pm → dispatch (Chicago time)
           </DialogDescription>
         </DialogHeader>
