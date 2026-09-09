@@ -963,7 +963,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                            <span className="truncate">
                                              {schedule.user?.full_name || schedule.user?.email || "Unknown"}
                                            </span>
-                                           {schedule.user?.isMaintenance && <EldTag />}
+                                           
                                           {isExtra && (
                                             <Badge
                                               variant="outline"
@@ -991,91 +991,87 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                             );
                           })}
 
-                          {/* Maintenance section at bottom */}
-                          {maintenanceSchedules.length > 0 &&
-                            (() => {
-                              const alreadyScheduledMaintenanceIds = new Set(
-                                maintenanceSchedules.map((s) => s.user_id),
-                              );
-                              const availableMaintenanceToAdd = maintenanceUsers.filter(
-                                (u) => !alreadyScheduledMaintenanceIds.has(u.id),
-                              );
+                          {/* Maintenance and ELD sections at bottom */}
+                          {EXTRA_KEYS.map((key) => {
+                            const groupSchedules = scheduledByExtra[key];
+                            if (groupSchedules.length === 0) return null;
+                            const config = EXTRA_CONFIG[key];
+                            const alreadyScheduledGroupIds = new Set(groupSchedules.map((s) => s.user_id));
+                            const availableGroupToAdd = extraUsersByKey[key].filter(
+                              (u) => !alreadyScheduledGroupIds.has(u.id),
+                            );
 
-                              return (
-                                <div className="mb-3 sm:mb-4 border-t pt-3 sm:pt-4 mt-3 sm:mt-4">
-                                  <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                                    <Badge variant="outline" className="text-xs">
-                                      {MAINTENANCE_CONFIG.label}
-                                    </Badge>
-                                    <span className="text-[10px] sm:text-xs text-muted-foreground">
-                                      {maintenanceSchedules.length}
-                                    </span>
-                                    {canManageSchedules && !isPastDate && availableMaintenanceToAdd.length > 0 && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-5 w-5"
-                                        onClick={() =>
-                                          setForceShowOffice((prev) => (prev === "maintenance" ? null : "maintenance"))
-                                        }
-                                      >
-                                        <Plus
-                                          className={`h-3 w-3 transition-transform duration-200 ${forceShowOffice === "maintenance" ? "rotate-45" : ""}`}
-                                        />
-                                      </Button>
-                                    )}
-                                  </div>
-                                  <div className="space-y-1 pl-2">
-                                    {maintenanceSchedules.map((schedule) => {
-                                      // Check if this user worked any day BEFORE this date in the same month
-                                      // Use string comparison to avoid timezone issues
-                                      const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
-                                      const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
-                                      const daysWorkedBefore = existingSchedules.filter((s) => {
-                                        if (s.user_id !== schedule.user_id) return false;
-                                        if (s.scheduled_date < monthStartStr || s.scheduled_date >= selectedDateStr)
-                                          return false;
-                                        const scheduleDate = new Date(s.scheduled_date + "T12:00:00");
-                                        return isWeekend(scheduleDate);
-                                      }).length;
-                                      const isExtra = daysWorkedBefore >= 1;
-
-                                      return (
-                                        <div
-                                          key={schedule.id}
-                                          className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
-                                        >
-                                          <span className="flex items-center gap-1 sm:gap-2 truncate">
-                                             <span className="truncate">
-                                               {schedule.user?.full_name || schedule.user?.email || "Unknown"}
-                                             </span>
-                                             {schedule.user?.isMaintenance && <EldTag />}
-                                            {isExtra && (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-[10px] sm:text-xs text-orange-500 border-orange-500 flex-shrink-0"
-                                              >
-                                                extra
-                                              </Badge>
-                                            )}
-                                          </span>
-                                          {canManageSchedules && !isPastDate && (
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-5 w-5 text-destructive hover:text-destructive"
-                                              onClick={() => handleDeleteSchedule(schedule.id)}
-                                            >
-                                              <Trash2 className="h-3 w-3" />
-                                            </Button>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
+                            return (
+                              <div key={key} className="mb-3 sm:mb-4 border-t pt-3 sm:pt-4 mt-3 sm:mt-4">
+                                <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {config.label}
+                                  </Badge>
+                                  <span className="text-[10px] sm:text-xs text-muted-foreground">
+                                    {groupSchedules.length}
+                                  </span>
+                                  {canManageSchedules && !isPastDate && availableGroupToAdd.length > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-5 w-5"
+                                      onClick={() => setForceShowOffice((prev) => (prev === key ? null : key))}
+                                    >
+                                      <Plus
+                                        className={`h-3 w-3 transition-transform duration-200 ${forceShowOffice === key ? "rotate-45" : ""}`}
+                                      />
+                                    </Button>
+                                  )}
                                 </div>
-                              );
-                            })()}
+                                <div className="space-y-1 pl-2">
+                                  {groupSchedules.map((schedule) => {
+                                    // Check if this user worked any day BEFORE this date in the same month
+                                    const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+                                    const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
+                                    const daysWorkedBefore = existingSchedules.filter((s) => {
+                                      if (s.user_id !== schedule.user_id) return false;
+                                      if (s.scheduled_date < monthStartStr || s.scheduled_date >= selectedDateStr)
+                                        return false;
+                                      const scheduleDate = new Date(s.scheduled_date + "T12:00:00");
+                                      return isWeekend(scheduleDate);
+                                    }).length;
+                                    const isExtra = daysWorkedBefore >= 1;
+
+                                    return (
+                                      <div
+                                        key={schedule.id}
+                                        className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
+                                      >
+                                        <span className="flex items-center gap-1 sm:gap-2 truncate">
+                                          <span className="truncate">
+                                            {schedule.user?.full_name || schedule.user?.email || "Unknown"}
+                                          </span>
+                                          {isExtra && (
+                                            <Badge
+                                              variant="outline"
+                                              className="text-[10px] sm:text-xs text-orange-500 border-orange-500 flex-shrink-0"
+                                            >
+                                              extra
+                                            </Badge>
+                                          )}
+                                        </span>
+                                        {canManageSchedules && !isPastDate && (
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 text-destructive hover:text-destructive"
+                                            onClick={() => handleDeleteSchedule(schedule.id)}
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </ScrollArea>
                       )}
 
