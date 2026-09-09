@@ -238,10 +238,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
               </h3>
             </div>
 
-            {(() => {
-              const officeFleets = filteredFleets.filter((f) => !f.user.isMaintenance);
-              const eldFleets = filteredFleets.filter((f) => f.user.isMaintenance);
-              const renderCard = (fleet: (typeof filteredFleets)[number]) => {
+            {filteredFleets.map((fleet) => {
               const filteredDrivers = filterDriversBySearch(fleet.drivers);
               const fleetKey = `${fleet.user.id}_${dayData.date}`;
               const selected = selectedForRemoval[fleetKey] || new Set<string>();
@@ -269,6 +266,11 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                         <span className="text-sm sm:text-base">
                           {fleet.user.full_name || fleet.user.email}
                         </span>
+                        {fleet.user.isMaintenance && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-sky-500/50 text-sky-500">
+                            ELD
+                          </Badge>
+                        )}
                         <Badge variant="secondary" className="text-xs">
                           {fleet.drivers.length} drivers
                         </Badge>
@@ -343,23 +345,8 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                   </CardContent>
                   )}
                 </Card>
-                );
-              };
-
-              return (
-                <>
-                  {officeFleets.map(renderCard)}
-                  {eldFleets.length > 0 && (
-                    <div className="space-y-3 pt-2">
-                      <h4 className="text-xs font-semibold text-sky-500 uppercase tracking-wider">
-                        ELD
-                      </h4>
-                      {eldFleets.map(renderCard)}
-                    </div>
-                  )}
-                </>
               );
-            })()}
+            })}
           </div>
         );
       })}
