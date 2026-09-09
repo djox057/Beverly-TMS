@@ -1146,7 +1146,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                   checked={true}
                                                   onCheckedChange={() => handleUserToggle(user.id, office)}
                                                 />
-                                                <span className="text-sm">{user.full_name || user.email}</span>
+                                                 <span className="text-sm">{user.full_name || user.email}</span>
+                                                 {user.isMaintenance && <EldTag />}
                                               </label>
                                             ))}
                                           </div>
