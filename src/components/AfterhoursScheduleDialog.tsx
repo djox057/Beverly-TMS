@@ -390,6 +390,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     {} as Record<OfficeKey, ScheduleUser[]>,
   );
 
+  // Maintenance (ELD) users have no office, but may be picked for any office
+  // bucket as well as the Maintenance bucket. They are appended to every
+  // office list and tagged "ELD" in the UI.
+  (["kragujevac", "cacak", "beograd"] as OfficeKey[]).forEach((office) => {
+    if (!usersByOffice[office]) usersByOffice[office] = [];
+    usersByOffice[office] = [...usersByOffice[office], ...maintenanceUsers];
+  });
+
   // Group schedules by date
   const schedulesByDate = existingSchedules.reduce(
     (acc, schedule) => {
