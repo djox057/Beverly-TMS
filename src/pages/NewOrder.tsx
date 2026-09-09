@@ -368,7 +368,7 @@ const NewOrder = () => {
   });
 
   // Allowed booking entities for "Booked by company" dropdown
-  const baseBookingCompanyNames = ["BF Prime LLC", "Beverly Freight Inc", "BG Prime Inc"];
+  const baseBookingCompanyNames = ["BF Prime LLC", "Beverly Freight Inc", "BG Prime Inc", "Lale Transport LLC"];
   const bgPrimeCompany = companies?.find((c) => c.name === "BG Prime Inc");
 
   // Get company_id from selected driver1 (not from truck)
