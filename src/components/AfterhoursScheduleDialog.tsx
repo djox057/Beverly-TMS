@@ -47,6 +47,17 @@ const OFFICE_CONFIG = {
 
 const MAINTENANCE_CONFIG = { label: "Maintenance", slots: 10 };
 
+// Tag shown next to maintenance (ELD) people wherever they appear in the
+// weekend schedule, so they are recognisable inside office buckets.
+const EldTag = () => (
+  <Badge
+    variant="outline"
+    className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0 border-sky-500/50 text-sky-500 flex-shrink-0"
+  >
+    ELD
+  </Badge>
+);
+
 type OfficeKey = keyof typeof OFFICE_CONFIG;
 type SelectionKey = OfficeKey | "maintenance";
 
@@ -390,6 +401,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     {} as Record<OfficeKey, ScheduleUser[]>,
   );
 
+  // Maintenance (ELD) users have no office, but may be picked for any office
+  // bucket as well as the Maintenance bucket. They are appended to every
+  // office list and tagged "ELD" in the UI.
+  (["kragujevac", "cacak", "beograd"] as OfficeKey[]).forEach((office) => {
+    if (!usersByOffice[office]) usersByOffice[office] = [];
+    usersByOffice[office] = [...usersByOffice[office], ...maintenanceUsers];
+  });
+
   // Group schedules by date
   const schedulesByDate = existingSchedules.reduce(
     (acc, schedule) => {
@@ -408,8 +427,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
     const workCounts: Record<string, { count: number; user: ScheduleUser }> = {};
 
-    // Initialize all non-maintenance users with 0 count
-    officeUsers.forEach((user) => {
+    // Initialize all schedulable users with 0 count
+    scheduleUsers.forEach((user) => {
       workCounts[user.id] = { count: 0, user };
     });
 
@@ -913,9 +932,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                         className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
                                       >
                                         <span className="flex items-center gap-1 sm:gap-2 truncate">
-                                          <span className="truncate">
-                                            {schedule.user?.full_name || schedule.user?.email || "Unknown"}
-                                          </span>
+                                           <span className="truncate">
+                                             {schedule.user?.full_name || schedule.user?.email || "Unknown"}
+                                           </span>
+                                           {schedule.user?.isMaintenance && <EldTag />}
                                           {isExtra && (
                                             <Badge
                                               variant="outline"
@@ -998,9 +1018,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                           className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
                                         >
                                           <span className="flex items-center gap-1 sm:gap-2 truncate">
-                                            <span className="truncate">
-                                              {schedule.user?.full_name || schedule.user?.email || "Unknown"}
-                                            </span>
+                                             <span className="truncate">
+                                               {schedule.user?.full_name || schedule.user?.email || "Unknown"}
+                                             </span>
+                                             {schedule.user?.isMaintenance && <EldTag />}
                                             {isExtra && (
                                               <Badge
                                                 variant="outline"
@@ -1138,7 +1159,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                   checked={true}
                                                   onCheckedChange={() => handleUserToggle(user.id, office)}
                                                 />
-                                                <span className="text-sm">{user.full_name || user.email}</span>
+                                                 <span className="text-sm">{user.full_name || user.email}</span>
+                                                 {user.isMaintenance && <EldTag />}
                                               </label>
                                             ))}
                                           </div>
@@ -1188,9 +1210,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                     }
                                                     className="h-3.5 w-3.5 sm:h-4 sm:w-4"
                                                   />
-                                                  <span className="text-xs sm:text-sm flex-1 truncate">
-                                                    {user.full_name || user.email}
-                                                  </span>
+                                                   <span className="text-xs sm:text-sm flex-1 truncate">
+                                                     {user.full_name || user.email}
+                                                   </span>
+                                                   {user.isMaintenance && <EldTag />}
                                                   {hasNotWorked ? (
                                                     <Badge
                                                       variant="outline"

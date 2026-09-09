@@ -15,6 +15,7 @@ interface AfterhoursUser {
   email: string;
   office: string | null;
   scheduledDays: string[]; // e.g. ['Saturday', 'Sunday']
+  isMaintenance?: boolean;
 }
 
 export interface AfterhoursFleet {
@@ -101,7 +102,8 @@ export const useAfterhoursAssignments = () => {
 
       const afterhoursUserIds = [...userDaysMap.keys()];
 
-      // Fetch profiles and filter out maintenance-role users
+      // Fetch profiles. Maintenance (ELD) people are kept and simply flagged so
+      // the UI can tag them; they are selectable like any other weekend user.
       let afterhoursUsers: (AfterhoursUser & { scheduledDatesList: string[] })[] = [];
       if (afterhoursUserIds.length > 0) {
         const [profilesRes, maintenanceRes] = await Promise.all([
@@ -119,12 +121,12 @@ export const useAfterhoursAssignments = () => {
         const maintenanceUserIds = new Set((maintenanceRes.data || []).map(r => r.user_id));
 
         afterhoursUsers = (profilesRes.data || [])
-          .filter(p => !maintenanceUserIds.has(p.user_id))
           .map(p => ({
             id: p.user_id,
             full_name: p.full_name,
             email: p.email,
             office: p.office,
+            isMaintenance: maintenanceUserIds.has(p.user_id),
             scheduledDays: [...(userDaysMap.get(p.user_id) || [])],
             scheduledDatesList: [...(userDatesMap.get(p.user_id) || [])],
           }));
