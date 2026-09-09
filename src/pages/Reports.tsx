@@ -3038,11 +3038,10 @@ const Reports = () => {
             <div className="flex flex-col flex-1 min-w-0">
               {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
               <div
-                className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`}
+                className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col flex-1 ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`}
                 style={{
-                  height: "32px",
                   minHeight: "32px",
-                  maxHeight: "32px",
+                  flexBasis: "50%",
                 }}
               >
                 {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? (
