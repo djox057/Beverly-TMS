@@ -142,7 +142,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("user_id, email, full_name, office")
+          .select("user_id, email, full_name, office, is_eld")
           .in("user_id", userIds);
 
         if (profileError) throw profileError;
@@ -158,11 +158,17 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           rolesByUser.get(r.user_id)!.add(r.role);
         });
         const officeByUser = new Map<string, string | null>();
-        (profileData || []).forEach((p) => officeByUser.set(p.user_id, p.office ?? null));
+        const eldByUser = new Map<string, boolean>();
+        (profileData || []).forEach((p) => {
+          officeByUser.set(p.user_id, p.office ?? null);
+          eldByUser.set(p.user_id, !!(p as any).is_eld);
+        });
         const maintenanceUserIds = new Set<string>();
         for (const [uid, roles] of rolesByUser) {
           const office = officeByUser.get(uid);
-          if (roles.has("maintenance") || (roles.has("afterhours") && !office)) {
+          // Maintenance users are only ELD-selectable when their profile
+          // has the ELD toggle enabled (set in Admin > Users).
+          if ((roles.has("maintenance") && eldByUser.get(uid)) || (roles.has("afterhours") && !office)) {
             maintenanceUserIds.add(uid);
           }
         }
