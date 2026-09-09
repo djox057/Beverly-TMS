@@ -92,7 +92,19 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { brokerName, brokerEmail, brokerAddress, bookedByCompanyName } = parsed.data;
 
-    const { from: fromEmail, to } = resolveRouting(bookedByCompanyName);
+    const routing = resolveRouting(bookedByCompanyName);
+    if (!routing) {
+      // Company has no insurance contact configured yet — intentionally send nothing.
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `No insurance contact is configured for ${bookedByCompanyName || "this company"} yet, so no COI request was sent.`,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const { from: fromEmail, to } = routing;
     const requesterEmail = userData.user.email ?? null;
     const ccAddress = buildCcAddress(requesterEmail, fromEmail);
 
