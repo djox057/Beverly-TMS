@@ -45,18 +45,9 @@ const OFFICE_CONFIG = {
   beograd: { label: "Beograd (BG)", slots: 3 },
 } as const;
 
-const MAINTENANCE_CONFIG = { label: "Maintenance", slots: 10 };
-
-// Tag shown next to maintenance (ELD) people wherever they appear in the
-// weekend schedule, so they are recognisable inside office buckets.
-const EldTag = () => (
-  <Badge
-    variant="outline"
-    className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0 border-sky-500/50 text-sky-500 flex-shrink-0"
-  >
-    ELD
-  </Badge>
-);
+// ELD (maintenance) people live in their own section, listed separately from
+// the office sections.
+const MAINTENANCE_CONFIG = { label: "ELD", slots: 10 };
 
 type OfficeKey = keyof typeof OFFICE_CONFIG;
 type SelectionKey = OfficeKey | "maintenance";
@@ -407,12 +398,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     {} as Record<OfficeKey, ScheduleUser[]>,
   );
 
-  // Maintenance (ELD) users have no office, but may be picked for any office
-  // bucket as well as the Maintenance bucket. They are appended to every
-  // office list and tagged "ELD" in the UI.
+  // Maintenance (ELD) users are kept strictly in their own Maintenance bucket
+  // and are never mixed into the office lists.
   (["kragujevac", "cacak", "beograd"] as OfficeKey[]).forEach((office) => {
     if (!usersByOffice[office]) usersByOffice[office] = [];
-    usersByOffice[office] = [...usersByOffice[office], ...maintenanceUsers];
   });
 
   // Group schedules by date
@@ -628,7 +617,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             </Button>
           </div>
           <DialogDescription className="text-xs sm:text-sm">
-            Schedule users by office: 3x KG, 3x CA, 3x BG + Maintenance for weekends and holidays. Role changes: 6am →
+            Schedule users by office: 3x KG, 3x CA, 3x BG + ELD for weekends and holidays. Role changes: 6am →
             afterhours, 5pm → dispatch (Chicago time)
           </DialogDescription>
         </DialogHeader>
@@ -941,7 +930,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                            <span className="truncate">
                                              {schedule.user?.full_name || schedule.user?.email || "Unknown"}
                                            </span>
-                                           {schedule.user?.isMaintenance && <EldTag />}
                                           {isExtra && (
                                             <Badge
                                               variant="outline"
@@ -1027,7 +1015,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                              <span className="truncate">
                                                {schedule.user?.full_name || schedule.user?.email || "Unknown"}
                                              </span>
-                                             {schedule.user?.isMaintenance && <EldTag />}
                                             {isExtra && (
                                               <Badge
                                                 variant="outline"
@@ -1166,7 +1153,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                   onCheckedChange={() => handleUserToggle(user.id, office)}
                                                 />
                                                  <span className="text-sm">{user.full_name || user.email}</span>
-                                                 {user.isMaintenance && <EldTag />}
                                               </label>
                                             ))}
                                           </div>
@@ -1219,7 +1205,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                    <span className="text-xs sm:text-sm flex-1 truncate">
                                                      {user.full_name || user.email}
                                                    </span>
-                                                   {user.isMaintenance && <EldTag />}
                                                   {hasNotWorked ? (
                                                     <Badge
                                                       variant="outline"
