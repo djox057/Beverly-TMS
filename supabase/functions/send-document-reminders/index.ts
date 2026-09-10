@@ -199,7 +199,11 @@ serve(async (req: Request): Promise<Response> => {
     for (const driver of drivers as any[]) {
       for (const f of DRIVER_FIELDS) {
         scanned++;
-        const days = daysUntil(driver[f.key]);
+        // MVR / Clearinghouse store the date the check was completed -> due one year later
+        const raw = driver[f.key];
+        const dueValue = ANNUAL_DRIVER_FIELDS.has(f.key) ? addOneYear(raw) : raw;
+        if (!dueValue) continue;
+        const days = daysUntil(dueValue);
         const milestone = milestoneFor(days);
         if (milestone === null) continue;
         candidates.push({
