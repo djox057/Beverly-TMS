@@ -324,12 +324,8 @@ const Analytics = () => {
   const [salarySortBy, setSalarySortBy] = useState<"name" | "salary">("name");
   const [salarySortDir, setSalarySortDir] = useState<"asc" | "desc">("asc");
 
-  // Helper to check if an office qualifies for food allowance (case-insensitive)
-  const hasFoodOffice = (office?: string | null) => {
-    if (!office) return false;
-    const upper = office.toUpperCase();
-    return upper === "ČAČAK" || upper === "KRAGUJEVAC";
-  };
+  // Food allowance has been removed for all offices.
+  const hasFoodOffice = (_office?: string | null) => false;
   // Prorate the $70 food allowance based on the user's profile creation date
   // within the selected month. If created before the month, full $70. If after, $0.
   // Otherwise: $70 * (working days from creation to end of month / total working days in month).

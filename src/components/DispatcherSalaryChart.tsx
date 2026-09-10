@@ -81,10 +81,9 @@ function getWorkDaysInMonth(year: number, monthIndex: number): number {
   return wd > 0 ? wd : weekdayCount;
 }
 
-function hasFoodOffice(office?: string | null) {
-  if (!office) return false;
-  const u = office.toUpperCase();
-  return u === "ČAČAK" || u === "KRAGUJEVAC";
+// Food allowance has been removed for all offices.
+function hasFoodOffice(_office?: string | null) {
+  return false;
 }
 
 type PresetKey =
@@ -1200,7 +1199,6 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
                     ["penalties", "Penalties"],
                     ["extraDays", "Extra days"],
                     ["lostDays", "Lost days"],
-                    ["food", "Food allowance"],
                   ] as const
                 ).map(([k, label]) => (
                   <label
