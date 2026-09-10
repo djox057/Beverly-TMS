@@ -571,7 +571,11 @@ export default function Alerts() {
   const sortedDrivers = driverSort
     ? [...filteredDrivers].sort((a, b) => {
         const field = driverSortKeyToDate[driverSort.key];
-        return compareDates((a as any)[field], (b as any)[field], driverSort.dir);
+        // MVR / Clearinghouse store the completion date — sort by calculated expiration
+        const annual = driverSort.key === "mvr" || driverSort.key === "clearing_house";
+        const aVal = annual ? annualDocExpiration((a as any)[field]) : (a as any)[field];
+        const bVal = annual ? annualDocExpiration((b as any)[field]) : (b as any)[field];
+        return compareDates(aVal, bVal, driverSort.dir);
       })
     : filteredDrivers;
 
@@ -1829,20 +1833,20 @@ export default function Alerts() {
                   <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
                   <Input id="cdl_expiration_date" name="cdl_expiration_date" type="date" defaultValue={editingDriver.cdl_expiration_date || ""} />
                 </div>
-                 <div>
-                   <Label htmlFor="mvr_date">MVR Date (completed)</Label>
-                   <Input id="mvr_date" name="mvr_date" type="date" defaultValue={editingDriver.mvr_date || todayISODate()} />
-                   <p className="text-xs text-muted-foreground mt-1">
-                     Expires {formatDate(annualDocExpiration(editingDriver.mvr_date || todayISODate()))} (1 year)
-                   </p>
-                 </div>
-                 <div>
-                   <Label htmlFor="clearing_house">Clearing House (completed)</Label>
-                   <Input id="clearing_house" name="clearing_house" type="date" defaultValue={editingDriver.clearing_house || todayISODate()} />
-                   <p className="text-xs text-muted-foreground mt-1">
-                     Expires {formatDate(annualDocExpiration(editingDriver.clearing_house || todayISODate()))} (1 year)
-                   </p>
-                 </div>
+                <div>
+                  <Label htmlFor="mvr_date">MVR Date (completed)</Label>
+                  <Input id="mvr_date" name="mvr_date" type="date" defaultValue={editingDriver.mvr_date || ""} />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Expires {formatDate(annualDocExpiration(editingDriver.mvr_date || todayISODate()))} (1 year from completion)
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="clearing_house">Clearing House (completed)</Label>
+                  <Input id="clearing_house" name="clearing_house" type="date" defaultValue={editingDriver.clearing_house || ""} />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Expires {formatDate(annualDocExpiration(editingDriver.clearing_house || todayISODate()))} (1 year from completion)
+                  </p>
+                </div>
                 <div>
                   <Label htmlFor="medical_card_expiration_date">Medical Card Expiration</Label>
                   <Input id="medical_card_expiration_date" name="medical_card_expiration_date" type="date" defaultValue={editingDriver.medical_card_expiration_date || ""} />
