@@ -44,6 +44,17 @@ export const milestoneFor = (days: number | null): number | null => {
   return MILESTONES.includes(days) ? days : null;
 };
 
+/**
+ * MVR / Clearinghouse dates are stored as the date the check was completed;
+ * they stay valid for one year.
+ */
+export const addOneYear = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const [y, m, d] = String(value).slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(Date.UTC(y + 1, m - 1, d)).toISOString().slice(0, 10);
+};
+
 export const formatDate = (value: string | null | undefined): string => {
   if (!value) return "—";
   const [y, m, d] = String(value).slice(0, 10).split("-");

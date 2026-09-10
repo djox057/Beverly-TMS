@@ -3,6 +3,7 @@ import { Resend } from "npm:resend@4.0.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import {
   FROM,
+  addOneYear,
   corsHeaders,
   chicagoTodayISO,
   daysUntil,
@@ -53,6 +54,9 @@ const DRIVER_FIELDS: { key: string; label: string }[] = [
   { key: "clearing_house", label: "Clearinghouse" },
   { key: "random_drug_test_date", label: "Random Drug Test" },
 ];
+
+/** Driver fields that store a completion date and expire one year later. */
+const ANNUAL_DRIVER_FIELDS = new Set(["mvr_date", "clearing_house"]);
 
 const TEMP_PLATE_VALID_DAYS = 30;
 
@@ -199,7 +203,11 @@ serve(async (req: Request): Promise<Response> => {
     for (const driver of drivers as any[]) {
       for (const f of DRIVER_FIELDS) {
         scanned++;
-        const days = daysUntil(driver[f.key]);
+        // MVR / Clearinghouse store the date the check was completed -> due one year later
+        const raw = driver[f.key];
+        const dueValue = ANNUAL_DRIVER_FIELDS.has(f.key) ? addOneYear(raw) : raw;
+        if (!dueValue) continue;
+        const days = daysUntil(dueValue);
         const milestone = milestoneFor(days);
         if (milestone === null) continue;
         candidates.push({
@@ -210,7 +218,7 @@ serve(async (req: Request): Promise<Response> => {
           driverName: driver.name,
           document: f.label,
           fieldKey: f.key,
-          dueDate: String(driver[f.key]).slice(0, 10),
+          dueDate: String(dueValue).slice(0, 10),
           days,
           milestone,
           dispatcherId: driver.dispatcher_id ?? null,

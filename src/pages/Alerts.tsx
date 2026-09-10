@@ -14,6 +14,7 @@ import {
 import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, CreditCard, ShieldCheck, CircleDot, Wrench, IdCard, FileSearch, ScrollText, HeartPulse, FlaskConical, FileText, Mail } from "lucide-react";
 import { PaperworkTab } from "@/components/alerts/PaperworkTab";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
+import { annualDocExpiration, isAnnualDocExpiring, todayISODate } from "@/lib/annualDocuments";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
@@ -456,8 +457,8 @@ export default function Alerts() {
   const matchesDriverColumn = (driver: any, filter: DriverColumnFilter) => {
     switch (filter) {
       case "cdl": return isExpiring(driver.cdl_expiration_date);
-      case "mvr": return isExpiring(driver.mvr_date);
-      case "clearing_house": return isExpiring(driver.clearing_house);
+      case "mvr": return isAnnualDocExpiring(driver.mvr_date);
+      case "clearing_house": return isAnnualDocExpiring(driver.clearing_house);
       case "medical": return isExpiring(driver.medical_card_expiration_date);
       case "drug_test": return isExpiring(driver.random_drug_test_date);
       default: return true;
@@ -1480,24 +1481,38 @@ export default function Alerts() {
                           )}
                          {showDriverCol("mvr") && (
                          <TableCell>
-                           <div className="flex items-center gap-2">
-                             {formatDate(driver.mvr_date)}
+                           <div className="flex flex-col gap-1">
+                             <div className="flex items-center gap-2">
+                               {formatDate(driver.mvr_date)}
+                               {driver.mvr_date && (
+                                 <Badge variant={getExpirationStatus(annualDocExpiration(driver.mvr_date)).variant}>
+                                   {getExpirationStatus(annualDocExpiration(driver.mvr_date)).label}
+                                 </Badge>
+                               )}
+                             </div>
                              {driver.mvr_date && (
-                               <Badge variant={getExpirationStatus(driver.mvr_date).variant}>
-                                 {getExpirationStatus(driver.mvr_date).label}
-                               </Badge>
+                               <span className="text-xs text-muted-foreground">
+                                 Expires {formatDate(annualDocExpiration(driver.mvr_date))}
+                               </span>
                              )}
                            </div>
                          </TableCell>
                          )}
                          {showDriverCol("clearing_house") && (
                          <TableCell>
-                           <div className="flex items-center gap-2">
-                             {formatDate(driver.clearing_house)}
+                           <div className="flex flex-col gap-1">
+                             <div className="flex items-center gap-2">
+                               {formatDate(driver.clearing_house)}
+                               {driver.clearing_house && (
+                                 <Badge variant={getExpirationStatus(annualDocExpiration(driver.clearing_house)).variant}>
+                                   {getExpirationStatus(annualDocExpiration(driver.clearing_house)).label}
+                                 </Badge>
+                               )}
+                             </div>
                              {driver.clearing_house && (
-                               <Badge variant={getExpirationStatus(driver.clearing_house).variant}>
-                                 {getExpirationStatus(driver.clearing_house).label}
-                               </Badge>
+                               <span className="text-xs text-muted-foreground">
+                                 Expires {formatDate(annualDocExpiration(driver.clearing_house))}
+                               </span>
                              )}
                            </div>
                          </TableCell>
@@ -1814,14 +1829,20 @@ export default function Alerts() {
                   <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
                   <Input id="cdl_expiration_date" name="cdl_expiration_date" type="date" defaultValue={editingDriver.cdl_expiration_date || ""} />
                 </div>
-                <div>
-                  <Label htmlFor="mvr_date">MVR Date</Label>
-                  <Input id="mvr_date" name="mvr_date" type="date" defaultValue={editingDriver.mvr_date || ""} />
-                </div>
-                <div>
-                  <Label htmlFor="clearing_house">Clearing House</Label>
-                  <Input id="clearing_house" name="clearing_house" type="date" defaultValue={editingDriver.clearing_house || ""} />
-                </div>
+                 <div>
+                   <Label htmlFor="mvr_date">MVR Date (completed)</Label>
+                   <Input id="mvr_date" name="mvr_date" type="date" defaultValue={editingDriver.mvr_date || todayISODate()} />
+                   <p className="text-xs text-muted-foreground mt-1">
+                     Expires {formatDate(annualDocExpiration(editingDriver.mvr_date || todayISODate()))} (1 year)
+                   </p>
+                 </div>
+                 <div>
+                   <Label htmlFor="clearing_house">Clearing House (completed)</Label>
+                   <Input id="clearing_house" name="clearing_house" type="date" defaultValue={editingDriver.clearing_house || todayISODate()} />
+                   <p className="text-xs text-muted-foreground mt-1">
+                     Expires {formatDate(annualDocExpiration(editingDriver.clearing_house || todayISODate()))} (1 year)
+                   </p>
+                 </div>
                 <div>
                   <Label htmlFor="medical_card_expiration_date">Medical Card Expiration</Label>
                   <Input id="medical_card_expiration_date" name="medical_card_expiration_date" type="date" defaultValue={editingDriver.medical_card_expiration_date || ""} />

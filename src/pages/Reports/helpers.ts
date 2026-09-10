@@ -1,6 +1,7 @@
 import { format, isSameDay, addDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
+import { addOneYear } from "@/lib/annualDocuments";
 
 // Helpers to check BOL/POD presence — synthetic files are injected by ordersTransform
 // when force_complete flags are true, so we only need to check order_files here.
@@ -683,14 +684,15 @@ export const getCdlExpirationIconStatus = (truck: any): { show: boolean; color: 
   return { show: true, color: status.color, tooltip: `CDL: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
 };
 
+// MVR / Clearinghouse hold the date the check was completed: valid 1 year, alerts start 1 month out
 export const getMvrDateIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
-  const status = getDateAlertStatus(truck.mvr_date, 30, 60);
+  const status = getDateAlertStatus(addOneYear(truck.mvr_date), 14, 30);
   if (!status.show) return { show: false, color: null, tooltip: '' };
   return { show: true, color: status.color, tooltip: `MVR: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
 };
 
 export const getClearingHouseIconStatus = (truck: any): { show: boolean; color: 'red' | 'yellow' | null; tooltip: string } => {
-  const status = getDateAlertStatus(truck.clearing_house, 30, 60);
+  const status = getDateAlertStatus(addOneYear(truck.clearing_house), 14, 30);
   if (!status.show) return { show: false, color: null, tooltip: '' };
   return { show: true, color: status.color, tooltip: `Clearing House: ${status.daysLeft <= 0 ? 'Expired' : `${status.daysLeft} days left`}` };
 };

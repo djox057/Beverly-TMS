@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getOilChangeThresholds } from "@/pages/Reports/helpers";
+import { isAnnualDocExpiring } from "@/lib/annualDocuments";
 
 const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000; // 60 days in milliseconds
 
@@ -129,15 +130,14 @@ export const useExpiringDrivers = () => {
       
       return data?.filter(driver => {
         const cdlDate = driver.cdl_expiration_date ? new Date(driver.cdl_expiration_date) : null;
-        const mvrDate = driver.mvr_date ? new Date(driver.mvr_date) : null;
-        const clearingHouseDate = driver.clearing_house ? new Date(driver.clearing_house) : null;
         const medicalCardDate = driver.medical_card_expiration_date ? new Date(driver.medical_card_expiration_date) : null;
         const randomDrugTestDate = driver.random_drug_test_date ? new Date(driver.random_drug_test_date) : null;
-        
+
         return (
           (cdlDate && cdlDate <= twoMonthsFromNow) ||
-          (mvrDate && mvrDate <= twoMonthsFromNow) ||
-          (clearingHouseDate && clearingHouseDate <= twoMonthsFromNow) ||
+          // MVR / Clearinghouse dates are completion dates: valid 1 year, alert 1 month before
+          isAnnualDocExpiring(driver.mvr_date, now) ||
+          isAnnualDocExpiring(driver.clearing_house, now) ||
           (medicalCardDate && medicalCardDate <= twoMonthsFromNow) ||
           (randomDrugTestDate && randomDrugTestDate <= twoMonthsFromNow)
         );
