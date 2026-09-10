@@ -43,13 +43,12 @@ export interface DriverCdlSuggestion {
   medical_card_expiration_date?: string;
 }
 
-/** Annual documents (MVR, Clearinghouse) expire one year after their date. */
-export const addOneYear = (date: string): string => {
-  const [y, m, d] = date.split("-").map(Number);
-  if (!y || !m || !d) return date;
-  const next = new Date(Date.UTC(y + 1, m - 1, d));
-  return next.toISOString().slice(0, 10);
-};
+/**
+ * Annual documents (MVR, Clearinghouse) store the date the check was completed
+ * and expire one year later.
+ */
+export const addOneYear = (date: string): string =>
+  addOneYearShared(date) ?? date;
 
 
 
