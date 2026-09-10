@@ -456,8 +456,8 @@ export default function Alerts() {
   const matchesDriverColumn = (driver: any, filter: DriverColumnFilter) => {
     switch (filter) {
       case "cdl": return isExpiring(driver.cdl_expiration_date);
-      case "mvr": return isExpiring(driver.mvr_date);
-      case "clearing_house": return isExpiring(driver.clearing_house);
+      case "mvr": return isAnnualDocExpiring(driver.mvr_date);
+      case "clearing_house": return isAnnualDocExpiring(driver.clearing_house);
       case "medical": return isExpiring(driver.medical_card_expiration_date);
       case "drug_test": return isExpiring(driver.random_drug_test_date);
       default: return true;
