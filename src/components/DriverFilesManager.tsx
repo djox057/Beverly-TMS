@@ -303,8 +303,12 @@ export const DriverFilesManager = ({ driverId, driverName, onApplyDriverFields }
       if (result.home_address) suggestion.home_address = result.home_address;
       if (result.home_city) suggestion.home_city = result.home_city;
       if (result.home_state) suggestion.home_state = result.home_state;
+      // MVR / Clearinghouse: the date is the completion date (expires 1 year later).
+      // When the document has no readable date, default to today so it never looks expired.
       if (result.mvr_date) suggestion.mvr_date = result.mvr_date;
+      else if (result.docId === "mvr") suggestion.mvr_date = todayISODate();
       if (result.clearinghouse_date) suggestion.clearing_house = result.clearinghouse_date;
+      else if (result.docId === "clearinghouse") suggestion.clearing_house = todayISODate();
       if (result.medical_card_expiration_date)
         suggestion.medical_card_expiration_date = result.medical_card_expiration_date;
 
