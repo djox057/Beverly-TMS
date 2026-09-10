@@ -112,7 +112,14 @@ const canPropagateBaseSalary = (month: string): boolean => monthsBeforeNow(month
 
 export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOption[] }) {
   const queryClient = useQueryClient();
-  const defaultMonth = monthOptions[0]?.value ?? "all";
+  // Default month: current month on/after the 16th, previous month on/before the 15th (Chicago time)
+  const defaultMonth = useMemo(() => {
+    const chicagoNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
+    const d = new Date(chicagoNow);
+    if (d.getDate() <= 15) d.setMonth(d.getMonth() - 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    return monthOptions.find((m) => m.value === value)?.value ?? monthOptions[0]?.value ?? "all";
+  }, [monthOptions]);
   const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth);
   const [selectedRole, setSelectedRole] = useState<string>("recruiting");
   const [previewRow, setPreviewRow] = useState<PaymentRow | null>(null);
