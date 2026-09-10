@@ -14,6 +14,7 @@ import {
 import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, CreditCard, ShieldCheck, CircleDot, Wrench, IdCard, FileSearch, ScrollText, HeartPulse, FlaskConical, FileText, Mail } from "lucide-react";
 import { PaperworkTab } from "@/components/alerts/PaperworkTab";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
+import { annualDocExpiration, isAnnualDocExpiring, todayISODate } from "@/lib/annualDocuments";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
