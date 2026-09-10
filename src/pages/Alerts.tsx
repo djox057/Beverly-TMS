@@ -1829,14 +1829,20 @@ export default function Alerts() {
                   <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
                   <Input id="cdl_expiration_date" name="cdl_expiration_date" type="date" defaultValue={editingDriver.cdl_expiration_date || ""} />
                 </div>
-                <div>
-                  <Label htmlFor="mvr_date">MVR Date</Label>
-                  <Input id="mvr_date" name="mvr_date" type="date" defaultValue={editingDriver.mvr_date || ""} />
-                </div>
-                <div>
-                  <Label htmlFor="clearing_house">Clearing House</Label>
-                  <Input id="clearing_house" name="clearing_house" type="date" defaultValue={editingDriver.clearing_house || ""} />
-                </div>
+                 <div>
+                   <Label htmlFor="mvr_date">MVR Date (completed)</Label>
+                   <Input id="mvr_date" name="mvr_date" type="date" defaultValue={editingDriver.mvr_date || todayISODate()} />
+                   <p className="text-xs text-muted-foreground mt-1">
+                     Expires {formatDate(annualDocExpiration(editingDriver.mvr_date || todayISODate()))} (1 year)
+                   </p>
+                 </div>
+                 <div>
+                   <Label htmlFor="clearing_house">Clearing House (completed)</Label>
+                   <Input id="clearing_house" name="clearing_house" type="date" defaultValue={editingDriver.clearing_house || todayISODate()} />
+                   <p className="text-xs text-muted-foreground mt-1">
+                     Expires {formatDate(annualDocExpiration(editingDriver.clearing_house || todayISODate()))} (1 year)
+                   </p>
+                 </div>
                 <div>
                   <Label htmlFor="medical_card_expiration_date">Medical Card Expiration</Label>
                   <Input id="medical_card_expiration_date" name="medical_card_expiration_date" type="date" defaultValue={editingDriver.medical_card_expiration_date || ""} />
