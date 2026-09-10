@@ -1,6 +1,7 @@
 import { format, isSameDay, addDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
+import { addOneYear } from "@/lib/annualDocuments";
 
 // Helpers to check BOL/POD presence — synthetic files are injected by ordersTransform
 // when force_complete flags are true, so we only need to check order_files here.
