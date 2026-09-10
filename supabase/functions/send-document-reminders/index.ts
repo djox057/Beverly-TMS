@@ -55,6 +55,9 @@ const DRIVER_FIELDS: { key: string; label: string }[] = [
   { key: "random_drug_test_date", label: "Random Drug Test" },
 ];
 
+/** Driver fields that store a completion date and expire one year later. */
+const ANNUAL_DRIVER_FIELDS = new Set(["mvr_date", "clearing_house"]);
+
 const TEMP_PLATE_VALID_DAYS = 30;
 
 serve(async (req: Request): Promise<Response> => {
