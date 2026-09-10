@@ -214,7 +214,7 @@ serve(async (req: Request): Promise<Response> => {
           driverName: driver.name,
           document: f.label,
           fieldKey: f.key,
-          dueDate: String(driver[f.key]).slice(0, 10),
+          dueDate: String(dueValue).slice(0, 10),
           days,
           milestone,
           dispatcherId: driver.dispatcher_id ?? null,
