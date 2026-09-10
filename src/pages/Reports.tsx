@@ -1453,7 +1453,8 @@ const Reports = () => {
         toNum(order.no_tracking_fee) -
         toNum(order.wrong_address_fee) +
         toNum(order.escort_fee) -
-        toNum(order.other_charges);
+        toNum(order.other_charges) +
+        toNum(order.other_additionals);
 
       const loadedMiles = toNum(order.loaded_miles) || toNum(order.mileage);
 
