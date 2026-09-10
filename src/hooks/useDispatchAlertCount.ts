@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { isAnnualDocExpiring } from "@/lib/annualDocuments";
 
 const TWO_MONTHS_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
 const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
