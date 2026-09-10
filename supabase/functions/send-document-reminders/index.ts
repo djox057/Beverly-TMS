@@ -3,6 +3,7 @@ import { Resend } from "npm:resend@4.0.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import {
   FROM,
+  addOneYear,
   corsHeaders,
   chicagoTodayISO,
   daysUntil,
