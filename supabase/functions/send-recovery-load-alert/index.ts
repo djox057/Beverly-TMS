@@ -96,7 +96,7 @@ const resolveSender = (companyName: string | null | undefined) => {
   if (n.includes("AP SILVER")) return "Recovery Loads <dispatch@apsilvertrans.net>";
   if (n.includes("LALE")) return "Recovery Loads <dispatch@lalatransport.com>";
   if (n.includes("BG PRIME") || n.includes("BEVERLY GROUP")) return "Recovery Loads <dispatch@bgprime.net>";
-  return "Recovery Loads <jon@bfprime.net>";
+  return "Recovery Loads <dispatch@bfprime.net>";
 };
 
 const geocode = async (address: string) => {

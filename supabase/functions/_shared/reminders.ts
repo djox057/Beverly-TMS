@@ -6,7 +6,7 @@
 export const TEST_MODE = false;
 export const TEST_TO = ["tommy@bfprime.net"];
 export const TEST_CC = ["jon@bfprime.net"];
-export const FROM = "Dispatch <jon@bfprime.net>";
+export const FROM = "Dispatch <dispatch@bfprime.net>";
 export const SAFETY_FALLBACK = ["tommy@bfprime.net"];
 
 export const corsHeaders = {
