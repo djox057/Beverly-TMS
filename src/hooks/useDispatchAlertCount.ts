@@ -91,8 +91,9 @@ export const useDispatchAlertCount = () => {
       const driversWithAlert = (myDrivers || []).filter(
         (d) =>
           isExpiring(d.cdl_expiration_date, now) ||
-          isExpiring(d.mvr_date, now) ||
-          isExpiring(d.clearing_house, now) ||
+          // MVR / Clearinghouse: completion date + 1 year, alert 1 month before
+          isAnnualDocExpiring(d.mvr_date, now) ||
+          isAnnualDocExpiring(d.clearing_house, now) ||
           isExpiring(d.medical_card_expiration_date, now) ||
           isExpiring(d.random_drug_test_date, now),
       ).length;
