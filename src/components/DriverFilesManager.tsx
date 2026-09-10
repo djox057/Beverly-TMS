@@ -13,6 +13,7 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandItem, CommandG
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { addOneYear as addOneYearShared, todayISODate } from "@/lib/annualDocuments";
 import {
   DRIVER_DOCUMENT_PICKER,
   detectDriverDocumentType,
