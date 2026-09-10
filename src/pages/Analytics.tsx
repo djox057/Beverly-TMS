@@ -1721,6 +1721,18 @@ const Analytics = () => {
       }
     }
   };
+
+  // Default the Salaries tab month: current month on/after the 16th, previous month on/before the 15th (Chicago time)
+  useEffect(() => {
+    if (activeTab !== "salaries" || selectedMonth !== "all") return;
+    const chicagoNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
+    const d = new Date(chicagoNow);
+    if (d.getDate() <= 15) d.setMonth(d.getMonth() - 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    handleMonthChange(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedMonth]);
+
   // Calculate dispatcher analytics
   // Shared daysInPeriod for both dispatcherStats and fleetAverages
   const periodCapDate = new Date();
