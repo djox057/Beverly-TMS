@@ -1480,24 +1480,38 @@ export default function Alerts() {
                           )}
                          {showDriverCol("mvr") && (
                          <TableCell>
-                           <div className="flex items-center gap-2">
-                             {formatDate(driver.mvr_date)}
+                           <div className="flex flex-col gap-1">
+                             <div className="flex items-center gap-2">
+                               {formatDate(driver.mvr_date)}
+                               {driver.mvr_date && (
+                                 <Badge variant={getExpirationStatus(annualDocExpiration(driver.mvr_date)).variant}>
+                                   {getExpirationStatus(annualDocExpiration(driver.mvr_date)).label}
+                                 </Badge>
+                               )}
+                             </div>
                              {driver.mvr_date && (
-                               <Badge variant={getExpirationStatus(driver.mvr_date).variant}>
-                                 {getExpirationStatus(driver.mvr_date).label}
-                               </Badge>
+                               <span className="text-xs text-muted-foreground">
+                                 Expires {formatDate(annualDocExpiration(driver.mvr_date))}
+                               </span>
                              )}
                            </div>
                          </TableCell>
                          )}
                          {showDriverCol("clearing_house") && (
                          <TableCell>
-                           <div className="flex items-center gap-2">
-                             {formatDate(driver.clearing_house)}
+                           <div className="flex flex-col gap-1">
+                             <div className="flex items-center gap-2">
+                               {formatDate(driver.clearing_house)}
+                               {driver.clearing_house && (
+                                 <Badge variant={getExpirationStatus(annualDocExpiration(driver.clearing_house)).variant}>
+                                   {getExpirationStatus(annualDocExpiration(driver.clearing_house)).label}
+                                 </Badge>
+                               )}
+                             </div>
                              {driver.clearing_house && (
-                               <Badge variant={getExpirationStatus(driver.clearing_house).variant}>
-                                 {getExpirationStatus(driver.clearing_house).label}
-                               </Badge>
+                               <span className="text-xs text-muted-foreground">
+                                 Expires {formatDate(annualDocExpiration(driver.clearing_house))}
+                               </span>
                              )}
                            </div>
                          </TableCell>
