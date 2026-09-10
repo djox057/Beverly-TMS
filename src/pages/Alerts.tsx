@@ -571,7 +571,11 @@ export default function Alerts() {
   const sortedDrivers = driverSort
     ? [...filteredDrivers].sort((a, b) => {
         const field = driverSortKeyToDate[driverSort.key];
-        return compareDates((a as any)[field], (b as any)[field], driverSort.dir);
+        // MVR / Clearinghouse store the completion date — sort by calculated expiration
+        const annual = driverSort.key === "mvr" || driverSort.key === "clearing_house";
+        const aVal = annual ? annualDocExpiration((a as any)[field]) : (a as any)[field];
+        const bVal = annual ? annualDocExpiration((b as any)[field]) : (b as any)[field];
+        return compareDates(aVal, bVal, driverSort.dir);
       })
     : filteredDrivers;
 
