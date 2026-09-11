@@ -4204,7 +4204,7 @@ const Trips = () => {
 
       // D3: Invoice number, F3: Issue date
       worksheet.getCell("D3").value = invoiceNumber;
-      worksheet.getCell("F3").value = format(thursdayDate, "M/d/yy");
+      worksheet.getCell("F3").value = format(thursdayDate, "MM/dd/yyyy");
 
       // B11: Pay period
       worksheet.getCell("B11").value =
