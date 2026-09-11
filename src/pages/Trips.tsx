@@ -4385,8 +4385,11 @@ const Trips = () => {
 
       // Scheduled deductions from Stuff
       if (scheduledDeductions.length > 0) {
-        const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
-        const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
+        const nonFridgeDeductions = scheduledDeductions.filter(
+          (d) => !(d.explanation || "").toLowerCase().includes("fridge"),
+        );
+        const creditDeductions = nonFridgeDeductions.filter((d) => d.expenseType === "credit");
+        const expenseDeductions = nonFridgeDeductions.filter((d) => d.expenseType !== "credit");
         creditDeductions.forEach((credit) => {
           if (creditsRow > 60) return;
           worksheet.getCell(`C${creditsRow}`).value = `Credit: ${credit.explanation}`;
