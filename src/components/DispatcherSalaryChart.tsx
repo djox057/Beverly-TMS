@@ -428,7 +428,10 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
     const y = Number(yStr);
     const mIdx = Number(mStr) - 1;
     const workDays = Number.isFinite(y) && Number.isFinite(mIdx) ? getWorkDaysInMonth(y, mIdx) : 22;
-    const perDay = workDays > 0 ? base / workDays : 0;
+    const isAfterhours = userId ? afterhoursUserIds.has(userId) : false;
+    const dayDivisor = isAfterhours ? 16 : workDays;
+    const perDay = dayDivisor > 0 ? base / dayDivisor : 0;
+
     const bonus = include.bonuses && userId ? bonuses[`${userId}|${month}`] || 0 : 0;
     const adds = userId ? additionals[`${userId}|${month}`] || [] : [];
     let adj = 0;
