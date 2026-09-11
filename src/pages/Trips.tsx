@@ -4156,6 +4156,288 @@ const Trips = () => {
     }
   };
 
+  // Lale Transport LLC Template Export
+  const exportLaleTransportTemplate = async (
+    week: any,
+    weekStartDate: Date,
+    weekEndDate: Date,
+    firstOrder: any,
+    driver: any,
+    scheduledDeductions: ScheduledDeduction[] = [],
+  ) => {
+    try {
+      const response = await fetch(new URL("../assets/templates/Lale_Transport.xlsx", import.meta.url).toString());
+      const arrayBuffer = await response.arrayBuffer();
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+      const worksheet = workbook.getWorksheet(1);
+      if (!worksheet) throw new Error("Template worksheet not found");
+
+      const sortedOrders = sortOrdersAscending(week.orders);
+
+      // Invoice number from DB
+      const { data: configData, error: configError } = await supabase
+        .from("invoice_number_config")
+        .select("*")
+        .eq("statement_type", "lale_transport")
+        .single();
+
+      let invoiceNumber = 1;
+      if (!configError && configData) {
+        const currentMonday = startOfWeek(weekStartDate, { weekStartsOn: 1 });
+        const lastMonday = new Date(configData.last_monday);
+        invoiceNumber = configData.current_number;
+        if (currentMonday.getTime() !== lastMonday.getTime()) {
+          invoiceNumber = configData.current_number + 1;
+          await supabase
+            .from("invoice_number_config")
+            .update({ current_number: invoiceNumber, last_monday: format(currentMonday, "yyyy-MM-dd") })
+            .eq("statement_type", "lale_transport");
+        }
+      }
+
+      // Thursday 2 weeks in the future from week start
+      const thursdayDate = addDays(weekStartDate, 16);
+
+      // D3: Invoice number, F3: Issue date
+      worksheet.getCell("D3").value = invoiceNumber;
+      worksheet.getCell("F3").value = format(thursdayDate, "M/d/yy");
+
+      // B11: Pay period
+      worksheet.getCell("B11").value =
+        `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
+
+      // E5: Driver name, E6: Company name, E7: Agreement start date, E8: Truck number, E9: Agreement terms
+      worksheet.getCell("E5").value = driver?.name || firstOrder.driverName || "";
+      worksheet.getCell("E6").value = driver?.company_name || "";
+      if (driver?.agreement_start_date) {
+        const e7Cell = worksheet.getCell("E7");
+        e7Cell.value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
+        e7Cell.alignment = { horizontal: "center", vertical: "middle" };
+      }
+      worksheet.getCell("E8").value = firstOrder.truckNumber || "";
+      if (driver?.weekly_payment && driver?.weeks_count) {
+        worksheet.getCell("E9").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
+      }
+
+      // Clear trip rows 13-19
+      for (let row = 13; row <= 19; row++) {
+        for (const col of ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]) {
+          worksheet.getCell(`${col}${row}`).value = null;
+        }
+      }
+
+      // Fill trips (rows 13-19)
+      let currentRow = 13;
+      sortedOrders.forEach((order: any) => {
+        if (currentRow > 19) return;
+        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
+        worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
+        worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
+        worksheet.getCell(`D${currentRow}`).value = order.pickupState || "";
+        worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
+        worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
+        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
+        worksheet.getCell(`H${currentRow}`).value = parseFloat(String(order.mileage)) || 0;
+
+        const driverPay = parseFloat(order.driverPrice) || 0;
+        const cellI = worksheet.getCell(`I${currentRow}`);
+        cellI.value = driverPay;
+        cellI.numFmt = "$#,##0.00";
+
+        const cellJ = worksheet.getCell(`J${currentRow}`);
+        cellJ.value = driverPay * 0.88;
+        cellJ.numFmt = "$#,##0.00";
+
+        currentRow++;
+      });
+
+      for (let row = 13; row <= 19; row++) {
+        worksheet.getCell(`I${row}`).numFmt = "$#,##0.00";
+        worksheet.getCell(`J${row}`).numFmt = "$#,##0.00";
+      }
+
+      // Credits (positive additionals) -> rows 58-60
+      const credits: Array<{ internalLoadNumber: string; type: string; deliveryDate: string; amount: number }> = [];
+      sortedOrders.forEach((order: any) => {
+        const push = (type: string, amount: number) => {
+          if (amount > 0)
+            credits.push({
+              internalLoadNumber: order.internalLoadNumber || "",
+              type,
+              deliveryDate: formatDateDisplay(order.deliveryDate),
+              amount,
+            });
+        };
+        push("Detention", Number(order.detentionDriver) || 0);
+        push("Layover", Number(order.layoverDriver) || 0);
+        push("TONU", Number(order.tonuDriver) || 0);
+        push("Extra Stop", Number(order.extraStopDriver) || 0);
+        push("Lumper", Number(order.lumperDriver) || 0);
+        push(
+          (order as any).otherAdditionalsReason || "Other Additionals",
+          Number((order as any).otherAdditionalsDriver) || 0,
+        );
+      });
+
+      let creditsRow = 58;
+      credits.forEach((credit) => {
+        if (creditsRow > 60) return;
+        worksheet.getCell(`C${creditsRow}`).value = credit.type;
+        worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
+        const amtCell = worksheet.getCell(`J${creditsRow}`);
+        amtCell.value = credit.amount;
+        amtCell.numFmt = "$#,##0.00";
+        creditsRow++;
+      });
+
+      // Negative additionals -> deductions
+      const negativeAdditionals: Array<{
+        internalLoadNumber: string;
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+      sortedOrders.forEach((order: any) => {
+        const push = (type: string, amount: number) => {
+          if (amount > 0)
+            negativeAdditionals.push({
+              internalLoadNumber: order.internalLoadNumber || "",
+              type,
+              deliveryDate: formatDateDisplay(order.deliveryDate),
+              amount,
+            });
+        };
+        push("Late Fee", Math.abs(Number(order.lateFeeDriver) || 0));
+        push("No Tracking Fee", Math.abs(Number(order.noTrackingFeeDriver) || 0));
+        push("Wrong Address Fee", Math.abs(Number(order.wrongAddressFeeDriver) || 0));
+        push(
+          (order as any).otherChargesReason || "Other Charges",
+          Math.abs(Number(order.otherChargesDriver) || 0),
+        );
+      });
+
+      // Fixed deductions (rows 25-33, total at row 34)
+      const endDateFormatted = format(weekEndDate, "MM/dd/yyyy");
+      const deductions = [
+        { row: 25, description: "Cargo Insurance", amount: 285.0 },
+        { row: 26, description: "Trailer+ Insurance", amount: 285.0 },
+        { row: 27, description: "ELD", amount: 50.0 },
+        { row: 28, description: "Pre-Pass", amount: 20.0 },
+        { row: 29, description: "Truck Payment" },
+        { row: 30, description: "Truck Insurance", amount: 195.0 },
+      ];
+      deductions.forEach(({ row, description, amount }) => {
+        worksheet.getCell(`B${row}`).value = description;
+        worksheet.getCell(`I${row}`).value = endDateFormatted;
+        if (amount !== undefined) {
+          const cellJ = worksheet.getCell(`J${row}`);
+          cellJ.value = amount;
+          cellJ.numFmt = "$#,##0.00";
+        }
+      });
+
+      // Truck payment weeks info
+      if (driver?.agreement_start_date && driver?.weeks_count) {
+        const startDate = new Date(driver.agreement_start_date);
+        const currentDate = new Date();
+        const weeksPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        worksheet.getCell("E29").value = `${weeksPassed}/${driver.weeks_count}`;
+        worksheet.getCell("E29").font = { bold: true, size: 11 };
+      }
+      if (driver?.weekly_payment) {
+        const j29Cell = worksheet.getCell("J29");
+        j29Cell.value = driver.weekly_payment;
+        j29Cell.numFmt = "$#,##0.00";
+      }
+
+      // Extra deductions after the fixed ones (rows 31-33)
+      let negativeRow = 31;
+      negativeAdditionals.forEach((neg) => {
+        if (negativeRow > 33) return;
+        worksheet.getCell(`B${negativeRow}`).value = neg.internalLoadNumber;
+        worksheet.getCell(`C${negativeRow}`).value = neg.type;
+        worksheet.getCell(`I${negativeRow}`).value = neg.deliveryDate;
+        const amtCell = worksheet.getCell(`J${negativeRow}`);
+        amtCell.value = neg.amount;
+        amtCell.numFmt = "$#,##0.00";
+        negativeRow++;
+      });
+
+      // EFS deductions
+      const efsDeductions = await fetchEfsDeductionsForStatement(
+        firstOrder.driver1Id || "",
+        weekStartDate,
+        weekEndDate,
+      );
+      efsDeductions.forEach((efs) => {
+        if (negativeRow > 33) return;
+        worksheet.getCell(`B${negativeRow}`).value = efs.description;
+        worksheet.getCell(`I${negativeRow}`).value = efs.date;
+        const amtCell = worksheet.getCell(`J${negativeRow}`);
+        amtCell.value = efs.amount;
+        amtCell.numFmt = "$#,##0.00";
+        negativeRow++;
+      });
+
+      // Scheduled deductions from Stuff
+      if (scheduledDeductions.length > 0) {
+        const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
+        const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
+        creditDeductions.forEach((credit) => {
+          if (creditsRow > 60) return;
+          worksheet.getCell(`C${creditsRow}`).value = `Credit: ${credit.explanation}`;
+          worksheet.getCell(`I${creditsRow}`).value = endDateFormatted;
+          const amtCell = worksheet.getCell(`J${creditsRow}`);
+          amtCell.value = credit.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          creditsRow++;
+        });
+        expenseDeductions.forEach((deduction) => {
+          if (negativeRow > 33) return;
+          worksheet.getCell(`B${negativeRow}`).value = `Scheduled: ${deduction.explanation}`;
+          worksheet.getCell(`I${negativeRow}`).value = endDateFormatted;
+          const amtCell = worksheet.getCell(`J${negativeRow}`);
+          amtCell.value = deduction.deductionAmount;
+          amtCell.numFmt = "$#,##0.00";
+          negativeRow++;
+        });
+      }
+
+      // Fuel transactions (rows 39-54)
+      const fuelTransactions = await fetchFuelTransactionsForStatement(
+        firstOrder.truckNumber || "",
+        firstOrder.truckId || "",
+        week.orders,
+        weekStartDate,
+      );
+      writeFuelTransactionsForUES(worksheet, fuelTransactions, 39, 54);
+
+      const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
+      const driverName = driver?.name || firstOrder?.driverName || "";
+      const driverInfo = driverName && typeof driverName === "string" ? `_${driverName.replace(/\s+/g, "-")}` : "";
+      const filename = `Lale_Transport_${weekRange}${driverInfo}.xlsx`;
+
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70, 11);
+      const buffer = await cleanWorkbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`Exported ${week.orders.length} trips to Excel`);
+    } catch (error) {
+      console.error("Error exporting Lale Transport template:", error);
+      toast.error("Failed to export statement");
+    }
+  };
+
+
+
   const exportBFPrimeTemplate = async (
     week: any,
     weekStartDate: Date,
