@@ -215,6 +215,7 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
   // Extra days from afterhours_schedule (all-time) grouped per user+month.
 
 
+
   // Mirrors Analytics.tsx: weekend entries minus 1 (first weekend day is regular),
   // plus explicit weekday entries (only the 2026-01-10 Kragujevac moving day today),
   // excluding US holidays.
