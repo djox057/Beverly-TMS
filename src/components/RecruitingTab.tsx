@@ -791,14 +791,15 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
           baseSalary: previewRow.base_salary,
           departmentLabel:
             ROLE_OPTIONS.find((o) => o.value === selectedRole)?.label ?? "Recruiting",
-          workDaysInMonth,
+          workDaysInMonth: dayDivisor,
           perDayRate:
-            workDaysInMonth > 0
+            dayDivisor > 0
               ? (previewRow.base_salary +
                   previewRow.with_card_days * WITH_CARD_RATE +
                   previewRow.without_card_days * WITHOUT_CARD_RATE) /
-                workDaysInMonth
+                dayDivisor
               : 0,
+
           extraDayDates: previewRow.extra_day_dates,
           lostDayDates: previewRow.lost_day_dates,
           withCardDays: previewRow.with_card_days,
