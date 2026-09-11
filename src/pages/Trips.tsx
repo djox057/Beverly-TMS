@@ -1753,6 +1753,8 @@ const Trips = () => {
         );
       } else if (resolvedCompanyName === "AP Silver Trans LLC") {
         await exportAPSilverTransTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
+      } else if (resolvedCompanyName === "Lale Transport LLC") {
+        await exportLaleTransportTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else {
         // Use the old export method for other companies
         exportGenericExcel(week, weekStartDate, weekEndDate);
