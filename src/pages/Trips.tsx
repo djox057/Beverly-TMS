@@ -4368,11 +4368,11 @@ const Trips = () => {
       });
 
       // EFS deductions
-      const efsDeductions = await fetchEfsDeductionsForStatement(
+      const efsDeductions = (await fetchEfsDeductionsForStatement(
         firstOrder.driver1Id || "",
         weekStartDate,
         weekEndDate,
-      );
+      )).filter((efs) => !efs.description.toLowerCase().includes("fridge"));
       efsDeductions.forEach((efs) => {
         if (negativeRow > 33) return;
         worksheet.getCell(`B${negativeRow}`).value = efs.description;
