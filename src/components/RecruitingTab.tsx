@@ -394,6 +394,10 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
     return getWorkDaysInMonth(y, m - 1);
   }, [selectedMonth]);
 
+  // Afterhours staff earn/lose days against a fixed 16-day divisor instead of
+  // the month's workday count.
+  const dayDivisor = selectedRole === "afterhours" ? 16 : workDaysInMonth;
+
   const computeSalary = (r: PaymentRow) => {
     const withCard = showCardColumns ? r.with_card_days : 0;
     const withoutCard = showCardColumns ? r.without_card_days : 0;
@@ -401,7 +405,8 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
       r.base_salary +
       withCard * WITH_CARD_RATE +
       withoutCard * WITHOUT_CARD_RATE;
-    const perDay = workDaysInMonth > 0 ? perDayBase / workDaysInMonth : 0;
+    const perDay = dayDivisor > 0 ? perDayBase / dayDivisor : 0;
+
     const adjTotal = (r.adjustments ?? []).reduce((sum, a) => {
       if (a.type === "addition") return sum + a.amount;
       if (a.type === "charge") return sum - a.amount;
