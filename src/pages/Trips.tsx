@@ -4303,7 +4303,7 @@ const Trips = () => {
       }> = [];
       sortedOrders.forEach((order: any) => {
         const push = (type: string, amount: number) => {
-          if (amount > 0)
+          if (amount > 0 && !type.toLowerCase().includes("fridge"))
             negativeAdditionals.push({
               internalLoadNumber: order.internalLoadNumber || "",
               type,
@@ -4368,11 +4368,11 @@ const Trips = () => {
       });
 
       // EFS deductions
-      const efsDeductions = await fetchEfsDeductionsForStatement(
+      const efsDeductions = (await fetchEfsDeductionsForStatement(
         firstOrder.driver1Id || "",
         weekStartDate,
         weekEndDate,
-      );
+      )).filter((efs) => !efs.description.toLowerCase().includes("fridge"));
       efsDeductions.forEach((efs) => {
         if (negativeRow > 33) return;
         worksheet.getCell(`B${negativeRow}`).value = efs.description;
@@ -4385,8 +4385,11 @@ const Trips = () => {
 
       // Scheduled deductions from Stuff
       if (scheduledDeductions.length > 0) {
-        const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
-        const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
+        const nonFridgeDeductions = scheduledDeductions.filter(
+          (d) => !(d.explanation || "").toLowerCase().includes("fridge"),
+        );
+        const creditDeductions = nonFridgeDeductions.filter((d) => d.expenseType === "credit");
+        const expenseDeductions = nonFridgeDeductions.filter((d) => d.expenseType !== "credit");
         creditDeductions.forEach((credit) => {
           if (creditsRow > 60) return;
           worksheet.getCell(`C${creditsRow}`).value = `Credit: ${credit.explanation}`;
