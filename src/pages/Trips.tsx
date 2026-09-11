@@ -4303,7 +4303,7 @@ const Trips = () => {
       }> = [];
       sortedOrders.forEach((order: any) => {
         const push = (type: string, amount: number) => {
-          if (amount > 0)
+          if (amount > 0 && !type.toLowerCase().includes("fridge"))
             negativeAdditionals.push({
               internalLoadNumber: order.internalLoadNumber || "",
               type,
