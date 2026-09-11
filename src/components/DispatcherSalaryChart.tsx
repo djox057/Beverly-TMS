@@ -212,7 +212,23 @@ function DispatcherSalaryChartBody({ orders = [], companyDriverIds }: Dispatcher
     staleTime: 15 * 60 * 1000,
   });
 
+  // Afterhours users use a fixed 16-day divisor for extra/lost day pay
+  // instead of the month's workdays (mirrors Analytics.tsx).
+  const { data: afterhoursUserIds = new Set<string>() } = useQuery({
+    queryKey: ["dispatcher-salary-chart", "afterhours-roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .eq("role", "afterhours");
+      if (error) throw error;
+      return new Set<string>(((data as any[]) || []).map((r) => r.user_id).filter(Boolean));
+    },
+    staleTime: 15 * 60 * 1000,
+  });
+
   // Extra days from afterhours_schedule (all-time) grouped per user+month.
+
   // Mirrors Analytics.tsx: weekend entries minus 1 (first weekend day is regular),
   // plus explicit weekday entries (only the 2026-01-10 Kragujevac moving day today),
   // excluding US holidays.
