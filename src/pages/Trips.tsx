@@ -5066,6 +5066,8 @@ const Trips = () => {
         await exportFinalBGPrimeIncTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
       } else if (companyName === "AP Silver Trans LLC") {
         await exportFinalAPSilverTransTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
+      } else if (companyName === "Lale Transport LLC") {
+        await exportLaleTransportTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
       } else {
         exportGenericExcel(weekData, earliestDate, latestDate);
       }
