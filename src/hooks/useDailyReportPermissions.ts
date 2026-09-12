@@ -1,85 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { busChannel } from "@/hooks/realtimeBus";
 
-export interface DailyReportPermissions {
-  canView: boolean;
-  canEdit: boolean;
-  loading: boolean;
-}
-
-/**
- * Returns the current user's Daily Report permissions.
- * Admins always have full access. Every other role — including managers and
- * supervisors — only gets access when an admin has explicitly granted it in
- * `daily_report_permissions`.
- */
+export interface DailyReportPermissions { canView: boolean; canEdit: boolean; loading: boolean; }
 export const useDailyReportPermissions = (): DailyReportPermissions => {
   const { user, roles, loading: authLoading } = useAuthContext();
-  const [canView, setCanView] = useState(false);
-  const [canEdit, setCanEdit] = useState(false);
-  const [loading, setLoading] = useState(true);
-
+  const queryClient = useQueryClient();
+  const admin = roles.includes("admin" as any);
+  const query = useQuery({
+    queryKey: ["daily-report-permissions", user?.id],
+    enabled: !!user?.id && !authLoading && !admin,
+    staleTime: 60000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("daily_report_permissions" as any)
+        .select("can_view, can_edit").eq("user_id", user!.id).maybeSingle();
+      if (error) throw error;
+      return data as { can_view?: boolean; can_edit?: boolean } | null;
+    },
+  });
   useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      if (authLoading) return;
-      if (!user?.id) {
-        setCanView(false);
-        setCanEdit(false);
-        setLoading(false);
-        return;
-      }
-
-      // Admins always have full access. Use exact role membership instead of
-      // `hasRole('admin')` because that helper treats manager/supervisor/
-      // accounting/chicago_management as admin for general access checks.
-      if (roles.includes("admin" as any)) {
-        if (!cancelled) {
-          setCanView(true);
-          setCanEdit(true);
-          setLoading(false);
-        }
-        return;
-      }
-
-      const { data } = await supabase
-        .from("daily_report_permissions" as any)
-        .select("can_view, can_edit")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (cancelled) return;
-      const row = data as { can_view?: boolean; can_edit?: boolean } | null;
-      setCanView(!!row?.can_view);
-      setCanEdit(!!row?.can_edit);
-      setLoading(false);
-    };
-
-    load();
-
-    // Live update when admins change permissions
-    if (!user?.id) return;
-    const channel = supabase
-      .channel(`daily-report-perms-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "daily_report_permissions",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => load()
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, authLoading, roles]);
-
-  return { canView, canEdit, loading };
+    if (!user?.id || admin) return;
+    const refresh = () => { void queryClient.invalidateQueries({ queryKey: ["daily-report-permissions", user.id] }); };
+    const channel = busChannel(refresh, `daily-report-permissions:${user.id}`)
+      .on("postgres_changes", { table: "daily_report_permissions", event: "*" }, refresh).subscribe();
+    return () => channel.unsubscribe();
+  }, [user?.id, admin, queryClient]);
+  return {
+    canView: !!user && (admin || !!query.data?.can_view),
+    canEdit: !!user && (admin || !!query.data?.can_edit),
+    loading: authLoading || (!!user && !admin && query.isPending),
+  };
 };

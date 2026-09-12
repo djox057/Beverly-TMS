@@ -124,12 +124,15 @@ export const fetchPickupDropsForOrders = async (orderIds: string[]): Promise<any
 
   for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
     const batch = orderIds.slice(i, i + BATCH_SIZE);
+    for (let offset = 0; ; offset += 1000) {
     const { data, error } = await supabase
       .from("pickup_drops")
       .select("id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, latitude, longitude")
-      .in("order_id", batch);
-    if (error) console.error('[useReportsDateWindow] Error fetching pickup_drops batch:', error);
+      .in("order_id", batch).order("id").range(offset, offset + 999);
+    if (error) throw error;
     if (data) allDrops.push(...data);
+      if ((data?.length || 0) < 1000) break;
+    }
   }
   return allDrops;
 };
@@ -145,12 +148,15 @@ export const fetchOrderTransfersForOrders = async (orderIds: string[]): Promise<
 
   for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
     const batch = orderIds.slice(i, i + BATCH_SIZE);
+    for (let offset = 0; ; offset += 1000) {
     const { data, error } = await supabase
       .from("order_transfers")
       .select("id, order_id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id, miles, driver_price, transfer_city, transfer_state, transfer_address, transfer_datetime")
-      .in("order_id", batch);
-    if (error) console.error('[useReportsDateWindow] Error fetching order_transfers batch:', error);
+      .in("order_id", batch).order("id").range(offset, offset + 999);
+    if (error) throw error;
     if (data) allTransfers.push(...data);
+      if ((data?.length || 0) < 1000) break;
+    }
   }
   return allTransfers;
 };
@@ -619,6 +625,14 @@ const fetchAllOfficeDriverScopes = async (): Promise<Map<string, { driverIds: st
  */
 const globalAccumulatedOrders = new Map<string, any>();
 const globalLoadedWindows = new Set<string>();
+let reportsCacheGeneration = 0;
+export const getReportsCacheGeneration = () => reportsCacheGeneration;
+export const resetReportsOrderCache = () => {
+  reportsCacheGeneration++;
+  globalLoadedWindows.clear();
+  globalAccumulatedOrders.clear();
+  flushGlobalStoreNotifications();
+};
 let lastIndividualMode: boolean | undefined = undefined;
 
 // Version counter to trigger re-renders when orders are injected externally
@@ -740,6 +754,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   // Reset global state ONLY when individual mode changes (complete data context switch)
   if (lastIndividualMode !== undefined && lastIndividualMode !== individualMode) {
     console.log(`[useReportsDateWindow] Individual mode changed, clearing global accumulated orders`);
+    reportsCacheGeneration++;
     globalAccumulatedOrders.clear();
     globalLoadedWindows.clear();
   }
@@ -866,6 +881,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   const { isFetching, refetch } = useQuery({
     queryKey: ['reports-date-window-orders', windowKey, priorityOffice || 'all-offices', individualMode ? 'individual' : 'all', individualMode ? currentUserDispatcherId : 'all'],
     queryFn: async () => {
+      const generation = reportsCacheGeneration;
       // Read from ref to avoid stale closure issues
       const driverIds = driverIdsRef.current;
       const windowToLoad = currentWindowRef.current;
@@ -930,6 +946,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
         return !hasLaterOrSameDayLoad;
       });
       
+      if (generation !== reportsCacheGeneration) throw new Error("Reports snapshot superseded");
       // Add to global accumulated store
       for (const order of allOrders) {
         globalAccumulatedOrders.set(order.id, order);
@@ -974,10 +991,18 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   // Track which published-driverIds signature we've already triggered for, so
   // that when the spotlight expands to the full set we trigger again.
   const lastTriggeredSignatureRef = useRef<string>('');
+  const loadedScopeSignaturesRef = useRef(new Map<string, string>());
   useEffect(() => {
     const driverIds = publishedDriverIds;
     const scopedKey = `${priorityOffice || 'all'}_${individualMode ? currentUserDispatcherId : 'all'}_${windowKey}`;
-    const signature = `${scopedKey}|n=${driverIds.length}|first=${driverIds[0] || ''}`;
+    const scopeSignature = [...driverIds].sort().join(",");
+    const previousScope = loadedScopeSignaturesRef.current.get(scopedKey);
+    if (previousScope !== undefined && previousScope !== scopeSignature) {
+      globalLoadedWindows.delete(scopedKey);
+      reportsCacheGeneration++;
+    }
+    loadedScopeSignaturesRef.current.set(scopedKey, scopeSignature);
+    const signature = `${scopedKey}|${scopeSignature}`;
     if (
       driverIds.length > 0 &&
       !globalLoadedWindows.has(scopedKey) &&
