@@ -60,7 +60,7 @@ export const getCompanyBackgroundColor = (companyName: string | null) => {
   } else if (normalizedName.includes("BG PRIME")) {
     return {
       backgroundColor: "hsl(var(--company-bg-prime))",
-      color: "black",
+      color: "hsl(var(--company-bg-prime-foreground))",
     };
   } else if (normalizedName.includes("UNITED ENTERPRISE")) {
     return {
