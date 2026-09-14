@@ -73,6 +73,7 @@ const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
   { name: "Loads", href: "/orders", icon: FileText },
   { name: "BG Loads", href: "/bg-loads", icon: FileText },
+  { name: "LALE Loads", href: "/lale-loads", icon: FileText },
   {
     name: "Loads at the Yard",
     href: "/yard-loads",
