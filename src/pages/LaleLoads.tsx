@@ -89,7 +89,7 @@ const getStatusBadge = (status: string) => {
       return <Badge variant="secondary">{status}</Badge>;
   }
 };
-const BgLoads = () => {
+const LaleLoads = () => {
   useDragPan();
   const navigate = useNavigate();
   const { hasRole, getPrimaryRole, profile, roles } = useAuthContext();
@@ -162,7 +162,7 @@ const BgLoads = () => {
       currentPage,
     };
     localStorage.setItem("laleLoadsFilterState", JSON.stringify(filterState));
-    localStorage.setItem("returnToBgLoads", "true");
+    localStorage.setItem("returnToLaleLoads", "true");
     const targetUrl = `/edit-order/${orderId}`;
     console.log("Target URL:", targetUrl);
 
@@ -277,7 +277,7 @@ const BgLoads = () => {
 
   // Restore filter state from localStorage on mount
   useEffect(() => {
-    const shouldRestore = localStorage.getItem("returnToBgLoads");
+    const shouldRestore = localStorage.getItem("returnToLaleLoads");
     if (shouldRestore === "true") {
       const savedState = localStorage.getItem("laleLoadsFilterState");
       if (savedState) {
@@ -312,7 +312,7 @@ const BgLoads = () => {
         }
       }
       // Clear the flags
-      localStorage.removeItem("returnToBgLoads");
+      localStorage.removeItem("returnToLaleLoads");
       localStorage.removeItem("laleLoadsFilterState");
     }
   }, []);
@@ -3035,4 +3035,4 @@ const BgLoads = () => {
     </div>
   );
 };
-export default BgLoads;
+export default LaleLoads;
