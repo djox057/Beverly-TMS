@@ -1093,7 +1093,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                               </div>
                             ) : (
                               <>
-                                <ScrollArea className="flex-1 border rounded-md p-2 max-h-48 sm:max-h-[30vh]">
+                                <div className="flex-1 border rounded-md p-2 overflow-y-auto max-h-[45vh] sm:max-h-[30vh]" style={{ WebkitOverflowScrolling: 'touch' }}>
                                   {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
                                     const officeUsersForOffice = usersByOffice[office] || [];
                                     const config = OFFICE_CONFIG[office];
@@ -1376,7 +1376,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       </div>
                                     );
                                   })}
-                                </ScrollArea>
+                                </div>
                               </>
                             )}
 
