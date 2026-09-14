@@ -21,6 +21,7 @@ import NewOrder from "./pages/NewOrder";
 import EditOrder from "./pages/EditOrder";
 import Orders from "./pages/Orders";
 import BgLoads from "./pages/BgLoads";
+import LaleLoads from "./pages/LaleLoads";
 import YardLoads from "./pages/YardLoads";
 import Trucks from "./pages/Trucks";
 import Trailers from "./pages/Trailers";
@@ -141,6 +142,11 @@ const AppContent = () => {
         <Route path="/bg-loads" element={
           <ProtectedRoute>
             <Layout><BgLoads /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/lale-loads" element={
+          <ProtectedRoute>
+            <Layout><LaleLoads /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/yard-loads" element={
