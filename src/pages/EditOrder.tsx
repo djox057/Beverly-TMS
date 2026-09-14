@@ -656,6 +656,10 @@ const EditOrder = () => {
       sender: "Lale Transport Dispatch <dispatch@laletransport.com>",
       cc: "dispatch@laletransport.com",
     },
+    "Jones Freight Lines LLC": {
+      sender: "Jones Freight Lines Dispatch <dispatch@jonesfreight.net>",
+      cc: "dispatch@jonesfreight.net",
+    },
   };
 
   // Fetch profiles for booked by dropdown

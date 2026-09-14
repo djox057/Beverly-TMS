@@ -8350,6 +8350,16 @@ const Reports = () => {
                   />
                   <span className="text-sm font-bold">Lale Transport LLC</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-16 h-8 rounded border"
+                    style={{
+                      backgroundColor: "hsl(var(--company-jones))",
+                      color: "hsl(var(--company-jones-foreground))",
+                    }}
+                  />
+                  <span className="text-sm font-bold">Jones Freight Lines LLC</span>
+                </div>
               </div>
             </div>
 
