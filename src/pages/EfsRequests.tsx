@@ -683,6 +683,28 @@ export default function EfsRequests() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete receipt confirmation dialog */}
+      <AlertDialog open={!!receiptToDelete} onOpenChange={() => setReceiptToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Receipt</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this receipt file for {receiptToDelete?.driver_name}? The request
+              itself will be kept. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => receiptToDelete && deleteReceiptMutation.mutate(receiptToDelete)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Receipt
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
