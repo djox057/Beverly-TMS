@@ -575,7 +575,7 @@ const TransferList = () => {
   const { data: drivers = [] } = useDrivers();
   const { data: companies = [] } = useCompanies();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>("bf_prime");
+  const [activeTab, setActiveTab] = useState<string>("jones");
 
   const canEdit = hasRole("admin") || hasRole("manager") || hasRole("safety");
   const { roles } = useAuthContext();
