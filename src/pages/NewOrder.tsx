@@ -236,6 +236,10 @@ const NewOrder = () => {
       sender: "Lale Transport Dispatch <dispatch@laletransport.com>",
       cc: "dispatch@laletransport.com",
     },
+    "Jones Freight Lines LLC": {
+      sender: "Jones Freight Lines Dispatch <dispatch@jonesfreight.net>",
+      cc: "dispatch@jonesfreight.net",
+    },
   };
 
   // Drag states for file uploads
@@ -368,7 +372,7 @@ const NewOrder = () => {
   });
 
   // Allowed booking entities for "Booked by company" dropdown
-  const baseBookingCompanyNames = ["BF Prime LLC", "Beverly Freight Inc", "BG Prime Inc", "Lale Transport LLC"];
+  const baseBookingCompanyNames = ["BF Prime LLC", "Beverly Freight Inc", "BG Prime Inc", "Lale Transport LLC", "Jones Freight Lines LLC"];
   const bgPrimeCompany = companies?.find((c) => c.name === "BG Prime Inc");
 
   // Get company_id from selected driver1 (not from truck)

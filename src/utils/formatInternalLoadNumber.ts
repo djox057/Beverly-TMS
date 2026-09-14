@@ -26,6 +26,9 @@ export function getCompanySuffix(companyName: string | null | undefined): string
   if (normalizedName.includes("lale transport") || normalizedName === "lale transport llc") {
     return "LT";
   }
+  if (normalizedName.includes("jones freight") || normalizedName === "jones freight lines llc") {
+    return "JF";
+  }
   if (normalizedName.includes("bf prime united") || normalizedName === "bf prime united llc") {
     return "BFU";
   }
@@ -71,6 +74,7 @@ export function getCompanyNameFromSuffix(internalLoadNumber: string | null | und
     "BG": "BG Prime Inc",
     "AP": "AP Silver Trans LLC",
     "LT": "Lale Transport LLC",
+    "JF": "Jones Freight Lines LLC",
   };
   return map[suffix] || null;
 }
@@ -117,9 +121,9 @@ export function resolveLoadCompanyCode(
   const base = internalLoadNumber == null ? "" : internalLoadNumber.toString();
   if (base.includes("-")) {
     const suffix = base.split("-").pop()!.toUpperCase();
-    if (["BF", "BFP", "BFU", "UE", "BG", "AP", "LT"].includes(suffix)) return suffix;
+    if (["BF", "BFP", "BFU", "UE", "BG", "AP", "LT", "JF"].includes(suffix)) return suffix;
   }
   const code = (loadCompanyCode ?? "").trim().toUpperCase();
-  if (["BF", "BFP", "BFU", "UE", "BG", "AP", "LT"].includes(code)) return code;
+  if (["BF", "BFP", "BFU", "UE", "BG", "AP", "LT", "JF"].includes(code)) return code;
   return getCompanySuffix(companyName);
 }

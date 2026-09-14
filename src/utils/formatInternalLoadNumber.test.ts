@@ -47,6 +47,7 @@ describe("getCompanyNameFromSuffix", () => {
     expect(getCompanyNameFromSuffix("1-BG")).toBe("BG Prime Inc");
     expect(getCompanyNameFromSuffix("1-AP")).toBe("AP Silver Trans LLC");
     expect(getCompanyNameFromSuffix("1-LT")).toBe("Lale Transport LLC");
+    expect(getCompanyNameFromSuffix("1-JF")).toBe("Jones Freight Lines LLC");
   });
 
   it("returns null for plain numbers and unknown suffixes", () => {
@@ -80,6 +81,7 @@ describe("getCompanySuffix / parseInternalLoadNumber", () => {
     expect(getCompanySuffix("BF Prime LLC")).toBe("BFP");
     expect(getCompanySuffix("Beverly Freight Inc")).toBe("BF");
     expect(getCompanySuffix("Lale Transport LLC")).toBe("LT");
+    expect(getCompanySuffix("Jones Freight Lines LLC")).toBe("JF");
     expect(getCompanySuffix(null)).toBe("");
   });
 

@@ -27,6 +27,7 @@ const ALLOWED_SENDER_EMAILS = new Set([
   "dispatch@apsilvertrans.net",
   "dispatch@laletransport.com",
   "truckload@laletransport.com",
+  "dispatch@jonesfreight.net",
 ]);
 
 function extractEmail(addr: string): string {

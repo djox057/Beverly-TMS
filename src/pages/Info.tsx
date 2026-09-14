@@ -119,6 +119,12 @@ const companies: Company[] = [
     samsaraInsured: { user: "dispatch@laletransport.com", password: "LaleT@123" },
     samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
   },
+  {
+    name: "Jones Freight Lines LLC",
+    mc: "MC01822766",
+    dot: "4579508",
+    dispatchMail: { user: "dispatch@jonesfreight.net", password: "" },
+  },
 ];
 
 const sharedAccounts: { label: string; user: string; password: string }[] = [

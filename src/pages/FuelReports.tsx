@@ -47,6 +47,7 @@ const COMPANIES = [
   { id: "united_enterprise", label: "United Enterprise Solutions" },
   { id: "ap_silver_trans", label: "AP Silver Trans" },
   { id: "lale_transport", label: "Lale Transport" },
+  { id: "jones_freight_lines", label: "Jones Freight Lines" },
 ];
 
 // Page size is now controlled by the hook (server-side pagination)
