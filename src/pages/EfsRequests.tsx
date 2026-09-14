@@ -138,6 +138,7 @@ export default function EfsRequests() {
   const { hasRole, profile } = useAuthContext();
   const queryClient = useQueryClient();
   const isAdmin = hasRole("admin") || hasRole("manager");
+  const canDeleteReceipt = hasRole("admin") || hasRole("accounting");
   const isDispatchOnly = hasRole("dispatch") && !isAdmin && !hasRole("supervisor") && !hasRole("accounting") && !hasRole("safety") && !hasRole("chicago_management");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -145,6 +146,7 @@ export default function EfsRequests() {
   const [requestedByFilter, setRequestedByFilter] = useState("All");
   const [requestedByOpen, setRequestedByOpen] = useState(false);
   const [deleteItem, setDeleteItem] = useState<EfsRequest | null>(null);
+  const [receiptToDelete, setReceiptToDelete] = useState<EfsRequest | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch all EFS requests and cash advances
