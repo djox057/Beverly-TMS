@@ -138,6 +138,7 @@ export default function EfsRequests() {
   const { hasRole, profile } = useAuthContext();
   const queryClient = useQueryClient();
   const isAdmin = hasRole("admin") || hasRole("manager");
+  const canDeleteReceipt = hasRole("admin") || hasRole("accounting");
   const isDispatchOnly = hasRole("dispatch") && !isAdmin && !hasRole("supervisor") && !hasRole("accounting") && !hasRole("safety") && !hasRole("chicago_management");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -145,6 +146,7 @@ export default function EfsRequests() {
   const [requestedByFilter, setRequestedByFilter] = useState("All");
   const [requestedByOpen, setRequestedByOpen] = useState(false);
   const [deleteItem, setDeleteItem] = useState<EfsRequest | null>(null);
+  const [receiptToDelete, setReceiptToDelete] = useState<EfsRequest | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch all EFS requests and cash advances
@@ -265,6 +267,32 @@ export default function EfsRequests() {
     onError: (error) => {
       toast.error("Failed to delete request");
       console.error("Delete error:", error);
+    },
+  });
+
+  // Delete receipt file only (admin and accounting)
+  const deleteReceiptMutation = useMutation({
+    mutationFn: async (request: EfsRequest) => {
+      if (!request.receipt_path) throw new Error("No receipt");
+      const { error: storageError } = await supabase.storage
+        .from("efs-receipts")
+        .remove([request.receipt_path]);
+      if (storageError) throw storageError;
+
+      const { error } = await supabase
+        .from("efs_other_requests")
+        .update({ receipt_path: null })
+        .eq("id", request.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Receipt deleted");
+      queryClient.invalidateQueries({ queryKey: ["efs-all-requests-combined"] });
+      setReceiptToDelete(null);
+    },
+    onError: (error) => {
+      toast.error("Failed to delete receipt");
+      console.error("Receipt delete error:", error);
     },
   });
 
@@ -556,7 +584,12 @@ export default function EfsRequests() {
                   </TableCell>
                   <TableCell>
                     {request.receipt_path ? (
-                      <ReceiptLink path={request.receipt_path} />
+                      <ReceiptLink
+                        path={request.receipt_path}
+                        canDelete={canDeleteReceipt}
+                        onDelete={() => setReceiptToDelete(request)}
+                        deleting={deleteReceiptMutation.isPending && receiptToDelete?.id === request.id}
+                      />
                     ) : (
                       <span className="text-xs text-muted-foreground">-</span>
                     )}
@@ -646,6 +679,28 @@ export default function EfsRequests() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete receipt confirmation dialog */}
+      <AlertDialog open={!!receiptToDelete} onOpenChange={() => setReceiptToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Receipt</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this receipt file for {receiptToDelete?.driver_name}? The request
+              itself will be kept. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => receiptToDelete && deleteReceiptMutation.mutate(receiptToDelete)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Receipt
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
