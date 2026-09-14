@@ -71,7 +71,17 @@ interface EfsRequest {
 
 const PAGE_SIZE = 100;
 
-function ReceiptLink({ path }: { path: string }) {
+function ReceiptLink({
+  path,
+  canDelete,
+  onDelete,
+  deleting,
+}: {
+  path: string;
+  canDelete?: boolean;
+  onDelete?: () => void;
+  deleting?: boolean;
+}) {
   const [loading, setLoading] = useState(false);
   const open = async () => {
     setLoading(true);
@@ -89,10 +99,25 @@ function ReceiptLink({ path }: { path: string }) {
     }
   };
   return (
-    <Button variant="ghost" size="sm" className="h-7 px-2" onClick={open} disabled={loading}>
-      {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
-      View
-    </Button>
+    <div className="flex items-center gap-1">
+      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={open} disabled={loading}>
+        {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
+        View
+      </Button>
+      {canDelete && (
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Delete receipt"
+          title="Delete receipt"
+          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={onDelete}
+          disabled={deleting}
+        >
+          {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+        </Button>
+      )}
+    </div>
   );
 }
 
