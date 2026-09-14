@@ -1376,7 +1376,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       </div>
                                     );
                                   })}
-                                </ScrollArea>
+                                </div>
                               </>
                             )}
 
