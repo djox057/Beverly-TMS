@@ -575,7 +575,7 @@ const TransferList = () => {
   const { data: drivers = [] } = useDrivers();
   const { data: companies = [] } = useCompanies();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>("bf_prime");
+  const [activeTab, setActiveTab] = useState<string>("jones");
 
   const canEdit = hasRole("admin") || hasRole("manager") || hasRole("safety");
   const { roles } = useAuthContext();
@@ -872,8 +872,7 @@ const TransferList = () => {
 
       <Tabs value={activeTab} onValueChange={(tab) => setActiveTab(tab)}>
         <TabsList>
-          <TabsTrigger value="bf_prime">BF Prime Transfers</TabsTrigger>
-          <TabsTrigger value="ues">UES Transfers</TabsTrigger>
+          <TabsTrigger value="jones">Jones Freight Transfers</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -1193,7 +1192,12 @@ function TransferRowDialog({
   const isEdit = !!editData;
   const [truckId, setTruckId] = useState<string | null>(editData?.truck_id || null);
   const [driverId, setDriverId] = useState<string | null>(editData?.driver_id || null);
-  const defaultCompany = transferType === "ues" ? "United Enterprise solutions" : "BF Prime LLC";
+  const defaultCompany =
+    transferType === "jones"
+      ? "Jones Freight Lines LLC"
+      : transferType === "ues"
+        ? "United Enterprise solutions"
+        : "BF Prime LLC";
   const [goingToCompany, setGoingToCompany] = useState(editData?.going_to_company || defaultCompany);
   const [drugTestDate, setDrugTestDate] = useState<Date | undefined>(
     editData?.drug_test_date ? new Date(editData.drug_test_date + "T00:00:00") : undefined
