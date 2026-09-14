@@ -872,8 +872,7 @@ const TransferList = () => {
 
       <Tabs value={activeTab} onValueChange={(tab) => setActiveTab(tab)}>
         <TabsList>
-          <TabsTrigger value="bf_prime">BF Prime Transfers</TabsTrigger>
-          <TabsTrigger value="ues">UES Transfers</TabsTrigger>
+          <TabsTrigger value="jones">Jones Freight Transfers</TabsTrigger>
         </TabsList>
       </Tabs>
 
