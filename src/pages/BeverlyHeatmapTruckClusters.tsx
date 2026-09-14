@@ -87,9 +87,10 @@ export default function BeverlyHeatmapTruckClusters() {
 
       const truckIds = Array.from(new Set(orders.map((o: any) => o.truck_id as string)));
 
-      // 2) fetch orders whose pickup OR delivery lies on/after this day for these trucks.
+      // 2) fetch, for those trucks, any load that STARTS after the delivery but
+      //    still on/before the end of the searched day (i.e. truck already left).
       //    Paginate to avoid the 1000-row PostgREST limit.
-      const allByTruck = new Map<string, { id: string; pickup: string | null; delivery: string | null }[]>();
+      const nextByTruck = new Map<string, { id: string; pickup: string | null }[]>();
       const PAGE = 1000;
       for (const c of chunk(truckIds, 200)) {
         let from = 0;
@@ -97,48 +98,43 @@ export default function BeverlyHeatmapTruckClusters() {
         while (true) {
           const { data: all, error: lErr } = await supabase
             .from("orders")
-            .select("id, truck_id, pickup_datetime, delivery_datetime")
+            .select("id, truck_id, pickup_datetime")
             .eq("canceled", false)
             .in("truck_id", c)
-            .or(`pickup_datetime.gte.${start},delivery_datetime.gte.${start}`)
+            .gte("pickup_datetime", start)
+            .lte("pickup_datetime", end)
             .order("id", { ascending: true })
             .range(from, from + PAGE - 1);
           if (lErr) throw lErr;
           const rows = all || [];
           for (const row of rows) {
-            const arr = allByTruck.get(row.truck_id as string) || [];
+            const arr = nextByTruck.get(row.truck_id as string) || [];
             arr.push({
               id: row.id as string,
               pickup: (row.pickup_datetime as string | null) ?? null,
-              delivery: (row.delivery_datetime as string | null) ?? null,
             });
-            allByTruck.set(row.truck_id as string, arr);
+            nextByTruck.set(row.truck_id as string, arr);
           }
           if (rows.length < PAGE) break;
           from += PAGE;
         }
       }
 
-      // 3) keep only orders where the truck has NO other order that starts
-      //    (pickup) or ends (delivery) after this delivery
-      const kept = orders.filter((o: any) => {
-        const rows = allByTruck.get(o.truck_id) || [];
-        const deliveredAt = o.delivery_datetime as string;
-        return !rows.some((r) => {
-          if (r.id === o.id) return false;
-          // A truck has a "next load" if either its pickup or its delivery is after this delivery.
-          if (r.pickup && r.pickup > deliveredAt) return true;
-          if (r.delivery && r.delivery > deliveredAt) return true;
-          return false;
-        });
-      });
-
-      // If a truck has multiple kept deliveries same day, use the latest
+      // 3) per truck keep the LATEST delivery of the day, then drop trucks that
+      //    picked up another load after that delivery on the same day.
       const byTruck = new Map<string, any>();
-      for (const o of kept) {
+      for (const o of orders) {
         const cur = byTruck.get(o.truck_id);
         if (!cur || o.delivery_datetime > cur.delivery_datetime) byTruck.set(o.truck_id, o);
       }
+      for (const [truckId, o] of Array.from(byTruck.entries())) {
+        const rows = nextByTruck.get(truckId) || [];
+        const leftAgain = rows.some(
+          (r) => r.id !== o.id && r.pickup && r.pickup > o.delivery_datetime
+        );
+        if (leftAgain) byTruck.delete(truckId);
+      }
+
       const finalOrders = Array.from(byTruck.values());
       if (finalOrders.length === 0) return { points: [], clusters: [] };
 
