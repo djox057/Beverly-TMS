@@ -270,6 +270,32 @@ export default function EfsRequests() {
     },
   });
 
+  // Delete receipt file only (admin and accounting)
+  const deleteReceiptMutation = useMutation({
+    mutationFn: async (request: EfsRequest) => {
+      if (!request.receipt_path) throw new Error("No receipt");
+      const { error: storageError } = await supabase.storage
+        .from("efs-receipts")
+        .remove([request.receipt_path]);
+      if (storageError) throw storageError;
+
+      const { error } = await supabase
+        .from("efs_other_requests")
+        .update({ receipt_path: null })
+        .eq("id", request.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Receipt deleted");
+      queryClient.invalidateQueries({ queryKey: ["efs-all-requests-combined"] });
+      setReceiptToDelete(null);
+    },
+    onError: (error) => {
+      toast.error("Failed to delete receipt");
+      console.error("Receipt delete error:", error);
+    },
+  });
+
   // Get unique requesters for filter dropdown
   const uniqueRequesters = useMemo(() => {
     const requesters = efsRequests
@@ -558,7 +584,12 @@ export default function EfsRequests() {
                   </TableCell>
                   <TableCell>
                     {request.receipt_path ? (
-                      <ReceiptLink path={request.receipt_path} />
+                      <ReceiptLink
+                        path={request.receipt_path}
+                        canDelete={canDeleteReceipt}
+                        onDelete={() => setReceiptToDelete(request)}
+                        deleting={deleteReceiptMutation.isPending && receiptToDelete?.id === request.id}
+                      />
                     ) : (
                       <span className="text-xs text-muted-foreground">-</span>
                     )}
