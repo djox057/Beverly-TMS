@@ -653,8 +653,8 @@ const EditOrder = () => {
       cc: "dispatch@apsilvertrans.net",
     },
     "Lale Transport LLC": {
-      sender: "Lale Transport Dispatch <dispatch@lalatransport.com>",
-      cc: "dispatch@lalatransport.com",
+      sender: "Lale Transport Dispatch <dispatch@laletransport.com>",
+      cc: "dispatch@laletransport.com",
     },
   };
 
