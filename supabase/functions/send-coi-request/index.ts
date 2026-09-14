@@ -29,6 +29,9 @@ const resolveRouting = (companyName: string | null | undefined) => {
   if (normalized.includes("LALE")) {
     return null;
   }
+  if (normalized.includes("JONES")) {
+    return { from: "dispatch@jonesfreight.net", to: [ATS, WORLD] };
+  }
   if (normalized.includes("BEVERLY FREIGHT")) {
     return { from: "dispatch@beverlyfreight.net", to: [WORLD] };
   }

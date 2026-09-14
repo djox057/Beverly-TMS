@@ -40,6 +40,7 @@ function getEfsEmail(companyName: string | null): string {
   if (normalized.includes("BF PRIME")) return "efs@bfprime.net";
   if (normalized.includes("BEVERLY GROUP")) return "efs@bfprime.net";
   if (normalized.includes("AP SILVER")) return "efs@apsilvertrans.net";
+  if (normalized.includes("JONES")) return "dispatch@jonesfreight.net";
   return "efs@bfprime.net";
 }
 
@@ -54,6 +55,7 @@ function getCompanyCode(companyName: string | null): string {
   if (normalized.includes("BEVERLY GROUP")) return "BG";
   if (normalized.includes("AP SILVER")) return "AST";
   if (normalized.includes("LALE")) return "LT";
+  if (normalized.includes("JONES")) return "JF";
   return "BFP";
 }
 
