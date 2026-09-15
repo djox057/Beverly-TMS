@@ -35,8 +35,12 @@ export const FIELD_LABELS: Record<keyof CandidateFields, string> = {
   description: "Description / Comments", mvr: "Driver’s MVR", psp: "Driver’s PSP", preference: "Preference",
   truck_id: "Truck", truck_terms: "Truck price / terms", drug_test_company: "Drug test company",
   clearinghouse_status: "CH", status: "Status", ticket_note: "Ticket", arrival_date: "Arrival date (Chicago)",
-  arrival_time: "Arrival time (Chicago)", tentative: "50/50 — tentative",
+  arrival_time: "Arrival time (Chicago)", tentative: "50/50 — tentative", row_color: "Color",
 };
+export function nextRowColor(current: RowColor): RowColor {
+  const index = ROW_COLORS.indexOf(current as typeof ROW_COLORS[number]);
+  return index === ROW_COLORS.length - 1 ? null : ROW_COLORS[index + 1];
+}
 export const COLUMNS: {field: keyof CandidateFields; letter: string; width: number; preview?: keyof CandidateSummary}[] = [
   {field:"recruiter_id",letter:"A",width:130},{field:"driver_name",letter:"B",width:190},
   {field:"phone",letter:"C",width:175},{field:"safety_id",letter:"D",width:125},
