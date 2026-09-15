@@ -19,7 +19,8 @@ export interface TruckTelemetryRow {
 const CHUNK = 500;
 
 export const fetchTruckTelemetry = async (
-  truckIds?: string[]
+  truckIds?: string[],
+  throwOnError = false,
 ): Promise<Map<string, TruckTelemetryRow>> => {
   const map = new Map<string, TruckTelemetryRow>();
   const select = "truck_id, fuel_level, miles_away, eta_minutes, miles_away_updated_at";
@@ -31,6 +32,7 @@ export const fetchTruckTelemetry = async (
   if (!truckIds) {
     const { data, error } = await supabase.from("truck_telemetry").select(select);
     if (error) {
+      if (throwOnError) throw error;
       console.error("[truckTelemetry] fetch error", error);
       return map;
     }
@@ -45,6 +47,7 @@ export const fetchTruckTelemetry = async (
       .select(select)
       .in("truck_id", ids.slice(i, i + CHUNK));
     if (error) {
+      if (throwOnError) throw error;
       console.error("[truckTelemetry] fetch error", error);
       continue;
     }
@@ -55,15 +58,18 @@ export const fetchTruckTelemetry = async (
 
 /** Returns the same truck rows with fresh telemetry values merged in. */
 export const mergeTruckTelemetry = async <T extends { id: string }>(
-  trucks: T[] | null | undefined
+  trucks: T[] | null | undefined,
+  throwOnError = false,
 ): Promise<T[]> => {
   const list = trucks || [];
   if (list.length === 0) return list as T[];
-  const telemetry = await fetchTruckTelemetry(list.map((t) => t.id));
-  if (telemetry.size === 0) return list as T[];
+  const telemetry = await fetchTruckTelemetry(list.map((t) => t.id), throwOnError);
+  if (telemetry.size === 0 && !throwOnError) return list as T[];
   return list.map((t) => {
     const tel = telemetry.get(t.id);
-    if (!tel) return t;
+    if (!tel) return throwOnError ? { ...t,
+      fuel_level: null, miles_away: null, eta_minutes: null, miles_away_updated_at: null,
+    } : t;
     return {
       ...t,
       fuel_level: tel.fuel_level,

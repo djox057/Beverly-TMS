@@ -10,7 +10,7 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays, subDays } from "date-fns";
-import { injectOrdersIntoGlobalStore } from "./useReportsDateWindow";
+import { injectOrdersIntoGlobalStore, getReportsCacheGeneration } from "./useReportsDateWindow";
 
 // Per-dispatcher loaded date ranges
 type LoadedRanges = Map<string, Set<string>>; // dispatcherId -> Set of "YYYY-MM-DD" dates
@@ -42,7 +42,7 @@ const fetchOrdersForDispatcher = async (
 
   if (driversError) {
     console.error(`[useDispatcherLazyOrders] Error fetching drivers for ${dispatcherId}:`, driversError);
-    return [];
+    throw driversError;
   }
 
   if (!drivers || drivers.length === 0) {
@@ -69,7 +69,7 @@ const fetchOrdersForDispatcher = async (
         canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
         is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
         freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-        tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by
+        tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by, bol_force_complete, pod_force_complete, weight_bol
       `)
       .eq("locked", false)
       .eq("canceled", false)
@@ -79,7 +79,7 @@ const fetchOrdersForDispatcher = async (
       .limit(500);
 
     if (unlockedError) {
-      console.error(`[useDispatcherLazyOrders] Error fetching unlocked orders:`, unlockedError);
+      throw unlockedError;
     }
 
     // Fetch locked (archived) orders
@@ -91,7 +91,7 @@ const fetchOrdersForDispatcher = async (
         canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
         is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
         freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-        tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by
+        tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by, bol_force_complete, pod_force_complete, weight_bol
       `)
       .eq("locked", true)
       .eq("canceled", false)
@@ -101,7 +101,7 @@ const fetchOrdersForDispatcher = async (
       .limit(500);
 
     if (lockedError) {
-      console.error(`[useDispatcherLazyOrders] Error fetching locked orders:`, lockedError);
+      throw lockedError;
     }
 
     const allOrders = [...(unlockedOrders || []), ...(lockedOrders || [])];
@@ -129,6 +129,8 @@ const fetchOrdersForDispatcher = async (
           .in("order_id", orderIds)
       ]);
 
+      if (pickupDropsResult.error) throw pickupDropsResult.error;
+      if (transfersResult.error) throw transfersResult.error;
       const pickupDrops = pickupDropsResult.data || [];
       const transfers = transfersResult.data || [];
 
@@ -160,7 +162,7 @@ const fetchOrdersForDispatcher = async (
     return uniqueOrders;
   } catch (error) {
     console.error(`[useDispatcherLazyOrders] Error loading orders:`, error);
-    return [];
+    throw error;
   }
 };
 
@@ -213,7 +215,23 @@ export const getDispatcherOrders = (dispatcherId: string): any[] => {
 /**
  * Clear all stored data (for mode changes etc)
  */
+const loadedRequests = new Map<string, { dispatcherId: string; date: Date }>();
+export const refreshDispatcherLazyData = async (isCurrent: () => boolean) => {
+  const generation = getReportsCacheGeneration();
+  const requests = [...loadedRequests.values()];
+  dispatcherLoadedDates.clear();
+  dispatcherOrders.clear();
+  for (const { dispatcherId, date } of requests) {
+    const orders = await fetchOrdersForDispatcher(dispatcherId, date);
+    if (!isCurrent() || generation !== getReportsCacheGeneration()) throw new Error("Dispatcher snapshot superseded");
+    storeOrders(dispatcherId, orders);
+    injectOrdersIntoGlobalStore(orders);
+    markDatesLoaded(dispatcherId, date);
+  }
+};
+
 export const clearDispatcherLazyData = () => {
+  loadedRequests.clear();
   dispatcherLoadedDates.clear();
   dispatcherOrders.clear();
   loadingDispatchers.clear();
@@ -251,7 +269,10 @@ export const useDispatcherLazyOrders = (options?: DispatcherLazyOrdersOptions) =
     setLoadingStates(prev => ({ ...prev, [dispatcherId]: true }));
 
     try {
+      const generation = getReportsCacheGeneration();
       const orders = await fetchOrdersForDispatcher(dispatcherId, targetDate);
+      if (generation !== getReportsCacheGeneration()) return false;
+      loadedRequests.set(loadKey, { dispatcherId, date: targetDate });
       
       // Store the orders locally for this dispatcher
       storeOrders(dispatcherId, orders);

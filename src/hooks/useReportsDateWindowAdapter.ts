@@ -1,3 +1,5 @@
+import { fetchReportsReferenceRows } from "@/utils/fetchReportsReferenceRows";
+import { refreshReportsOrders } from "@/utils/refreshReportsOrders";
 /**
  * useReportsDateWindowAdapter - Adapter layer for useReportsDateWindow
  *
@@ -11,13 +13,18 @@ import { useMemo, useCallback, useEffect, useRef, useReducer } from "react";
 import { isValidUUID } from "@/utils/validation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders, fetchOrderTransfersForOrders, patchOrderInGlobalStore, removeOrderFromGlobalStore, flushGlobalStoreNotifications, hasOrderInGlobalStore } from "./useReportsDateWindow";
+import { useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders, fetchOrderTransfersForOrders, patchOrderInGlobalStore, removeOrderFromGlobalStore, flushGlobalStoreNotifications, hasOrderInGlobalStore, resetReportsOrderCache } from "./useReportsDateWindow";
 import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { mergeTruckTelemetry } from "@/utils/truckTelemetry";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
+import { useReportsLive } from "@/hooks/useReportsLive";
+import { refreshLumperMissingOrders } from "@/hooks/useLumperMissingRevisedRC";
+import type { LiveChanges } from "@/utils/reportsLiveQueue";
+import { notifyReportsSource } from "@/utils/reportsLiveEvents";
+import { clearDispatcherLazyData, refreshDispatcherLazyData } from "@/hooks/useDispatcherLazyOrders";
+import { REPORT_DRIVER_SELECT, REPORT_TRUCK_SELECT, watchReportReferenceChanges } from "@/utils/reportReferenceFields";
 
 // Feature flag - set to true to use date-window based loading
 export const USE_DATE_WINDOW_LOADING = true;
@@ -96,7 +103,7 @@ const getLostDayDateStrings = (start: Date, end: Date) => {
   return dates;
 };
 
-const fetchMissingLostDayNoteDates = async (dateStrings: string[], source: string) => {
+const loadMissingLostDayNoteDates = async (dateStrings: string[], source: string) => {
   const missing = Array.from(new Set(dateStrings))
     .filter((ds) => !lostDayNotesLoadedDates.has(ds))
     .sort();
@@ -107,26 +114,32 @@ const fetchMissingLostDayNoteDates = async (dateStrings: string[], source: strin
   for (const ds of missing) lostDayNotesLoadedDates.add(ds);
 
   try {
-    const { data, error } = await supabase
-      .from("lost_day_notes")
-      .select("*")
-      .in("date", missing)
-      .order("updated_at", { ascending: false })
-      .range(0, 9999);
-
-    if (error) {
-      for (const ds of missing) lostDayNotesLoadedDates.delete(ds);
-      console.error(`[adapter] ${source} error:`, error);
-      return false;
+    const rows: any[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase.from("lost_day_notes").select("*")
+        .in("date", missing).order("id").range(offset, offset + 999);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if ((data?.length || 0) < 1000) break;
     }
-
-    ingestLostDayNotes(data || []);
+    const dates = new Set(missing);
+    for (const [key, note] of lostDayNotesAccumulator) {
+      if (dates.has(String(note.date).slice(0, 10))) lostDayNotesAccumulator.delete(key);
+    }
+    ingestLostDayNotes(rows);
     return true;
   } catch (e) {
     for (const ds of missing) lostDayNotesLoadedDates.delete(ds);
     console.error(`[adapter] ${source} threw:`, e);
     return false;
   }
+};
+
+let lostDayNotesInFlight: Promise<boolean> | null = null;
+const fetchMissingLostDayNoteDates = async (dates: string[], source: string): Promise<boolean> => {
+  if (lostDayNotesInFlight) { await lostDayNotesInFlight; return fetchMissingLostDayNoteDates(dates, source); }
+  lostDayNotesInFlight = loadMissingLostDayNoteDates(dates, source).finally(() => { lostDayNotesInFlight = null; });
+  return lostDayNotesInFlight;
 };
 
 const ingestLostDayNotes = (rows: any[]) => {
@@ -242,8 +255,7 @@ const fetchAndCacheOrderFilesForOrders = async (orderIds: string[]) => {
           .range(offset, offset + RESULT_PAGE_SIZE - 1);
 
         if (error) {
-          console.error("[adapter] Error fetching order_files batch:", error);
-          break;
+          throw error;
         }
 
         const rows = (data || []) as OrderFileLite[];
@@ -464,18 +476,20 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     const prevModeKey = prevModeRef.current;
     
     if (prevModeKey !== null) {
-      const modeChanged = prevModeKey.individualMode !== currentModeKey.individualMode;
+      const modeChanged = prevModeKey.individualMode !== currentModeKey.individualMode || prevModeKey.userId !== currentModeKey.userId;
       
       if (modeChanged) {
         console.log(`[adapter] Individual mode changed: ${prevModeKey.individualMode} -> ${currentModeKey.individualMode}, invalidating queries`);
 
         // Individual-mode toggle is a full context switch; clear order_files cache to avoid stale bloat
+        clearDispatcherLazyData();
         clearOrderFilesCache();
         // Same context switch — drop accumulated lost_day_notes so the new scope refetches cleanly.
         clearLostDayNotesAccumulator();
         
         // Invalidate all adapter queries to force refetch with new scope
-        queryClient.invalidateQueries({ queryKey: ['reports-date-window'] });
+        queryClient.invalidateQueries({ queryKey: ['reports-date-window-stable'] });
+        queryClient.invalidateQueries({ queryKey: ['reports-date-window-orders'] });
         queryClient.invalidateQueries({ queryKey: ['adapter-trucks'] });
         queryClient.invalidateQueries({ queryKey: ['adapter-drivers'] });
         queryClient.invalidateQueries({ queryKey: ['adapter-truck-notes'] });
@@ -537,16 +551,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     queryKey: ["adapter-trucks", modeKeySuffix],
     queryFn: async () => {
       console.time('[perf] adapter-trucks');
-      const { data, error } = await supabase
-        .from("trucks")
-        .select("*")
-        .eq("is_active", true);
+      const data = await fetchReportsReferenceRows("trucks", REPORT_TRUCK_SELECT);
       console.timeEnd('[perf] adapter-trucks');
-      if (error) throw error;
-      return await mergeTruckTelemetry(data || []);
+      return await mergeTruckTelemetry(data || [], true);
     },
     staleTime: 60000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
     enabled: globalEnabled,
   });
 
@@ -589,16 +599,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     queryKey: ["adapter-drivers", modeKeySuffix],
     queryFn: async () => {
       console.time('[perf] adapter-drivers');
-      const { data, error } = await supabase
-        .from("drivers")
-        .select("*")
-        .eq("is_active", true);
+      const data = await fetchReportsReferenceRows("drivers", REPORT_DRIVER_SELECT);
       console.timeEnd('[perf] adapter-drivers');
-      if (error) throw error;
       return data || [];
     },
     staleTime: 300000,
-    refetchInterval: 60000, // Refresh HOS data every 60 seconds
+    refetchOnWindowFocus: false, // Compact live versions drive updates, including HOS.
     enabled: globalEnabled,
   });
 
@@ -807,23 +813,15 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
 
   // When new orders are injected (windowOrderIds grows), trigger a background refetch
   // to pick up missing order_files. This avoids the previous full refetch keyed on IDs.
-  const lastOrderCountRef = useRef<number>(0);
+  const lastRequestedMissingFiles = useRef("");
   useEffect(() => {
-    if (!scopeEnabled) return;
-    if (windowOrderIds.length === 0) {
-      lastOrderCountRef.current = 0;
-      return;
-    }
-    const prevCount = lastOrderCountRef.current;
-    lastOrderCountRef.current = windowOrderIds.length;
-    if (windowOrderIds.length <= prevCount) return;
-    if (isOrderFilesFetching) return;
-
-    const hasMissing = windowOrderIds.some((id) => !orderFilesLoadedOrderIds.has(id));
-    if (!hasMissing) return;
-
-    refetchOrderFiles();
-  }, [scopeEnabled, windowOrderIds.length, isOrderFilesFetching, refetchOrderFiles, windowOrderIds]);
+    if (!scopeEnabled || isOrderFilesFetching) return;
+    const missing = windowOrderIds.filter(id => !orderFilesLoadedOrderIds.has(id)).sort().join(",");
+    if (!missing) { lastRequestedMissingFiles.current = ""; return; }
+    if (lastRequestedMissingFiles.current === missing) return;
+    lastRequestedMissingFiles.current = missing;
+    void refetchOrderFiles();
+  }, [scopeEnabled, isOrderFilesFetching, refetchOrderFiles, windowOrderIds]);
 
   // Track drivers who have orders in the date window
   const driversWithOrdersInWindow = useMemo(() => {
@@ -960,562 +958,149 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     enabled: scopeEnabled && driversNeedingLastLoad.length > 0,
   });
 
-  // P2: Subscribe to order_files realtime changes to invalidate adapter cache
-  const orderFilesChannelRef = useRef<BusChannel | null>(null);
-  
-  useEffect(() => {
-    if (!scopeEnabled) return;
-    
-    // Clean up existing channel before creating a fresh one (e.g., on office switch)
-    if (orderFilesChannelRef.current) {
-      orderFilesChannelRef.current?.unsubscribe();
-      orderFilesChannelRef.current = null;
-    }
-    
-    // Subscribe to order_files changes
-    const channel = busChannel(() => {
-      queryClient.invalidateQueries({ queryKey: ['reports-date-window'] });
-    })
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "order_files" },
-        (payload) => {
-          const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
-          console.log(`[adapter] order_files realtime: ${payload.eventType} for order ${orderId}`);
+  const liveScopeRef = useRef(driverIdsForScope);
+  liveScopeRef.current = [...new Set([
+    ...driverIdsForScope,
+    ...(offDutyStatuses || []).filter(status => !priorityOffice ||
+      offDutyDispatchers?.some(profile => profile.user_id === status.dispatcher_id && profile.office === priorityOffice))
+      .flatMap(status => ((status.inactive_trucks as any[]) || []).map(driver => driver.id).filter(Boolean)),
+  ])];
 
-          // Ensure next refetch actually reloads this order's files
-          invalidateOrderFilesCacheForOrder(orderId);
-          
-          // Invalidate adapter-order-files queries (only active ones to avoid refetch storms)
-          queryClient.invalidateQueries({
-            queryKey: ["adapter-order-files"],
-            refetchType: "active",
-          });
-        }
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          console.log("[adapter] Subscribed to order_files realtime");
-        }
-      });
-    
-    orderFilesChannelRef.current = channel;
-    
-    return () => {
-      if (orderFilesChannelRef.current) {
-        orderFilesChannelRef.current?.unsubscribe();
-        orderFilesChannelRef.current = null;
-      }
+  const refreshLive = useCallback(async (changes: LiveChanges, isCurrent: () => boolean) => {
+    const invalidate = async (key: string) => {
+      if (!isCurrent()) return;
+      await queryClient.invalidateQueries({ queryKey: [key], refetchType: "active" }, { throwOnError: true });
     };
-  }, [scopeEnabled, priorityOffice, queryClient]);
-
-  // P3: Subscribe to truck_notes realtime changes and patch cache directly (no refetch)
-  const truckNotesChannelRef = useRef<BusChannel | null>(null);
-  // P4: Subscribe to lost_day_notes realtime changes and patch cache directly
-  const lostDayNotesChannelRef = useRef<BusChannel | null>(null);
-  const driverIdsSetRef = useRef<Set<string>>(new Set());
-  
-  // Keep driver IDs in a ref to avoid stale closures in subscription callback
-  useEffect(() => {
-    driverIdsSetRef.current = new Set(driverIdsForScope);
-  }, [driverIdsForScope]);
-  
-  useEffect(() => {
-    if (!scopeEnabled || driverIdsForScope.length === 0) {
-      // Cleanup any existing channel when disabled
-      if (truckNotesChannelRef.current) {
-        truckNotesChannelRef.current?.unsubscribe();
-        truckNotesChannelRef.current = null;
-      }
-      return;
-    }
-    
-    // Clean up existing channel before creating a fresh one (e.g., on office switch)
-    if (truckNotesChannelRef.current) {
-      truckNotesChannelRef.current?.unsubscribe();
-      truckNotesChannelRef.current = null;
-    }
-    
-    const channelName = `adapter-truck-notes-realtime-${priorityOffice || 'default'}`;
-    
-    const channel = busChannel()
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "truck_notes" },
-        (payload) => {
-          const newRecord = payload.new as any;
-          const oldRecord = payload.old as any;
-          const driverId = newRecord?.driver_id || oldRecord?.driver_id;
-          const eventType = payload.eventType;
-          
-          // Scope filtering: ignore events for drivers not in current scope
-          if (!driverId || !driverIdsSetRef.current.has(driverId)) {
-            console.log(`[adapter] truck_notes realtime: ${eventType} ignored - driver ${driverId} not in scope`);
-            return;
-          }
-          
-          console.log(`[adapter] truck_notes realtime: ${eventType} for driver ${driverId}`);
-          
-          // Build patch function for reuse across exact and fallback keys
-          const patchTruckNotes = (oldData: any[] | undefined) => {
-              if (!oldData) return oldData;
-              
-              if (eventType === "DELETE") {
-                return oldData.filter((note) => note.id !== oldRecord.id);
-              }
-              
-              if (eventType === "INSERT") {
-                const exists = oldData.some((note) => note.id === newRecord.id);
-                if (exists) {
-                  return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
-                }
-                return [...oldData, newRecord];
-              }
-              
-              if (eventType === "UPDATE") {
-                const existingIndex = oldData.findIndex((note) => note.id === newRecord.id);
-                if (existingIndex >= 0) {
-                  const updated = [...oldData];
-                  updated[existingIndex] = newRecord;
-                  return updated;
-                }
-                return [...oldData, newRecord];
-              }
-              
-              return oldData;
-          };
-          
-          // Primary: patch exact query key (uses driverScopeHash, not priorityOffice)
-          queryClient.setQueryData(
-            ["adapter-truck-notes", modeKeySuffixRef.current],
-            patchTruckNotes
-          );
-          
-          // Fallback: patch all variant keys
-          queryClient.setQueriesData(
-            { queryKey: ["adapter-truck-notes"], exact: false },
-            patchTruckNotes
-          );
-        }
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          console.log(`[adapter] Subscribed to truck_notes realtime for office: ${priorityOffice}`);
-        }
-      });
-    
-    truckNotesChannelRef.current = channel;
-    
-    return () => {
-      if (truckNotesChannelRef.current) {
-        console.log(`[adapter] Unsubscribing from truck_notes realtime for office: ${priorityOffice}`);
-        truckNotesChannelRef.current?.unsubscribe();
-        truckNotesChannelRef.current = null;
-      }
-    };
-  }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
-
-  // P4: Subscribe to lost_day_notes realtime changes and patch cache directly (no refetch)
-  // Use stable refs for modeKeySuffix and driverScopeHash to build the exact query key
-  // Initialize refs with current values to avoid undefined on first render
-  const priorityOfficeRef = useRef(priorityOffice);
-  const modeKeySuffixRef = useRef(modeKeySuffix);
-  const driverScopeHashRef = useRef(driverScopeHash);
-  
-  // Update refs synchronously when values change (not in an effect, to avoid timing issues)
-  priorityOfficeRef.current = priorityOffice;
-  modeKeySuffixRef.current = modeKeySuffix;
-  driverScopeHashRef.current = driverScopeHash;
-  
-  useEffect(() => {
-    if (!scopeEnabled || driverIdsForScope.length === 0) {
-      // Cleanup any existing channel when disabled
-      if (lostDayNotesChannelRef.current) {
-        lostDayNotesChannelRef.current?.unsubscribe();
-        lostDayNotesChannelRef.current = null;
-      }
-      return;
-    }
-    
-    // Clean up existing channel before creating a fresh one (e.g., on office switch)
-    if (lostDayNotesChannelRef.current) {
-      lostDayNotesChannelRef.current?.unsubscribe();
-      lostDayNotesChannelRef.current = null;
-    }
-    
-    const channelName = `adapter-lost-day-notes-realtime-${priorityOffice || 'default'}`;
-    
-    const channel = busChannel(() => {
-      queryClient.invalidateQueries({ queryKey: ['adapter-lost-day-notes'] });
-      queryClient.invalidateQueries({ queryKey: ['reports-date-window'] });
-    })
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "lost_day_notes" },
-        (payload) => {
-          const newRecord = payload.new as any;
-          const oldRecord = payload.old as any;
-          const driverId = newRecord?.driver_id || oldRecord?.driver_id;
-          const eventType = payload.eventType;
-          
-          // Scope filtering: ignore events for drivers not in current scope
-          if (!driverId || !driverIdsSetRef.current.has(driverId)) {
-            console.log(`[adapter] lost_day_notes realtime: ${eventType} ignored - driver ${driverId} not in scope`);
-            return;
-          }
-          
-          console.log(`[adapter] lost_day_notes realtime: ${eventType} for driver ${driverId}, note:`, newRecord?.note || oldRecord?.note);
-
-          // Keep the module-scope accumulator in sync so refresh / carousel scroll preserve the change.
-          if (eventType === "DELETE") {
-            removeLostDayNoteFromAccumulator(oldRecord?.driver_id, oldRecord?.date);
-          } else if (newRecord) {
-            upsertLostDayNoteInAccumulator(newRecord);
-          }
-
-          // Build the exact query key to patch (3 elements to match query key)
-          const exactQueryKey = ["adapter-lost-day-notes", modeKeySuffixRef.current];
-          
-          // Patch the cache using the exact query key for proper React Query detection
-          // Also use setQueriesData with exact: false as fallback for any variant keys
-          const patchFunction = (oldData: any[] | undefined) => {
-            if (!oldData) return oldData;
-            
-            if (eventType === "DELETE") {
-              return oldData.filter((note) => note.id !== oldRecord.id);
-            }
-            
-            if (eventType === "INSERT") {
-              // Check for duplicate by id first, then by composite key (driver_id + date)
-              const existsById = oldData.some((note) => note.id === newRecord.id);
-              if (existsById) {
-                return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
-              }
-              const existsByComposite = oldData.some(
-                (note) => note.driver_id === newRecord.driver_id && note.date === newRecord.date
-              );
-              if (existsByComposite) {
-                return oldData.map((note) =>
-                  note.driver_id === newRecord.driver_id && note.date === newRecord.date ? newRecord : note
-                );
-              }
-              return [...oldData, newRecord];
-            }
-            
-            if (eventType === "UPDATE") {
-              // Replace by id or by (driver_id, date) composite key
-              const existingById = oldData.some((note) => note.id === newRecord.id);
-              if (existingById) {
-                return oldData.map((note) => (note.id === newRecord.id ? newRecord : note));
-              }
-              const existingByComposite = oldData.some(
-                (note) => note.driver_id === newRecord.driver_id && note.date === newRecord.date
-              );
-              if (existingByComposite) {
-                return oldData.map((note) =>
-                  note.driver_id === newRecord.driver_id && note.date === newRecord.date ? newRecord : note
-                );
-              }
-              // Not found: append (shouldn't happen often but safe fallback)
-              return [...oldData, newRecord];
-            }
-            
-            return oldData;
-          };
-          
-          // Primary: patch exact query key
-          queryClient.setQueryData(exactQueryKey, patchFunction);
-          
-          // Secondary: patch all variant keys with setQueriesData as fallback
-          queryClient.setQueriesData(
-            { queryKey: ["adapter-lost-day-notes"], exact: false },
-            patchFunction
-          );
-        }
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          console.log(`[adapter] Subscribed to lost_day_notes realtime for office: ${priorityOffice}`);
-        }
-      });
-    
-    lostDayNotesChannelRef.current = channel;
-    
-    return () => {
-      if (lostDayNotesChannelRef.current) {
-        console.log(`[adapter] Unsubscribing from lost_day_notes realtime for office: ${priorityOffice}`);
-        lostDayNotesChannelRef.current?.unsubscribe();
-        lostDayNotesChannelRef.current = null;
-      }
-    };
-  }, [scopeEnabled, driverIdsForScope.length, priorityOffice, queryClient]);
-
-  // P6: Watch global trucks/drivers cache updates instead of duplicate realtime channel
-  useEffect(() => {
-    if (!scopeEnabled) return;
-
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleInvalidation = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        console.log(`[adapter] trucks/drivers cache change: invalidating adapter queries`);
-        queryClient.invalidateQueries({
-          queryKey: ["adapter-trucks", modeKeySuffixRef.current],
-          refetchType: "active",
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["adapter-drivers", modeKeySuffixRef.current],
-          refetchType: "active",
-        });
-      }, 1000);
-    };
-
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (event.type !== "updated") return;
-      // Only a genuinely fresh dataset should cost report reads. Every other
-      // query lifecycle tick (fetch start, observer add/remove, error, invalidate)
-      // used to trigger a full adapter refetch as well.
-      if ((event as any).action?.type !== "success") return;
-      const key = event.query.queryKey[0];
-      if (key === "trucks" || key === "drivers") scheduleInvalidation();
-    });
-
-
-    return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      unsubscribe();
-    };
-  }, [scopeEnabled, queryClient]);
-
-  // P5: Subscribe to orders, pickup_drops, and order_transfers realtime changes
-  // Patches globalAccumulatedOrders directly with debounced batch fetching
-  const ordersRealtimeChannelRef = useRef<BusChannel | null>(null);
-
-  useEffect(() => {
-    if (!scopeEnabled || driverIdsForScope.length === 0) {
-      if (ordersRealtimeChannelRef.current) {
-        ordersRealtimeChannelRef.current?.unsubscribe();
-        ordersRealtimeChannelRef.current = null;
-      }
-      return;
-    }
-
-    // Clean up existing channel before creating a fresh one (e.g., on office switch)
-    if (ordersRealtimeChannelRef.current) {
-      ordersRealtimeChannelRef.current?.unsubscribe();
-      ordersRealtimeChannelRef.current = null;
-    }
-
-    // ─── Debounce state ───
-    const pendingOrderIds = new Set<string>();
-    const pendingDeletes = new Set<string>();
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let isFlushing = false;
-
-    // Flat column list matching fetchOrdersForDateWindow
-    const ORDER_COLUMNS_FLAT = `
-      id, load_number, internal_load_number, load_company_code, broker_load_number, status, notes, date_change_notes,
-      created_at, updated_at, pickup_datetime, pickup_end_datetime, delivery_datetime, delivery_end_datetime,
-      canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
-      is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
-      freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-      tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by
-    `;
-
-    const flushPending = async () => {
-      if (isFlushing) return;
-      isFlushing = true;
-
-      // Snapshot and clear
-      const deleteIds = [...pendingDeletes];
-      pendingDeletes.clear();
-      const fetchIds = [...pendingOrderIds].filter(id => !deleteIds.includes(id));
-      pendingOrderIds.clear();
-
+    const failures: unknown[] = [];
+    // A failed badge/reference request must not replay successful order/fleet reads.
+    const attempt = async (sources: string[], work: () => Promise<void>) => {
       try {
-        // Process deletes silently (no notification per item)
-        for (const id of deleteIds) {
-          removeOrderFromGlobalStore(id, false);
+        await work();
+        if (!isCurrent()) throw new Error("Reports refresh interrupted");
+        sources.forEach(source => changes.delete(source));
+      } catch (error) { failures.push(error); }
+    };
+    const scopeChanged = ["drivers", "profiles", "user_roles", "afterhours_assignments", "dispatcher_status"].some(key => changes.has(key));
+    if (scopeChanged) changes.set("orders", null);
+    const coreSources = ["orders", "pickup_drops", "order_transfers"].filter(source => changes.has(source));
+    const fullOrders = coreSources.some(key => changes.get(key) === null);
+    await attempt(coreSources, async () => {
+      if (scopeChanged || fullOrders) await invalidate("reports-date-window-stable");
+      if (!isCurrent()) return;
+      if (fullOrders || scopeChanged) {
+        // Invalidation alone is insufficient: date-window and lazy loaders also have module caches.
+        resetReportsOrderCache();
+        await queryClient.cancelQueries({ queryKey: ["reports-date-window-orders"] });
+        await invalidate("reports-date-window-orders");
+        await refreshDispatcherLazyData(isCurrent);
+        await invalidate("adapter-last-loads");
+      } else {
+        const ids = new Set<string>();
+        for (const source of ["orders", "pickup_drops", "order_transfers"]) {
+          for (const id of changes.get(source) || []) ids.add(id);
         }
-
-        if (fetchIds.length > 0) {
-          console.log(`[adapter] Orders realtime: batch-fetching ${fetchIds.length} changed orders`);
-
-          // Stage 1: Flat orders fetch
-          const { data: flatOrders, error } = await supabase
-            .from("orders")
-            .select(ORDER_COLUMNS_FLAT)
-            .in("id", fetchIds);
-
-          if (error || !flatOrders || flatOrders.length === 0) {
-            if (error) console.error("[adapter] Orders realtime batch fetch error:", error);
-            // Still flush notification for any deletes that happened
-            if (deleteIds.length > 0) {
-              flushGlobalStoreNotifications();
-            }
-            // Control falls through to finally — do NOT return here
-          } else {
-            // Stage 2: Parallel relation fetches
-            const ids = flatOrders.map(o => o.id);
-            const [pickupDrops, transfers] = await Promise.all([
-              fetchPickupDropsForOrders(ids),
-              fetchOrderTransfersForOrders(ids),
-            ]);
-            console.log(`[adapter] flushPending: fetched ${pickupDrops.length} pickup_drops, ${transfers.length} transfers for ${ids.length} orders`);
-
-            // Build lookup maps
-            const pdMap = new Map<string, any[]>();
-            for (const pd of pickupDrops) {
-              const arr = pdMap.get(pd.order_id) || [];
-              arr.push(pd);
-              pdMap.set(pd.order_id, arr);
-            }
-            const otMap = new Map<string, any[]>();
-            for (const t of transfers) {
-              const arr = otMap.get(t.order_id) || [];
-              arr.push(t);
-              otMap.set(t.order_id, arr);
-            }
-
-            // Stage 3: Assemble and patch (all silent — no notification per item).
-            //
-            // IMPORTANT: We intentionally do NOT re-check `driverIdsSetRef.current` here
-            // to decide eviction. The original date-window fetch is the authority for
-            // what belongs in the store (it includes recovery drivers, transfer drivers,
-            // last-load fallbacks, off-duty groups, etc., none of which are reflected in
-            // the narrow `driverIdsForScope` set). Re-checking caused orders to vanish
-            // permanently — only a full refresh would bring them back — when a BOL/POD
-            // upload fired multiple realtime events (orders + pickup_drops + order_files)
-            // for a load whose driver wasn't strictly in current office scope.
-            //
-            // Realtime is here to UPDATE in-place. Removal happens in two paths only:
-            //  - explicit DELETE events (handled above via pendingDeletes)
-            //  - the next full date-window fetch reconciles scope.
-            const affectedOrderIds: string[] = [];
-
-            for (const order of flatOrders) {
-              const fullOrder = {
-                ...order,
-                pickup_drops: (pdMap.get(order.id) || [])
-                  .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
-                order_transfers: (otMap.get(order.id) || [])
-                  .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)),
-              };
-              patchOrderInGlobalStore(fullOrder, false);
-              affectedOrderIds.push(fullOrder.id);
-            }
-
-            // Invalidate order_files for affected orders (refetchType: "active" prevents double-render)
-            if (affectedOrderIds.length > 0) {
-              queryClient.invalidateQueries({
-                queryKey: ["adapter-order-files"],
-                refetchType: "active",
-              });
-            }
-
-            // Single notification for all changes (deletes + patches + out-of-scope removes)
-            const hadChanges = deleteIds.length > 0 || fetchIds.length > 0;
-            if (hadChanges) {
-              flushGlobalStoreNotifications();
-            }
-          }
-        }
-      } catch (err) {
-        console.error("[adapter] Orders realtime flush error:", err);
-      } finally {
-        isFlushing = false;
-        // Re-check for events that arrived during the async flush
-        if (pendingOrderIds.size > 0 || pendingDeletes.size > 0) {
-          scheduleFlush();
-        }
+        await refreshReportsOrders([...ids], liveScopeRef.current, isCurrent);
       }
+      if (!isCurrent()) return;
+
+      if (fullOrders) await invalidate("lumper-missing-revised-rc");
+      else {
+        const ids = [...new Set(coreSources.flatMap(source => [...(changes.get(source) || [])]))];
+        if (ids.length) await refreshLumperMissingOrders(queryClient, ids, isCurrent);
+      }
+    });
+    const customSources = new Set(["order_files", "lost_day_notes", "driver_hos", "truck_telemetry"]);
+    const queryKeys: Record<string, string[]> = {
+      drivers: ["adapter-drivers", "driver", "driver-names", "lumper-missing-revised-rc"],
+      trucks: ["adapter-trucks", "lumper-missing-revised-rc"],
+      trailers: ["adapter-trailers"],
+      truck_notes: ["adapter-truck-notes"],
+      profiles: ["adapter-dispatchers", "adapter-off-duty-dispatchers", "user-office", "reports-supervised-dispatchers", "afterhours-driver-map"],
+      companies: ["adapter-companies", "companies"], brokers: ["brokers"],
+      dispatcher_status: ["adapter-off-duty-statuses"],
+      driver_problems: ["driver-problems"], driver_complaints: ["driver-complaints"],
+      driver_drug_tests: ["driver-drug-tests"], efs_other_requests: ["efs-missing-by-driver"],
+      company_coi_vins: ["coi-insured-vins"], temporary_plates: ["temporary-plates-list"],
+      user_extensions: ["user-extensions-popover"],
+      daily_report_permissions: ["daily-report-permissions"],
+      final_update_sends: ["final-update-sends"],
+      afterhours_schedule: ["afterhours-driver-map"], afterhours_assignments: ["afterhours-driver-map"],
+      orders: ["lumper-missing-revised-rc"],
     };
-
-    const scheduleFlush = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(flushPending, 1000);
-    };
-
-    const channelName = "adapter-orders-realtime-global";
-
-    const channel = busChannel()
-      // Orders table
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
-        const newRecord = payload.new as any;
-        const oldRecord = payload.old as any;
-        const orderId = newRecord?.id || oldRecord?.id;
-        if (!orderId) return;
-
-        const currentDriverIds = driverIdsSetRef.current;
-
-        if (payload.eventType === "DELETE") {
-          const oldInScope =
-            (oldRecord?.driver1_id && currentDriverIds.has(oldRecord.driver1_id)) ||
-            (oldRecord?.driver2_id && currentDriverIds.has(oldRecord.driver2_id));
-          if (oldInScope) {
-            removeOrderFromGlobalStore(orderId);
-          }
-          return;
-        }
-
-        // INSERT or UPDATE: check if any old or new driver is in scope
-        const relevant =
-          (newRecord?.driver1_id && currentDriverIds.has(newRecord.driver1_id)) ||
-          (newRecord?.driver2_id && currentDriverIds.has(newRecord.driver2_id)) ||
-          (oldRecord?.driver1_id && currentDriverIds.has(oldRecord.driver1_id)) ||
-          (oldRecord?.driver2_id && currentDriverIds.has(oldRecord.driver2_id)) ||
-          hasOrderInGlobalStore(orderId);
-
-        if (relevant) {
-          pendingOrderIds.add(orderId);
-          scheduleFlush();
-        }
-      })
-      // pickup_drops table
-      .on("postgres_changes", { event: "*", schema: "public", table: "pickup_drops" }, (payload) => {
-        const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
-        const inStore = orderId ? hasOrderInGlobalStore(orderId) : false;
-        const alreadyPending = orderId ? pendingOrderIds.has(orderId) : false;
-        if (orderId && (inStore || alreadyPending)) {
-          console.log(`[adapter] pickup_drops ${payload.eventType}: order_id=${orderId}, inStore=${inStore}, pending=${alreadyPending}`);
-          pendingOrderIds.add(orderId);
-          scheduleFlush();
-        }
-      })
-      // order_transfers table
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_transfers" }, (payload) => {
-        const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
-        const inStore = orderId ? hasOrderInGlobalStore(orderId) : false;
-        const alreadyPending = orderId ? pendingOrderIds.has(orderId) : false;
-        if (orderId && (inStore || alreadyPending)) {
-          console.log(`[adapter] order_transfers ${payload.eventType}: order_id=${orderId}, inStore=${inStore}, pending=${alreadyPending}`);
-          pendingOrderIds.add(orderId);
-          scheduleFlush();
-        }
-      })
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          console.log(`[adapter] Subscribed to orders/pickup_drops/order_transfers realtime for office: ${priorityOffice}`);
-        }
+    if (changes.has("order_files")) await attempt(["order_files"], async () => {
+      const ids = changes.get("order_files");
+      // Wait for older file reads before dropping their completion markers.
+      if (orderFilesFetchInFlight) await orderFilesFetchInFlight.catch(() => {});
+      if (!isCurrent()) return;
+      if (ids === null) clearOrderFilesCache();
+      else for (const id of ids || []) invalidateOrderFilesCacheForOrder(id);
+      await invalidate("adapter-order-files");
+      const fallbackAffected = ids === null || queryClient.getQueriesData<any>({ queryKey: ["adapter-last-loads"] })
+        .some(([, data]) => data?.orders?.some((order: any) => ids?.has(order.id)));
+      if (fallbackAffected) await invalidate("adapter-last-loads");
+      if (ids === null) await invalidate("lumper-missing-revised-rc");
+      else if (ids?.size) await refreshLumperMissingOrders(queryClient, [...ids], isCurrent);
+    });
+    if (changes.has("lost_day_notes")) await attempt(["lost_day_notes"], async () => {
+      if (lostDayNotesInFlight) await lostDayNotesInFlight;
+      const dates = [...lostDayNotesLoadedDates];
+      lostDayNotesLoadedDates.clear();
+      if (dates.length && !(await fetchMissingLostDayNoteDates(dates, "realtime reconcile"))) {
+        dates.forEach(date => lostDayNotesLoadedDates.add(date));
+        throw new Error("Home-time reconciliation failed");
+      }
+      if (!isCurrent()) return;
+      bumpLostDayNotesVersion();
+    });
+    // Frequent machine updates only read their small, displayed field sets.
+    if (changes.has("driver_hos") && !changes.has("drivers")) await attempt(["driver_hos"], async () => {
+      await queryClient.cancelQueries({ queryKey: ["adapter-drivers"] });
+      const data = await fetchReportsReferenceRows("drivers",
+        "id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated");
+      if (!isCurrent()) return;
+      const byId = new Map((data || []).map(row => [row.id, row]));
+      queryClient.setQueriesData({ queryKey: ["adapter-drivers"] }, (old: any[] | undefined) =>
+        old?.map(row => ({ ...row, ...byId.get(row.id) })));
+    });
+    if (changes.has("truck_telemetry") && !changes.has("trucks")) await attempt(["truck_telemetry"], async () => {
+      await queryClient.cancelQueries({ queryKey: ["adapter-trucks"] });
+      const data = await fetchReportsReferenceRows("truck_telemetry",
+        "truck_id, fuel_level, miles_away, eta_minutes, miles_away_updated_at");
+      if (!isCurrent()) return;
+      const byId = new Map((data || []).map(row => [row.truck_id, row]));
+      queryClient.setQueriesData({ queryKey: ["adapter-trucks"] }, (old: any[] | undefined) =>
+        old?.map(row => ({ ...row, ...(byId.get(row.id) || {
+          fuel_level: null, miles_away: null, eta_minutes: null, miles_away_updated_at: null,
+        }) })));
+    });
+    for (const source of [...changes.keys()]) {
+      if (customSources.has(source) || coreSources.includes(source)) continue;
+      await attempt([source], async () => {
+        for (const key of queryKeys[source] || []) await invalidate(key);
+        notifyReportsSource(source);
+        // Full reference reads include these machine fields too.
+        if (source === "drivers") changes.delete("driver_hos");
+        if (source === "trucks") changes.delete("truck_telemetry");
       });
+    }
+    if (failures.length) throw failures[0];
+  }, [queryClient]);
+  const liveStatus = useReportsLive(globalEnabled, refreshLive);
 
-    ordersRealtimeChannelRef.current = channel;
-
-    return () => {
-      // CRITICAL: Flush any pending order IDs before cleanup
-      // Tab switches trigger effect cleanup, which would otherwise drop queued IDs
-      if (pendingOrderIds.size > 0 || pendingDeletes.size > 0) {
-        flushPending();
-      }
-      if (debounceTimer) clearTimeout(debounceTimer);
-      if (ordersRealtimeChannelRef.current) {
-        console.log("[adapter] Unsubscribing from orders realtime (global)");
-        ordersRealtimeChannelRef.current?.unsubscribe();
-        ordersRealtimeChannelRef.current = null;
-      }
-    };
-  }, [scopeEnabled, driverIdsForScope.length, queryClient]);
+  // Local mutations may update shared caches before the DB notification arrives.
+  // Ignore lifecycle events and unchanged values, and refresh only the changed dataset.
+  useEffect(() => {
+    if (!scopeEnabled) return;
+    const timers = new Map<string, ReturnType<typeof setTimeout>>();
+    const unsubscribe = watchReportReferenceChanges(queryClient, kind => {
+      if (timers.has(kind)) return;
+      timers.set(kind, setTimeout(() => {
+        timers.delete(kind);
+        void queryClient.invalidateQueries({ queryKey: [`adapter-${kind}`], refetchType: "active" });
+      }, 500));
+    });
+    return () => { unsubscribe(); timers.forEach(clearTimeout); };
+  }, [scopeEnabled, queryClient]);
 
   // Build order_files lookup map (include files from last loads)
   const orderFilesMap = useMemo(() => {
@@ -2429,7 +2014,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   }, [individualMode, transformedData, currentUserDispatcherId, individualOverrideDriverIds, userFullName]);
 
   if (!USE_DATE_WINDOW_LOADING) {
-    return legacyReportsHook;
+    return { ...legacyReportsHook, liveStatus };
   }
 
   // Determine if we're in a true loading state (no data to show yet)
@@ -2439,6 +2024,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   const isLoadingOrderFiles = !hasValidData && windowOrderIds.length > 0 && isOrderFilesLoading;
 
   return {
+    liveStatus,
     // Data from date-window with transformation (filtered when individual mode is ON)
     data: filteredData,
     // Only show loading skeleton on initial load when we have NO data to display
