@@ -1,8 +1,9 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import apsAsset from "@/assets/APS_lease.pdf.asset.json";
 import uesAsset from "@/assets/UES_lease.pdf.asset.json";
+import jonesAsset from "@/assets/Jones_lease.pdf.asset.json";
 
-export type LeaseTemplate = "APS" | "UES";
+export type LeaseTemplate = "APS" | "UES" | "JONES";
 
 export interface LeaseTruckInfo {
   truckNumber: string;
