@@ -216,7 +216,7 @@ export default function DriverExpenses() {
   };
 
   const inputClass = "h-full w-full bg-transparent px-0 text-xs outline-none ring-0 focus:outline-none";
-  const editableCell = (r: Expense, key: CellKey, display: React.ReactNode, extra = "", listId?: string) => {
+  const editableCell = (r: Expense, key: CellKey, display: ReactNode, extra = "", listId?: string) => {
     const active = canEdit && cell?.id === r.id && cell.key === key;
     return <td
       className={cn("h-9 truncate border-b border-r px-2", extra)}
