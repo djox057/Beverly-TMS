@@ -280,14 +280,27 @@ const NewOrder = () => {
     !hasRole("supervisor") &&
     !hasRole("safety");
 
-  // Stop Amount floor: dispatch/afterhours cannot go below 90% of freight amount
+  // Stop Amount floor: dispatch/afterhours cannot go below a % of freight amount.
+  // Drivers hired within the last 3 weeks (or with no hire date — falls back to
+  // the driver's creation date) use 90%; longer-tenured drivers use 85%.
   const stopAmountRestricted = (hasRole("dispatch") || hasRole("afterhours")) && !hasRole("manager") && !hasRole("admin");
+  const stopAmountPct = (() => {
+    const d = (allDrivers as any[])?.find((x) => x.id === driver1);
+    const dateStr = d?.hire_date || d?.created_at || null;
+    if (!dateStr) return 0.9;
+    const hireDay = new Date(`${String(dateStr).split("T")[0].split(" ")[0]}T00:00:00`);
+    if (isNaN(hireDay.getTime())) return 0.9;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.floor((today.getTime() - hireDay.getTime()) / 86400000);
+    return diffDays <= 21 ? 0.9 : 0.85;
+  })();
   const stopAmountTooLow = (() => {
     if (!stopAmountRestricted) return false;
     const freight = parseFloat(freightAmount);
     const stop = parseFloat(driverPrice);
     if (!freight || freight <= 0 || !driverPrice || isNaN(stop)) return false;
-    return stop < freight * 0.9;
+    return stop < freight * stopAmountPct;
   })();
   const { data: approvalManagers = [] } = useApprovalManagers(profile?.office);
   const approvalManagerOptions = useMemo(
@@ -1867,7 +1880,7 @@ const NewOrder = () => {
       toast({
         title: "Manager approval required",
         description:
-          "Stop Amount is below 90% of the Freight Amount. Select the manager who approved this lower stop amount.",
+          `Stop Amount is below ${Math.round(stopAmountPct * 100)}% of the Freight Amount. Select the manager who approved this lower stop amount.`,
         variant: "destructive",
       });
       setIsSubmitting(false);
@@ -2336,6 +2349,7 @@ const NewOrder = () => {
           .invoke("send-stop-amount-approval", {
             body: {
               managerUserId: approvalManagerId,
+              thresholdPct: Math.round(stopAmountPct * 100),
               loadNumber: brokerLoadNumber || String(newInternalLoadNumber || ""),
               brokerName: brokerNameForEmail,
               truckNumber: approvalTruck?.truck_number || null,
@@ -3435,9 +3449,9 @@ const NewOrder = () => {
                             Truck #{selTruck?.truck_number || "-"} — {driverName || "-"}
                           </p>
                           <p>
-                            Stop Amount is below 90% of the Freight Amount ($
-                            {(thisFreight * 0.9).toFixed(2)}). Select the manager who approved this lower stop amount —
-                            they will be notified by email.
+                            Stop Amount is below {Math.round(stopAmountPct * 100)}% of the Freight Amount ($
+                            {(thisFreight * stopAmountPct).toFixed(2)}). Select the manager who approved this lower stop
+                            amount — they will be notified by email.
                           </p>
                           {weekTotals && (
                             <p>
