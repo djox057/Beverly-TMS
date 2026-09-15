@@ -280,14 +280,27 @@ const NewOrder = () => {
     !hasRole("supervisor") &&
     !hasRole("safety");
 
-  // Stop Amount floor: dispatch/afterhours cannot go below 90% of freight amount
+  // Stop Amount floor: dispatch/afterhours cannot go below a % of freight amount.
+  // Drivers hired within the last 3 weeks (or with no hire date — falls back to
+  // the driver's creation date) use 90%; longer-tenured drivers use 85%.
   const stopAmountRestricted = (hasRole("dispatch") || hasRole("afterhours")) && !hasRole("manager") && !hasRole("admin");
+  const stopAmountPct = (() => {
+    const d = (allDrivers as any[])?.find((x) => x.id === driver1);
+    const dateStr = d?.hire_date || d?.created_at || null;
+    if (!dateStr) return 0.9;
+    const hireDay = new Date(`${String(dateStr).split("T")[0].split(" ")[0]}T00:00:00`);
+    if (isNaN(hireDay.getTime())) return 0.9;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.floor((today.getTime() - hireDay.getTime()) / 86400000);
+    return diffDays <= 21 ? 0.9 : 0.85;
+  })();
   const stopAmountTooLow = (() => {
     if (!stopAmountRestricted) return false;
     const freight = parseFloat(freightAmount);
     const stop = parseFloat(driverPrice);
     if (!freight || freight <= 0 || !driverPrice || isNaN(stop)) return false;
-    return stop < freight * 0.9;
+    return stop < freight * stopAmountPct;
   })();
   const { data: approvalManagers = [] } = useApprovalManagers(profile?.office);
   const approvalManagerOptions = useMemo(
