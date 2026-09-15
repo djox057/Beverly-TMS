@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
 import { CandidateEditor, type EditorSelection } from "@/components/upcoming-drivers/CandidateEditor";
 import { saveCandidate, useUpcomingDrivers } from "@/components/upcoming-drivers/useUpcomingDrivers";
 import { addDays, chicagoToday, clockLabel, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, nextRowColor, type CandidateFields, type CandidateSummary, type References } from "@/components/upcoming-drivers/model";
@@ -171,7 +171,7 @@ export default function UpcomingDrivers() {
                   {c.field==="phone" && <><a href={`tel:${row.phone.replace(/[^+\d]/g,"")}`} aria-label={`Call ${row.driver_name}`}><Phone className="h-3 w-3"/></a><button aria-label={`Copy phone for ${row.driver_name}`} onClick={()=>void navigator.clipboard.writeText(row.phone).then(()=>toast({title:"Phone copied"})).catch(()=>toast({title:"Could not copy phone",variant:"destructive"}))}><Copy className="h-3 w-3"/></button></>}
                 </div>
               </td></Fragment>)}
-              <td className="border-b px-2" style={{backgroundColor:rowBg(row)}}>{canArchive && <Button size="icon" variant="ghost" aria-label={`${row.archived?"Restore":"Archive"} ${row.driver_name}`} onClick={()=>setArchiveTarget(row)}>{row.archived?<RotateCcw className="h-4 w-4"/>:<Archive className="h-4 w-4"/>}</Button>}</td>
+              <td className="border-b px-2" style={{backgroundColor:rowBg(row)}}><Button size="icon" variant="ghost" title="Add as driver" aria-label={`Add ${row.driver_name} as a driver`} onClick={()=>createDriver(row)}><UserPlus className="h-4 w-4"/></Button></td>
             </tr>)}
             {!closed && !members.length && <tr><td colSpan={20} className="border-b"><p className="sticky left-0 w-fit px-8 py-3 text-muted-foreground">{day==="unscheduled"?"No unscheduled drivers in this view.":"No drivers in this view."}</p></td></tr>}
           </tbody>;
@@ -181,9 +181,5 @@ export default function UpcomingDrivers() {
     <p className="text-xs text-muted-foreground">{filtered.length} entries shown · Click a cell for full details or editing. Drag a column edge to resize. Arrival dates and times are entered exactly as Chicago local values.</p>
     {editor && <CandidateEditor key={`${editor.id ?? editor.createId}:${editor.field ?? "all"}`} selection={editor} refs={refs} canEdit={canEdit}
       defaultRecruiter={getPrimaryRole()==="recruiting"?user?.id ?? null:null} onClose={()=>setEditor(null)} onSaved={acceptSaved}/>}
-    <AlertDialog open={!!archiveTarget} onOpenChange={open=>{if(!open && !archiving)setArchiveTarget(null);}}><AlertDialogContent>
-      <AlertDialogHeader><AlertDialogTitle>{archiveTarget?.archived?"Restore":"Archive"} {archiveTarget?.driver_name}?</AlertDialogTitle><AlertDialogDescription>{archiveTarget?.archived?"The entry will return to its scheduled day or Unscheduled.":"The entry and its history will be kept in Archived."}</AlertDialogDescription></AlertDialogHeader>
-      <AlertDialogFooter><AlertDialogCancel disabled={archiving}>Cancel</AlertDialogCancel><AlertDialogAction disabled={archiving} onClick={e=>{e.preventDefault();void doArchive();}}>{archiving?"Saving…":archiveTarget?.archived?"Restore":"Archive"}</AlertDialogAction></AlertDialogFooter>
-    </AlertDialogContent></AlertDialog>
   </div>;
 }
