@@ -35,6 +35,12 @@ const TEMPLATE_REGIONS: Record<
     vin: { yTop: 508, yBottom: 545, xLeft: 100, xRight: 512, fontSize: 18 },
     makeModel: { yTop: 547, yBottom: 583, xLeft: 100, xRight: 512, fontSize: 18 },
   },
+  // Jones template has an empty area between the signature block and DISTRIBUTION.
+  JONES: {
+    equipmentId: { yTop: 520, yBottom: 548, xLeft: 100, xRight: 512, fontSize: 12 },
+    vin: { yTop: 552, yBottom: 590, xLeft: 100, xRight: 512, fontSize: 18 },
+    makeModel: { yTop: 592, yBottom: 630, xLeft: 100, xRight: 512, fontSize: 18 },
+  },
 };
 
 interface Region {
