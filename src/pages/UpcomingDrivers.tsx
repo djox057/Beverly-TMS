@@ -130,9 +130,9 @@ export default function UpcomingDrivers() {
     {query.isPending?<div className="flex items-center justify-center gap-2 py-16"><Loader2 className="h-5 w-5 animate-spin"/>Loading upcoming drivers…</div>:
     <div className="min-h-32 flex-1 overflow-auto rounded-lg border" aria-label="Weekly upcoming drivers board">
       <table className="table-fixed border-collapse text-xs" style={{width:totalWidth}}>
-        <colgroup>{COLUMNS.map(c=><col key={c.field} style={{width:widths[c.field]}}/>)}<col style={{width:65}}/></colgroup>
+        <colgroup>{COLUMNS.map(c=><Fragment key={c.field}>{c.field==="safety_id" && <col style={{width:44}}/>}<col style={{width:widths[c.field]}}/></Fragment>)}<col style={{width:65}}/></colgroup>
         <thead className="sticky top-0 z-30 bg-muted"><tr>
-          {COLUMNS.map((c,i)=><th key={c.field} scope="col" className={`relative h-11 border-b border-r bg-muted px-2 text-left font-semibold ${i<2?"sticky z-40":""}`} style={i<2?{left:i===0?0:widths.recruiter_id}:undefined}>
+          {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="safety_id" && <th scope="col" className="h-11 border-b border-r bg-muted px-1 text-center font-semibold">Color</th>}<th scope="col" className={`relative h-11 border-b border-r bg-muted px-2 text-left font-semibold ${i<2?"sticky z-40":""}`} style={i<2?{left:i===0?0:widths.recruiter_id}:undefined}>
             <span className="mr-1 text-[10px] font-normal text-muted-foreground">{c.letter}</span>{FIELD_LABELS[c.field]}
             <span role="separator" aria-orientation="vertical" aria-label={`Resize ${FIELD_LABELS[c.field]} column`} aria-valuenow={widths[c.field]} tabIndex={0}
               className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none hover:bg-primary/20"
