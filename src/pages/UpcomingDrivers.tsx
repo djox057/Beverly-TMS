@@ -1,12 +1,13 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ChevronDown, ChevronLeft, ChevronRight, Copy, Loader2, Phone, Plus, RefreshCw, RotateCcw, Search } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Loader2, Phone, Plus, RefreshCw, Search, UserPlus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
 import { CandidateEditor, type EditorSelection } from "@/components/upcoming-drivers/CandidateEditor";
 import { saveCandidate, useUpcomingDrivers } from "@/components/upcoming-drivers/useUpcomingDrivers";
 import { addDays, chicagoToday, clockLabel, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, nextRowColor, type CandidateFields, type CandidateSummary, type References } from "@/components/upcoming-drivers/model";
@@ -23,12 +24,12 @@ export default function UpcomingDrivers() {
   const [filters,setFilters]=useState({recruiter_id:"",safety_id:"",dispatcher_id:""});
   const [collapsed,setCollapsed]=useState<Set<string>>(new Set());
   const [editor,setEditor]=useState<EditorSelection | null>(null);
-  const [archiveTarget,setArchiveTarget]=useState<CandidateSummary | null>(null),[archiving,setArchiving]=useState(false);
+  const navigate=useNavigate();
   const storageKey=`upcoming-drivers-widths:${user?.id}`;
   const defaults=Object.fromEntries(COLUMNS.map(c=>[c.field,c.width]));
   const [widths,setWidths]=useState<Record<string,number>>(defaults);
   const drag=useRef<{field:string;x:number;width:number}|null>(null);
-  const {query,references,live,canEdit,canArchive,acceptSaved}=useUpcomingDrivers(week,view==="Archived");
+  const {query,references,live,canEdit,acceptSaved}=useUpcomingDrivers(week,view==="Archived");
   const refs=references.data ?? emptyRefs;
   const rows=useMemo(()=>query.data ?? [],[query.data]);
   useEffect(()=>{
@@ -70,12 +71,17 @@ export default function UpcomingDrivers() {
     if(c.field==="truck_id") return [trucks.get(r.truck_id ?? ""),r.truck_terms].filter(Boolean).join(" · ") || "—";
     return String(r[(c.preview ?? c.field) as keyof CandidateSummary] ?? "") || "—";
   };
-  const doArchive=async()=>{
-    if(!archiveTarget)return;
-    setArchiving(true);
-    try{acceptSaved(await saveCandidate(archiveTarget.id,{archived:!archiveTarget.archived},archiveTarget.version));setArchiveTarget(null);}
-    catch(e){toast({title:"Could not update entry",description:e instanceof Error?e.message:"Please retry.",variant:"destructive"});}
-    finally{setArchiving(false);}
+  const createDriver=(row:CandidateSummary)=>{
+    const parts=row.driver_name.trim().split(/\s+/);
+    navigate("/drivers",{state:{prefillDriver:{
+      first_name:parts[0] ?? "",
+      last_name:parts.slice(1).join(" "),
+      phone:row.phone,
+      dispatcher_id:row.dispatcher_id ?? "",
+      truck_id:row.truck_id ?? "",
+      ...(row.arrival_date?{hire_date:row.arrival_date}:{}),
+      note:row.description_preview ?? "",
+    }}});
   };
   const [marking,setMarking]=useState<string | null>(null);
   const cycleColor=async(row:CandidateSummary)=>{
@@ -165,7 +171,7 @@ export default function UpcomingDrivers() {
                   {c.field==="phone" && <><a href={`tel:${row.phone.replace(/[^+\d]/g,"")}`} aria-label={`Call ${row.driver_name}`}><Phone className="h-3 w-3"/></a><button aria-label={`Copy phone for ${row.driver_name}`} onClick={()=>void navigator.clipboard.writeText(row.phone).then(()=>toast({title:"Phone copied"})).catch(()=>toast({title:"Could not copy phone",variant:"destructive"}))}><Copy className="h-3 w-3"/></button></>}
                 </div>
               </td></Fragment>)}
-              <td className="border-b px-2" style={{backgroundColor:rowBg(row)}}>{canArchive && <Button size="icon" variant="ghost" aria-label={`${row.archived?"Restore":"Archive"} ${row.driver_name}`} onClick={()=>setArchiveTarget(row)}>{row.archived?<RotateCcw className="h-4 w-4"/>:<Archive className="h-4 w-4"/>}</Button>}</td>
+              <td className="border-b px-2" style={{backgroundColor:rowBg(row)}}><Button size="icon" variant="ghost" title="Add as driver" aria-label={`Add ${row.driver_name} as a driver`} onClick={()=>createDriver(row)}><UserPlus className="h-4 w-4"/></Button></td>
             </tr>)}
             {!closed && !members.length && <tr><td colSpan={20} className="border-b"><p className="sticky left-0 w-fit px-8 py-3 text-muted-foreground">{day==="unscheduled"?"No unscheduled drivers in this view.":"No drivers in this view."}</p></td></tr>}
           </tbody>;
@@ -175,9 +181,5 @@ export default function UpcomingDrivers() {
     <p className="text-xs text-muted-foreground">{filtered.length} entries shown · Click a cell for full details or editing. Drag a column edge to resize. Arrival dates and times are entered exactly as Chicago local values.</p>
     {editor && <CandidateEditor key={`${editor.id ?? editor.createId}:${editor.field ?? "all"}`} selection={editor} refs={refs} canEdit={canEdit}
       defaultRecruiter={getPrimaryRole()==="recruiting"?user?.id ?? null:null} onClose={()=>setEditor(null)} onSaved={acceptSaved}/>}
-    <AlertDialog open={!!archiveTarget} onOpenChange={open=>{if(!open && !archiving)setArchiveTarget(null);}}><AlertDialogContent>
-      <AlertDialogHeader><AlertDialogTitle>{archiveTarget?.archived?"Restore":"Archive"} {archiveTarget?.driver_name}?</AlertDialogTitle><AlertDialogDescription>{archiveTarget?.archived?"The entry will return to its scheduled day or Unscheduled.":"The entry and its history will be kept in Archived."}</AlertDialogDescription></AlertDialogHeader>
-      <AlertDialogFooter><AlertDialogCancel disabled={archiving}>Cancel</AlertDialogCancel><AlertDialogAction disabled={archiving} onClick={e=>{e.preventDefault();void doArchive();}}>{archiving?"Saving…":archiveTarget?.archived?"Restore":"Archive"}</AlertDialogAction></AlertDialogFooter>
-    </AlertDialogContent></AlertDialog>
   </div>;
 }

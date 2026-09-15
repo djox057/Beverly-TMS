@@ -243,6 +243,18 @@ const Drivers = () => {
     }
   }, [location.state, drivers, isLoading]);
 
+  // Handle incoming navigation state to open the add dialog prefilled (e.g. from Upcoming Drivers)
+  useEffect(() => {
+    const state = location.state as { prefillDriver?: Partial<DriverFormData> } | null;
+    if (state?.prefillDriver) {
+      const prefill = state.prefillDriver;
+      setFormData((prev) => ({ ...prev, ...prefill }));
+      setAddDialogTab("info");
+      setIsAddDialogOpen(true);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   const { data: allTrucks } = useAvailableTrucks();
   const { data: trucks } = useTrucks();
   const { data: trailers } = useTrailers();
