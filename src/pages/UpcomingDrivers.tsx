@@ -19,7 +19,7 @@ export default function UpcomingDrivers() {
   const {user,getPrimaryRole}=useAuthContext();
   const [today,setToday]=useState(chicagoToday);
   const [week,setWeek]=useState(()=>mondayOf(chicagoToday()));
-  const [view,setView]=useState<"All"|"Upcoming"|"Arrived"|"Archived">("Upcoming");
+  const [view,setView]=useState<"All"|"Upcoming"|"Arrived">("Upcoming");
   const [search,setSearch]=useState("");
   const [filters,setFilters]=useState({recruiter_id:"",safety_id:"",dispatcher_id:""});
   const [collapsed,setCollapsed]=useState<Set<string>>(new Set());
@@ -29,7 +29,7 @@ export default function UpcomingDrivers() {
   const defaults=Object.fromEntries(COLUMNS.map(c=>[c.field,c.width]));
   const [widths,setWidths]=useState<Record<string,number>>(defaults);
   const drag=useRef<{field:string;x:number;width:number}|null>(null);
-  const {query,references,live,canEdit,acceptSaved}=useUpcomingDrivers(week,view==="Archived");
+  const {query,references,live,canEdit,acceptSaved}=useUpcomingDrivers(week,false);
   const refs=references.data ?? emptyRefs;
   const rows=useMemo(()=>query.data ?? [],[query.data]);
   useEffect(()=>{
@@ -87,7 +87,10 @@ export default function UpcomingDrivers() {
   const cycleColor=async(row:CandidateSummary)=>{
     if(!canEdit || marking)return;
     setMarking(row.id);
-    try{acceptSaved(await saveCandidate(row.id,{row_color:nextRowColor(row.row_color)},row.version));}
+    try{
+      const color=nextRowColor(row.row_color);
+      acceptSaved(await saveCandidate(row.id,{row_color:color,...(color?{status:COLOR_STATUS[color]}:{})},row.version));
+    }
     catch(e){toast({title:"Could not change the color",description:e instanceof Error?e.message:"Please retry.",variant:"destructive"});}
     finally{setMarking(null);}
   };
@@ -124,7 +127,7 @@ export default function UpcomingDrivers() {
     </div>
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex gap-1 rounded-md bg-muted p-1" role="group" aria-label="Driver view">
-        {(["All","Upcoming","Arrived","Archived"] as const).map(v=><Button key={v} variant={view===v?"secondary":"ghost"} size="sm" aria-pressed={view===v} onClick={()=>setView(v)}>{v}</Button>)}
+        {(["All","Upcoming","Arrived"] as const).map(v=><Button key={v} variant={view===v?"secondary":"ghost"} size="sm" aria-pressed={view===v} onClick={()=>setView(v)}>{v}</Button>)}
       </div>
       <div className="relative"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"/><Input aria-label="Search upcoming drivers" placeholder="Name, phone, staff, truck…" value={search} onChange={e=>setSearch(e.target.value)} className="h-9 w-56 pl-8"/></div>
       {([['recruiter_id','recruiting'],['safety_id','safety'],['dispatcher_id','dispatch']] as const).map(([field,role])=><div key={field} className="w-40"><Combobox
