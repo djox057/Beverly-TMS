@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ChevronDown, ChevronLeft, ChevronRight, Copy, Loader2, Phone, Plus, RefreshCw, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CandidateEditor, type EditorSelection } from "@/components/upcoming-drivers/CandidateEditor";
 import { saveCandidate, useUpcomingDrivers } from "@/components/upcoming-drivers/useUpcomingDrivers";
-import { addDays, chicagoToday, clockLabel, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, type CandidateFields, type CandidateSummary, type References } from "@/components/upcoming-drivers/model";
+import { addDays, chicagoToday, clockLabel, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, nextRowColor, type CandidateFields, type CandidateSummary, type References } from "@/components/upcoming-drivers/model";
 
 const emptyRefs:References={staff:[],trucks:[],companies:[]};
 const statusClass=(s:string)=>s==="Arrived"?"bg-emerald-100 text-emerald-900":s==="Canceled"?"bg-red-100 text-red-900":s==="Scheduled"?"bg-blue-100 text-blue-900":"bg-muted text-foreground";
