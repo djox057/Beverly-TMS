@@ -183,6 +183,66 @@ export default function DriverExpenses() {
 
   const field = (key: keyof Draft, value: string | number | null) => setEditing(old => old && ({ ...old, draft: { ...old.draft, [key]: value } }));
 
+  const patch = useMutation({
+    mutationFn: async ({ id, values }: { id: string; values: Partial<Draft> }) => {
+      const { error } = await db.from("recruiting_driver_expenses").update(values).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["recruiting-driver-expenses"] }); },
+    onError: (error: Error) => toast({ title: "Could not save", description: error.message, variant: "destructive" }),
+  });
+
+  type CellKey = "driver_name" | "ticket_price" | "bag_amount" | "card" | "airline" | "purchase_date" | "arrival_date"
+    | "motel_nights" | "motel_amount" | "truck_number" | "uber_amount" | "uber_destinations" | "status" | "payment_notes" | "notice";
+  const NUMERIC: CellKey[] = ["ticket_price", "bag_amount", "motel_nights", "motel_amount", "uber_amount"];
+  const DATES: CellKey[] = ["purchase_date", "arrival_date"];
+  const [cell, setCell] = useState<{ id: string; key: CellKey | "recruiter_id"; value: string } | null>(null);
+
+  const commitCell = () => {
+    if (!cell) return;
+    const row = rows.find(r => r.id === cell.id);
+    setCell(null);
+    if (!row) return;
+    if (cell.key === "recruiter_id") {
+      const next = cell.value || null;
+      if ((row.recruiter_id ?? null) === next) return;
+      patch.mutate({ id: row.id, values: { recruiter_id: next, recruiter: next ? (recruiterNames.get(next) ?? row.recruiter) : row.recruiter } });
+      return;
+    }
+    const key = cell.key;
+    const next = NUMERIC.includes(key) ? asNumber(cell.value) : DATES.includes(key) ? (cell.value || null) : clean(cell.value);
+    if ((row[key] ?? null) === next) return;
+    patch.mutate({ id: row.id, values: { [key]: next } as Partial<Draft> });
+  };
+
+  const inputClass = "h-full w-full bg-transparent px-0 text-xs outline-none ring-0 focus:outline-none";
+  const editableCell = (r: Expense, key: CellKey, display: React.ReactNode, extra = "", listId?: string) => {
+    const active = canEdit && cell?.id === r.id && cell.key === key;
+    return <td
+      className={cn("h-9 truncate border-b border-r px-2", extra)}
+      title={typeof display === "string" ? display : undefined}
+      onDoubleClick={() => canEdit && setCell({ id: r.id, key, value: r[key] === null || r[key] === undefined ? "" : String(r[key]) })}
+    >
+      {active
+        ? <input
+            autoFocus
+            className={inputClass}
+            type={DATES.includes(key) ? "date" : "text"}
+            inputMode={NUMERIC.includes(key) ? "decimal" : undefined}
+            list={listId}
+            value={cell!.value}
+            onChange={e => setCell(c => c && ({ ...c, value: e.target.value }))}
+            onBlur={commitCell}
+            onKeyDown={e => {
+              if (e.key === "Enter") { e.preventDefault(); commitCell(); }
+              if (e.key === "Escape") { e.preventDefault(); setCell(null); }
+            }}
+          />
+        : display}
+    </td>;
+  };
+
+
   return <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
