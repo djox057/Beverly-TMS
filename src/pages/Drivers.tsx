@@ -136,6 +136,7 @@ const Drivers = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTruckId, setSelectedTruckId] = useState<string>("");
   const [showDoneConfirmation, setShowDoneConfirmation] = useState(false);
+  const [countsAsTurnover, setCountsAsTurnover] = useState(true);
   const [showNoteDialog, setShowNoteDialog] = useState(false);
   const [terminationNote, setTerminationNote] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
@@ -1032,6 +1033,7 @@ const Drivers = () => {
     }
   };
   const handleDoneClick = () => {
+    setCountsAsTurnover(true);
     setShowDoneConfirmation(true);
   };
   const handleConfirmDone = () => {
@@ -1065,6 +1067,7 @@ const Drivers = () => {
           termination_date: new Date().toISOString().split("T")[0],
           dispatcher_id: null,
           two_week_block_date: null,
+          counts_as_turnover: countsAsTurnover,
         })
         .eq("id", editingDriver.id);
       if (driverError) throw driverError;
@@ -3263,6 +3266,16 @@ const Drivers = () => {
               This will mark {editingDriver?.name} as done and remove them from active drivers.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="flex items-center space-x-2 py-2">
+            <Checkbox
+              id="counts_as_turnover"
+              checked={countsAsTurnover}
+              onCheckedChange={(checked) => setCountsAsTurnover(checked === true)}
+            />
+            <Label htmlFor="counts_as_turnover" className="text-sm font-normal cursor-pointer">
+              Count as turnover for dispatcher
+            </Label>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDone}>Yes</AlertDialogAction>

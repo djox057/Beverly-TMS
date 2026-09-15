@@ -123,6 +123,7 @@ const TurnoverList = () => {
         .from("drivers")
         .select("id, name, termination_date, last_dispatcher_id, last_dispatcher_name, driver_termination_notes(note, created_at)")
         .eq("is_active", false)
+        .eq("counts_as_turnover", true)
         .not("last_dispatcher_id", "is", null)
         .not("termination_date", "is", null)
         .gte("termination_date", startDate)

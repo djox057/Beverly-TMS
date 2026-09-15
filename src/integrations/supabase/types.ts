@@ -2455,6 +2455,7 @@ export type Database = {
           company_address: string | null
           company_id: string | null
           company_name: string | null
+          counts_as_turnover: boolean
           created_at: string
           criminal: boolean
           dispatcher_id: string | null
@@ -2514,6 +2515,7 @@ export type Database = {
           company_address?: string | null
           company_id?: string | null
           company_name?: string | null
+          counts_as_turnover?: boolean
           created_at?: string
           criminal?: boolean
           dispatcher_id?: string | null
@@ -2573,6 +2575,7 @@ export type Database = {
           company_address?: string | null
           company_id?: string | null
           company_name?: string | null
+          counts_as_turnover?: boolean
           created_at?: string
           criminal?: boolean
           dispatcher_id?: string | null
