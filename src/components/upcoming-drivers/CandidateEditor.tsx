@@ -9,7 +9,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { candidateKey, fetchCandidate, saveCandidate, useCandidateHistory } from "./useUpcomingDrivers";
-import { changedFields, clockLabel, EMPTY_CANDIDATE, FIELD_LABELS, STATUSES, validateCandidate, type Candidate, type CandidateFields, type References } from "./model";
+import { changedFields, clockLabel, EMPTY_CANDIDATE, FIELD_LABELS, rowColorForStatus, STATUSES, validateCandidate, type Candidate, type CandidateFields, type CandidateStatus, type References } from "./model";
 
 const longFields=["transport_note","description","mvr","psp","ticket_note","preference","truck_terms"];
 const nullableFields=["recruiter_id","safety_id","dispatcher_id","truck_id","arrival_date","arrival_time"];
@@ -97,7 +97,9 @@ export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose
           {fields.map(field=><div key={field} className="space-y-2">
             <Label htmlFor={`upcoming-${field}`}>{FIELD_LABELS[field]}{["driver_name","phone"].includes(field)?" *":""}</Label>
             <FieldInput field={field} draft={draft} refs={refs} disabled={!canEdit || saving}
-              onChange={value=>setDraft(old=>({...old,[field]:value,...(field==="arrival_date" && !value?{arrival_time:null}:{})}))} />
+              onChange={value=>setDraft(old=>({...old,[field]:value,
+                ...(field==="arrival_date" && !value?{arrival_time:null}:{}),
+                ...(field==="status"?{row_color:rowColorForStatus(value as CandidateStatus)}:{})}))} />
           </div>)}
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <div className="sticky bottom-0 flex flex-wrap gap-2 border-t bg-background py-3">

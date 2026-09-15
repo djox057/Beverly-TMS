@@ -41,6 +41,16 @@ export function nextRowColor(current: RowColor): RowColor {
   const index = ROW_COLORS.indexOf(current as typeof ROW_COLORS[number]);
   return index === ROW_COLORS.length - 1 ? null : ROW_COLORS[index + 1];
 }
+// Colors carry the schedule state: blue/yellow stay in Upcoming, green means Arrived.
+export const COLOR_STATUS: Record<Exclude<RowColor, null>, CandidateStatus> = {
+  blue: "Scheduled", yellow: "Contacted", green: "Arrived",
+};
+export function rowColorForStatus(status: CandidateStatus): RowColor {
+  if (status === "Arrived") return "green";
+  if (status === "Scheduled") return "blue";
+  if (status === "Contacted") return "yellow";
+  return null;
+}
 export const COLUMNS: {field: keyof CandidateFields; letter: string; width: number; preview?: keyof CandidateSummary}[] = [
   {field:"recruiter_id",letter:"A",width:130},{field:"driver_name",letter:"B",width:190},
   {field:"phone",letter:"C",width:175},{field:"safety_id",letter:"D",width:125},
