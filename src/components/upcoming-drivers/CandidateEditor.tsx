@@ -9,7 +9,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { candidateKey, fetchCandidate, saveCandidate, useCandidateHistory } from "./useUpcomingDrivers";
-import { changedFields, clockLabel, EMPTY_CANDIDATE, FIELD_LABELS, STATUSES, validateCandidate, type Candidate, type CandidateFields, type References } from "./model";
+import { changedFields, clockLabel, EMPTY_CANDIDATE, FIELD_LABELS, rowColorForStatus, STATUSES, validateCandidate, type Candidate, type CandidateFields, type CandidateStatus, type References } from "./model";
 
 const longFields=["transport_note","description","mvr","psp","ticket_note","preference","truck_terms"];
 const nullableFields=["recruiter_id","safety_id","dispatcher_id","truck_id","arrival_date","arrival_time"];
