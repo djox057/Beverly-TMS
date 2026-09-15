@@ -7,6 +7,9 @@ import { Sidebar } from "@/components/Sidebar";
 import { UPCOMING_DRIVERS_ROLES } from "@/lib/upcomingDriversAccess";
 import UpcomingDrivers from "@/pages/UpcomingDrivers";
 
+// This suite exercises routing/navigation permissions, independent of board queries.
+vi.mock("@/pages/UpcomingDrivers", () => ({ default: () => <h1>Upcoming Drivers</h1> }));
+
 const auth = vi.hoisted(() => ({
   primaryRole: null as string | null,
   signedIn: true,
