@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ChevronDown, ChevronLeft, ChevronRight, Copy, Loader2, Phone, Plus, RefreshCw, RotateCcw, Search } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Loader2, Phone, Plus, RefreshCw, Search, UserPlus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -23,12 +24,12 @@ export default function UpcomingDrivers() {
   const [filters,setFilters]=useState({recruiter_id:"",safety_id:"",dispatcher_id:""});
   const [collapsed,setCollapsed]=useState<Set<string>>(new Set());
   const [editor,setEditor]=useState<EditorSelection | null>(null);
-  const [archiveTarget,setArchiveTarget]=useState<CandidateSummary | null>(null),[archiving,setArchiving]=useState(false);
+  const navigate=useNavigate();
   const storageKey=`upcoming-drivers-widths:${user?.id}`;
   const defaults=Object.fromEntries(COLUMNS.map(c=>[c.field,c.width]));
   const [widths,setWidths]=useState<Record<string,number>>(defaults);
   const drag=useRef<{field:string;x:number;width:number}|null>(null);
-  const {query,references,live,canEdit,canArchive,acceptSaved}=useUpcomingDrivers(week,view==="Archived");
+  const {query,references,live,canEdit,acceptSaved}=useUpcomingDrivers(week,view==="Archived");
   const refs=references.data ?? emptyRefs;
   const rows=useMemo(()=>query.data ?? [],[query.data]);
   useEffect(()=>{
