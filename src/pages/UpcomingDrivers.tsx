@@ -155,8 +155,8 @@ export default function UpcomingDrivers() {
                 {canEdit && view!=="Archived" && <Button variant="ghost" size="sm" aria-label={`Add driver for ${day}`} onClick={()=>add(day==="unscheduled"?null:day)}><Plus className="h-3 w-3"/></Button>}
               </div>
             </td></tr>
-            {!closed && members.map((row,index)=><tr key={row.id} className={index%2?"bg-muted/20":"bg-background"}>
-              {COLUMNS.map((c,i)=><td key={c.field} className={`h-10 border-b border-r px-2 ${i<2?"sticky z-10 bg-background":""}`} style={i<2?{left:i===0?0:widths.recruiter_id}:undefined}>
+            {!closed && members.map((row,index)=><tr key={row.id} className={row.row_color?"":index%2?"bg-muted/20":"bg-background"} style={{backgroundColor:rowBg(row),color:rowFg(row)}}>
+              {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="safety_id" && colorCell(row)}<td className={`h-10 border-b border-r px-2 ${i<2?"sticky z-10":""} ${i<2 && !row.row_color?"bg-background":""}`} style={{...(i<2?{left:i===0?0:widths.recruiter_id}:{}),backgroundColor:rowBg(row)}}>
                 <div className="flex min-w-0 items-center gap-1">
                   <button type="button" className="min-w-0 flex-1 truncate py-2 text-left hover:text-primary hover:underline" aria-label={`${FIELD_LABELS[c.field]} for ${row.driver_name}`} onClick={()=>open(row.id,c.field)}>
                     {c.field==="status"?<span className={`rounded px-1.5 py-1 ${statusClass(row.status)}`}>{row.status}</span>:display(row,c)}
