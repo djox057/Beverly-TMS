@@ -20,6 +20,7 @@ const db: SupabaseClient = supabase;
 type Expense = {
   id: string;
   recruiter: string | null;
+  recruiter_id: string | null;
   driver_name: string;
   ticket_price: number | null;
   bag_amount: number | null;
@@ -41,12 +42,12 @@ type Expense = {
 type Draft = Omit<Expense, "id" | "total_exp">;
 
 const EMPTY: Draft = {
-  recruiter: "", driver_name: "", ticket_price: null, bag_amount: null, card: "", airline: "",
+  recruiter: "", recruiter_id: null, driver_name: "", ticket_price: null, bag_amount: null, card: "", airline: "",
   purchase_date: null, arrival_date: null, motel_nights: null, motel_amount: null, truck_number: "",
   uber_amount: null, uber_destinations: "", status: "", payment_notes: "", notice: "",
 };
 
-const SELECT = "id,recruiter,driver_name,ticket_price,bag_amount,card,airline,purchase_date,arrival_date,motel_nights,motel_amount,truck_number,uber_amount,uber_destinations,status,payment_notes,notice,total_exp";
+const SELECT = "id,recruiter,recruiter_id,driver_name,ticket_price,bag_amount,card,airline,purchase_date,arrival_date,motel_nights,motel_amount,truck_number,uber_amount,uber_destinations,status,payment_notes,notice,total_exp";
 
 const money = (value: number | null) => (value === null || value === undefined ? "—" : `$${Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 const day = (value: string | null) => {
@@ -60,6 +61,14 @@ const asNumber = (value: string) => {
   const parsed = Number(value.replace(/[^0-9.-]/g, ""));
   return Number.isFinite(parsed) ? parsed : null;
 };
+
+type Staff = { user_id: string; full_name: string | null; role: string };
+
+async function fetchRecruiters(): Promise<Staff[]> {
+  const { data, error } = await db.rpc("upcoming_driver_staff");
+  if (error) throw error;
+  return ((data ?? []) as Staff[]).filter(s => s.role === "recruiting");
+}
 
 async function fetchExpenses(): Promise<Expense[]> {
   const rows: Expense[] = [];
@@ -81,6 +90,12 @@ export default function DriverExpenses() {
   const qc = useQueryClient();
   const query = useQuery({ queryKey: ["recruiting-driver-expenses"], queryFn: fetchExpenses, staleTime: 60000 });
   const rows = useMemo(() => query.data ?? [], [query.data]);
+  const staffQuery = useQuery({ queryKey: ["driver-expense-recruiters"], queryFn: fetchRecruiters, staleTime: 300000 });
+  const recruiterUsers = useMemo(() => (staffQuery.data ?? []).slice().sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? "")), [staffQuery.data]);
+  const recruiterNames = useMemo(() => new Map(recruiterUsers.map(s => [s.user_id, s.full_name ?? "Unknown user"])), [recruiterUsers]);
+  const recruiterUserOptions = useMemo(() => recruiterUsers.map(s => ({ value: s.user_id, label: s.full_name ?? "Unknown user" })), [recruiterUsers]);
+  const recruiterLabel = (row: { recruiter_id: string | null; recruiter: string | null }) =>
+    (row.recruiter_id ? recruiterNames.get(row.recruiter_id) : null) ?? row.recruiter ?? "";
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({ recruiter: "", airline: "", status: "", card: "", paid: "" });
@@ -91,12 +106,11 @@ export default function DriverExpenses() {
   const [deleting, setDeleting] = useState<Expense | null>(null);
   const pageSize = 100;
 
-  const optionsFor = (field: "recruiter" | "airline" | "status" | "card") => {
+  const optionsFor = (field: "airline" | "status" | "card") => {
     const values = new Set<string>();
     rows.forEach(r => { const v = (r[field] ?? "").trim(); if (v) values.add(v); });
     return [...values].sort((a, b) => a.localeCompare(b)).map(v => ({ value: v, label: v }));
   };
-  const recruiterOptions = useMemo(() => optionsFor("recruiter"), [rows]);
   const airlineOptions = useMemo(() => optionsFor("airline"), [rows]);
   const statusOptions = useMemo(() => optionsFor("status"), [rows]);
   const cardOptions = useMemo(() => optionsFor("card"), [rows]);
@@ -104,7 +118,7 @@ export default function DriverExpenses() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter(r => {
-      if (filters.recruiter && (r.recruiter ?? "").trim() !== filters.recruiter) return false;
+      if (filters.recruiter && r.recruiter_id !== filters.recruiter) return false;
       if (filters.airline && (r.airline ?? "").trim() !== filters.airline) return false;
       if (filters.status && (r.status ?? "").trim() !== filters.status) return false;
       if (filters.card && (r.card ?? "").trim() !== filters.card) return false;
@@ -118,10 +132,10 @@ export default function DriverExpenses() {
       if (from && (!reference || reference < from)) return false;
       if (to && (!reference || reference > to)) return false;
       if (!q) return true;
-      return [r.driver_name, r.recruiter, r.airline, r.card, r.truck_number, r.uber_destinations, r.status, r.payment_notes, r.notice]
+      return [r.driver_name, r.recruiter, recruiterLabel(r), r.airline, r.card, r.truck_number, r.uber_destinations, r.status, r.payment_notes, r.notice]
         .some(value => value?.toLowerCase().includes(q));
     });
-  }, [rows, search, filters, from, to]);
+  }, [rows, search, filters, from, to, recruiterNames]);
 
   const totals = useMemo(() => filtered.reduce((sum, r) => ({
     ticket: sum.ticket + (r.ticket_price ?? 0), bag: sum.bag + (r.bag_amount ?? 0),
@@ -137,7 +151,7 @@ export default function DriverExpenses() {
     mutationFn: async ({ id, draft }: { id: string | null; draft: Draft }) => {
       const payload = {
         ...draft,
-        recruiter: clean(draft.recruiter ?? ""), driver_name: (draft.driver_name ?? "").trim(),
+        recruiter: clean(draft.recruiter ?? ""), recruiter_id: draft.recruiter_id || null, driver_name: (draft.driver_name ?? "").trim(),
         card: clean(draft.card ?? ""), airline: clean(draft.airline ?? ""), truck_number: clean(draft.truck_number ?? ""),
         uber_destinations: clean(draft.uber_destinations ?? ""), status: clean(draft.status ?? ""),
         payment_notes: clean(draft.payment_notes ?? ""), notice: clean(draft.notice ?? ""),
@@ -182,7 +196,7 @@ export default function DriverExpenses() {
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input aria-label="Search driver expenses" placeholder="Driver, truck, Uber destination, notes…" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} className="h-9 w-64 pl-8" />
       </div>
-      <div className="w-40"><Combobox options={recruiterOptions} value={filters.recruiter} onValueChange={v => { setFilters(f => ({ ...f, recruiter: v })); setPage(0); }} placeholder="All recruiters" /></div>
+      <div className="w-40"><Combobox options={recruiterUserOptions} value={filters.recruiter} onValueChange={v => { setFilters(f => ({ ...f, recruiter: v })); setPage(0); }} placeholder="All recruiters" /></div>
       <div className="w-36"><Combobox options={airlineOptions} value={filters.airline} onValueChange={v => { setFilters(f => ({ ...f, airline: v })); setPage(0); }} placeholder="All airlines" /></div>
       <div className="w-44"><Combobox options={statusOptions} value={filters.status} onValueChange={v => { setFilters(f => ({ ...f, status: v })); setPage(0); }} placeholder="All statuses" /></div>
       <div className="w-32"><Combobox options={cardOptions} value={filters.card} onValueChange={v => { setFilters(f => ({ ...f, card: v })); setPage(0); }} placeholder="All cards" /></div>
@@ -217,7 +231,7 @@ export default function DriverExpenses() {
         </thead>
         <tbody>
           {visible.map((r, index) => <tr key={r.id} className={index % 2 ? "bg-muted/20" : "bg-background"}>
-            <td className="h-9 truncate border-b border-r px-2">{r.recruiter || "—"}</td>
+            <td className="h-9 truncate border-b border-r px-2" title={recruiterLabel(r)}>{recruiterLabel(r) || "—"}</td>
             <td className="h-9 truncate border-b border-r px-2 font-medium">{r.driver_name || "—"}</td>
             <td className="h-9 border-b border-r px-2">{money(r.ticket_price)}</td>
             <td className="h-9 border-b border-r px-2">{money(r.bag_amount)}</td>
@@ -256,9 +270,9 @@ export default function DriverExpenses() {
       <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
         <DialogHeader><DialogTitle>{editing?.id ? "Edit expense entry" : "Add expense entry"}</DialogTitle></DialogHeader>
         {editing && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div><Label htmlFor="ex-recc">Recc</Label>
-            <Input id="ex-recc" value={editing.draft.recruiter ?? ""} onChange={e => field("recruiter", e.target.value)} list="ex-recruiters" />
-            <datalist id="ex-recruiters">{recruiterOptions.map(o => <option key={o.value} value={o.value} />)}</datalist>
+          <div><Label htmlFor="ex-recc">Recc (app user)</Label>
+            <Combobox options={recruiterUserOptions} value={editing.draft.recruiter_id ?? ""} onValueChange={v => setEditing(old => old && ({ ...old, draft: { ...old.draft, recruiter_id: v || null, recruiter: v ? (recruiterNames.get(v) ?? old.draft.recruiter) : old.draft.recruiter } }))} placeholder="Select recruiter" modal />
+            {!editing.draft.recruiter_id && editing.draft.recruiter && <p className="mt-1 text-xs text-muted-foreground">Imported name: {editing.draft.recruiter}</p>}
           </div>
           <div className="sm:col-span-2"><Label htmlFor="ex-driver">Driver</Label>
             <Input id="ex-driver" value={editing.draft.driver_name ?? ""} onChange={e => field("driver_name", e.target.value)} /></div>
