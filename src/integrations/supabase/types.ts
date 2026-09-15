@@ -4544,6 +4544,7 @@ export type Database = {
           payment_notes: string | null
           purchase_date: string | null
           recruiter: string | null
+          recruiter_id: string | null
           status: string | null
           ticket_price: number | null
           total_exp: number | null
@@ -4566,6 +4567,7 @@ export type Database = {
           payment_notes?: string | null
           purchase_date?: string | null
           recruiter?: string | null
+          recruiter_id?: string | null
           status?: string | null
           ticket_price?: number | null
           total_exp?: number | null
@@ -4588,6 +4590,7 @@ export type Database = {
           payment_notes?: string | null
           purchase_date?: string | null
           recruiter?: string | null
+          recruiter_id?: string | null
           status?: string | null
           ticket_price?: number | null
           total_exp?: number | null
