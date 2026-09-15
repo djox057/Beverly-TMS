@@ -1880,7 +1880,7 @@ const NewOrder = () => {
       toast({
         title: "Manager approval required",
         description:
-          "Stop Amount is below 90% of the Freight Amount. Select the manager who approved this lower stop amount.",
+          `Stop Amount is below ${Math.round(stopAmountPct * 100)}% of the Freight Amount. Select the manager who approved this lower stop amount.`,
         variant: "destructive",
       });
       setIsSubmitting(false);
