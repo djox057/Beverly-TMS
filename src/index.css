@@ -106,6 +106,12 @@
     --company-jones: 266 75% 31%;
     --company-jones-foreground: 0 0% 100%;
 
+    /* Manual row markers (Upcoming Drivers board) */
+    --row-mark-blue: 210 90% 88%;
+    --row-mark-yellow: 48 96% 84%;
+    --row-mark-green: 142 60% 84%;
+    --row-mark-foreground: 222 47% 11%;
+
     /* Borders and inputs */
     --border: 214 32% 91%;
     --input: 214 32% 91%;
@@ -217,6 +223,11 @@
     --company-lale-foreground: 0 0% 100%;
     --company-jones: 266 75% 31%;
     --company-jones-foreground: 0 0% 100%;
+
+    --row-mark-blue: 210 90% 88%;
+    --row-mark-yellow: 48 96% 84%;
+    --row-mark-green: 142 60% 84%;
+    --row-mark-foreground: 222 47% 11%;
 
     --border: 217 32% 27%;
     --input: 217 32% 27%;
