@@ -146,7 +146,7 @@ export default function UpcomingDrivers() {
           const members=filtered.filter(r=>(r.arrival_date ?? "unscheduled")===day);
           const closed=collapsed.has(day);
           return <tbody key={day}>
-            <tr><td colSpan={19} className={`border-y ${day===today?"bg-blue-50 dark:bg-blue-950":"bg-muted/70"}`}>
+            <tr><td colSpan={20} className={`border-y ${day===today?"bg-blue-50 dark:bg-blue-950":"bg-muted/70"}`}>
               <div className="sticky left-0 flex h-10 w-fit items-center gap-2 px-2">
                 <button type="button" aria-expanded={!closed} className="flex items-center gap-2 font-semibold" onClick={()=>setCollapsed(old=>{const next=new Set(old);if(next.has(day))next.delete(day);else next.add(day);return next;})}>
                   {closed?<ChevronRight className="h-4 w-4"/>:<ChevronDown className="h-4 w-4"/>}{day==="unscheduled"?"Unscheduled · all weeks":dayLabel(day)} <Badge variant="secondary">{members.length}</Badge>
