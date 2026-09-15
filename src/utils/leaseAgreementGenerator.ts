@@ -60,6 +60,7 @@ export function getLeaseTemplateForCompany(companyName?: string | null): LeaseTe
   if (!name) return null;
   if (name === "ap silver trans llc") return "APS";
   if (name === "united enterprise solutions inc") return "UES";
+  if (name === "jones freight lines llc") return "JONES";
   return null;
 }
 
