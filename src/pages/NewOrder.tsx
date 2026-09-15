@@ -3082,7 +3082,7 @@ const NewOrder = () => {
                     searchPlaceholder="Search companies..."
                   />
                   {(() => {
-                    const operatingCompanyNames = ["BG Prime Inc", "BF Prime LLC", "Beverly Freight Inc"];
+                    const operatingCompanyNames = ["BG Prime Inc", "BF Prime LLC", "Beverly Freight Inc", "Lale Transport LLC"];
                     const bookedByName = companies?.find((c) => c.id === bookedByCompany)?.name;
                     if (
                       driverCompanyName &&
