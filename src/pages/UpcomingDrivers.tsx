@@ -71,12 +71,17 @@ export default function UpcomingDrivers() {
     if(c.field==="truck_id") return [trucks.get(r.truck_id ?? ""),r.truck_terms].filter(Boolean).join(" · ") || "—";
     return String(r[(c.preview ?? c.field) as keyof CandidateSummary] ?? "") || "—";
   };
-  const doArchive=async()=>{
-    if(!archiveTarget)return;
-    setArchiving(true);
-    try{acceptSaved(await saveCandidate(archiveTarget.id,{archived:!archiveTarget.archived},archiveTarget.version));setArchiveTarget(null);}
-    catch(e){toast({title:"Could not update entry",description:e instanceof Error?e.message:"Please retry.",variant:"destructive"});}
-    finally{setArchiving(false);}
+  const createDriver=(row:CandidateSummary)=>{
+    const parts=row.driver_name.trim().split(/\s+/);
+    navigate("/drivers",{state:{prefillDriver:{
+      first_name:parts[0] ?? "",
+      last_name:parts.slice(1).join(" "),
+      phone:row.phone,
+      dispatcher_id:row.dispatcher_id ?? "",
+      truck_id:row.truck_id ?? "",
+      ...(row.arrival_date?{hire_date:row.arrival_date}:{}),
+      note:row.description_preview ?? "",
+    }}});
   };
   const [marking,setMarking]=useState<string | null>(null);
   const cycleColor=async(row:CandidateSummary)=>{
