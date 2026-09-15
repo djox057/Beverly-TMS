@@ -161,7 +161,7 @@ export default function UpcomingDrivers() {
                   {closed?<ChevronRight className="h-4 w-4"/>:<ChevronDown className="h-4 w-4"/>}{day==="unscheduled"?"Unscheduled · all weeks":dayLabel(day)} <Badge variant="secondary">{members.length}</Badge>
                   {day===today && <span className="text-blue-700 dark:text-blue-300">Today</span>}
                 </button>
-                {canEdit && view!=="Archived" && <Button variant="ghost" size="sm" aria-label={`Add driver for ${day}`} onClick={()=>add(day==="unscheduled"?null:day)}><Plus className="h-3 w-3"/></Button>}
+                {canEdit && <Button variant="ghost" size="sm" aria-label={`Add driver for ${day}`} onClick={()=>add(day==="unscheduled"?null:day)}><Plus className="h-3 w-3"/></Button>}
               </div>
             </td></tr>
             {!closed && members.map((row,index)=><tr key={row.id} className={row.row_color?"":index%2?"bg-muted/20":"bg-background"} style={{backgroundColor:rowBg(row),color:rowFg(row)}}>
