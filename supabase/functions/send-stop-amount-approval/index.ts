@@ -21,6 +21,7 @@ const BodySchema = z.object({
   pickupDate: z.string().trim().max(40).nullish(),
   freightAmount: z.number().nonnegative(),
   stopAmount: z.number().nonnegative(),
+  thresholdPct: z.number().min(1).max(100).default(90),
   pickup: z.string().trim().max(300).nullish(),
   delivery: z.string().trim().max(300).nullish(),
   testTo: z.string().email().nullish(),
