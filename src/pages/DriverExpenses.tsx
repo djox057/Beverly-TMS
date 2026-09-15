@@ -320,23 +320,41 @@ export default function DriverExpenses() {
         </thead>
         <tbody>
           {visible.map((r, index) => <tr key={r.id} className={index % 2 ? "bg-muted/20" : "bg-background"}>
-            <td className="h-9 truncate border-b border-r px-2" title={recruiterLabel(r)}>{recruiterLabel(r) || "—"}</td>
-            <td className="h-9 truncate border-b border-r px-2 font-medium">{r.driver_name || "—"}</td>
-            <td className="h-9 border-b border-r px-2">{money(r.ticket_price)}</td>
-            <td className="h-9 border-b border-r px-2">{money(r.bag_amount)}</td>
-            <td className="h-9 truncate border-b border-r px-2">{r.card || "—"}</td>
-            <td className="h-9 truncate border-b border-r px-2">{r.airline || "—"}</td>
-            <td className="h-9 border-b border-r px-2">{day(r.purchase_date)}</td>
-            <td className="h-9 border-b border-r px-2">{day(r.arrival_date)}</td>
-            <td className="h-9 border-b border-r px-2">{r.motel_nights ?? "—"}</td>
-            <td className="h-9 border-b border-r px-2">{money(r.motel_amount)}</td>
-            <td className="h-9 truncate border-b border-r px-2">{r.truck_number || "—"}</td>
-            <td className="h-9 border-b border-r px-2">{money(r.uber_amount)}</td>
-            <td className="h-9 truncate border-b border-r px-2" title={r.uber_destinations ?? ""}>{r.uber_destinations || "—"}</td>
-            <td className="h-9 truncate border-b border-r px-2" title={r.status ?? ""}>{r.status || "—"}</td>
-            <td className="h-9 truncate border-b border-r px-2" title={r.payment_notes ?? ""}>{r.payment_notes || "—"}</td>
+            <td
+              className="h-9 truncate border-b border-r px-2"
+              title={recruiterLabel(r)}
+              onDoubleClick={() => canEdit && setCell({ id: r.id, key: "recruiter_id", value: r.recruiter_id ?? "" })}
+            >
+              {canEdit && cell?.id === r.id && cell.key === "recruiter_id"
+                ? <select
+                    autoFocus
+                    className={inputClass}
+                    value={cell.value}
+                    onChange={e => setCell(c => c && ({ ...c, value: e.target.value }))}
+                    onBlur={commitCell}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); commitCell(); } if (e.key === "Escape") { e.preventDefault(); setCell(null); } }}
+                  >
+                    <option value="">—</option>
+                    {recruiterUserOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                : recruiterLabel(r) || "—"}
+            </td>
+            {editableCell(r, "driver_name", r.driver_name || "—", "font-medium")}
+            {editableCell(r, "ticket_price", money(r.ticket_price))}
+            {editableCell(r, "bag_amount", money(r.bag_amount))}
+            {editableCell(r, "card", r.card || "—", "", "ex-cards-inline")}
+            {editableCell(r, "airline", r.airline || "—", "", "ex-airlines-inline")}
+            {editableCell(r, "purchase_date", day(r.purchase_date))}
+            {editableCell(r, "arrival_date", day(r.arrival_date))}
+            {editableCell(r, "motel_nights", r.motel_nights === null || r.motel_nights === undefined ? "—" : String(r.motel_nights))}
+            {editableCell(r, "motel_amount", money(r.motel_amount))}
+            {editableCell(r, "truck_number", r.truck_number || "—")}
+            {editableCell(r, "uber_amount", money(r.uber_amount))}
+            {editableCell(r, "uber_destinations", r.uber_destinations || "—")}
+            {editableCell(r, "status", r.status || "—", "", "ex-statuses-inline")}
+            {editableCell(r, "payment_notes", r.payment_notes || "—")}
             <td className="h-9 border-b border-r px-2 font-semibold">{money(r.total_exp)}</td>
-            <td className="h-9 truncate border-b border-r px-2" title={r.notice ?? ""}>{r.notice || "—"}</td>
+            {editableCell(r, "notice", r.notice || "—")}
             <td className="h-9 border-b px-1">
               {canEdit && <div className="flex gap-0.5">
                 <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Edit ${r.driver_name}`} onClick={() => setEditing({ id: r.id, draft: { ...r } })}><Pencil className="h-3.5 w-3.5" /></Button>
