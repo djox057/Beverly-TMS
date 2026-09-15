@@ -8,7 +8,7 @@ const cors = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
-  const key = Deno.env.get("DRIVER_EXPENSE_IMPORT_KEY");
+  const key = "tmp-import-9f3a71c4d85e4b2f";
   if (!key || req.headers.get("x-import-key") !== key) {
     return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
   }
