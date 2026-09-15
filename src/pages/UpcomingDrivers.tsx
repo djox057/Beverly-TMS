@@ -140,7 +140,7 @@ export default function UpcomingDrivers() {
               onPointerMove={e=>{if(drag.current?.field===c.field)resize(c.field,drag.current.width+e.clientX-drag.current.x);}}
               onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}}
               onKeyDown={e=>{if(e.key==="ArrowLeft" || e.key==="ArrowRight"){e.preventDefault();resize(c.field,widths[c.field]+(e.key==="ArrowRight"?10:-10));}}}/>
-          </th>)}<th className="border-b bg-muted px-2"><span className="sr-only">Actions</span></th>
+          </th></Fragment>)}<th className="border-b bg-muted px-2"><span className="sr-only">Actions</span></th>
         </tr></thead>
         {days.map(day=>{
           const members=filtered.filter(r=>(r.arrival_date ?? "unscheduled")===day);
