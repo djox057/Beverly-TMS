@@ -9,7 +9,10 @@ export interface CandidateFields {
   drug_test_company: string; clearinghouse_status: string;
   status: CandidateStatus; ticket_note: string;
   arrival_date: string | null; arrival_time: string | null; tentative: boolean;
+  row_color: RowColor;
 }
+export const ROW_COLORS = ["blue","yellow","green"] as const;
+export type RowColor = typeof ROW_COLORS[number] | null;
 export interface Candidate extends CandidateFields {
   id: string; archived: boolean; version: number;
   created_at: string; updated_at: string; created_by: string | null; updated_by: string | null;
@@ -23,16 +26,21 @@ export const EMPTY_CANDIDATE: CandidateFields = {
   sales: "", timing_note: "", application_status: "", transport_note: "", description: "",
   mvr: "", psp: "", preference: "", truck_id: null, truck_terms: "", drug_test_company: "",
   clearinghouse_status: "", status: "New", ticket_note: "", arrival_date: null, arrival_time: null, tentative: false,
+  row_color: null,
 };
-export const SUMMARY_FIELDS = "id,recruiter_id,driver_name,phone,safety_id,dispatcher_id,sales,timing_note,application_status,transport_preview,description_preview,mvr_preview,psp_preview,preference,truck_id,truck_terms,drug_test_company,clearinghouse_status,status,ticket_preview,arrival_date,arrival_time,tentative,archived,version,created_at,updated_at,created_by,updated_by";
+export const SUMMARY_FIELDS = "id,recruiter_id,driver_name,phone,safety_id,dispatcher_id,sales,timing_note,application_status,transport_preview,description_preview,mvr_preview,psp_preview,preference,truck_id,truck_terms,drug_test_company,clearinghouse_status,status,ticket_preview,arrival_date,arrival_time,tentative,row_color,archived,version,created_at,updated_at,created_by,updated_by";
 export const FIELD_LABELS: Record<keyof CandidateFields, string> = {
   recruiter_id: "Recruiter", driver_name: "Driver", phone: "Phone", safety_id: "Safety", dispatcher_id: "Dispatcher",
   sales: "Sales", timing_note: "Time", application_status: "APP", transport_note: "Uber / Transport notes",
   description: "Description / Comments", mvr: "Driver’s MVR", psp: "Driver’s PSP", preference: "Preference",
   truck_id: "Truck", truck_terms: "Truck price / terms", drug_test_company: "Drug test company",
   clearinghouse_status: "CH", status: "Status", ticket_note: "Ticket", arrival_date: "Arrival date (Chicago)",
-  arrival_time: "Arrival time (Chicago)", tentative: "50/50 — tentative",
+  arrival_time: "Arrival time (Chicago)", tentative: "50/50 — tentative", row_color: "Color",
 };
+export function nextRowColor(current: RowColor): RowColor {
+  const index = ROW_COLORS.indexOf(current as typeof ROW_COLORS[number]);
+  return index === ROW_COLORS.length - 1 ? null : ROW_COLORS[index + 1];
+}
 export const COLUMNS: {field: keyof CandidateFields; letter: string; width: number; preview?: keyof CandidateSummary}[] = [
   {field:"recruiter_id",letter:"A",width:130},{field:"driver_name",letter:"B",width:190},
   {field:"phone",letter:"C",width:175},{field:"safety_id",letter:"D",width:125},

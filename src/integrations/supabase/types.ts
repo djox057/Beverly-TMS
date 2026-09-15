@@ -6058,6 +6058,166 @@ export type Database = {
           },
         ]
       }
+      upcoming_driver_history: {
+        Row: {
+          actor_id: string | null
+          actor_name: string
+          changed_at: string
+          changes: Json
+          id: string
+          operation: string
+          upcoming_driver_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name: string
+          changed_at?: string
+          changes: Json
+          id?: string
+          operation: string
+          upcoming_driver_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string
+          changed_at?: string
+          changes?: Json
+          id?: string
+          operation?: string
+          upcoming_driver_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upcoming_driver_history_upcoming_driver_id_fkey"
+            columns: ["upcoming_driver_id"]
+            isOneToOne: false
+            referencedRelation: "upcoming_drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      upcoming_drivers: {
+        Row: {
+          application_status: string
+          archived: boolean
+          arrival_date: string | null
+          arrival_time: string | null
+          clearinghouse_status: string
+          created_at: string
+          created_by: string | null
+          description: string
+          description_preview: string | null
+          dispatcher_id: string | null
+          driver_name: string
+          drug_test_company: string
+          id: string
+          mvr: string
+          mvr_preview: string | null
+          phone: string
+          preference: string
+          psp: string
+          psp_preview: string | null
+          recruiter_id: string | null
+          row_color: string | null
+          safety_id: string | null
+          sales: string
+          status: string
+          tentative: boolean
+          ticket_note: string
+          ticket_preview: string | null
+          timing_note: string
+          transport_note: string
+          transport_preview: string | null
+          truck_id: string | null
+          truck_terms: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          application_status?: string
+          archived?: boolean
+          arrival_date?: string | null
+          arrival_time?: string | null
+          clearinghouse_status?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          description_preview?: string | null
+          dispatcher_id?: string | null
+          driver_name: string
+          drug_test_company?: string
+          id?: string
+          mvr?: string
+          mvr_preview?: string | null
+          phone: string
+          preference?: string
+          psp?: string
+          psp_preview?: string | null
+          recruiter_id?: string | null
+          row_color?: string | null
+          safety_id?: string | null
+          sales?: string
+          status?: string
+          tentative?: boolean
+          ticket_note?: string
+          ticket_preview?: string | null
+          timing_note?: string
+          transport_note?: string
+          transport_preview?: string | null
+          truck_id?: string | null
+          truck_terms?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          application_status?: string
+          archived?: boolean
+          arrival_date?: string | null
+          arrival_time?: string | null
+          clearinghouse_status?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          description_preview?: string | null
+          dispatcher_id?: string | null
+          driver_name?: string
+          drug_test_company?: string
+          id?: string
+          mvr?: string
+          mvr_preview?: string | null
+          phone?: string
+          preference?: string
+          psp?: string
+          psp_preview?: string | null
+          recruiter_id?: string | null
+          row_color?: string | null
+          safety_id?: string | null
+          sales?: string
+          status?: string
+          tentative?: boolean
+          ticket_note?: string
+          ticket_preview?: string | null
+          timing_note?: string
+          transport_note?: string
+          transport_preview?: string | null
+          truck_id?: string | null
+          truck_terms?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upcoming_drivers_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_email_aliases: {
         Row: {
           alias_email: string
@@ -6538,6 +6698,14 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
       sign_out_all_users: { Args: never; Returns: Json }
       try_advisory_lock_truck_distances: { Args: never; Returns: boolean }
+      upcoming_driver_staff: {
+        Args: never
+        Returns: {
+          full_name: string
+          role: string
+          user_id: string
+        }[]
+      }
       validate_driver_email: { Args: { p_email: string }; Returns: Json }
     }
     Enums: {

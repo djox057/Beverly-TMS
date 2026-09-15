@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ChevronDown, ChevronLeft, ChevronRight, Copy, Loader2, Phone, Plus, RefreshCw, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CandidateEditor, type EditorSelection } from "@/components/upcoming-drivers/CandidateEditor";
 import { saveCandidate, useUpcomingDrivers } from "@/components/upcoming-drivers/useUpcomingDrivers";
-import { addDays, chicagoToday, clockLabel, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, type CandidateFields, type CandidateSummary, type References } from "@/components/upcoming-drivers/model";
+import { addDays, chicagoToday, clockLabel, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, nextRowColor, type CandidateFields, type CandidateSummary, type References } from "@/components/upcoming-drivers/model";
 
 const emptyRefs:References={staff:[],trucks:[],companies:[]};
 const statusClass=(s:string)=>s==="Arrived"?"bg-emerald-100 text-emerald-900":s==="Canceled"?"bg-red-100 text-red-900":s==="Scheduled"?"bg-blue-100 text-blue-900":"bg-muted text-foreground";
@@ -77,7 +77,25 @@ export default function UpcomingDrivers() {
     catch(e){toast({title:"Could not update entry",description:e instanceof Error?e.message:"Please retry.",variant:"destructive"});}
     finally{setArchiving(false);}
   };
-  const totalWidth=COLUMNS.reduce((sum,c)=>sum+widths[c.field],0)+65;
+  const [marking,setMarking]=useState<string | null>(null);
+  const cycleColor=async(row:CandidateSummary)=>{
+    if(!canEdit || marking)return;
+    setMarking(row.id);
+    try{acceptSaved(await saveCandidate(row.id,{row_color:nextRowColor(row.row_color)},row.version));}
+    catch(e){toast({title:"Could not change the color",description:e instanceof Error?e.message:"Please retry.",variant:"destructive"});}
+    finally{setMarking(null);}
+  };
+  const rowBg=(row:CandidateSummary)=>row.row_color?`hsl(var(--row-mark-${row.row_color}))`:undefined;
+  const rowFg=(row:CandidateSummary)=>row.row_color?"hsl(var(--row-mark-foreground))":undefined;
+  const colorCell=(row:CandidateSummary)=><td className="h-10 border-b border-r px-1 text-center" style={{backgroundColor:rowBg(row)}}>
+    <button type="button" disabled={!canEdit || marking===row.id}
+      aria-label={`Change row color for ${row.driver_name} (currently ${row.row_color ?? "none"})`}
+      title="Blue → Yellow → Green → none"
+      onClick={()=>void cycleColor(row)}
+      className="mx-auto block h-5 w-5 rounded border border-foreground/30"
+      style={{backgroundColor:row.row_color?`hsl(var(--row-mark-${row.row_color}))`:"transparent"}}/>
+  </td>;
+  const totalWidth=COLUMNS.reduce((sum,c)=>sum+widths[c.field],0)+65+44;
   return <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="text-2xl font-bold tracking-tight">Upcoming Drivers</h1><p className="text-xs text-muted-foreground">Chicago dates and times · {live}</p></div>
@@ -112,9 +130,9 @@ export default function UpcomingDrivers() {
     {query.isPending?<div className="flex items-center justify-center gap-2 py-16"><Loader2 className="h-5 w-5 animate-spin"/>Loading upcoming drivers…</div>:
     <div className="min-h-32 flex-1 overflow-auto rounded-lg border" aria-label="Weekly upcoming drivers board">
       <table className="table-fixed border-collapse text-xs" style={{width:totalWidth}}>
-        <colgroup>{COLUMNS.map(c=><col key={c.field} style={{width:widths[c.field]}}/>)}<col style={{width:65}}/></colgroup>
+        <colgroup>{COLUMNS.map(c=><Fragment key={c.field}>{c.field==="safety_id" && <col style={{width:44}}/>}<col style={{width:widths[c.field]}}/></Fragment>)}<col style={{width:65}}/></colgroup>
         <thead className="sticky top-0 z-30 bg-muted"><tr>
-          {COLUMNS.map((c,i)=><th key={c.field} scope="col" className={`relative h-11 border-b border-r bg-muted px-2 text-left font-semibold ${i<2?"sticky z-40":""}`} style={i<2?{left:i===0?0:widths.recruiter_id}:undefined}>
+          {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="safety_id" && <th scope="col" className="h-11 border-b border-r bg-muted px-1 text-center font-semibold">Color</th>}<th scope="col" className={`relative h-11 border-b border-r bg-muted px-2 text-left font-semibold ${i<2?"sticky z-40":""}`} style={i<2?{left:i===0?0:widths.recruiter_id}:undefined}>
             <span className="mr-1 text-[10px] font-normal text-muted-foreground">{c.letter}</span>{FIELD_LABELS[c.field]}
             <span role="separator" aria-orientation="vertical" aria-label={`Resize ${FIELD_LABELS[c.field]} column`} aria-valuenow={widths[c.field]} tabIndex={0}
               className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none hover:bg-primary/20"
@@ -122,13 +140,13 @@ export default function UpcomingDrivers() {
               onPointerMove={e=>{if(drag.current?.field===c.field)resize(c.field,drag.current.width+e.clientX-drag.current.x);}}
               onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}}
               onKeyDown={e=>{if(e.key==="ArrowLeft" || e.key==="ArrowRight"){e.preventDefault();resize(c.field,widths[c.field]+(e.key==="ArrowRight"?10:-10));}}}/>
-          </th>)}<th className="border-b bg-muted px-2"><span className="sr-only">Actions</span></th>
+          </th></Fragment>)}<th className="border-b bg-muted px-2"><span className="sr-only">Actions</span></th>
         </tr></thead>
         {days.map(day=>{
           const members=filtered.filter(r=>(r.arrival_date ?? "unscheduled")===day);
           const closed=collapsed.has(day);
           return <tbody key={day}>
-            <tr><td colSpan={19} className={`border-y ${day===today?"bg-blue-50 dark:bg-blue-950":"bg-muted/70"}`}>
+            <tr><td colSpan={20} className={`border-y ${day===today?"bg-blue-50 dark:bg-blue-950":"bg-muted/70"}`}>
               <div className="sticky left-0 flex h-10 w-fit items-center gap-2 px-2">
                 <button type="button" aria-expanded={!closed} className="flex items-center gap-2 font-semibold" onClick={()=>setCollapsed(old=>{const next=new Set(old);if(next.has(day))next.delete(day);else next.add(day);return next;})}>
                   {closed?<ChevronRight className="h-4 w-4"/>:<ChevronDown className="h-4 w-4"/>}{day==="unscheduled"?"Unscheduled · all weeks":dayLabel(day)} <Badge variant="secondary">{members.length}</Badge>
@@ -137,8 +155,8 @@ export default function UpcomingDrivers() {
                 {canEdit && view!=="Archived" && <Button variant="ghost" size="sm" aria-label={`Add driver for ${day}`} onClick={()=>add(day==="unscheduled"?null:day)}><Plus className="h-3 w-3"/></Button>}
               </div>
             </td></tr>
-            {!closed && members.map((row,index)=><tr key={row.id} className={index%2?"bg-muted/20":"bg-background"}>
-              {COLUMNS.map((c,i)=><td key={c.field} className={`h-10 border-b border-r px-2 ${i<2?"sticky z-10 bg-background":""}`} style={i<2?{left:i===0?0:widths.recruiter_id}:undefined}>
+            {!closed && members.map((row,index)=><tr key={row.id} className={row.row_color?"":index%2?"bg-muted/20":"bg-background"} style={{backgroundColor:rowBg(row),color:rowFg(row)}}>
+              {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="safety_id" && colorCell(row)}<td className={`h-10 border-b border-r px-2 ${i<2?"sticky z-10":""} ${i<2 && !row.row_color?"bg-background":""}`} style={{...(i<2?{left:i===0?0:widths.recruiter_id}:{}),backgroundColor:rowBg(row)}}>
                 <div className="flex min-w-0 items-center gap-1">
                   <button type="button" className="min-w-0 flex-1 truncate py-2 text-left hover:text-primary hover:underline" aria-label={`${FIELD_LABELS[c.field]} for ${row.driver_name}`} onClick={()=>open(row.id,c.field)}>
                     {c.field==="status"?<span className={`rounded px-1.5 py-1 ${statusClass(row.status)}`}>{row.status}</span>:display(row,c)}
@@ -146,10 +164,10 @@ export default function UpcomingDrivers() {
                   {c.field==="driver_name" && <><button className="shrink-0 text-[10px] text-muted-foreground hover:underline" title="Change arrival schedule" onClick={()=>open(row.id,"arrival_date")}>{clockLabel(row.arrival_time) || "Date"}</button>{row.tentative && <span className="shrink-0 rounded bg-amber-100 px-1 text-[10px] text-amber-900">50/50</span>}</>}
                   {c.field==="phone" && <><a href={`tel:${row.phone.replace(/[^+\d]/g,"")}`} aria-label={`Call ${row.driver_name}`}><Phone className="h-3 w-3"/></a><button aria-label={`Copy phone for ${row.driver_name}`} onClick={()=>void navigator.clipboard.writeText(row.phone).then(()=>toast({title:"Phone copied"})).catch(()=>toast({title:"Could not copy phone",variant:"destructive"}))}><Copy className="h-3 w-3"/></button></>}
                 </div>
-              </td>)}
-              <td className="border-b px-2">{canArchive && <Button size="icon" variant="ghost" aria-label={`${row.archived?"Restore":"Archive"} ${row.driver_name}`} onClick={()=>setArchiveTarget(row)}>{row.archived?<RotateCcw className="h-4 w-4"/>:<Archive className="h-4 w-4"/>}</Button>}</td>
+              </td></Fragment>)}
+              <td className="border-b px-2" style={{backgroundColor:rowBg(row)}}>{canArchive && <Button size="icon" variant="ghost" aria-label={`${row.archived?"Restore":"Archive"} ${row.driver_name}`} onClick={()=>setArchiveTarget(row)}>{row.archived?<RotateCcw className="h-4 w-4"/>:<Archive className="h-4 w-4"/>}</Button>}</td>
             </tr>)}
-            {!closed && !members.length && <tr><td colSpan={19} className="border-b"><p className="sticky left-0 w-fit px-8 py-3 text-muted-foreground">{day==="unscheduled"?"No unscheduled drivers in this view.":"No drivers in this view."}</p></td></tr>}
+            {!closed && !members.length && <tr><td colSpan={20} className="border-b"><p className="sticky left-0 w-fit px-8 py-3 text-muted-foreground">{day==="unscheduled"?"No unscheduled drivers in this view.":"No drivers in this view."}</p></td></tr>}
           </tbody>;
         })}
       </table>
