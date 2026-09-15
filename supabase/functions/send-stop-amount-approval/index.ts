@@ -171,7 +171,7 @@ const handler = async (req: Request): Promise<Response> => {
       <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111">
         <h2 style="margin:0 0 12px">Low Stop Amount Approval</h2>
         <p><strong>${requesterName}</strong>${requesterProfile?.office ? ` (${requesterProfile.office})` : ""}
-        booked a load with a Stop Amount below 90% of the Freight Amount and selected you as the approving manager.</p>
+        booked a load with a Stop Amount below ${b.thresholdPct}% of the Freight Amount and selected you as the approving manager.</p>
         <table cellpadding="6" style="border-collapse:collapse">
           <tr><td><strong>Load #</strong></td><td>${b.loadNumber || "-"}</td></tr>
           <tr><td><strong>Broker</strong></td><td>${b.brokerName || "-"}</td></tr>
@@ -181,7 +181,7 @@ const handler = async (req: Request): Promise<Response> => {
           <tr><td><strong>Delivery</strong></td><td>${b.delivery || "-"}</td></tr>
           <tr><td><strong>Freight Amount</strong></td><td>${money(b.freightAmount)} <span style="color:#555">(week total: ${money(weekFreight)})</span></td></tr>
           <tr><td><strong>Stop Amount</strong></td><td style="color:#b91c1c">${money(b.stopAmount)} (${pct.toFixed(1)}% of freight) <span style="color:#555">(week total: ${money(weekStop)})</span></td></tr>
-          <tr><td><strong>90% Floor</strong></td><td>${money(b.freightAmount * 0.9)}</td></tr>
+          <tr><td><strong>${b.thresholdPct}% Floor</strong></td><td>${money(b.freightAmount * (b.thresholdPct / 100))}</td></tr>
           <tr><td><strong>Week (Mon–Sun)</strong></td><td>${weekLabel}</td></tr>
         </table>
         <p style="margin-top:14px">The load has been created. Reply to this email if this approval is not correct.</p>
