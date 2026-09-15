@@ -4529,6 +4529,75 @@ export type Database = {
         }
         Relationships: []
       }
+      recruiting_driver_expenses: {
+        Row: {
+          airline: string | null
+          arrival_date: string | null
+          bag_amount: number | null
+          card: string | null
+          created_at: string
+          driver_name: string
+          id: string
+          motel_amount: number | null
+          motel_nights: number | null
+          notice: string | null
+          payment_notes: string | null
+          purchase_date: string | null
+          recruiter: string | null
+          status: string | null
+          ticket_price: number | null
+          total_exp: number | null
+          truck_number: string | null
+          uber_amount: number | null
+          uber_destinations: string | null
+          updated_at: string
+        }
+        Insert: {
+          airline?: string | null
+          arrival_date?: string | null
+          bag_amount?: number | null
+          card?: string | null
+          created_at?: string
+          driver_name?: string
+          id?: string
+          motel_amount?: number | null
+          motel_nights?: number | null
+          notice?: string | null
+          payment_notes?: string | null
+          purchase_date?: string | null
+          recruiter?: string | null
+          status?: string | null
+          ticket_price?: number | null
+          total_exp?: number | null
+          truck_number?: string | null
+          uber_amount?: number | null
+          uber_destinations?: string | null
+          updated_at?: string
+        }
+        Update: {
+          airline?: string | null
+          arrival_date?: string | null
+          bag_amount?: number | null
+          card?: string | null
+          created_at?: string
+          driver_name?: string
+          id?: string
+          motel_amount?: number | null
+          motel_nights?: number | null
+          notice?: string | null
+          payment_notes?: string | null
+          purchase_date?: string | null
+          recruiter?: string | null
+          status?: string | null
+          ticket_price?: number | null
+          total_exp?: number | null
+          truck_number?: string | null
+          uber_amount?: number | null
+          uber_destinations?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       repairs: {
         Row: {
           accounting_note: string | null
