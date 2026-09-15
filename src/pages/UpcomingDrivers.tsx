@@ -139,7 +139,7 @@ export default function UpcomingDrivers() {
         <colgroup>{COLUMNS.map(c=><Fragment key={c.field}>{c.field==="recruiter_id" && <col style={{width:44}}/>}<col style={{width:widths[c.field]}}/></Fragment>)}<col style={{width:65}}/></colgroup>
         <thead className="sticky top-0 z-30 bg-muted"><tr>
           {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="recruiter_id" && <th scope="col" className="h-11 border-b border-r bg-muted px-1 text-center font-semibold">Color</th>}<th scope="col" className={`relative h-11 border-b border-r bg-muted px-2 text-left font-semibold ${i<2?"sticky z-40":""}`} style={i<2?{left:i===0?0:widths.recruiter_id}:undefined}>
-            <span className="mr-1 text-[10px] font-normal text-muted-foreground">{c.letter}</span>{FIELD_LABELS[c.field]}
+            {FIELD_LABELS[c.field]}
             <span role="separator" aria-orientation="vertical" aria-label={`Resize ${FIELD_LABELS[c.field]} column`} aria-valuenow={widths[c.field]} tabIndex={0}
               className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none hover:bg-primary/20"
               onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);drag.current={field:c.field,x:e.clientX,width:widths[c.field]};}}
