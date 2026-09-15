@@ -1,0 +1,2 @@
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS counts_as_turnover boolean NOT NULL DEFAULT true;
+COMMENT ON COLUMN public.drivers.counts_as_turnover IS 'When false, this termination is excluded from dispatcher turnover metrics (Turnover List and Analytics).';
