@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarIcon, Loader2, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -183,6 +183,66 @@ export default function DriverExpenses() {
 
   const field = (key: keyof Draft, value: string | number | null) => setEditing(old => old && ({ ...old, draft: { ...old.draft, [key]: value } }));
 
+  const patch = useMutation({
+    mutationFn: async ({ id, values }: { id: string; values: Partial<Draft> }) => {
+      const { error } = await db.from("recruiting_driver_expenses").update(values).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["recruiting-driver-expenses"] }); },
+    onError: (error: Error) => toast({ title: "Could not save", description: error.message, variant: "destructive" }),
+  });
+
+  type CellKey = "driver_name" | "ticket_price" | "bag_amount" | "card" | "airline" | "purchase_date" | "arrival_date"
+    | "motel_nights" | "motel_amount" | "truck_number" | "uber_amount" | "uber_destinations" | "status" | "payment_notes" | "notice";
+  const NUMERIC: CellKey[] = ["ticket_price", "bag_amount", "motel_nights", "motel_amount", "uber_amount"];
+  const DATES: CellKey[] = ["purchase_date", "arrival_date"];
+  const [cell, setCell] = useState<{ id: string; key: CellKey | "recruiter_id"; value: string } | null>(null);
+
+  const commitCell = () => {
+    if (!cell) return;
+    const row = rows.find(r => r.id === cell.id);
+    setCell(null);
+    if (!row) return;
+    if (cell.key === "recruiter_id") {
+      const next = cell.value || null;
+      if ((row.recruiter_id ?? null) === next) return;
+      patch.mutate({ id: row.id, values: { recruiter_id: next, recruiter: next ? (recruiterNames.get(next) ?? row.recruiter) : row.recruiter } });
+      return;
+    }
+    const key = cell.key;
+    const next = NUMERIC.includes(key) ? asNumber(cell.value) : DATES.includes(key) ? (cell.value || null) : clean(cell.value);
+    if ((row[key] ?? null) === next) return;
+    patch.mutate({ id: row.id, values: { [key]: next } as Partial<Draft> });
+  };
+
+  const inputClass = "h-full w-full bg-transparent px-0 text-xs outline-none ring-0 focus:outline-none";
+  const editableCell = (r: Expense, key: CellKey, display: ReactNode, extra = "", listId?: string) => {
+    const active = canEdit && cell?.id === r.id && cell.key === key;
+    return <td
+      className={cn("h-9 truncate border-b border-r px-2", extra)}
+      title={typeof display === "string" ? display : undefined}
+      onDoubleClick={() => canEdit && setCell({ id: r.id, key, value: r[key] === null || r[key] === undefined ? "" : String(r[key]) })}
+    >
+      {active
+        ? <input
+            autoFocus
+            className={inputClass}
+            type={DATES.includes(key) ? "date" : "text"}
+            inputMode={NUMERIC.includes(key) ? "decimal" : undefined}
+            list={listId}
+            value={cell!.value}
+            onChange={e => setCell(c => c && ({ ...c, value: e.target.value }))}
+            onBlur={commitCell}
+            onKeyDown={e => {
+              if (e.key === "Enter") { e.preventDefault(); commitCell(); }
+              if (e.key === "Escape") { e.preventDefault(); setCell(null); }
+            }}
+          />
+        : display}
+    </td>;
+  };
+
+
   return <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
@@ -260,23 +320,41 @@ export default function DriverExpenses() {
         </thead>
         <tbody>
           {visible.map((r, index) => <tr key={r.id} className={index % 2 ? "bg-muted/20" : "bg-background"}>
-            <td className="h-9 truncate border-b border-r px-2" title={recruiterLabel(r)}>{recruiterLabel(r) || "—"}</td>
-            <td className="h-9 truncate border-b border-r px-2 font-medium">{r.driver_name || "—"}</td>
-            <td className="h-9 border-b border-r px-2">{money(r.ticket_price)}</td>
-            <td className="h-9 border-b border-r px-2">{money(r.bag_amount)}</td>
-            <td className="h-9 truncate border-b border-r px-2">{r.card || "—"}</td>
-            <td className="h-9 truncate border-b border-r px-2">{r.airline || "—"}</td>
-            <td className="h-9 border-b border-r px-2">{day(r.purchase_date)}</td>
-            <td className="h-9 border-b border-r px-2">{day(r.arrival_date)}</td>
-            <td className="h-9 border-b border-r px-2">{r.motel_nights ?? "—"}</td>
-            <td className="h-9 border-b border-r px-2">{money(r.motel_amount)}</td>
-            <td className="h-9 truncate border-b border-r px-2">{r.truck_number || "—"}</td>
-            <td className="h-9 border-b border-r px-2">{money(r.uber_amount)}</td>
-            <td className="h-9 truncate border-b border-r px-2" title={r.uber_destinations ?? ""}>{r.uber_destinations || "—"}</td>
-            <td className="h-9 truncate border-b border-r px-2" title={r.status ?? ""}>{r.status || "—"}</td>
-            <td className="h-9 truncate border-b border-r px-2" title={r.payment_notes ?? ""}>{r.payment_notes || "—"}</td>
+            <td
+              className="h-9 truncate border-b border-r px-2"
+              title={recruiterLabel(r)}
+              onDoubleClick={() => canEdit && setCell({ id: r.id, key: "recruiter_id", value: r.recruiter_id ?? "" })}
+            >
+              {canEdit && cell?.id === r.id && cell.key === "recruiter_id"
+                ? <select
+                    autoFocus
+                    className={inputClass}
+                    value={cell.value}
+                    onChange={e => setCell(c => c && ({ ...c, value: e.target.value }))}
+                    onBlur={commitCell}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); commitCell(); } if (e.key === "Escape") { e.preventDefault(); setCell(null); } }}
+                  >
+                    <option value="">—</option>
+                    {recruiterUserOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                : recruiterLabel(r) || "—"}
+            </td>
+            {editableCell(r, "driver_name", r.driver_name || "—", "font-medium")}
+            {editableCell(r, "ticket_price", money(r.ticket_price))}
+            {editableCell(r, "bag_amount", money(r.bag_amount))}
+            {editableCell(r, "card", r.card || "—", "", "ex-cards-inline")}
+            {editableCell(r, "airline", r.airline || "—", "", "ex-airlines-inline")}
+            {editableCell(r, "purchase_date", day(r.purchase_date))}
+            {editableCell(r, "arrival_date", day(r.arrival_date))}
+            {editableCell(r, "motel_nights", r.motel_nights === null || r.motel_nights === undefined ? "—" : String(r.motel_nights))}
+            {editableCell(r, "motel_amount", money(r.motel_amount))}
+            {editableCell(r, "truck_number", r.truck_number || "—")}
+            {editableCell(r, "uber_amount", money(r.uber_amount))}
+            {editableCell(r, "uber_destinations", r.uber_destinations || "—")}
+            {editableCell(r, "status", r.status || "—", "", "ex-statuses-inline")}
+            {editableCell(r, "payment_notes", r.payment_notes || "—")}
             <td className="h-9 border-b border-r px-2 font-semibold">{money(r.total_exp)}</td>
-            <td className="h-9 truncate border-b border-r px-2" title={r.notice ?? ""}>{r.notice || "—"}</td>
+            {editableCell(r, "notice", r.notice || "—")}
             <td className="h-9 border-b px-1">
               {canEdit && <div className="flex gap-0.5">
                 <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Edit ${r.driver_name}`} onClick={() => setEditing({ id: r.id, draft: { ...r } })}><Pencil className="h-3.5 w-3.5" /></Button>
@@ -287,6 +365,9 @@ export default function DriverExpenses() {
           {!visible.length && <tr><td colSpan={18} className="p-6 text-center text-muted-foreground">No expense entries match these filters.</td></tr>}
         </tbody>
       </table>
+      <datalist id="ex-cards-inline">{cardOptions.map(o => <option key={o.value} value={o.value} />)}</datalist>
+      <datalist id="ex-airlines-inline">{airlineOptions.map(o => <option key={o.value} value={o.value} />)}</datalist>
+      <datalist id="ex-statuses-inline">{statusOptions.map(o => <option key={o.value} value={o.value} />)}</datalist>
     </div>}
 
     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
