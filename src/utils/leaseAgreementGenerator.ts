@@ -1,8 +1,9 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import apsAsset from "@/assets/APS_lease.pdf.asset.json";
 import uesAsset from "@/assets/UES_lease.pdf.asset.json";
+import jonesAsset from "@/assets/Jones_lease.pdf.asset.json";
 
-export type LeaseTemplate = "APS" | "UES";
+export type LeaseTemplate = "APS" | "UES" | "JONES";
 
 export interface LeaseTruckInfo {
   truckNumber: string;
@@ -34,6 +35,12 @@ const TEMPLATE_REGIONS: Record<
     vin: { yTop: 508, yBottom: 545, xLeft: 100, xRight: 512, fontSize: 18 },
     makeModel: { yTop: 547, yBottom: 583, xLeft: 100, xRight: 512, fontSize: 18 },
   },
+  // Jones template has an empty area between the signature block and DISTRIBUTION.
+  JONES: {
+    equipmentId: { yTop: 520, yBottom: 548, xLeft: 100, xRight: 512, fontSize: 12 },
+    vin: { yTop: 552, yBottom: 590, xLeft: 100, xRight: 512, fontSize: 18 },
+    makeModel: { yTop: 592, yBottom: 630, xLeft: 100, xRight: 512, fontSize: 18 },
+  },
 };
 
 interface Region {
@@ -53,6 +60,7 @@ export function getLeaseTemplateForCompany(companyName?: string | null): LeaseTe
   if (!name) return null;
   if (name === "ap silver trans llc") return "APS";
   if (name === "united enterprise solutions inc") return "UES";
+  if (name === "jones freight lines llc") return "JONES";
   return null;
 }
 
@@ -60,7 +68,8 @@ export async function generateLeaseAgreementPdf(
   truck: LeaseTruckInfo,
   template: LeaseTemplate,
 ): Promise<Uint8Array> {
-  const asset = template === "APS" ? apsAsset : uesAsset;
+  const asset =
+    template === "APS" ? apsAsset : template === "JONES" ? jonesAsset : uesAsset;
   const res = await fetch(asset.url);
   if (!res.ok) throw new Error(`Failed to fetch lease agreement template: ${res.status}`);
   const bytes = new Uint8Array(await res.arrayBuffer());
@@ -94,7 +103,7 @@ export async function generateLeaseAgreementPdf(
 
   drawCentered(`Lease unit ID: #${truckNumber}`, regions.equipmentId);
   drawCentered(vin ? `VIN: ${vin}` : "VIN:", regions.vin);
-  if (template === "UES") {
+  if (template === "UES" || template === "JONES") {
     drawCentered(makeModel ? `Make/Model: ${makeModel}` : "Make/Model:", regions.makeModel);
   } else {
     drawCentered(makeModel || " ", regions.makeModel);
