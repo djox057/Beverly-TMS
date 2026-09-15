@@ -6,6 +6,7 @@ import {
   Users,
   Package,
   UserCheck,
+  UserPlus,
   Building2,
   BarChart3,
   Calendar,
@@ -34,6 +35,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { UPCOMING_DRIVERS_ROLES } from "@/lib/upcomingDriversAccess";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { isComplaintsViewOnlyEmail } from "@/components/complaints/useComplaintsAccess";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
@@ -90,6 +92,13 @@ const navigation = [
   { name: "Trucks", href: "/trucks", icon: Truck },
   { name: "Trailers", href: "/trailers", icon: Package },
   { name: "Drivers", href: "/drivers", icon: UserCheck },
+  {
+    name: "Upcoming Drivers",
+    href: "/upcoming-drivers",
+    icon: UserPlus,
+    roles: UPCOMING_DRIVERS_ROLES,
+    strict: true,
+  },
   { name: "Stuff", href: "/stuff", icon: User, roles: ["manager", "admin", "accounting", "chicago_management"] },
   { name: "Brokers", href: "/brokers", icon: Building2 },
   { name: "Fleets", href: "/fleets", icon: Users },
@@ -350,6 +359,7 @@ export const Sidebar = () => {
         "/trucks",
         "/trailers",
         "/drivers",
+        "/upcoming-drivers",
         "/reports",
         "/yard-arrivals",
         "/trips",
@@ -416,6 +426,7 @@ export const Sidebar = () => {
         "/trucks",
         "/trailers",
         "/drivers",
+        "/upcoming-drivers",
         "/fleets",
         "/reports",
         "/truck-sales",
