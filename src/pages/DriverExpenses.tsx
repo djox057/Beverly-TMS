@@ -365,6 +365,9 @@ export default function DriverExpenses() {
           {!visible.length && <tr><td colSpan={18} className="p-6 text-center text-muted-foreground">No expense entries match these filters.</td></tr>}
         </tbody>
       </table>
+      <datalist id="ex-cards-inline">{cardOptions.map(o => <option key={o.value} value={o.value} />)}</datalist>
+      <datalist id="ex-airlines-inline">{airlineOptions.map(o => <option key={o.value} value={o.value} />)}</datalist>
+      <datalist id="ex-statuses-inline">{statusOptions.map(o => <option key={o.value} value={o.value} />)}</datalist>
     </div>}
 
     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
