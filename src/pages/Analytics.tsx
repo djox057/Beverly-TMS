@@ -498,6 +498,7 @@ const Analytics = () => {
         .from("drivers")
         .select("last_dispatcher_id")
         .eq("is_active", false)
+        .eq("counts_as_turnover", true)
         .not("last_dispatcher_id", "is", null)
         .gte("termination_date", turnoverFromDate)
         .lte("termination_date", turnoverToDate!);
