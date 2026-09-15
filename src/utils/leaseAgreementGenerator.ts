@@ -68,7 +68,8 @@ export async function generateLeaseAgreementPdf(
   truck: LeaseTruckInfo,
   template: LeaseTemplate,
 ): Promise<Uint8Array> {
-  const asset = template === "APS" ? apsAsset : uesAsset;
+  const asset =
+    template === "APS" ? apsAsset : template === "JONES" ? jonesAsset : uesAsset;
   const res = await fetch(asset.url);
   if (!res.ok) throw new Error(`Failed to fetch lease agreement template: ${res.status}`);
   const bytes = new Uint8Array(await res.arrayBuffer());
