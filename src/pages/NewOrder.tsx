@@ -3448,9 +3448,9 @@ const NewOrder = () => {
                             Truck #{selTruck?.truck_number || "-"} — {driverName || "-"}
                           </p>
                           <p>
-                            Stop Amount is below 90% of the Freight Amount ($
-                            {(thisFreight * 0.9).toFixed(2)}). Select the manager who approved this lower stop amount —
-                            they will be notified by email.
+                            Stop Amount is below {Math.round(stopAmountPct * 100)}% of the Freight Amount ($
+                            {(thisFreight * stopAmountPct).toFixed(2)}). Select the manager who approved this lower stop
+                            amount — they will be notified by email.
                           </p>
                           {weekTotals && (
                             <p>
