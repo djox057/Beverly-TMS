@@ -104,8 +104,9 @@ export default function DriverExpenses() {
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({ recruiter: "", airline: "", status: "", card: "", paid: "" });
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const from = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
+  const to = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : from;
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<{ id: string | null; draft: Draft } | null>(null);
   const [deleting, setDeleting] = useState<Expense | null>(null);
@@ -206,10 +207,33 @@ export default function DriverExpenses() {
       <div className="w-44"><Combobox options={statusOptions} value={filters.status} onValueChange={v => { setFilters(f => ({ ...f, status: v })); setPage(0); }} placeholder="All statuses" /></div>
       <div className="w-32"><Combobox options={cardOptions} value={filters.card} onValueChange={v => { setFilters(f => ({ ...f, card: v })); setPage(0); }} placeholder="All cards" /></div>
       <div className="w-32"><Combobox options={[{ value: "Paid", label: "Paid" }, { value: "Unpaid", label: "Unpaid" }]} value={filters.paid} onValueChange={v => { setFilters(f => ({ ...f, paid: v })); setPage(0); }} placeholder="Paid / Unpaid" /></div>
-      <Input aria-label="From date" type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(0); }} className="h-9 w-36" />
-      <Input aria-label="To date" type="date" value={to} onChange={e => { setTo(e.target.value); setPage(0); }} className="h-9 w-36" />
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn("h-9 w-56 justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {dateRange?.from
+              ? dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime()
+                ? `${format(dateRange.from, "MM/dd/yyyy")} - ${format(dateRange.to, "MM/dd/yyyy")}`
+                : format(dateRange.from, "MM/dd/yyyy")
+              : "Pick a date range"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="range"
+            selected={dateRange}
+            onSelect={range => { setDateRange(range); setPage(0); }}
+            numberOfMonths={2}
+            initialFocus
+            className="p-3 pointer-events-auto"
+          />
+        </PopoverContent>
+      </Popover>
       {(search || from || to || Object.values(filters).some(Boolean)) &&
-        <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setFrom(""); setTo(""); setFilters({ recruiter: "", airline: "", status: "", card: "", paid: "" }); setPage(0); }}>Clear filters</Button>}
+        <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setDateRange(undefined); setFilters({ recruiter: "", airline: "", status: "", card: "", paid: "" }); setPage(0); }}>Clear filters</Button>}
       <div className="ml-auto flex flex-wrap gap-3 px-2 text-xs text-muted-foreground">
         <span>Entries: <b className="text-foreground">{filtered.length}</b></span>
         <span>Tickets: <b className="text-foreground">{money(totals.ticket)}</b></span>
