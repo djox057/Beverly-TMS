@@ -28,6 +28,8 @@ import Trailers from "./pages/Trailers";
 import Drivers from "./pages/Drivers";
 import UpcomingDrivers from "./pages/UpcomingDrivers";
 import { UPCOMING_DRIVERS_ROLES } from "./lib/upcomingDriversAccess";
+import DriverExpenses from "./pages/DriverExpenses";
+import { DRIVER_EXPENSES_ROLES } from "./lib/driverExpensesAccess";
 import Brokers from "./pages/Brokers";
 import Fleets from "./pages/Fleets";
 import Reports from "./pages/Reports";
@@ -174,6 +176,11 @@ const AppContent = () => {
         <Route path="/upcoming-drivers" element={
           <ProtectedRoute strictAllowedRoles={UPCOMING_DRIVERS_ROLES}>
             <Layout><UpcomingDrivers /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/driver-expenses" element={
+          <ProtectedRoute strictAllowedRoles={DRIVER_EXPENSES_ROLES}>
+            <Layout><DriverExpenses /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/brokers" element={

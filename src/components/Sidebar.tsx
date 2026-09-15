@@ -36,6 +36,7 @@ import {
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { UPCOMING_DRIVERS_ROLES } from "@/lib/upcomingDriversAccess";
+import { DRIVER_EXPENSES_ROLES } from "@/lib/driverExpensesAccess";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { isComplaintsViewOnlyEmail } from "@/components/complaints/useComplaintsAccess";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
@@ -97,6 +98,13 @@ const navigation = [
     href: "/upcoming-drivers",
     icon: UserPlus,
     roles: UPCOMING_DRIVERS_ROLES,
+    strict: true,
+  },
+  {
+    name: "Driver Expenses",
+    href: "/driver-expenses",
+    icon: UserPlus,
+    roles: DRIVER_EXPENSES_ROLES,
     strict: true,
   },
   { name: "Stuff", href: "/stuff", icon: User, roles: ["manager", "admin", "accounting", "chicago_management"] },
