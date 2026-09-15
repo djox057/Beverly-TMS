@@ -77,7 +77,25 @@ export default function UpcomingDrivers() {
     catch(e){toast({title:"Could not update entry",description:e instanceof Error?e.message:"Please retry.",variant:"destructive"});}
     finally{setArchiving(false);}
   };
-  const totalWidth=COLUMNS.reduce((sum,c)=>sum+widths[c.field],0)+65;
+  const [marking,setMarking]=useState<string | null>(null);
+  const cycleColor=async(row:CandidateSummary)=>{
+    if(!canEdit || marking)return;
+    setMarking(row.id);
+    try{acceptSaved(await saveCandidate(row.id,{row_color:nextRowColor(row.row_color)},row.version));}
+    catch(e){toast({title:"Could not change the color",description:e instanceof Error?e.message:"Please retry.",variant:"destructive"});}
+    finally{setMarking(null);}
+  };
+  const rowBg=(row:CandidateSummary)=>row.row_color?`hsl(var(--row-mark-${row.row_color}))`:undefined;
+  const rowFg=(row:CandidateSummary)=>row.row_color?"hsl(var(--row-mark-foreground))":undefined;
+  const colorCell=(row:CandidateSummary)=><td className="h-10 border-b border-r px-1 text-center" style={{backgroundColor:rowBg(row)}}>
+    <button type="button" disabled={!canEdit || marking===row.id}
+      aria-label={`Change row color for ${row.driver_name} (currently ${row.row_color ?? "none"})`}
+      title="Blue → Yellow → Green → none"
+      onClick={()=>void cycleColor(row)}
+      className="mx-auto block h-5 w-5 rounded border border-foreground/30"
+      style={{backgroundColor:row.row_color?`hsl(var(--row-mark-${row.row_color}))`:"transparent"}}/>
+  </td>;
+  const totalWidth=COLUMNS.reduce((sum,c)=>sum+widths[c.field],0)+65+44;
   return <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="text-2xl font-bold tracking-tight">Upcoming Drivers</h1><p className="text-xs text-muted-foreground">Chicago dates and times · {live}</p></div>
