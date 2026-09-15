@@ -164,10 +164,10 @@ export default function UpcomingDrivers() {
                   {c.field==="driver_name" && <><button className="shrink-0 text-[10px] text-muted-foreground hover:underline" title="Change arrival schedule" onClick={()=>open(row.id,"arrival_date")}>{clockLabel(row.arrival_time) || "Date"}</button>{row.tentative && <span className="shrink-0 rounded bg-amber-100 px-1 text-[10px] text-amber-900">50/50</span>}</>}
                   {c.field==="phone" && <><a href={`tel:${row.phone.replace(/[^+\d]/g,"")}`} aria-label={`Call ${row.driver_name}`}><Phone className="h-3 w-3"/></a><button aria-label={`Copy phone for ${row.driver_name}`} onClick={()=>void navigator.clipboard.writeText(row.phone).then(()=>toast({title:"Phone copied"})).catch(()=>toast({title:"Could not copy phone",variant:"destructive"}))}><Copy className="h-3 w-3"/></button></>}
                 </div>
-              </td>)}
-              <td className="border-b px-2">{canArchive && <Button size="icon" variant="ghost" aria-label={`${row.archived?"Restore":"Archive"} ${row.driver_name}`} onClick={()=>setArchiveTarget(row)}>{row.archived?<RotateCcw className="h-4 w-4"/>:<Archive className="h-4 w-4"/>}</Button>}</td>
+              </td></Fragment>)}
+              <td className="border-b px-2" style={{backgroundColor:rowBg(row)}}>{canArchive && <Button size="icon" variant="ghost" aria-label={`${row.archived?"Restore":"Archive"} ${row.driver_name}`} onClick={()=>setArchiveTarget(row)}>{row.archived?<RotateCcw className="h-4 w-4"/>:<Archive className="h-4 w-4"/>}</Button>}</td>
             </tr>)}
-            {!closed && !members.length && <tr><td colSpan={19} className="border-b"><p className="sticky left-0 w-fit px-8 py-3 text-muted-foreground">{day==="unscheduled"?"No unscheduled drivers in this view.":"No drivers in this view."}</p></td></tr>}
+            {!closed && !members.length && <tr><td colSpan={20} className="border-b"><p className="sticky left-0 w-fit px-8 py-3 text-muted-foreground">{day==="unscheduled"?"No unscheduled drivers in this view.":"No drivers in this view."}</p></td></tr>}
           </tbody>;
         })}
       </table>
