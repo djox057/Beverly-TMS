@@ -2349,6 +2349,7 @@ const NewOrder = () => {
           .invoke("send-stop-amount-approval", {
             body: {
               managerUserId: approvalManagerId,
+              thresholdPct: Math.round(stopAmountPct * 100),
               loadNumber: brokerLoadNumber || String(newInternalLoadNumber || ""),
               brokerName: brokerNameForEmail,
               truckNumber: approvalTruck?.truck_number || null,
