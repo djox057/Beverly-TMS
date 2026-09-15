@@ -97,7 +97,9 @@ export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose
           {fields.map(field=><div key={field} className="space-y-2">
             <Label htmlFor={`upcoming-${field}`}>{FIELD_LABELS[field]}{["driver_name","phone"].includes(field)?" *":""}</Label>
             <FieldInput field={field} draft={draft} refs={refs} disabled={!canEdit || saving}
-              onChange={value=>setDraft(old=>({...old,[field]:value,...(field==="arrival_date" && !value?{arrival_time:null}:{})}))} />
+              onChange={value=>setDraft(old=>({...old,[field]:value,
+                ...(field==="arrival_date" && !value?{arrival_time:null}:{}),
+                ...(field==="status"?{row_color:rowColorForStatus(value as CandidateStatus)}:{})}))} />
           </div>)}
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <div className="sticky bottom-0 flex flex-wrap gap-2 border-t bg-background py-3">
