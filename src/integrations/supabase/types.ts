@@ -6118,6 +6118,7 @@ export type Database = {
           psp: string
           psp_preview: string | null
           recruiter_id: string | null
+          row_color: string | null
           safety_id: string | null
           sales: string
           status: string
@@ -6154,6 +6155,7 @@ export type Database = {
           psp?: string
           psp_preview?: string | null
           recruiter_id?: string | null
+          row_color?: string | null
           safety_id?: string | null
           sales?: string
           status?: string
@@ -6190,6 +6192,7 @@ export type Database = {
           psp?: string
           psp_preview?: string | null
           recruiter_id?: string | null
+          row_color?: string | null
           safety_id?: string | null
           sales?: string
           status?: string
