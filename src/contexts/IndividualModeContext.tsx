@@ -54,19 +54,38 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const dates = Array.from(new Set([fmt(today), fmt(sat), fmt(sun)]));
 
-      const { data, error } = await supabase
-        .from('afterhours_assignments')
-        .select('driver_id, scheduled_date')
-        .eq('afterhours_user_id', profile.user_id)
-        .in('scheduled_date', dates);
+      // Shift assignments: yesterday (night shift crossing midnight) + today
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      const shiftDates = Array.from(new Set([fmt(yesterday), fmt(today)]));
+
+      const [weekendRes, shiftRes] = await Promise.all([
+        supabase
+          .from('afterhours_assignments')
+          .select('driver_id, scheduled_date')
+          .eq('afterhours_user_id', profile.user_id)
+          .in('scheduled_date', dates),
+        supabase
+          .from('afterhours_shift_assignments')
+          .select('driver_id, scheduled_date, shift')
+          .eq('afterhours_user_id', profile.user_id)
+          .in('scheduled_date', shiftDates),
+      ]);
 
       if (cancelled) return;
-      if (error) {
-        console.error('Failed to load afterhours assignments for individual mode:', error);
-        setAfterhoursDriverIds([]);
-        return;
+      if (weekendRes.error || shiftRes.error) {
+        console.error(
+          'Failed to load afterhours assignments for individual mode:',
+          weekendRes.error || shiftRes.error
+        );
       }
-      const ids = Array.from(new Set((data || []).map((r: any) => r.driver_id).filter(Boolean)));
+      const ids = Array.from(
+        new Set(
+          [...(weekendRes.data || []), ...(shiftRes.data || [])]
+            .map((r: any) => r.driver_id)
+            .filter(Boolean)
+        )
+      );
       setAfterhoursDriverIds(ids);
     };
     load();
