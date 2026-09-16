@@ -118,7 +118,7 @@ export default function UpcomingDrivers() {
           className="mx-auto block h-6 w-10 rounded border border-border"
           style={{backgroundColor:row.row_color?`hsl(var(--row-mark-${row.row_color}))`:"transparent"}}/>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-40 p-2" modal={false}>
+      <PopoverContent align="start" className="w-40 p-2">
         <div className="flex flex-col gap-1">
           {COLOR_CHOICES.map(choice=><button key={choice.label} type="button" onClick={()=>void setColor(row,choice.value)}
             className="flex items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-muted">
