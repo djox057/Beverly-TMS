@@ -5354,6 +5354,9 @@ const Trips = () => {
         await exportFinalAPSilverTransTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
       } else if (companyName === "Lale Transport LLC") {
         await exportLaleTransportTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
+      } else if (companyName === "Jones Freight Lines LLC") {
+        await exportJonesFreightTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
+
       } else {
         exportGenericExcel(weekData, earliestDate, latestDate);
       }
