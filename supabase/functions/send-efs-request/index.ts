@@ -41,7 +41,6 @@ const getEfsEmail = (companyName: string | null): string => {
   if (normalized.includes("AP SILVER")) return "efs@apsilvertrans.net";
   if (normalized.includes("LALE")) return "efs@laletransport.com";
   if (normalized.includes("JONES")) return "efs@jonesfreight.net";
-  if (normalized.includes("JONES")) return "dispatch@jonesfreight.net";
   return "efs@bfprime.net";
 };
 
