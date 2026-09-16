@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarIcon, ChevronDown, ChevronRight, Loader2, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -353,8 +353,8 @@ export default function DriverExpenses() {
         <tbody>
           {visible.map((r, index) => {
             const open = expanded.has(r.id);
-            return <>
-              <tr key={r.id} className={index % 2 ? "bg-muted/20" : "bg-background"}>
+            return <Fragment key={r.id}>
+              <tr className={index % 2 ? "bg-muted/20" : "bg-background"}>
                 <td className="h-9 border-b border-r px-1 text-center">
                   <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={open ? "Hide details" : "Show details"} aria-expanded={open} onClick={() => toggleExpanded(r.id)}>
                     {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -400,7 +400,7 @@ export default function DriverExpenses() {
                   </div>}
                 </td>
               </tr>
-              {open && <tr key={`${r.id}-details`} className="bg-muted/40">
+              {open && <tr className="bg-muted/40">
                 <td className="border-b" />
                 <td className="border-b px-2 py-3" colSpan={columns.length - 1}>
                   <div className="flex flex-wrap gap-x-8 gap-y-3">
@@ -416,7 +416,7 @@ export default function DriverExpenses() {
                   </div>
                 </td>
               </tr>}
-            </>;
+            </Fragment>;
           })}
           {!visible.length && <tr><td colSpan={columns.length} className="p-6 text-center text-muted-foreground">No expenses yet — add one with the Add Expense button.</td></tr>}
         </tbody>
