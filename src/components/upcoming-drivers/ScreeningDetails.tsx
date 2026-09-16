@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { candidateKey, fetchCandidate } from "./useUpcomingDrivers";
 import { FIELD_LABELS, SCREENING_FIELDS, type CandidateFields } from "./model";
 
@@ -14,7 +15,7 @@ const DETAIL_FIELDS: (keyof CandidateFields)[] = [
   "arrival_date", "arrival_time", "tentative",
 ];
 
-export function ScreeningDetails({ id, onEdit, staff }: { id: string; onEdit: (field: keyof CandidateFields) => void; staff: { user_id: string; full_name: string }[] }) {
+export function ScreeningDetails({ id, onEdit, staff, onDelete }: { id: string; onEdit: (field: keyof CandidateFields) => void; staff: { user_id: string; full_name: string }[]; onDelete?: () => void }) {
   const detail = useQuery({ queryKey: candidateKey(id), queryFn: () => fetchCandidate(id), staleTime: 60000 });
 
   if (detail.isPending) {
@@ -55,6 +56,13 @@ export function ScreeningDetails({ id, onEdit, staff }: { id: string; onEdit: (f
           </div>
         ))}
       </dl>
+      {onDelete && (
+        <div className="mt-4 border-t pt-3">
+          <Button type="button" variant="destructive" size="sm" onClick={onDelete}>
+            <Trash2 className="mr-2 h-4 w-4" /> Delete driver
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
