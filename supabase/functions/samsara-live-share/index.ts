@@ -141,6 +141,7 @@ serve(async (req) => {
       Deno.env.get('SAMSARA_API_KEY_6'),
       Deno.env.get('SAMSARA_API_KEY_7'),
       Deno.env.get('SAMSARA_API_KEY_8'),
+      Deno.env.get('SAMSARA_API_KEY_9'),
     ];
     const apiKeyLabels = [
       'retired slot (BF Prime LLC 5006094 covered by key 3)',
@@ -151,6 +152,7 @@ serve(async (req) => {
       'Dispatch@apsilvertrans.net',
       'Dispatch@unitedenterprisesolutions.net',
       'dispatch@bgprime.net',
+      'Lale Transport LLC (dispatch@laletransport.com)',
     ];
 
     // Find ALL keys/orgs that contain this truck, then pick the one with freshest location
