@@ -331,6 +331,16 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
                         <Loader2 className="h-5 w-5 animate-spin" />
                       </div>
                     ) : (
+                      <>
+                      <div className="relative mb-2">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                          value={userSearch}
+                          onChange={(e) => setUserSearch(e.target.value)}
+                          placeholder="Search users..."
+                          className="h-8 pl-7 text-xs sm:text-sm"
+                        />
+                      </div>
                       <div
                         className="flex-1 border rounded-md p-2 overflow-y-auto max-h-[45vh] sm:max-h-[30vh]"
                         style={{ WebkitOverflowScrolling: "touch" }}
@@ -339,7 +349,7 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
                           const config = SHIFT_CONFIG[shift];
                           const Icon = config.icon;
                           const scheduledIds = new Set(scheduledFor(shift).map((s) => s.user_id));
-                          const availableUsers = users.filter((u) => !scheduledIds.has(u.id));
+                          const availableUsers = users.filter((u) => !scheduledIds.has(u.id) && matchesSearch(u));
                           const totalCount = scheduledIds.size + selectedUsers[shift].length;
 
                           return (
