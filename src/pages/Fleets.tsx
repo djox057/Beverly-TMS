@@ -545,7 +545,7 @@ const Fleets = () => {
             })()}
 
             <Tabs defaultValue="dispatchers" className="w-full">
-              <TabsList className="grid w-full max-w-xl grid-cols-3">
+              <TabsList className="grid w-full max-w-2xl grid-cols-4">
                 <TabsTrigger value="dispatchers" className="flex items-center gap-2">
                   <UserCheck className="h-4 w-4" />
                   Dispatchers
@@ -558,7 +558,12 @@ const Fleets = () => {
                   <CalendarDays className="h-4 w-4 shrink-0" />
                   Weekend Assignment
                 </TabsTrigger>
+                <TabsTrigger value="afterhours-shifts" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 shrink-0" />
+                  Afterhours Assignment
+                </TabsTrigger>
               </TabsList>
+
 
               <TabsContent value="dispatchers" className="mt-4 space-y-4">
                 {/* Dispatcher Fleets */}
