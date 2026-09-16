@@ -4505,6 +4505,19 @@ const Trips = () => {
         worksheet.getCell("I8").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
       }
 
+      // Preserve outer borders on the merged I:J header block (rows 4-8)
+      for (let r = 4; r <= 8; r++) {
+        const jCell = worksheet.getCell(`J${r}`);
+        jCell.border = { ...(jCell.border || {}), right: { style: "thin" } };
+        const iCell = worksheet.getCell(`I${r}`);
+        iCell.border = {
+          top: iCell.border?.top || { style: "thin" },
+          left: iCell.border?.left || { style: "thin" },
+          bottom: iCell.border?.bottom || { style: "thin" },
+          right: { style: "thin" },
+        };
+      }
+
       // B13: Pay period
       worksheet.getCell("B13").value =
         `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
@@ -4522,13 +4535,11 @@ const Trips = () => {
         if (currentRow > 20) return;
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
-        worksheet.getCell(`C${currentRow}`).value = [order.pickupCity, order.pickupState]
-          .filter(Boolean)
-          .join(", ");
+        worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
+        worksheet.getCell(`D${currentRow}`).value = order.pickupState || "";
         worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
-        worksheet.getCell(`F${currentRow}`).value = [order.deliveryCity, order.deliveryState]
-          .filter(Boolean)
-          .join(", ");
+        worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
+        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = parseFloat(String(order.mileage)) || 0;
 
         const driverPay = parseFloat(order.driverPrice) || 0;
