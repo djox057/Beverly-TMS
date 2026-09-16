@@ -1281,6 +1281,16 @@ const Fleets = () => {
                   officeFilter={officeFilter}
                 />
               </TabsContent>
+
+              <TabsContent value="afterhours-shifts" className="mt-4">
+                <AfterhoursShiftFleetTab
+                  hasRole={hasRole}
+                  searchTerm={searchTerm}
+                  dispatcherFilter={dispatcherFilter}
+                  officeFilter={officeFilter}
+                />
+              </TabsContent>
+
             </Tabs>
           </div>
         </div>
