@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarIcon, Loader2, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { CalendarIcon, ChevronDown, ChevronRight, Loader2, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -26,7 +26,6 @@ const db: SupabaseClient = supabase;
 const TYPES = ["ticket", "bag", "motel", "uber", "other"] as const;
 type ExpenseType = (typeof TYPES)[number];
 const TYPE_LABEL: Record<ExpenseType, string> = { ticket: "Ticket", bag: "Bag", motel: "Motel", uber: "Uber", other: "Other" };
-const TYPE_ORDER: Record<string, number> = { ticket: 0, bag: 1, motel: 2, uber: 3, other: 4 };
 
 type Line = {
   id: string;
@@ -83,7 +82,7 @@ async function fetchLines(): Promise<Line[]> {
   const rows: Line[] = [];
   for (let from = 0; from < 40000; from += 1000) {
     const { data, error } = await db.from("recruiting_driver_expense_lines").select(SELECT)
-      .order("expense_date", { ascending: false, nullsFirst: false }).order("trip_id").order("id").range(from, from + 999);
+      .order("expense_date", { ascending: false, nullsFirst: false }).order("id").range(from, from + 999);
     if (error) throw error;
     const page = (data ?? []) as unknown as Line[];
     rows.push(...page);
@@ -105,38 +104,24 @@ export default function DriverExpenses() {
   const recruiterLabel = (row: { recruiter_id: string | null; recruiter: string | null }) =>
     (row.recruiter_id ? recruiterNames.get(row.recruiter_id) : null) ?? row.recruiter ?? "";
 
-  // Keep the lines of one driver trip next to each other, newest trip first.
-  const rows = useMemo(() => {
-    const list = (query.data ?? []).slice();
-    const tripDate = new Map<string, string>();
-    list.forEach(r => {
-      const current = tripDate.get(r.trip_id) ?? "";
-      if ((r.expense_date ?? "") > current) tripDate.set(r.trip_id, r.expense_date ?? "");
-    });
-    return list.sort((a, b) => {
-      const da = tripDate.get(a.trip_id) ?? "";
-      const dbv = tripDate.get(b.trip_id) ?? "";
-      if (da !== dbv) return da < dbv ? 1 : -1;
-      if (a.trip_id !== b.trip_id) return a.trip_id < b.trip_id ? -1 : 1;
-      return (TYPE_ORDER[a.expense_type] ?? 9) - (TYPE_ORDER[b.expense_type] ?? 9);
-    });
-  }, [query.data]);
-
-  const tripTotals = useMemo(() => {
-    const map = new Map<string, number>();
-    rows.forEach(r => map.set(r.trip_id, (map.get(r.trip_id) ?? 0) + (r.amount ?? 0)));
-    return map;
-  }, [rows]);
+  const rows = useMemo(() => query.data ?? [], [query.data]);
 
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState({ recruiter: "", airline: "", status: "", card: "", paid: "", type: "" });
+  const [filters, setFilters] = useState({ recruiter: "", status: "", paid: "", type: "" });
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const from = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
   const to = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : from;
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<{ id: string | null; draft: Draft } | null>(null);
   const [deleting, setDeleting] = useState<Line | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const pageSize = 100;
+
+  const toggleExpanded = (id: string) => setExpanded(old => {
+    const next = new Set(old);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const optionsFor = (field: "airline" | "status" | "card") => {
     const values = new Set<string>();
@@ -153,9 +138,7 @@ export default function DriverExpenses() {
     return rows.filter(r => {
       if (filters.recruiter && r.recruiter_id !== filters.recruiter) return false;
       if (filters.type && r.expense_type !== filters.type) return false;
-      if (filters.airline && (r.airline ?? "").trim() !== filters.airline) return false;
       if (filters.status && (r.status ?? "").trim() !== filters.status) return false;
-      if (filters.card && (r.card ?? "").trim() !== filters.card) return false;
       if (filters.paid === "Paid" && !r.is_paid) return false;
       if (filters.paid === "Unpaid" && r.is_paid) return false;
       if (from && (!r.expense_date || r.expense_date < from)) return false;
@@ -287,14 +270,19 @@ export default function DriverExpenses() {
     </td>;
   };
 
-  const columns = ["Recc", "Driver", "Truck", "Type", "Amount", "Nights", "Date", "Details", "Card", "Airline", "Status", "Paid", "Notes", "Djordje Notice", "Trip Total", ""];
-  const widths = [110, 190, 90, 90, 100, 70, 100, 220, 90, 110, 140, 60, 180, 170, 100, 80];
+  const detail = (label: string, value: ReactNode) => <div className="min-w-40">
+    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+    <div className="text-xs">{value}</div>
+  </div>;
+
+  const columns = ["", "Recc", "Driver", "Truck", "Type", "Amount", "Date", "Details", "Paid", ""];
+  const widths = [34, 130, 200, 90, 90, 110, 100, 260, 60, 80];
 
   return <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Driver Expenses</h1>
-        <p className="text-xs text-muted-foreground">Recruiting spend per incoming driver · one row per expense, trip total shown on the driver's first line.</p>
+        <p className="text-xs text-muted-foreground">Recruiting spend per incoming driver · one row per expense, click a row to see the rest.</p>
       </div>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={() => void query.refetch()} disabled={query.isFetching}>
@@ -311,9 +299,7 @@ export default function DriverExpenses() {
       </div>
       <div className="w-40"><Combobox options={recruiterUserOptions} value={filters.recruiter} onValueChange={v => { setFilters(f => ({ ...f, recruiter: v })); setPage(0); }} placeholder="All recruiters" /></div>
       <div className="w-32"><Combobox options={typeOptions} value={filters.type} onValueChange={v => { setFilters(f => ({ ...f, type: v })); setPage(0); }} placeholder="All types" /></div>
-      <div className="w-36"><Combobox options={airlineOptions} value={filters.airline} onValueChange={v => { setFilters(f => ({ ...f, airline: v })); setPage(0); }} placeholder="All airlines" /></div>
       <div className="w-44"><Combobox options={statusOptions} value={filters.status} onValueChange={v => { setFilters(f => ({ ...f, status: v })); setPage(0); }} placeholder="All statuses" /></div>
-      <div className="w-32"><Combobox options={cardOptions} value={filters.card} onValueChange={v => { setFilters(f => ({ ...f, card: v })); setPage(0); }} placeholder="All cards" /></div>
       <div className="w-32"><Combobox options={[{ value: "Paid", label: "Paid" }, { value: "Unpaid", label: "Unpaid" }]} value={filters.paid} onValueChange={v => { setFilters(f => ({ ...f, paid: v })); setPage(0); }} placeholder="Paid / Unpaid" /></div>
       <Popover>
         <PopoverTrigger asChild>
@@ -341,7 +327,7 @@ export default function DriverExpenses() {
         </PopoverContent>
       </Popover>
       {(search || from || to || Object.values(filters).some(Boolean)) &&
-        <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setDateRange(undefined); setFilters({ recruiter: "", airline: "", status: "", card: "", paid: "", type: "" }); setPage(0); }}>Clear filters</Button>}
+        <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setDateRange(undefined); setFilters({ recruiter: "", status: "", paid: "", type: "" }); setPage(0); }}>Clear filters</Button>}
       <div className="ml-auto flex flex-wrap gap-3 px-2 text-xs text-muted-foreground">
         <span>Expenses: <b className="text-foreground">{filtered.length}</b></span>
         <span>Paid: <b className="text-foreground">{money(totals.paid)}</b></span>
@@ -360,63 +346,79 @@ export default function DriverExpenses() {
         </colgroup>
         <thead className="sticky top-0 z-20 bg-muted">
           <tr>
-            {columns.map(label =>
-              <th key={label} scope="col" className="h-10 border-b border-r bg-muted px-2 text-left font-semibold">{label || <span className="sr-only">Actions</span>}</th>)}
+            {columns.map((label, i) =>
+              <th key={label || `col-${i}`} scope="col" className="h-10 border-b border-r bg-muted px-2 text-left font-semibold">{label || <span className="sr-only">{i === 0 ? "Expand" : "Actions"}</span>}</th>)}
           </tr>
         </thead>
         <tbody>
           {visible.map((r, index) => {
-            const firstOfTrip = index === 0 || visible[index - 1].trip_id !== r.trip_id;
-            return <tr key={r.id} className={cn(index % 2 ? "bg-muted/20" : "bg-background", firstOfTrip && "border-t-2 border-t-border")}>
-              <td
-                className="h-9 truncate border-b border-r px-2"
-                title={recruiterLabel(r)}
-                onDoubleClick={() => canEdit && setCell({ id: r.id, key: "recruiter_id", value: r.recruiter_id ?? "" })}
-              >
-                {canEdit && cell?.id === r.id && cell.key === "recruiter_id"
-                  ? <select
-                      autoFocus
-                      className={inputClass}
-                      value={cell.value}
-                      onChange={e => setCell(c => c && ({ ...c, value: e.target.value }))}
-                      onBlur={commitCell}
-                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); commitCell(); } if (e.key === "Escape") { e.preventDefault(); setCell(null); } }}
-                    >
-                      <option value="">—</option>
-                      {recruiterUserOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  : firstOfTrip ? (recruiterLabel(r) || "—") : ""}
-              </td>
-              {editableCell(r, "driver_name", firstOfTrip ? (r.driver_name || "—") : "", "font-medium")}
-              {editableCell(r, "truck_number", r.truck_number || "—")}
-              {editableCell(r, "expense_type", TYPE_LABEL[r.expense_type as ExpenseType] ?? r.expense_type)}
-              {editableCell(r, "amount", money(r.amount), "tabular-nums")}
-              {editableCell(r, "nights", r.nights === null || r.nights === undefined ? "—" : String(r.nights))}
-              {editableCell(r, "expense_date", day(r.expense_date))}
-              {editableCell(r, "details", r.details || "—")}
-              {editableCell(r, "card", r.card || "—", "", "ex-cards-inline")}
-              {editableCell(r, "airline", r.airline || "—", "", "ex-airlines-inline")}
-              {editableCell(r, "status", r.status || "—", "", "ex-statuses-inline")}
-              <td className="h-9 border-b border-r px-2">
-                <Checkbox
-                  checked={r.is_paid}
-                  disabled={!canEdit}
-                  aria-label={`Paid ${r.driver_name} ${r.expense_type}`}
-                  onCheckedChange={value => patch.mutate({ id: r.id, values: { is_paid: value === true } })}
-                />
-              </td>
-              {editableCell(r, "payment_notes", r.payment_notes || "—")}
-              {editableCell(r, "notice", r.notice || "—")}
-              <td className="h-9 border-b border-r px-2 font-semibold tabular-nums">{firstOfTrip ? money(tripTotals.get(r.trip_id) ?? 0) : ""}</td>
-              <td className="h-9 border-b px-1">
-                {canEdit && <div className="flex gap-0.5">
-                  <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Edit ${r.driver_name} ${r.expense_type}`} onClick={() => setEditing({ id: r.id, draft: { ...r } })}><Pencil className="h-3.5 w-3.5" /></Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Delete ${r.driver_name} ${r.expense_type}`} onClick={() => setDeleting(r)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                </div>}
-              </td>
-            </tr>;
+            const open = expanded.has(r.id);
+            return <>
+              <tr key={r.id} className={index % 2 ? "bg-muted/20" : "bg-background"}>
+                <td className="h-9 border-b border-r px-1 text-center">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={open ? "Hide details" : "Show details"} aria-expanded={open} onClick={() => toggleExpanded(r.id)}>
+                    {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                  </Button>
+                </td>
+                <td
+                  className="h-9 truncate border-b border-r px-2"
+                  title={recruiterLabel(r)}
+                  onDoubleClick={() => canEdit && setCell({ id: r.id, key: "recruiter_id", value: r.recruiter_id ?? "" })}
+                >
+                  {canEdit && cell?.id === r.id && cell.key === "recruiter_id"
+                    ? <select
+                        autoFocus
+                        className={inputClass}
+                        value={cell.value}
+                        onChange={e => setCell(c => c && ({ ...c, value: e.target.value }))}
+                        onBlur={commitCell}
+                        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); commitCell(); } if (e.key === "Escape") { e.preventDefault(); setCell(null); } }}
+                      >
+                        <option value="">—</option>
+                        {recruiterUserOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    : (recruiterLabel(r) || "—")}
+                </td>
+                {editableCell(r, "driver_name", r.driver_name || "—", "font-medium")}
+                {editableCell(r, "truck_number", r.truck_number || "—")}
+                {editableCell(r, "expense_type", TYPE_LABEL[r.expense_type as ExpenseType] ?? r.expense_type)}
+                {editableCell(r, "amount", money(r.amount), "tabular-nums")}
+                {editableCell(r, "expense_date", day(r.expense_date))}
+                {editableCell(r, "details", r.details || "—")}
+                <td className="h-9 border-b border-r px-2">
+                  <Checkbox
+                    checked={r.is_paid}
+                    disabled={!canEdit}
+                    aria-label={`Paid ${r.driver_name} ${r.expense_type}`}
+                    onCheckedChange={value => patch.mutate({ id: r.id, values: { is_paid: value === true } })}
+                  />
+                </td>
+                <td className="h-9 border-b px-1">
+                  {canEdit && <div className="flex gap-0.5">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Edit ${r.driver_name} ${r.expense_type}`} onClick={() => setEditing({ id: r.id, draft: { ...r } })}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Delete ${r.driver_name} ${r.expense_type}`} onClick={() => setDeleting(r)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  </div>}
+                </td>
+              </tr>
+              {open && <tr key={`${r.id}-details`} className="bg-muted/40">
+                <td className="border-b" />
+                <td className="border-b px-2 py-3" colSpan={columns.length - 1}>
+                  <div className="flex flex-wrap gap-x-8 gap-y-3">
+                    {detail("Nights", r.nights === null || r.nights === undefined ? "—" : String(r.nights))}
+                    {detail("Card", r.card || "—")}
+                    {detail("Airline", r.airline || "—")}
+                    {detail("Status", r.status || "—")}
+                    {detail("Notes", r.payment_notes || "—")}
+                    {detail("Djordje notice", r.notice || "—")}
+                    {canEdit && <div className="self-end">
+                      <Button size="sm" variant="outline" onClick={() => setEditing({ id: r.id, draft: { ...r } })}>Edit details</Button>
+                    </div>}
+                  </div>
+                </td>
+              </tr>}
+            </>;
           })}
-          {!visible.length && <tr><td colSpan={columns.length} className="p-6 text-center text-muted-foreground">No expenses match these filters.</td></tr>}
+          {!visible.length && <tr><td colSpan={columns.length} className="p-6 text-center text-muted-foreground">No expenses yet — add one with the Add Expense button.</td></tr>}
         </tbody>
       </table>
       <datalist id="ex-cards-inline">{cardOptions.map(o => <option key={o.value} value={o.value} />)}</datalist>
