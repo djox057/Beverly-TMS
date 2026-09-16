@@ -6326,6 +6326,24 @@ export type Database = {
           preference: string
           psp: string
           psp_preview: string | null
+          q_accidents: string
+          q_avg_weekly_miles: string
+          q_class_a_experience: string
+          q_company_changes: string
+          q_current_company_tenure: string
+          q_driving_type: string
+          q_freight_types: string
+          q_home_day: string
+          q_home_time: string
+          q_leaving_reason: string
+          q_max_weekly_miles: string
+          q_miles_comfort: string
+          q_preferred_models: string
+          q_sap_refusal: string
+          q_trailer_types: string
+          q_transmission: string
+          q_truck_age_preference: string
+          q_truck_models: string
           recruiter_id: string | null
           row_color: string | null
           safety_id: string | null
@@ -6363,6 +6381,24 @@ export type Database = {
           preference?: string
           psp?: string
           psp_preview?: string | null
+          q_accidents?: string
+          q_avg_weekly_miles?: string
+          q_class_a_experience?: string
+          q_company_changes?: string
+          q_current_company_tenure?: string
+          q_driving_type?: string
+          q_freight_types?: string
+          q_home_day?: string
+          q_home_time?: string
+          q_leaving_reason?: string
+          q_max_weekly_miles?: string
+          q_miles_comfort?: string
+          q_preferred_models?: string
+          q_sap_refusal?: string
+          q_trailer_types?: string
+          q_transmission?: string
+          q_truck_age_preference?: string
+          q_truck_models?: string
           recruiter_id?: string | null
           row_color?: string | null
           safety_id?: string | null
@@ -6400,6 +6436,24 @@ export type Database = {
           preference?: string
           psp?: string
           psp_preview?: string | null
+          q_accidents?: string
+          q_avg_weekly_miles?: string
+          q_class_a_experience?: string
+          q_company_changes?: string
+          q_current_company_tenure?: string
+          q_driving_type?: string
+          q_freight_types?: string
+          q_home_day?: string
+          q_home_time?: string
+          q_leaving_reason?: string
+          q_max_weekly_miles?: string
+          q_miles_comfort?: string
+          q_preferred_models?: string
+          q_sap_refusal?: string
+          q_trailer_types?: string
+          q_transmission?: string
+          q_truck_age_preference?: string
+          q_truck_models?: string
           recruiter_id?: string | null
           row_color?: string | null
           safety_id?: string | null
