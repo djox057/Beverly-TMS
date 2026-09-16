@@ -76,10 +76,12 @@ export default function UpcomingDrivers() {
   const add=(date:string|null=null)=>setEditor({id:null,createId:crypto.randomUUID(),date});
   const display=(r:CandidateSummary,c:typeof COLUMNS[number])=>{
     if(c.field==="phone") return formatPhone(r.phone);
+    if(c.field==="arrival_time") return clockLabel(r.arrival_time) || "—";
     if(["recruiter_id","safety_id","dispatcher_id"].includes(c.field)) {
-      const id=r[c.field as "recruiter_id"];return id?(names.get(id) || "Assigned user"):"—";
+      const id=r[c.field as "recruiter_id"];const full=id?(names.get(id) || "Assigned user"):"";
+      return full?(c.field==="recruiter_id"?shortStaffName(full):full):"—";
     }
-    if(c.field==="company_id") return companies.get(r.company_id ?? "") || "—";
+    if(c.field==="company_id"){const name=companies.get(r.company_id ?? "");return name?shortCompanyName(name):"—";}
     if(c.field==="truck_id") return [trucks.get(r.truck_id ?? ""),r.truck_terms].filter(Boolean).join(" · ") || "—";
     return String(r[(c.preview ?? c.field) as keyof CandidateSummary] ?? "") || "—";
   };
@@ -96,11 +98,10 @@ export default function UpcomingDrivers() {
     }}});
   };
   const [marking,setMarking]=useState<string | null>(null);
-  const cycleColor=async(row:CandidateSummary)=>{
+  const setColor=async(row:CandidateSummary,color:RowColor)=>{
     if(!canEdit || marking)return;
     setMarking(row.id);
     try{
-      const color=nextRowColor(row.row_color);
       acceptSaved(await saveCandidate(row.id,{row_color:color,...(color?{status:COLOR_STATUS[color]}:{})},row.version));
     }
     catch(e){toast({title:"Could not change the color",description:e instanceof Error?e.message:"Please retry.",variant:"destructive"});}
@@ -108,16 +109,26 @@ export default function UpcomingDrivers() {
   };
   const rowBg=(row:CandidateSummary)=>row.row_color?`hsl(var(--row-mark-${row.row_color}))`:undefined;
   const rowFg=(row:CandidateSummary)=>row.row_color?"hsl(var(--row-mark-foreground))":undefined;
-  // Status and color are one column: the label shows the status, clicking cycles the color/state.
+  // One color button per row: clicking opens a small picker instead of cycling automatically.
   const statusCell=(row:CandidateSummary)=><td className="h-10 border-b border-r px-1 text-center" style={{backgroundColor:rowBg(row)}}>
-    <button type="button" disabled={!canEdit || marking===row.id}
-      aria-label={`Change status for ${row.driver_name} (currently ${row.status})`}
-      title="Click to change: Scheduled (blue) → Contacted (yellow) → Arrived (green) → none"
-      onClick={()=>void cycleColor(row)}
-      className={`mx-auto block max-w-full truncate rounded px-1.5 py-1 text-xs ${statusClass(row.status)}`}>
-      {row.status}
-    </button>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" disabled={!canEdit || marking===row.id}
+          aria-label={`Choose a color for ${row.driver_name}`} title="Choose a color"
+          className="mx-auto block h-6 w-10 rounded border border-border"
+          style={{backgroundColor:row.row_color?`hsl(var(--row-mark-${row.row_color}))`:"transparent"}}/>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-40 p-2" modal={false}>
+        <div className="flex flex-col gap-1">
+          {COLOR_CHOICES.map(choice=><button key={choice.label} type="button" onClick={()=>void setColor(row,choice.value)}
+            className="flex items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-muted">
+            <span className="h-4 w-6 rounded border border-border" style={{backgroundColor:choice.swatch}}/>{choice.label}
+          </button>)}
+        </div>
+      </PopoverContent>
+    </Popover>
   </td>;
+
   const totalWidth=COLUMNS.reduce((sum,c)=>sum+widths[c.field],0)+65+STATUS_COL_WIDTH;
   return <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
