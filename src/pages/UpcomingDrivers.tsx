@@ -37,7 +37,7 @@ export default function UpcomingDrivers() {
   const [expanded,setExpanded]=useState<Set<string>>(new Set());
   const toggleExpanded=(id:string)=>setExpanded(old=>{const next=new Set(old);if(next.has(id))next.delete(id);else next.add(id);return next;});
   const navigate=useNavigate();
-  const storageKey=`upcoming-drivers-widths-v2:${user?.id}`;
+  const storageKey=`upcoming-drivers-widths-v3:${user?.id}`;
   const defaults=Object.fromEntries(COLUMNS.map(c=>[c.field,c.width]));
   const [widths,setWidths]=useState<Record<string,number>>(defaults);
   const drag=useRef<{field:string;x:number;width:number}|null>(null);
