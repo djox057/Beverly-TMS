@@ -4393,7 +4393,7 @@ const Trips = () => {
       // Scheduled deductions from Stuff
       if (scheduledDeductions.length > 0) {
         const nonFridgeDeductions = scheduledDeductions.filter(
-          (d) => !(d.explanation || "").toLowerCase().includes("fridge"),
+          (d) => !isExcludedLaleDeduction(d.explanation || ""),
         );
         const creditDeductions = nonFridgeDeductions.filter((d) => d.expenseType === "credit");
         const expenseDeductions = nonFridgeDeductions.filter((d) => d.expenseType !== "credit");
