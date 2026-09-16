@@ -5,7 +5,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarDays, Trash2, Moon, Sunrise } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Moon, Sunrise, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addDays, startOfDay } from "date-fns";
@@ -52,6 +53,12 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
   const [selectedUsers, setSelectedUsers] = useState<Record<ShiftKey, string[]>>({ night: [], morning: [] });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const matchesSearch = (u: ShiftUser) => {
+    const q = userSearch.trim().toLowerCase();
+    if (!q) return true;
+    return `${u.full_name || ""} ${u.email || ""}`.toLowerCase().includes(q);
+  };
 
   useEffect(() => {
     if (!open) return;
