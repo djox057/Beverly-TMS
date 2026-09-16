@@ -118,6 +118,44 @@ export type Database = {
         }
         Relationships: []
       }
+      afterhours_shift_assignments: {
+        Row: {
+          afterhours_user_id: string
+          created_at: string
+          driver_id: string
+          id: string
+          scheduled_date: string
+          shift: string
+          updated_at: string
+        }
+        Insert: {
+          afterhours_user_id: string
+          created_at?: string
+          driver_id: string
+          id?: string
+          scheduled_date: string
+          shift: string
+          updated_at?: string
+        }
+        Update: {
+          afterhours_user_id?: string
+          created_at?: string
+          driver_id?: string
+          id?: string
+          scheduled_date?: string
+          shift?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "afterhours_shift_assignments_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       afterhours_shift_schedule: {
         Row: {
           created_at: string

@@ -5,19 +5,20 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Loader2, Moon, Sunrise, Trash2 } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Moon, Sunrise } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, addDays } from "date-fns";
+import { format, addDays, startOfDay } from "date-fns";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 type ShiftKey = "night" | "morning";
 
-const SHIFTS: { key: ShiftKey; label: string; hours: string; icon: typeof Moon }[] = [
-  { key: "night", label: "Night shift", hours: "10:00 PM – 6:00 AM (next day)", icon: Moon },
-  { key: "morning", label: "Morning shift", hours: "6:00 AM – 2:00 PM", icon: Sunrise },
-];
+const SHIFT_CONFIG: Record<ShiftKey, { label: string; hours: string; icon: typeof Moon }> = {
+  night: { label: "Night shift", hours: "10:00 PM – 6:00 AM (next day)", icon: Moon },
+  morning: { label: "Morning shift", hours: "6:00 AM – 2:00 PM", icon: Sunrise },
+};
+
+const SHIFT_KEYS: ShiftKey[] = ["night", "morning"];
 
 interface ShiftUser {
   id: string;
@@ -42,19 +43,19 @@ const SCHEDULE_MANAGER_EMAILS = ["tommyj@bfprime.net", "acccoc225@gmail.com"];
 
 export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => {
   const { hasRole, profile } = useAuthContext();
-  const canManage =
+  const canManageSchedules =
     hasRole("admin") || hasRole("manager") || SCHEDULE_MANAGER_EMAILS.includes(profile?.email?.toLowerCase() || "");
 
   const [users, setUsers] = useState<ShiftUser[]>([]);
   const [entries, setEntries] = useState<ShiftEntry[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedUsers, setSelectedUsers] = useState<Record<ShiftKey, string[]>>({ night: [], morning: [] });
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState<ShiftKey | null>(null);
-  const [search, setSearch] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setSearch("");
+    setSelectedUsers({ night: [], morning: [] });
     fetchUsers();
     fetchEntries();
   }, [open]);
@@ -114,9 +115,7 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
   };
 
   const dateStr = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
-
-  const assignedFor = (shift: ShiftKey) =>
-    entries.filter((e) => e.scheduled_date === dateStr && e.shift === shift);
+  const isPastDate = selectedDate ? startOfDay(selectedDate) < startOfDay(new Date()) : false;
 
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
   const userLabel = (id: string) => {
@@ -124,54 +123,57 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
     return u ? u.full_name || u.email : "Unknown user";
   };
 
-  const filteredUsers = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) => (u.full_name || "").toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
-  }, [users, search]);
+  const scheduledFor = (shift: ShiftKey) => entries.filter((e) => e.scheduled_date === dateStr && e.shift === shift);
 
-  const toggleUser = async (userId: string, shift: ShiftKey) => {
-    if (!dateStr || !canManage) return;
-    const existing = entries.find((e) => e.scheduled_date === dateStr && e.shift === shift && e.user_id === userId);
-    setSaving(shift);
+  const handleUserToggle = (userId: string, shift: ShiftKey) => {
+    setSelectedUsers((prev) => {
+      const current = prev[shift];
+      return {
+        ...prev,
+        [shift]: current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId],
+      };
+    });
+  };
+
+  const getTotalSelectedCount = () => selectedUsers.night.length + selectedUsers.morning.length;
+
+  const handleSaveSchedule = async () => {
+    if (!dateStr || getTotalSelectedCount() === 0) {
+      toast.error("Please select a date and at least one user");
+      return;
+    }
+    setSaving(true);
     try {
-      if (existing) {
-        const { error } = await supabase.from("afterhours_shift_schedule").delete().eq("id", existing.id);
-        if (error) throw error;
-        setEntries((prev) => prev.filter((e) => e.id !== existing.id));
-      } else {
-        const { data, error } = await supabase
-          .from("afterhours_shift_schedule")
-          .insert({ user_id: userId, scheduled_date: dateStr, shift })
-          .select("id, user_id, scheduled_date, shift")
-          .single();
-        if (error) throw error;
-        setEntries((prev) => [...prev, data as ShiftEntry]);
-      }
+      const rows = SHIFT_KEYS.flatMap((shift) =>
+        selectedUsers[shift].map((userId) => ({ user_id: userId, scheduled_date: dateStr, shift })),
+      );
+      const { error } = await supabase
+        .from("afterhours_shift_schedule")
+        .upsert(rows, { onConflict: "user_id,scheduled_date,shift" });
+      if (error) throw error;
+
+      toast.success(`Scheduled ${rows.length} shift assignment(s) for ${format(selectedDate!, "EEEE, MMM d, yyyy")}`);
+      setSelectedUsers({ night: [], morning: [] });
+      fetchEntries();
     } catch (error: any) {
-      console.error("Error updating shift:", error);
-      toast.error(error.message || "Failed to update shift");
+      console.error("Error saving shift schedule:", error);
+      toast.error(error.message || "Failed to save schedule");
     } finally {
-      setSaving(null);
+      setSaving(false);
     }
   };
 
-  const removeEntry = async (id: string) => {
+  const handleDeleteSchedule = async (id: string) => {
     try {
       const { error } = await supabase.from("afterhours_shift_schedule").delete().eq("id", id);
       if (error) throw error;
       setEntries((prev) => prev.filter((e) => e.id !== id));
-      toast.success("Removed from shift");
+      toast.success("Schedule removed");
     } catch (error) {
       console.error("Error removing shift entry:", error);
-      toast.error("Failed to remove");
+      toast.error("Failed to remove schedule");
     }
   };
-
-  const upcomingDates = useMemo(() => {
-    const dates = [...new Set(entries.map((e) => e.scheduled_date))].sort().reverse();
-    return dates;
-  }, [entries]);
 
   const shiftWindowLabel = (shift: ShiftKey) => {
     if (!selectedDate) return "";
@@ -181,160 +183,201 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
     return `${format(selectedDate, "MMM d")} 6:00 AM → 2:00 PM`;
   };
 
+  const totalScheduledForDate = dateStr ? entries.filter((e) => e.scheduled_date === dateStr).length : 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Afterhours Shift Assignment</DialogTitle>
-          <DialogDescription>
-            Pick a day, then choose who works the night shift (10 PM – 6 AM) and the morning shift (6 AM – 2 PM).
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-y-auto">
+        <DialogHeader className="space-y-1 sm:space-y-2">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
+            Afterhours Shift Schedule
+          </DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
+            Pick a day, then choose who works the night shift (10 PM – 6 AM next day) and the morning shift (6 AM – 2
+            PM). Multiple people can be scheduled per shift.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6 md:grid-cols-[auto_1fr]">
-          <div>
-            <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className="rounded-md border" />
+        <div className="flex flex-col sm:grid sm:grid-cols-[auto_1fr] gap-4 sm:gap-6 flex-1 overflow-visible sm:overflow-hidden">
+          {/* Left side - Calendar */}
+          <div className="flex flex-col space-y-3 sm:space-y-4">
+            <h3 className="font-medium text-xs sm:text-sm">Select Date</h3>
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => {
+                setSelectedDate(date);
+                setSelectedUsers({ night: [], morning: [] });
+              }}
+              className="rounded-md border mx-auto sm:mx-0"
+            />
           </div>
 
-          <div className="space-y-4">
-            {loading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading users…
-              </div>
-            ) : !selectedDate ? (
-              <p className="text-sm text-muted-foreground">Select a day to assign shifts.</p>
-            ) : (
+          {/* Right side - Shifts for selected date */}
+          <div className="flex flex-col space-y-3 sm:space-y-4 overflow-y-auto min-h-0">
+            {selectedDate ? (
               <>
-                <Input
-                  placeholder="Search users…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="h-9"
-                />
-                {SHIFTS.map(({ key, label, hours, icon: Icon }) => {
-                  const assigned = assignedFor(key);
-                  const assignedIds = new Set(assigned.map((a) => a.user_id));
-                  return (
-                    <div key={key} className="rounded-md border p-3 space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
-                          <div>
-                            <p className="text-sm font-medium">{label}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {hours} · {shiftWindowLabel(key)}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge variant="secondary">{assigned.length} assigned</Badge>
-                      </div>
+                <div className="flex items-center justify-between flex-shrink-0 flex-wrap gap-2">
+                  <h3 className="font-medium text-xs sm:text-sm">
+                    <span className="hidden sm:inline">{format(selectedDate, "EEEE, MMM d, yyyy")}</span>
+                    <span className="sm:hidden">{format(selectedDate, "EEE, MMM d")}</span>
+                    {isPastDate && <span className="text-muted-foreground ml-1 sm:ml-2">(Past)</span>}
+                  </h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {format(selectedDate, "EEEE")}
+                  </Badge>
+                </div>
 
-                      {assigned.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {assigned.map((a) => (
-                            <Badge key={a.id} variant="outline" className="gap-1">
-                              {userLabel(a.user_id)}
-                              {canManage && (
-                                <button
-                                  type="button"
-                                  onClick={() => removeEntry(a.id)}
-                                  className="ml-1 text-muted-foreground hover:text-destructive"
-                                  aria-label="Remove"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              )}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
+                {/* Already scheduled for this date - grouped by shift */}
+                {totalScheduledForDate > 0 && (
+                  <ScrollArea className="border rounded-md p-2 sm:p-3 bg-muted/30 max-h-[35vh]">
+                    {SHIFT_KEYS.map((shift) => {
+                      const list = scheduledFor(shift);
+                      if (list.length === 0) return null;
+                      const config = SHIFT_CONFIG[shift];
+                      const Icon = config.icon;
+                      const scheduledIds = new Set(list.map((s) => s.user_id));
 
-                      <ScrollArea className="h-40 pr-2" style={{ WebkitOverflowScrolling: "touch" }}>
-                        <div className="space-y-1">
-                          {filteredUsers.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">No matching users.</p>
-                          ) : (
-                            filteredUsers.map((u) => (
-                              <label
-                                key={u.id}
-                                className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted/50"
-                              >
-                                <Checkbox
-                                  checked={assignedIds.has(u.id)}
-                                  disabled={!canManage || saving === key}
-                                  onCheckedChange={() => toggleUser(u.id, key)}
-                                />
-                                <span className="truncate">{u.full_name || u.email}</span>
-                                {u.isManager && (
-                                  <Badge variant="secondary" className="ml-auto text-[10px]">
-                                    Manager
-                                  </Badge>
-                                )}
-                              </label>
-                            ))
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  );
-                })}
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Scheduled days</p>
-          {upcomingDates.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No shifts scheduled yet.</p>
-          ) : (
-            <ScrollArea className="max-h-64 pr-2">
-              <div className="space-y-2">
-                {upcomingDates.map((d) => (
-                  <div key={d} className="rounded-md border p-2">
-                    <p className="text-sm font-medium">{format(new Date(d + "T12:00:00"), "EEEE, MMM d, yyyy")}</p>
-                    {SHIFTS.map(({ key, label }) => {
-                      const list = entries.filter((e) => e.scheduled_date === d && e.shift === key);
                       return (
-                        <div key={key} className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                          <span className="text-muted-foreground w-24">{label}:</span>
-                          {list.length === 0 ? (
-                            <span className="text-muted-foreground">—</span>
-                          ) : (
-                            list.map((e) => (
-                              <Badge key={e.id} variant="outline" className="gap-1">
-                                {userLabel(e.user_id)}
-                                {canManage && (
-                                  <button
-                                    type="button"
-                                    onClick={() => removeEntry(e.id)}
-                                    className="ml-1 text-muted-foreground hover:text-destructive"
-                                    aria-label="Remove"
+                        <div key={shift} className="mb-3 sm:mb-4 last:mb-0">
+                          <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <Icon className="h-3 w-3" />
+                              {config.label}
+                            </Badge>
+                            <span className="text-[10px] sm:text-xs text-muted-foreground">
+                              {list.length} · {shiftWindowLabel(shift)}
+                            </span>
+                          </div>
+                          <div className="space-y-1 pl-2">
+                            {list.map((entry) => (
+                              <div
+                                key={entry.id}
+                                className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
+                              >
+                                <span className="flex items-center gap-1 sm:gap-2 truncate">
+                                  <span className="truncate">{userLabel(entry.user_id)}</span>
+                                  {userById.get(entry.user_id)?.isManager && (
+                                    <Badge variant="secondary" className="text-[10px] flex-shrink-0">
+                                      Manager
+                                    </Badge>
+                                  )}
+                                </span>
+                                {canManageSchedules && !isPastDate && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 text-destructive hover:text-destructive"
+                                    onClick={() => handleDeleteSchedule(entry.id)}
                                   >
                                     <Trash2 className="h-3 w-3" />
-                                  </button>
+                                  </Button>
                                 )}
-                              </Badge>
-                            ))
-                          )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       );
                     })}
+                  </ScrollArea>
+                )}
+
+                {isPastDate && totalScheduledForDate === 0 && (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <p className="text-sm">No shifts recorded for this date</p>
                   </div>
-                ))}
+                )}
+
+                {/* Selection area */}
+                {canManageSchedules && !isPastDate && (
+                  <>
+                    {loading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      </div>
+                    ) : (
+                      <div
+                        className="flex-1 border rounded-md p-2 overflow-y-auto max-h-[45vh] sm:max-h-[30vh]"
+                        style={{ WebkitOverflowScrolling: "touch" }}
+                      >
+                        {SHIFT_KEYS.map((shift) => {
+                          const config = SHIFT_CONFIG[shift];
+                          const Icon = config.icon;
+                          const scheduledIds = new Set(scheduledFor(shift).map((s) => s.user_id));
+                          const availableUsers = users.filter((u) => !scheduledIds.has(u.id));
+                          const totalCount = scheduledIds.size + selectedUsers[shift].length;
+
+                          return (
+                            <div key={shift} className="mb-3 sm:mb-4 last:mb-0 first:border-t-0 border-t pt-3 first:pt-0 mt-3 first:mt-0">
+                              <div className="flex items-center gap-2 mb-1 sm:mb-2 sticky top-0 bg-background py-1 flex-wrap">
+                                <Badge variant="outline" className="text-xs gap-1">
+                                  <Icon className="h-3 w-3" />
+                                  {config.label}
+                                </Badge>
+                                <span className="text-[10px] sm:text-xs text-muted-foreground">
+                                  {config.hours} · {totalCount} assigned
+                                </span>
+                              </div>
+                              {availableUsers.length === 0 ? (
+                                <p className="text-[10px] sm:text-xs text-muted-foreground pl-2">
+                                  Everyone is already scheduled for this shift
+                                </p>
+                              ) : (
+                                <div className="space-y-1 pl-2">
+                                  {availableUsers.map((user) => (
+                                    <label
+                                      key={`${shift}-${user.id}`}
+                                      className="flex items-center gap-2 p-1 sm:p-1.5 rounded cursor-pointer hover:bg-muted"
+                                    >
+                                      <Checkbox
+                                        checked={selectedUsers[shift].includes(user.id)}
+                                        onCheckedChange={() => handleUserToggle(user.id, shift)}
+                                        className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                                      />
+                                      <span className="text-xs sm:text-sm flex-1 truncate">
+                                        {user.full_name || user.email}
+                                      </span>
+                                      {user.isManager && (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0 flex-shrink-0"
+                                        >
+                                          Manager
+                                        </Badge>
+                                      )}
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={handleSaveSchedule}
+                      disabled={saving || getTotalSelectedCount() === 0}
+                      className="w-full flex-shrink-0 text-sm"
+                      size="sm"
+                    >
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Add to Schedule ({getTotalSelectedCount()})
+                    </Button>
+                  </>
+                )}
+
+                {!canManageSchedules && (
+                  <p className="text-xs text-muted-foreground">You can view the schedule but not change it.</p>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-32 sm:h-full text-muted-foreground">
+                <p className="text-xs sm:text-sm">Select a date to manage shifts</p>
               </div>
-            </ScrollArea>
-          )}
-        </div>
-
-        {!canManage && (
-          <p className="text-xs text-muted-foreground">You can view the schedule but not change it.</p>
-        )}
-
-        <div className="flex justify-end">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
