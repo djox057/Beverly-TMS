@@ -69,20 +69,29 @@ export const useAfterhoursDriverMap = () => {
           rows.push(...((assignData || []) as any[]));
         }
 
-        // Afterhours shift schedule: today's shifts + last night's night shift.
-        const { data: shiftData, error: shiftErr } = await supabase
-          .from('afterhours_shift_assignments')
-          .select('afterhours_user_id, driver_id, scheduled_date, shift')
-          .in('scheduled_date', [yesterdayStr, todayStr]);
-        if (shiftErr) throw shiftErr;
+        // Afterhours shift schedule, only inside the 16:00 -> 07:00 Chicago tag window:
+        //  - evening (>= 16:00): tonight's shifts
+        //  - early morning (< 07:00): last night's night shift + this morning's shift
+        if (inAfterhoursTagWindow) {
+          const { data: shiftData, error: shiftErr } = await supabase
+            .from('afterhours_shift_assignments')
+            .select('afterhours_user_id, driver_id, scheduled_date, shift')
+            .in('scheduled_date', [yesterdayStr, todayStr]);
+          if (shiftErr) throw shiftErr;
 
-        const shiftRows = ((shiftData || []) as any[]).filter(
-          r => r.scheduled_date === todayStr || r.shift === 'night'
-        );
-        // Non-live rows first so the live shift overrides them in the map.
-        const isLive = (r: any) =>
-          !!activeShift && r.scheduled_date === activeShift.date && r.shift === activeShift.shift;
-        rows.push(...shiftRows.filter(r => !isLive(r)), ...shiftRows.filter(isLive));
+          const shiftRows = ((shiftData || []) as any[]).filter(r => {
+            if (hour >= 16) return r.scheduled_date === todayStr;
+            // hour < 7
+            return (
+              (r.scheduled_date === yesterdayStr && r.shift === 'night') ||
+              (r.scheduled_date === todayStr && r.shift === 'morning')
+            );
+          });
+          // Non-live rows first so the live shift overrides them in the map.
+          const isLive = (r: any) =>
+            !!activeShift && r.scheduled_date === activeShift.date && r.shift === activeShift.shift;
+          rows.push(...shiftRows.filter(r => !isLive(r)), ...shiftRows.filter(isLive));
+        }
 
         if (cancelled) return;
 
