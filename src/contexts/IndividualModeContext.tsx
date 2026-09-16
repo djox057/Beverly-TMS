@@ -94,6 +94,9 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
     return () => { cancelled = true; };
   }, [isAfterhours, profile?.user_id]);
 
+  // Tracks whether the user changed the toggle themselves in this session
+  const userToggledRef = React.useRef(false);
+
   // Load initial state from profile
   useEffect(() => {
     if (authLoading) return;
@@ -101,12 +104,18 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
     if (profile && canUseIndividualMode) {
       // Cast profile to include individual_mode since types may not be updated yet
       const profileWithMode = profile as typeof profile & { individual_mode?: boolean };
-      setIndividualModeState(profileWithMode.individual_mode ?? false);
+      const stored = profileWithMode.individual_mode ?? false;
+      // Afterhours coverage is an explicit driver list, so scope to it by default —
+      // same behaviour as weekend coverage. The user can still switch it off.
+      const autoOn =
+        isAfterhours && !userToggledRef.current && (afterhoursDriverIds?.length ?? 0) > 0;
+      setIndividualModeState(stored || autoOn);
     } else {
       setIndividualModeState(false);
     }
     setIsLoading(false);
-  }, [profile, canUseIndividualMode, authLoading]);
+  }, [profile, canUseIndividualMode, authLoading, isAfterhours, afterhoursDriverIds]);
+
 
   const setIndividualMode = useCallback(async (enabled: boolean) => {
     if (!profile?.user_id || !canUseIndividualMode) return;
