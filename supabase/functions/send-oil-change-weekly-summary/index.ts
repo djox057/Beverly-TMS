@@ -38,6 +38,7 @@ interface OilItem {
   overBy: number;
   level: "red" | "yellow";
   lastOilDate: string | null;
+  note: string | null;
 }
 
 interface StaleItem {
@@ -47,6 +48,7 @@ interface StaleItem {
   lastUpdate: string | null;
   days: number | null;
   level: "red" | "yellow";
+  note: string | null;
 }
 
 const shell = (title: string, intro: string, body: string) =>
@@ -99,7 +101,7 @@ serve(async (req: Request): Promise<Response> => {
     const { data: trucks, error: trucksError } = await admin
       .from("trucks")
       .select(
-        "id, truck_number, source, miles, last_oil_change_miles, oil_change_date, miles_updated_at, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id)",
+        "id, truck_number, source, miles, last_oil_change_miles, oil_change_date, miles_updated_at, oil_change_note, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id)",
       )
       .eq("is_active", true);
     if (trucksError) throw trucksError;
@@ -146,6 +148,7 @@ serve(async (req: Request): Promise<Response> => {
             overBy: milesSince - (level === "red" ? red : yellow),
             level,
             lastOilDate: t.oil_change_date ? String(t.oil_change_date).slice(0, 10) : null,
+            note: (t.oil_change_note ?? "").trim() || null,
           });
         }
       }
@@ -159,6 +162,7 @@ serve(async (req: Request): Promise<Response> => {
           lastUpdate: t.miles_updated_at ? String(t.miles_updated_at).slice(0, 10) : null,
           days: daysSinceMileageUpdate(t.miles_updated_at),
           level: status,
+          note: (t.oil_change_note ?? "").trim() || null,
         });
       }
     }
@@ -178,6 +182,7 @@ ${cell(i.lastOilMiles?.toLocaleString() ?? "—")}
 ${cell(i.milesSince.toLocaleString(), `color:${color};font-weight:600;`)}
 ${cell(`+${i.overBy.toLocaleString()}`, `color:${color};`)}
 ${cell(escapeHtml(formatDate(i.lastOilDate)))}
+${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
 </tr>`;
           })
           .join("");
@@ -188,6 +193,7 @@ ${cell(escapeHtml(formatDate(i.lastOilDate)))}
     <th style="padding:6px 10px;">Source</th><th style="padding:6px 10px;">Total miles</th>
     <th style="padding:6px 10px;">Last oil change miles</th><th style="padding:6px 10px;">Miles since</th>
     <th style="padding:6px 10px;">Over limit by</th><th style="padding:6px 10px;">Last oil change</th>
+    <th style="padding:6px 10px;">Note</th>
   </tr></thead>
   <tbody>${body}</tbody>
 </table>`;
@@ -212,6 +218,7 @@ ${cell(escapeHtml(i.driverName ?? "—"))}
 ${cell(escapeHtml(formatDate(i.lastUpdate)))}
 ${cell(i.days == null ? "—" : String(i.days))}
 ${cell(escapeHtml(label), `color:${color};font-weight:600;`)}
+${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
 </tr>`;
           })
           .join("");
@@ -221,6 +228,7 @@ ${cell(escapeHtml(label), `color:${color};font-weight:600;`)}
     <th style="padding:6px 10px;">Unit</th><th style="padding:6px 10px;">Driver</th>
     <th style="padding:6px 10px;">Last update</th><th style="padding:6px 10px;">Days</th>
     <th style="padding:6px 10px;">Status</th>
+    <th style="padding:6px 10px;">Note</th>
   </tr></thead>
   <tbody>${body}</tbody>
 </table>`;
