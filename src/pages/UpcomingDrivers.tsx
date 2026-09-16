@@ -14,7 +14,8 @@ import { saveCandidate, useUpcomingDrivers } from "@/components/upcoming-drivers
 import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, nextRowColor, type CandidateFields, type CandidateSummary, type References } from "@/components/upcoming-drivers/model";
 
 const emptyRefs:References={staff:[],trucks:[],companies:[]};
-const statusClass=(s:string)=>s==="Arrived"?"bg-emerald-100 text-emerald-900":s==="Canceled"?"bg-red-100 text-red-900":s==="Scheduled"?"bg-blue-100 text-blue-900":"bg-muted text-foreground";
+const STATUS_COL_WIDTH=96;
+const statusClass=(s:string)=>s==="Arrived"?"bg-emerald-100 text-emerald-900":s==="Canceled"?"bg-red-100 text-red-900":s==="Scheduled"?"bg-blue-100 text-blue-900":s==="Contacted"?"bg-amber-100 text-amber-900":"bg-muted text-foreground";
 
 export default function UpcomingDrivers() {
   const {user,getPrimaryRole}=useAuthContext();
@@ -98,15 +99,17 @@ export default function UpcomingDrivers() {
   };
   const rowBg=(row:CandidateSummary)=>row.row_color?`hsl(var(--row-mark-${row.row_color}))`:undefined;
   const rowFg=(row:CandidateSummary)=>row.row_color?"hsl(var(--row-mark-foreground))":undefined;
-  const colorCell=(row:CandidateSummary)=><td className="h-10 border-b border-r px-1 text-center" style={{backgroundColor:rowBg(row)}}>
+  // Status and color are one column: the label shows the status, clicking cycles the color/state.
+  const statusCell=(row:CandidateSummary)=><td className="h-10 border-b border-r px-1 text-center" style={{backgroundColor:rowBg(row)}}>
     <button type="button" disabled={!canEdit || marking===row.id}
-      aria-label={`Change row color for ${row.driver_name} (currently ${row.row_color ?? "none"})`}
-      title="Blue → Yellow → Green → none"
+      aria-label={`Change status for ${row.driver_name} (currently ${row.status})`}
+      title="Click to change: Scheduled (blue) → Contacted (yellow) → Arrived (green) → none"
       onClick={()=>void cycleColor(row)}
-      className="mx-auto block h-5 w-5 rounded border border-foreground/30"
-      style={{backgroundColor:row.row_color?`hsl(var(--row-mark-${row.row_color}))`:"transparent"}}/>
+      className={`mx-auto block max-w-full truncate rounded px-1.5 py-1 text-xs ${statusClass(row.status)}`}>
+      {row.status}
+    </button>
   </td>;
-  const totalWidth=COLUMNS.reduce((sum,c)=>sum+widths[c.field],0)+65+44;
+  const totalWidth=COLUMNS.reduce((sum,c)=>sum+widths[c.field],0)+65+STATUS_COL_WIDTH;
   return <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="text-2xl font-bold tracking-tight">Upcoming Drivers</h1><p className="text-xs text-muted-foreground">Chicago dates and times · {live}</p></div>
@@ -138,9 +141,9 @@ export default function UpcomingDrivers() {
     {query.isPending?<div className="flex items-center justify-center gap-2 py-16"><Loader2 className="h-5 w-5 animate-spin"/>Loading upcoming drivers…</div>:
     <div className="min-h-32 flex-1 overflow-auto rounded-lg border" aria-label="Weekly upcoming drivers board">
       <table className="table-fixed border-collapse text-xs" style={{width:totalWidth}}>
-        <colgroup>{COLUMNS.map(c=><Fragment key={c.field}>{c.field==="recruiter_id" && <col style={{width:44}}/>}<col style={{width:widths[c.field]}}/></Fragment>)}<col style={{width:65}}/></colgroup>
+        <colgroup>{COLUMNS.map(c=><Fragment key={c.field}>{c.field==="recruiter_id" && <col style={{width:STATUS_COL_WIDTH}}/>}<col style={{width:widths[c.field]}}/></Fragment>)}<col style={{width:65}}/></colgroup>
         <thead className="sticky top-0 z-30 bg-muted"><tr>
-          {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="recruiter_id" && <th scope="col" className="h-11 border-b border-r bg-muted px-1 text-center font-semibold">Color</th>}<th scope="col" className={`relative h-11 border-b border-r bg-muted px-2 text-left font-semibold ${i<2?"sticky z-40":""}`} style={i<2?{left:i===0?0:widths.recruiter_id}:undefined}>
+          {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="recruiter_id" && <th scope="col" className="h-11 border-b border-r bg-muted px-1 text-center font-semibold">Status</th>}<th scope="col" className={`relative h-11 border-b border-r bg-muted px-2 text-left font-semibold ${i<2?"sticky z-40":""}`} style={i<2?{left:i===0?0:widths.recruiter_id}:undefined}>
             {FIELD_LABELS[c.field]}
             <span role="separator" aria-orientation="vertical" aria-label={`Resize ${FIELD_LABELS[c.field]} column`} aria-valuenow={widths[c.field]} tabIndex={0}
               className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none hover:bg-primary/20"
@@ -164,7 +167,7 @@ export default function UpcomingDrivers() {
               </div>
             </td></tr>
             {!closed && members.map((row,index)=>[<tr key={row.id} className={row.row_color?"":index%2?"bg-muted/20":"bg-background"} style={{backgroundColor:rowBg(row),color:rowFg(row)}}>
-              {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="recruiter_id" && colorCell(row)}<td className={`h-10 border-b border-r px-2 ${i<2?"sticky z-10":""} ${i<2 && !row.row_color?"bg-background":""}`} style={{...(i<2?{left:i===0?0:widths.recruiter_id}:{}),backgroundColor:rowBg(row)}}>
+              {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="recruiter_id" && statusCell(row)}<td className={`h-10 border-b border-r px-2 ${i<2?"sticky z-10":""} ${i<2 && !row.row_color?"bg-background":""}`} style={{...(i<2?{left:i===0?0:widths.recruiter_id}:{}),backgroundColor:rowBg(row)}}>
                 <div className="flex min-w-0 items-center gap-1">
                   <button type="button" className="min-w-0 flex-1 truncate py-2 text-left hover:text-primary hover:underline" aria-label={`${FIELD_LABELS[c.field]} for ${row.driver_name}`} onClick={()=>open(row.id,c.field)}>
                     {c.field==="status"?<span className={`rounded px-1.5 py-1 ${statusClass(row.status)}`}>{row.status}</span>:display(row,c)}

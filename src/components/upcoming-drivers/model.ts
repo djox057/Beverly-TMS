@@ -43,7 +43,7 @@ export const EMPTY_CANDIDATE: CandidateFields = {
 export const SUMMARY_FIELDS = "id,recruiter_id,driver_name,phone,safety_id,dispatcher_id,company_id,sales,timing_note,application_status,transport_preview,description_preview,mvr_preview,psp_preview,preference,truck_id,truck_terms,drug_test_company,clearinghouse_status,status,ticket_preview,arrival_date,arrival_time,tentative,row_color,archived,version,created_at,updated_at,created_by,updated_by";
 export const FIELD_LABELS: Record<keyof CandidateFields, string> = {
   recruiter_id: "Recruiter", driver_name: "Driver", phone: "Phone", safety_id: "Safety", dispatcher_id: "Dispatcher",
-  company_id: "Company they will work for",
+  company_id: "Company",
   sales: "Sales", timing_note: "Time", application_status: "APP", transport_note: "Uber / Transport notes",
   description: "Description / Comments", mvr: "Driver’s MVR", psp: "Driver’s PSP", preference: "Preference",
   truck_id: "Truck", truck_terms: "Truck price / terms", drug_test_company: "Drug test company",
@@ -102,7 +102,7 @@ export const COLUMNS: {field: keyof CandidateFields; letter: string; width: numb
   {field:"phone",letter:"",width:165},{field:"transport_note",letter:"",width:170,preview:"transport_preview"},
   {field:"description",letter:"",width:210,preview:"description_preview"},
   {field:"company_id",letter:"",width:170},{field:"truck_id",letter:"",width:150},
-  {field:"status",letter:"",width:110},
+  
   {field:"mvr",letter:"",width:130,preview:"mvr_preview"},{field:"psp",letter:"",width:130,preview:"psp_preview"},
   {field:"clearinghouse_status",letter:"",width:85},
 ];
