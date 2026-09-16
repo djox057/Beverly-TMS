@@ -460,7 +460,7 @@ const Reports = () => {
   useTruckOosRealtime();
   const resolveTruckOos = useTruckOosOverrides();
 
-  const { individualMode } = useIndividualMode();
+  const { individualMode, individualOverrideDriverIds } = useIndividualMode();
   const { isInsured: isTruckInsured, insuredCompanyForVin } = useCoiInsuredVins();
   const navigate = useNavigate();
 
