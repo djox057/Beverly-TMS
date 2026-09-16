@@ -1,3 +1,4 @@
+import { listenReportsSources } from "@/utils/reportsLiveEvents";
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuthContext } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -70,7 +71,8 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
       setAfterhoursDriverIds(ids);
     };
     load();
-    return () => { cancelled = true; };
+    const unlisten = listenReportsSources(["afterhours_assignments"], load);
+    return () => { cancelled = true; unlisten(); };
   }, [isAfterhours, profile?.user_id]);
 
   // Load initial state from profile

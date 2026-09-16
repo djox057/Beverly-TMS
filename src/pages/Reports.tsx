@@ -123,7 +123,6 @@ import { TemporaryPlateUploadDialog } from "@/components/TemporaryPlateUploadDia
 import { AddDailyReportRowDialog } from "@/components/AddDailyReportRowDialog";
 import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
-import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 
 import { supabase } from "@/integrations/supabase/client";
 import React, { useState, useEffect, useMemo, memo, useRef, useCallback, startTransition } from "react";
@@ -814,7 +813,6 @@ const Reports = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [foundOrderMeta?.pickupDate, debouncedLoadNumberFilter, groupedReports]);
 
-  const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
 
   // Dispatcher-specific lazy loading for calendar navigation
@@ -917,19 +915,19 @@ const Reports = () => {
     return () => clearInterval(i);
   }, []);
 
-  // Load already-sent records for today so cell stays purple after a refresh
+  const { data: finalUpdateSends } = useQuery({
+    queryKey: ["final-update-sends", finalUpdateDate],
+    enabled: !!finalUpdateDate,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("final_update_sends").select("truck_id").eq("send_date", finalUpdateDate);
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: Infinity,
+  });
   useEffect(() => {
-    if (!finalUpdateDate) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase.from("final_update_sends").select("truck_id").eq("send_date", finalUpdateDate);
-      if (cancelled || !data) return;
-      setFinalUpdateSentTruckIds(new Set(data.map((r: any) => r.truck_id)));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [finalUpdateDate]);
+    if (finalUpdateSends) setFinalUpdateSentTruckIds(new Set(finalUpdateSends.map(row => row.truck_id)));
+  }, [finalUpdateSends]);
 
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
   const [latePickups, setLatePickups] = useState<Set<string>>(new Set());
@@ -4477,6 +4475,13 @@ const Reports = () => {
       <div className="h-full bg-background flex flex-col">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col h-full">
           <div className="px-4 pt-2 sticky top-0 bg-background z-[101] border-b border-border">
+            <div role="status" className={`text-xs py-1 ${activeHook.liveStatus === "live" ? "text-muted-foreground" : "text-amber-600"}`}>
+              {activeHook.liveStatus === "live" ? "Live updates connected" :
+               activeHook.liveStatus === "catching-up" ? "Updating reports…" :
+               activeHook.liveStatus === "error" ? "Reports could not update. Retrying…" :
+               activeHook.liveStatus === "offline" ? "Offline — reports will update when you reconnect" :
+               activeHook.liveStatus === "paused" ? "Updates paused while this tab is hidden" : "Connecting live updates…"}
+            </div>
             {/* Filters Section */}
             <div className="flex flex-wrap gap-2 mb-2 items-center">
               {individualMode && getPrimaryRole() === "dispatch" && (
