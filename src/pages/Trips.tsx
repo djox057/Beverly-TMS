@@ -4535,13 +4535,11 @@ const Trips = () => {
         if (currentRow > 20) return;
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
-        worksheet.getCell(`C${currentRow}`).value = [order.pickupCity, order.pickupState]
-          .filter(Boolean)
-          .join(", ");
+        worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
+        worksheet.getCell(`D${currentRow}`).value = order.pickupState || "";
         worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
-        worksheet.getCell(`F${currentRow}`).value = [order.deliveryCity, order.deliveryState]
-          .filter(Boolean)
-          .join(", ");
+        worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
+        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = parseFloat(String(order.mileage)) || 0;
 
         const driverPay = parseFloat(order.driverPrice) || 0;
