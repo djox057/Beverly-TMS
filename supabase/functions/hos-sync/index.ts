@@ -177,18 +177,23 @@ serve(async (req) => {
     console.log('HOS Sync started');
     
     const apiKeysEnv = Deno.env.get('TRANSIT_TRACKING_API_KEYS');
-    const unitedApiKey = Deno.env.get('TRANSIT_TRACKING_API_KEY_UNITED');
-    
-    if (!apiKeysEnv && !unitedApiKey) {
-      throw new Error('No Transit Tracking API keys configured');
-    }
+    const extraKeyNames = [
+      'TRANSIT_TRACKING_API_KEY_UNITED',
+      'TRANSIT_TRACKING_API_KEY_JONES',
+      'TRANSIT_TRACKING_API_KEY_LALE',
+    ];
 
     const apiKeys: string[] = [];
     if (apiKeysEnv) {
       apiKeys.push(...apiKeysEnv.split(',').map(k => k.trim()).filter(k => k.length > 0));
     }
-    if (unitedApiKey?.trim()) {
-      apiKeys.push(unitedApiKey.trim());
+    for (const name of extraKeyNames) {
+      const key = Deno.env.get(name)?.trim();
+      if (key) apiKeys.push(key);
+    }
+
+    if (!apiKeys.length) {
+      throw new Error('No Transit Tracking API keys configured');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
