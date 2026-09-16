@@ -43,15 +43,16 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
 
     let cancelled = false;
     const load = async () => {
-      const today = new Date();
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      // Work in Chicago time so the day boundary matches the schedules.
+      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
       const dow = today.getDay(); // 0=Sun .. 6=Sat
       const daysUntilSat = dow === 6 ? 0 : dow === 0 ? -1 : (6 - dow);
       const sat = new Date(today);
       sat.setDate(today.getDate() + daysUntilSat);
       const sun = new Date(sat);
       sun.setDate(sat.getDate() + 1);
-      const fmt = (d: Date) =>
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const dates = Array.from(new Set([fmt(today), fmt(sat), fmt(sun)]));
 
       // Shift assignments: yesterday (night shift crossing midnight) + today
@@ -71,6 +72,7 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
           .eq('afterhours_user_id', profile.user_id)
           .in('scheduled_date', shiftDates),
       ]);
+
 
       if (cancelled) return;
       if (weekendRes.error || shiftRes.error) {
@@ -92,6 +94,9 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
     return () => { cancelled = true; };
   }, [isAfterhours, profile?.user_id]);
 
+  // Tracks whether the user changed the toggle themselves in this session
+  const userToggledRef = React.useRef(false);
+
   // Load initial state from profile
   useEffect(() => {
     if (authLoading) return;
@@ -99,18 +104,26 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
     if (profile && canUseIndividualMode) {
       // Cast profile to include individual_mode since types may not be updated yet
       const profileWithMode = profile as typeof profile & { individual_mode?: boolean };
-      setIndividualModeState(profileWithMode.individual_mode ?? false);
+      const stored = profileWithMode.individual_mode ?? false;
+      // Afterhours coverage is an explicit driver list, so scope to it by default —
+      // same behaviour as weekend coverage. The user can still switch it off.
+      const autoOn =
+        isAfterhours && !userToggledRef.current && (afterhoursDriverIds?.length ?? 0) > 0;
+      setIndividualModeState(stored || autoOn);
     } else {
       setIndividualModeState(false);
     }
     setIsLoading(false);
-  }, [profile, canUseIndividualMode, authLoading]);
+  }, [profile, canUseIndividualMode, authLoading, isAfterhours, afterhoursDriverIds]);
+
 
   const setIndividualMode = useCallback(async (enabled: boolean) => {
     if (!profile?.user_id || !canUseIndividualMode) return;
 
+    userToggledRef.current = true;
     // Optimistic update
     setIndividualModeState(enabled);
+
 
     try {
       const { error } = await supabase

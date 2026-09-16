@@ -28,24 +28,19 @@ export const useAfterhoursDriverMap = () => {
     const chicagoNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
     const hour = chicagoNow.getHours();
     const todayStr = fmt(chicagoNow);
+    const yesterday = new Date(chicagoNow);
+    yesterday.setDate(chicagoNow.getDate() - 1);
+    const yesterdayStr = fmt(yesterday);
 
-    // Which afterhours shift (if any) is live right now?
+    // Which afterhours shift (if any) is live right now? Live coverage wins when a
+    // driver is covered by more than one person today.
     let activeShift: { shift: 'night' | 'morning'; date: string } | null = null;
     if (hour >= 22) {
       activeShift = { shift: 'night', date: todayStr };
     } else if (hour < 6) {
-      const y = new Date(chicagoNow);
-      y.setDate(chicagoNow.getDate() - 1);
-      activeShift = { shift: 'night', date: fmt(y) };
+      activeShift = { shift: 'night', date: yesterdayStr };
     } else if (hour < 14) {
       activeShift = { shift: 'morning', date: todayStr };
-    }
-
-    const weekendWindowOpen = hour >= 6 && hour < 17;
-
-    if (!activeShift && !weekendWindowOpen) {
-      setLoading(false);
-      return;
     }
 
     let cancelled = false;
@@ -54,35 +49,37 @@ export const useAfterhoursDriverMap = () => {
       try {
         const rows: { afterhours_user_id: string; driver_id: string }[] = [];
 
-        // Weekend / holiday schedule
-        if (weekendWindowOpen) {
-          const { data: scheduleData, error: scheduleErr } = await supabase
-            .from('afterhours_schedule')
-            .select('id')
-            .eq('scheduled_date', todayStr)
-            .limit(1);
-          if (scheduleErr) throw scheduleErr;
+        // Weekend / holiday schedule for today (shown all day, like the shift tags)
+        const { data: scheduleData, error: scheduleErr } = await supabase
+          .from('afterhours_schedule')
+          .select('id')
+          .eq('scheduled_date', todayStr)
+          .limit(1);
+        if (scheduleErr) throw scheduleErr;
 
-          if (scheduleData && scheduleData.length > 0) {
-            const { data: assignData, error: assignErr } = await supabase
-              .from('afterhours_assignments')
-              .select('afterhours_user_id, driver_id')
-              .eq('scheduled_date', todayStr);
-            if (assignErr) throw assignErr;
-            rows.push(...((assignData || []) as any[]));
-          }
-        }
-
-        // Afterhours shift schedule
-        if (activeShift) {
-          const { data: shiftData, error: shiftErr } = await supabase
-            .from('afterhours_shift_assignments')
+        if (scheduleData && scheduleData.length > 0) {
+          const { data: assignData, error: assignErr } = await supabase
+            .from('afterhours_assignments')
             .select('afterhours_user_id, driver_id')
-            .eq('scheduled_date', activeShift.date)
-            .eq('shift', activeShift.shift);
-          if (shiftErr) throw shiftErr;
-          rows.push(...((shiftData || []) as any[]));
+            .eq('scheduled_date', todayStr);
+          if (assignErr) throw assignErr;
+          rows.push(...((assignData || []) as any[]));
         }
+
+        // Afterhours shift schedule: today's shifts + last night's night shift.
+        const { data: shiftData, error: shiftErr } = await supabase
+          .from('afterhours_shift_assignments')
+          .select('afterhours_user_id, driver_id, scheduled_date, shift')
+          .in('scheduled_date', [yesterdayStr, todayStr]);
+        if (shiftErr) throw shiftErr;
+
+        const shiftRows = ((shiftData || []) as any[]).filter(
+          r => r.scheduled_date === todayStr || r.shift === 'night'
+        );
+        // Non-live rows first so the live shift overrides them in the map.
+        const isLive = (r: any) =>
+          !!activeShift && r.scheduled_date === activeShift.date && r.shift === activeShift.shift;
+        rows.push(...shiftRows.filter(r => !isLive(r)), ...shiftRows.filter(isLive));
 
         if (cancelled) return;
 
@@ -92,6 +89,7 @@ export const useAfterhoursDriverMap = () => {
         }
 
         setIsWeekendWindow(true);
+
 
         const userIds = [...new Set(rows.map(r => r.afterhours_user_id))];
         const { data: profiles } = await supabase
