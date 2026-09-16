@@ -169,8 +169,10 @@ Deno.serve(async (req) => {
     }
     const excludedCompanyIds = (excludeBookedByCompanyId || "")
       .split(",").map((s: string) => s.trim()).filter(Boolean);
+    // Multiple `neq`s OR-ed together are always true (x != A OR x != B) —
+    // a multi-id exclusion must use one `not.in` list; is.null keeps untagged rows.
     const exclusionFilter = excludedCompanyIds.length > 0
-      ? `${excludedCompanyIds.map((id: string) => `booked_by_company_id.neq.${id}`).join(",")},booked_by_company_id.is.null`
+      ? `booked_by_company_id.is.null,booked_by_company_id.not.in.(${excludedCompanyIds.join(",")})`
       : null;
     if (exclusionFilter) {
       countQuery = countQuery.or(exclusionFilter);

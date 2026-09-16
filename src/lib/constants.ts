@@ -1,3 +1,8 @@
+// Companies whose booked-by loads live on their own pages and are excluded
+// from the main Loads page (/orders): BG Prime Inc, Lale Transport LLC.
+export const MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS =
+  "238a7acf-cbb5-4718-be7a-130d8d971a90,f0c75da4-7598-4a34-839a-c2eb4adc2a03";
+
 // US States for dropdown
 export const US_STATES = [
   { value: "AL", label: "Alabama" },
