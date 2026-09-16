@@ -9,7 +9,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { candidateKey, fetchCandidate, saveCandidate, useCandidateHistory } from "./useUpcomingDrivers";
-import { changedFields, clockLabel, EMPTY_CANDIDATE, FIELD_LABELS, rowColorForStatus, STATUSES, validateCandidate, type Candidate, type CandidateFields, type CandidateStatus, type References } from "./model";
+import { changedFields, clockLabel, EMPTY_CANDIDATE, FIELD_LABELS, rowColorForStatus, SCREENING_FIELDS, STATUSES, validateCandidate, type Candidate, type CandidateFields, type CandidateStatus, type References } from "./model";
 
 const longFields=["transport_note","description","mvr","psp","ticket_note","preference","truck_terms"];
 const nullableFields=["recruiter_id","safety_id","dispatcher_id","truck_id","arrival_date","arrival_time"];
@@ -29,6 +29,7 @@ function FieldInput({field,draft,onChange,refs,disabled}:{field:keyof CandidateF
   }
   if(field==="tentative") return <input id={id} type="checkbox" checked={draft.tentative} onChange={e=>onChange(e.target.checked)} disabled={disabled} className="h-4 w-4" />;
   if(field==="status") return <select id={id} value={value} onChange={e=>onChange(e.target.value)} disabled={disabled} className="h-10 w-full rounded-md border bg-background px-3 text-sm">{STATUSES.map(s=><option key={s}>{s}</option>)}</select>;
+  if(field.startsWith("q_")) return <Textarea id={id} value={value} readOnly={disabled} onChange={e=>onChange(e.target.value)} maxLength={2000} rows={2} className="resize-y leading-relaxed" />;
   if(longFields.includes(field)) return <Textarea id={id} value={value} readOnly={disabled} onChange={e=>onChange(e.target.value)}
     maxLength={["preference","truck_terms"].includes(field)?2000:20000} rows={field==="description"?8:5} className="resize-y leading-relaxed" />;
   const type=field==="arrival_date"?"date":field==="arrival_time"?"time":field==="phone"?"tel":"text";
@@ -80,7 +81,7 @@ export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose
     return String(value);
   };
   const fields: (keyof CandidateFields)[]=allFields
-    ? ["driver_name","phone","arrival_date","arrival_time","tentative","status","recruiter_id","safety_id","dispatcher_id","sales","timing_note","application_status","transport_note","description","mvr","psp","preference","truck_id","truck_terms","drug_test_company","clearinghouse_status","ticket_note"]
+    ? ["driver_name","phone",...SCREENING_FIELDS,"arrival_date","arrival_time","tentative","status","recruiter_id","safety_id","dispatcher_id","sales","timing_note","application_status","transport_note","description","mvr","psp","preference","truck_id","truck_terms","drug_test_company","clearinghouse_status","ticket_note"]
     : focused==="truck_id"?["truck_id","truck_terms"]:focused==="arrival_date"?["arrival_date","arrival_time","tentative"]:[focused];
   return <>
     <Sheet open onOpenChange={open=>{if(!open)close();}}>
@@ -95,6 +96,8 @@ export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose
           {!allFields && <Button type="button" size="sm" variant="outline" onClick={()=>setAllFields(true)}>Show all driver details</Button>}
           {changedElsewhere && <p role="status" className="rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950">Someone updated this entry. Your draft is preserved. Reload the latest version before saving.</p>}
           {fields.map(field=><div key={field} className="space-y-2">
+            {allFields && field===SCREENING_FIELDS[0] && <h3 className="pt-2 text-sm font-semibold">Screening questions</h3>}
+            {allFields && field==="arrival_date" && <h3 className="pt-2 text-sm font-semibold">Schedule and recruiting details</h3>}
             <Label htmlFor={`upcoming-${field}`}>{FIELD_LABELS[field]}{["driver_name","phone"].includes(field)?" *":""}</Label>
             <FieldInput field={field} draft={draft} refs={refs} disabled={!canEdit || saving}
               onChange={value=>setDraft(old=>({...old,[field]:value,
