@@ -179,8 +179,9 @@ Deno.serve(async (req) => {
       const excludedCompanyIdsCount = (excludeBookedByCompanyId || "")
         .split(",").map((s: string) => s.trim()).filter(Boolean);
       if (excludedCompanyIdsCount.length > 0) {
+        // Multiple `neq`s OR-ed are always true — use one not.in list (keeps NULLs).
         countQuery = countQuery.or(
-          `${excludedCompanyIdsCount.map((id: string) => `booked_by_company_id.neq.${id}`).join(",")},booked_by_company_id.is.null`
+          `booked_by_company_id.is.null,booked_by_company_id.not.in.(${excludedCompanyIdsCount.join(",")})`
         );
       }
       if (bookedByCompanyId) {
@@ -238,8 +239,9 @@ Deno.serve(async (req) => {
     const excludedCompanyIds = (excludeBookedByCompanyId || "")
       .split(",").map((s: string) => s.trim()).filter(Boolean);
     if (excludedCompanyIds.length > 0) {
+      // Multiple `neq`s OR-ed are always true — use one not.in list (keeps NULLs).
       query = query.or(
-        `${excludedCompanyIds.map((id: string) => `booked_by_company_id.neq.${id}`).join(",")},booked_by_company_id.is.null`
+        `booked_by_company_id.is.null,booked_by_company_id.not.in.(${excludedCompanyIds.join(",")})`
       );
     }
     if (bookedByCompanyId) {

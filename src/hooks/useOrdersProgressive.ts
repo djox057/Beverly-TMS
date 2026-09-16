@@ -102,11 +102,14 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
       const applyExclusion = (query: any) => {
         if (excludeBookedByCompanyId) {
-          // Supports a comma-separated list of company IDs to exclude
+          // Supports a comma-separated list of company IDs to exclude.
+          // IMPORTANT: OR-ing several `neq` filters is always true
+          // (x != A OR x != B), so a multi-id exclusion must use a single
+          // `not.in` list — with is.null so untagged rows still come through.
           const ids = excludeBookedByCompanyId.split(",").map((s) => s.trim()).filter(Boolean);
           if (ids.length > 0) {
             return query.or(
-              `${ids.map((id) => `booked_by_company_id.neq.${id}`).join(",")},booked_by_company_id.is.null`
+              `booked_by_company_id.is.null,booked_by_company_id.not.in.(${ids.join(",")})`
             );
           }
         }

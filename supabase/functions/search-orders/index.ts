@@ -249,12 +249,13 @@ Deno.serve(async (req) => {
       query = query.eq("booked_by", filters.bookedBy);
     }
 
-    // Exclude a specific booked-by company entirely (e.g. BG Prime Inc on /orders)
+    // Exclude booked-by companies entirely (e.g. BG Prime Inc + Lale Transport on /orders)
     if (filters.excludeBookedByCompanyId) {
       const ids = filters.excludeBookedByCompanyId.split(",").map((s: string) => s.trim()).filter(Boolean);
       if (ids.length > 0) {
+        // Multiple `neq`s OR-ed are always true — use one not.in list (keeps NULLs).
         query = query.or(
-          `${ids.map((id: string) => `booked_by_company_id.neq.${id}`).join(",")},booked_by_company_id.is.null`
+          `booked_by_company_id.is.null,booked_by_company_id.not.in.(${ids.join(",")})`
         );
       }
     }
