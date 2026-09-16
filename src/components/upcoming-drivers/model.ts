@@ -97,15 +97,27 @@ export function rowColorForStatus(status: CandidateStatus): RowColor {
   return null;
 }
 // Board columns: everything else lives in the expanded row details.
-export const COLUMNS: {field: keyof CandidateFields; letter: string; width: number; preview?: keyof CandidateSummary}[] = [
-  {field:"recruiter_id",letter:"",width:130},{field:"driver_name",letter:"",width:190},
+export const COLUMNS: {field: keyof CandidateFields; letter: string; width: number; preview?: keyof CandidateSummary; label?: string}[] = [
+  {field:"recruiter_id",letter:"",width:120},{field:"driver_name",letter:"",width:170},
+  {field:"arrival_time",letter:"",width:95,label:"Time"},
   {field:"phone",letter:"",width:165},{field:"transport_note",letter:"",width:170,preview:"transport_preview"},
   {field:"description",letter:"",width:210,preview:"description_preview"},
-  {field:"company_id",letter:"",width:170},{field:"truck_id",letter:"",width:150},
-  
+  {field:"company_id",letter:"",width:110},{field:"truck_id",letter:"",width:150},
+
   {field:"mvr",letter:"",width:130,preview:"mvr_preview"},{field:"psp",letter:"",width:130,preview:"psp_preview"},
   {field:"clearinghouse_status",letter:"",width:85},
 ];
+
+/** Short display name for a company: "BF Prime LLC" -> "BF Prime". */
+export function shortCompanyName(name: string): string {
+  return name.replace(/[,]?\s*\b(l\.?l\.?c\.?|inc\.?|corp\.?|co\.?|ltd\.?)\s*$/i, "").trim() || name;
+}
+/** Staff nickname: "Andjela Obradovic-Ashley" -> "Ashley". */
+export function shortStaffName(name: string): string {
+  const parts = name.split("-");
+  return (parts.length > 1 ? parts[parts.length-1] : name).trim() || name;
+}
+
 
 // Only the live clock uses Chicago. Entered dates are calendar keys, never instants.
 export function chicagoToday(now = new Date()): string {
