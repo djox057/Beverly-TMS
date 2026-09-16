@@ -460,7 +460,7 @@ const Reports = () => {
   useTruckOosRealtime();
   const resolveTruckOos = useTruckOosOverrides();
 
-  const { individualMode } = useIndividualMode();
+  const { individualMode, individualOverrideDriverIds } = useIndividualMode();
   const { isInsured: isTruckInsured, insuredCompanyForVin } = useCoiInsuredVins();
   const navigate = useNavigate();
 
@@ -617,17 +617,31 @@ const Reports = () => {
   // For afterhours users in Individual Mode whose office is one of the BG floors,
   // collapse "BG 1st floor" and "BG 4th floor" into a single virtual "BG" tab so
   // all of their assigned trucks across both floors are visible in one place.
+  // Afterhours / weekend coverage: the scope is an explicit list of drivers that can
+  // span several offices, so show ONE virtual tab holding all of them instead of
+  // splitting the same person's drivers across Čačak / Kragujevac / BG tabs.
+  const COVERAGE_TAB = "MY DRIVERS";
+  const useCoverageTab = individualMode && (individualOverrideDriverIds?.length ?? 0) > 0;
+
   const useCombinedBgTab =
+    !useCoverageTab &&
     getPrimaryRole() === "afterhours" &&
     individualMode &&
     (profile?.office === "BG 1st floor" || profile?.office === "BG 4th floor");
-  const offices = useCombinedBgTab
-    ? ["Čačak", "KRAGUJEVAC", "BG", "Recovery"]
-    : ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 4th floor", "Recovery"];
+  const ALL_OFFICES = ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 4th floor", "Recovery"];
+  const offices = useCoverageTab
+    ? [COVERAGE_TAB]
+    : useCombinedBgTab
+      ? ["Čačak", "KRAGUJEVAC", "BG", "Recovery"]
+      : ALL_OFFICES;
 
-  // Map the virtual "BG" tab to the real underlying office values.
+  // Map virtual tabs to the real underlying office values.
   const expandOffice = useCallback(
-    (tab: string): string[] => (tab === "BG" && useCombinedBgTab ? ["BG 1st floor", "BG 4th floor"] : [tab]),
+    (tab: string): string[] => {
+      if (tab === COVERAGE_TAB) return ALL_OFFICES;
+      if (tab === "BG" && useCombinedBgTab) return ["BG 1st floor", "BG 4th floor"];
+      return [tab];
+    },
     [useCombinedBgTab],
   );
 
@@ -640,6 +654,7 @@ const Reports = () => {
 
   // Set initial tab based on user's office, default to "Čačak" if not found
   const getInitialTab = () => {
+    if (useCoverageTab) return COVERAGE_TAB;
     if (useCombinedBgTab) return "BG";
     if (profile?.office && offices.includes(profile.office)) {
       return profile.office;
@@ -655,6 +670,18 @@ const Reports = () => {
   const setActiveTab = useCallback((office: string) => {
     setActiveTabRaw(office);
   }, []);
+
+  // Coverage scope can arrive after mount (assignments load async) — keep the
+  // selected tab valid when the tab set changes.
+  useEffect(() => {
+    if (useCoverageTab) {
+      if (activeTab !== COVERAGE_TAB) setActiveTabRaw(COVERAGE_TAB);
+    } else if (activeTab === COVERAGE_TAB) {
+      setActiveTabRaw(getInitialTab());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useCoverageTab, activeTab]);
+
 
   // Spotlight driver: when load# search resolves to a driver in a different
   // office, this id is set so useReportsDateWindow can publish that one
@@ -672,9 +699,10 @@ const Reports = () => {
   // Reports.tsx must call exactly ONE reports hook consistently.
   // Use activeTab to fetch data for the currently selected office tab
   const activeHook = useReportsDateWindowAdapter({
-    // When the virtual "BG" tab is active, do not constrain by a single office
-    // value; the individual-mode driver-id scope already narrows correctly.
-    priorityOffice: activeTab === "BG" && useCombinedBgTab ? null : activeTab,
+    // When a virtual tab ("BG", "MY DRIVERS") is active, do not constrain by a single
+    // office value; the individual-mode driver-id scope already narrows correctly.
+    priorityOffice:
+      activeTab === COVERAGE_TAB || (activeTab === "BG" && useCombinedBgTab) ? null : activeTab,
     dispatcherId: profile?.user_id || null,
     dispatcherProfileId: profile?.id || null,
     selectedDate: selectedDateForWindow,
