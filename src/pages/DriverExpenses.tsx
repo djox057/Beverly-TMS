@@ -340,10 +340,11 @@ export default function DriverExpenses() {
 
     {query.isPending ? <div className="flex items-center justify-center gap-2 py-16"><Loader2 className="h-5 w-5 animate-spin" />Loading driver expenses…</div> :
     <div className="min-h-32 flex-1 overflow-auto rounded-lg border">
-      <table className="table-fixed border-collapse text-xs" style={{ width: widths.reduce((a, b) => a + b, 0) }}>
+      <table className="w-full table-fixed border-collapse text-xs" style={{ minWidth: widths.reduce((a, b) => a + b, 0) }}>
         <colgroup>
-          {widths.map((w, i) => <col key={i} style={{ width: w }} />)}
+          {widths.map((w, i) => <col key={i} style={i === 7 ? { minWidth: w } : { width: w }} />)}
         </colgroup>
+
         <thead className="sticky top-0 z-20 bg-muted">
           <tr>
             {columns.map((label, i) =>
