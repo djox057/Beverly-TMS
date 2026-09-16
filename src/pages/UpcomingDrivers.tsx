@@ -55,8 +55,6 @@ export default function UpcomingDrivers() {
   const filtered=useMemo(()=>{
     const q=search.trim().toLowerCase();
     return rows.filter(r=>{
-      if(view==="Upcoming" && ["Arrived","Canceled"].includes(r.status))return false;
-      if(view==="Arrived" && r.status!=="Arrived")return false;
       if(Object.entries(filters).some(([field,value])=>value && r[field as keyof typeof filters]!==value))return false;
       return !q || [r.driver_name,r.phone,...[r.recruiter_id,r.safety_id,r.dispatcher_id].map(id=>names.get(id ?? "")),trucks.get(r.truck_id ?? ""),r.status]
         .some(value=>value?.toLowerCase().includes(q)) || (/^[+\d\s().-]+$/.test(q) && !!q.replace(/\D/g,"") && r.phone.replace(/\D/g,"").includes(q.replace(/\D/g,"")));
