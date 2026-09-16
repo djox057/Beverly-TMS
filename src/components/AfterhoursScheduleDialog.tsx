@@ -75,6 +75,12 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     maintenance: [],
     eld: [],
   });
+  const [userSearch, setUserSearch] = useState("");
+  const matchesSearch = (u: { full_name?: string | null; email?: string | null }) => {
+    const q = userSearch.trim().toLowerCase();
+    if (!q) return true;
+    return `${u.full_name || ""} ${u.email || ""}`.toLowerCase().includes(q);
+  };
   const [expandedFilledOffices, setExpandedFilledOffices] = useState<Record<SelectionKey, boolean>>({
     kragujevac: false,
     cacak: false,
@@ -1120,7 +1126,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       (scheduledByOffice[office] || []).map((s) => s.user_id),
                                     );
                                     const availableUsers = officeUsersForOffice.filter(
-                                      (u) => !alreadyScheduledIds.has(u.id),
+                                      (u) => !alreadyScheduledIds.has(u.id) && matchesSearch(u),
                                     );
 
                                     // Get suggestions for this office
@@ -1282,7 +1288,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       scheduledByExtra[key].map((s) => s.user_id),
                                     );
                                     const availableGroupUsers = groupUsers.filter(
-                                      (u) => !alreadyScheduledIds.has(u.id),
+                                      (u) => !alreadyScheduledIds.has(u.id) && matchesSearch(u),
                                     );
                                     const selectedCount = selectedUsers[key].length;
                                     const totalCount = existingGroupCount + selectedCount;
