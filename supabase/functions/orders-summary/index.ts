@@ -37,7 +37,10 @@ const applyFilters = (query: any, filters: OrdersSummaryFilters) => {
   if (filters.bookedBy) query = query.eq("booked_by", filters.bookedBy);
 
   if (filters.excludeBookedByCompanyId) {
-    query = query.or(`booked_by_company_id.neq.${filters.excludeBookedByCompanyId},booked_by_company_id.is.null`);
+    const ids = filters.excludeBookedByCompanyId.split(",").map((s: string) => s.trim()).filter(Boolean);
+    if (ids.length > 0) {
+      query = query.or(`${ids.map((id: string) => `booked_by_company_id.neq.${id}`).join(",")},booked_by_company_id.is.null`);
+    }
   }
 
   if (filters.truckId) query = query.eq("truck_id", filters.truckId);

@@ -102,9 +102,13 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
       const applyExclusion = (query: any) => {
         if (excludeBookedByCompanyId) {
-          return query.or(
-            `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
-          );
+          // Supports a comma-separated list of company IDs to exclude
+          const ids = excludeBookedByCompanyId.split(",").map((s) => s.trim()).filter(Boolean);
+          if (ids.length > 0) {
+            return query.or(
+              `${ids.map((id) => `booked_by_company_id.neq.${id}`).join(",")},booked_by_company_id.is.null`
+            );
+          }
         }
         return query;
       };

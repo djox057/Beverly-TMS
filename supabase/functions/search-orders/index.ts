@@ -251,9 +251,12 @@ Deno.serve(async (req) => {
 
     // Exclude a specific booked-by company entirely (e.g. BG Prime Inc on /orders)
     if (filters.excludeBookedByCompanyId) {
-      query = query.or(
-        `booked_by_company_id.neq.${filters.excludeBookedByCompanyId},booked_by_company_id.is.null`
-      );
+      const ids = filters.excludeBookedByCompanyId.split(",").map((s: string) => s.trim()).filter(Boolean);
+      if (ids.length > 0) {
+        query = query.or(
+          `${ids.map((id: string) => `booked_by_company_id.neq.${id}`).join(",")},booked_by_company_id.is.null`
+        );
+      }
     }
 
     // Truck filter

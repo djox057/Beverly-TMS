@@ -176,9 +176,11 @@ Deno.serve(async (req) => {
       } else if (dispatcherDriverIds.length > 0) {
         countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
       }
-      if (excludeBookedByCompanyId) {
+      const excludedCompanyIdsCount = (excludeBookedByCompanyId || "")
+        .split(",").map((s: string) => s.trim()).filter(Boolean);
+      if (excludedCompanyIdsCount.length > 0) {
         countQuery = countQuery.or(
-          `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
+          `${excludedCompanyIdsCount.map((id: string) => `booked_by_company_id.neq.${id}`).join(",")},booked_by_company_id.is.null`
         );
       }
       if (bookedByCompanyId) {
@@ -233,9 +235,11 @@ Deno.serve(async (req) => {
     } else if (dispatcherDriverIds.length > 0) {
       query = query.in("driver1_id", dispatcherDriverIds);
     }
-    if (excludeBookedByCompanyId) {
+    const excludedCompanyIds = (excludeBookedByCompanyId || "")
+      .split(",").map((s: string) => s.trim()).filter(Boolean);
+    if (excludedCompanyIds.length > 0) {
       query = query.or(
-        `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
+        `${excludedCompanyIds.map((id: string) => `booked_by_company_id.neq.${id}`).join(",")},booked_by_company_id.is.null`
       );
     }
     if (bookedByCompanyId) {
