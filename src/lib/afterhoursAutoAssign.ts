@@ -39,18 +39,6 @@ export function allocateAfterhoursDrivers(
   users.forEach((u) => result.set(u.id, []));
   if (users.length === 0 || drivers.length === 0) return result;
 
-  // Bucket by office
-  const usersByOffice = new Map<string, AllocUser[]>();
-  users.forEach((u) => {
-    if (!usersByOffice.has(u.office)) usersByOffice.set(u.office, []);
-    usersByOffice.get(u.office)!.push(u);
-  });
-
-  const driversByOffice = new Map<string, AllocDriver[]>();
-  drivers.forEach((d) => {
-    if (!driversByOffice.has(d.office)) driversByOffice.set(d.office, []);
-    driversByOffice.get(d.office)!.push(d);
-  });
 
   const allocateBucket = (officeUsers: AllocUser[], officeDrivers: AllocDriver[]) => {
     if (officeUsers.length === 0 || officeDrivers.length === 0) return;
