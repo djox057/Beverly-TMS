@@ -14,7 +14,8 @@ import { saveCandidate, useUpcomingDrivers } from "@/components/upcoming-drivers
 import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, nextRowColor, type CandidateFields, type CandidateSummary, type References } from "@/components/upcoming-drivers/model";
 
 const emptyRefs:References={staff:[],trucks:[],companies:[]};
-const statusClass=(s:string)=>s==="Arrived"?"bg-emerald-100 text-emerald-900":s==="Canceled"?"bg-red-100 text-red-900":s==="Scheduled"?"bg-blue-100 text-blue-900":"bg-muted text-foreground";
+const STATUS_COL_WIDTH=96;
+const statusClass=(s:string)=>s==="Arrived"?"bg-emerald-100 text-emerald-900":s==="Canceled"?"bg-red-100 text-red-900":s==="Scheduled"?"bg-blue-100 text-blue-900":s==="Contacted"?"bg-amber-100 text-amber-900":"bg-muted text-foreground";
 
 export default function UpcomingDrivers() {
   const {user,getPrimaryRole}=useAuthContext();
@@ -98,15 +99,17 @@ export default function UpcomingDrivers() {
   };
   const rowBg=(row:CandidateSummary)=>row.row_color?`hsl(var(--row-mark-${row.row_color}))`:undefined;
   const rowFg=(row:CandidateSummary)=>row.row_color?"hsl(var(--row-mark-foreground))":undefined;
-  const colorCell=(row:CandidateSummary)=><td className="h-10 border-b border-r px-1 text-center" style={{backgroundColor:rowBg(row)}}>
+  // Status and color are one column: the label shows the status, clicking cycles the color/state.
+  const statusCell=(row:CandidateSummary)=><td className="h-10 border-b border-r px-1 text-center" style={{backgroundColor:rowBg(row)}}>
     <button type="button" disabled={!canEdit || marking===row.id}
-      aria-label={`Change row color for ${row.driver_name} (currently ${row.row_color ?? "none"})`}
-      title="Blue → Yellow → Green → none"
+      aria-label={`Change status for ${row.driver_name} (currently ${row.status})`}
+      title="Click to change: Scheduled (blue) → Contacted (yellow) → Arrived (green) → none"
       onClick={()=>void cycleColor(row)}
-      className="mx-auto block h-5 w-5 rounded border border-foreground/30"
-      style={{backgroundColor:row.row_color?`hsl(var(--row-mark-${row.row_color}))`:"transparent"}}/>
+      className={`mx-auto block max-w-full truncate rounded px-1.5 py-1 text-xs ${statusClass(row.status)}`}>
+      {row.status}
+    </button>
   </td>;
-  const totalWidth=COLUMNS.reduce((sum,c)=>sum+widths[c.field],0)+65+44;
+  const totalWidth=COLUMNS.reduce((sum,c)=>sum+widths[c.field],0)+65+STATUS_COL_WIDTH;
   return <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="text-2xl font-bold tracking-tight">Upcoming Drivers</h1><p className="text-xs text-muted-foreground">Chicago dates and times · {live}</p></div>
