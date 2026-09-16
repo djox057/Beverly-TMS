@@ -5,7 +5,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus, Copy, ChevronRight } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Lightbulb, Info, Plus, Copy, ChevronRight, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -74,6 +75,12 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     maintenance: [],
     eld: [],
   });
+  const [userSearch, setUserSearch] = useState("");
+  const matchesSearch = (u: { full_name?: string | null; email?: string | null }) => {
+    const q = userSearch.trim().toLowerCase();
+    if (!q) return true;
+    return `${u.full_name || ""} ${u.email || ""}`.toLowerCase().includes(q);
+  };
   const [expandedFilledOffices, setExpandedFilledOffices] = useState<Record<SelectionKey, boolean>>({
     kragujevac: false,
     cacak: false,
@@ -1093,6 +1100,15 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                               </div>
                             ) : (
                               <>
+                                <div className="relative mb-2">
+                                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                  <Input
+                                    value={userSearch}
+                                    onChange={(e) => setUserSearch(e.target.value)}
+                                    placeholder="Search users..."
+                                    className="h-8 pl-7 text-xs sm:text-sm"
+                                  />
+                                </div>
                                 <div className="flex-1 border rounded-md p-2 overflow-y-auto max-h-[45vh] sm:max-h-[30vh]" style={{ WebkitOverflowScrolling: 'touch' }}>
                                   {(["kragujevac", "cacak", "beograd"] as OfficeKey[]).map((office) => {
                                     const officeUsersForOffice = usersByOffice[office] || [];
@@ -1110,7 +1126,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       (scheduledByOffice[office] || []).map((s) => s.user_id),
                                     );
                                     const availableUsers = officeUsersForOffice.filter(
-                                      (u) => !alreadyScheduledIds.has(u.id),
+                                      (u) => !alreadyScheduledIds.has(u.id) && matchesSearch(u),
                                     );
 
                                     // Get suggestions for this office
@@ -1272,7 +1288,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       scheduledByExtra[key].map((s) => s.user_id),
                                     );
                                     const availableGroupUsers = groupUsers.filter(
-                                      (u) => !alreadyScheduledIds.has(u.id),
+                                      (u) => !alreadyScheduledIds.has(u.id) && matchesSearch(u),
                                     );
                                     const selectedCount = selectedUsers[key].length;
                                     const totalCount = existingGroupCount + selectedCount;
