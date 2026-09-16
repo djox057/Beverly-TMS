@@ -147,12 +147,30 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
       const rows = SHIFT_KEYS.flatMap((shift) =>
         selectedUsers[shift].map((userId) => ({ user_id: userId, scheduled_date: dateStr, shift })),
       );
-      const { error } = await supabase
-        .from("afterhours_shift_schedule")
-        .upsert(rows, { onConflict: "user_id,scheduled_date,shift" });
-      if (error) throw error;
 
-      toast.success(`Scheduled ${rows.length} shift assignment(s) for ${format(selectedDate!, "EEEE, MMM d, yyyy")}`);
+      const saved: { user_id: string; shift: ShiftKey }[] = [];
+      for (let i = 0; i < rows.length; i += 50) {
+        const chunk = rows.slice(i, i + 50);
+        const { data, error } = await supabase
+          .from("afterhours_shift_schedule")
+          .upsert(chunk, { onConflict: "user_id,scheduled_date,shift", ignoreDuplicates: false })
+          .select("user_id, shift");
+        if (error) throw error;
+        saved.push(...((data || []) as { user_id: string; shift: ShiftKey }[]));
+      }
+
+      const savedKeys = new Set(saved.map((r) => `${r.shift}_${r.user_id}`));
+      const missing = rows.filter((r) => !savedKeys.has(`${r.shift}_${r.user_id}`));
+
+      if (missing.length > 0) {
+        toast.error(
+          `Saved ${saved.length} of ${rows.length}. Not saved: ${missing
+            .map((m) => userLabel(m.user_id))
+            .join(", ")}`,
+        );
+      } else {
+        toast.success(`Scheduled ${saved.length} shift assignment(s) for ${format(selectedDate!, "EEEE, MMM d, yyyy")}`);
+      }
       setSelectedUsers({ night: [], morning: [] });
       fetchEntries();
     } catch (error: any) {
@@ -162,6 +180,15 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
       setSaving(false);
     }
   };
+
+  const toggleAllForShift = (shift: ShiftKey, availableIds: string[]) => {
+    setSelectedUsers((prev) => {
+      const allSelected = availableIds.length > 0 && availableIds.every((id) => prev[shift].includes(id));
+      return { ...prev, [shift]: allSelected ? [] : availableIds };
+    });
+  };
+
+
 
   const handleDeleteSchedule = async (id: string) => {
     try {
@@ -318,7 +345,26 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
                                 <span className="text-[10px] sm:text-xs text-muted-foreground">
                                   {config.hours} · {totalCount} assigned
                                 </span>
+                                {availableUsers.length > 0 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-[10px] sm:text-xs ml-auto"
+                                    onClick={() =>
+                                      toggleAllForShift(
+                                        shift,
+                                        availableUsers.map((u) => u.id),
+                                      )
+                                    }
+                                  >
+                                    {availableUsers.every((u) => selectedUsers[shift].includes(u.id))
+                                      ? "Clear all"
+                                      : `Select all (${availableUsers.length})`}
+                                  </Button>
+                                )}
                               </div>
+
                               {availableUsers.length === 0 ? (
                                 <p className="text-[10px] sm:text-xs text-muted-foreground pl-2">
                                   Everyone is already scheduled for this shift
