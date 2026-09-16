@@ -24,7 +24,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const FETCH_LOCK_TIMEOUT_MS = 30 * 1000; // 30 seconds safety timeout
 
 // Samsara account map: index matches SAMSARA_API_KEY_<index+1>
-// Keys 1-4 = NOT insured orgs, keys 5-8 = insured orgs
+// Insured orgs: keys 5, 8, 9; all other keys = NOT insured orgs
 const SAMSARA_ACCOUNTS: Array<{ label: string; insured: boolean }> = [
   { label: 'retired slot (BF Prime LLC 5006094 covered by key 3)', insured: false },
   { label: 'zack@beverlyfreight.net', insured: false },
@@ -34,6 +34,7 @@ const SAMSARA_ACCOUNTS: Array<{ label: string; insured: boolean }> = [
   { label: 'Dispatch@apsilvertrans.net', insured: false },
   { label: 'Dispatch@unitedenterprisesolutions.net', insured: false },
   { label: 'dispatch@bgprime.net', insured: true },
+  { label: 'Lale Transport LLC (dispatch@laletransport.com)', insured: true },
 ];
 
 function getLocationTime(vehicle: any): number {
@@ -85,10 +86,11 @@ serve(async (req) => {
     const apiKey6 = Deno.env.get('SAMSARA_API_KEY_6');
     const apiKey7 = Deno.env.get('SAMSARA_API_KEY_7');
     const apiKey8 = Deno.env.get('SAMSARA_API_KEY_8');
+    const apiKey9 = Deno.env.get('SAMSARA_API_KEY_9');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (![apiKey1, apiKey2, apiKey3, apiKey4, apiKey5, apiKey6, apiKey7, apiKey8].some(Boolean)) {
+    if ([apiKey1, apiKey2, apiKey3, apiKey4, apiKey5, apiKey6, apiKey7, apiKey8, apiKey9].every((k) => !k)) {
       throw new Error('Samsara API keys not configured');
     }
 
@@ -193,7 +195,7 @@ serve(async (req) => {
     if (trucksError) throw trucksError;
     // --- Fetch from Samsara with 15s AbortController per call ---
     // Keep the original account index so insured/label mapping stays correct
-    const apiKeyEntries = [apiKey1, apiKey2, apiKey3, apiKey4, apiKey5, apiKey6, apiKey7, apiKey8]
+    const apiKeyEntries = [apiKey1, apiKey2, apiKey3, apiKey4, apiKey5, apiKey6, apiKey7, apiKey8, apiKey9]
       .map((key, accountIndex) => ({ key, accountIndex }))
       .filter((e) => !!e.key) as Array<{ key: string; accountIndex: number }>;
     const allVehicles: any[] = [];

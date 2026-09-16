@@ -84,6 +84,7 @@ serve(async (req) => {
       Deno.env.get('SAMSARA_API_KEY_6'),
       Deno.env.get('SAMSARA_API_KEY_7'),
       Deno.env.get('SAMSARA_API_KEY_8'),
+      Deno.env.get('SAMSARA_API_KEY_9'),
     ];
     const SAMSARA_ACCOUNTS: Array<{ label: string; insured: boolean; secret: string }> = [
       { label: 'zack@beverlyfreight.net', insured: false, secret: 'SAMSARA_API_KEY_2' },
@@ -93,6 +94,7 @@ serve(async (req) => {
       { label: 'Dispatch@apsilvertrans.net', insured: false, secret: 'SAMSARA_API_KEY_6' },
       { label: 'Dispatch@unitedenterprisesolutions.net', insured: false, secret: 'SAMSARA_API_KEY_7' },
       { label: 'dispatch@bgprime.net', insured: true, secret: 'SAMSARA_API_KEY_8' },
+      { label: 'Lale Transport LLC (dispatch@laletransport.com)', insured: true, secret: 'SAMSARA_API_KEY_9' },
     ];
 
     const keys: any[] = [];
