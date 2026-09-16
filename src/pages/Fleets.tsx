@@ -55,6 +55,7 @@ import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AfterhoursScheduleDialog } from "@/components/AfterhoursScheduleDialog";
+import { AfterhoursShiftScheduleDialog } from "@/components/AfterhoursShiftScheduleDialog";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 import { SupervisorsSection } from "@/components/SupervisorsSection";
 import AfterhoursFleetTab from "@/components/AfterhoursFleetTab";
