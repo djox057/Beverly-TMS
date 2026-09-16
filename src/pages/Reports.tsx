@@ -617,17 +617,31 @@ const Reports = () => {
   // For afterhours users in Individual Mode whose office is one of the BG floors,
   // collapse "BG 1st floor" and "BG 4th floor" into a single virtual "BG" tab so
   // all of their assigned trucks across both floors are visible in one place.
+  // Afterhours / weekend coverage: the scope is an explicit list of drivers that can
+  // span several offices, so show ONE virtual tab holding all of them instead of
+  // splitting the same person's drivers across Čačak / Kragujevac / BG tabs.
+  const COVERAGE_TAB = "MY DRIVERS";
+  const useCoverageTab = individualMode && (individualOverrideDriverIds?.length ?? 0) > 0;
+
   const useCombinedBgTab =
+    !useCoverageTab &&
     getPrimaryRole() === "afterhours" &&
     individualMode &&
     (profile?.office === "BG 1st floor" || profile?.office === "BG 4th floor");
-  const offices = useCombinedBgTab
-    ? ["Čačak", "KRAGUJEVAC", "BG", "Recovery"]
-    : ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 4th floor", "Recovery"];
+  const ALL_OFFICES = ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 4th floor", "Recovery"];
+  const offices = useCoverageTab
+    ? [COVERAGE_TAB]
+    : useCombinedBgTab
+      ? ["Čačak", "KRAGUJEVAC", "BG", "Recovery"]
+      : ALL_OFFICES;
 
-  // Map the virtual "BG" tab to the real underlying office values.
+  // Map virtual tabs to the real underlying office values.
   const expandOffice = useCallback(
-    (tab: string): string[] => (tab === "BG" && useCombinedBgTab ? ["BG 1st floor", "BG 4th floor"] : [tab]),
+    (tab: string): string[] => {
+      if (tab === COVERAGE_TAB) return ALL_OFFICES;
+      if (tab === "BG" && useCombinedBgTab) return ["BG 1st floor", "BG 4th floor"];
+      return [tab];
+    },
     [useCombinedBgTab],
   );
 
@@ -640,6 +654,7 @@ const Reports = () => {
 
   // Set initial tab based on user's office, default to "Čačak" if not found
   const getInitialTab = () => {
+    if (useCoverageTab) return COVERAGE_TAB;
     if (useCombinedBgTab) return "BG";
     if (profile?.office && offices.includes(profile.office)) {
       return profile.office;
