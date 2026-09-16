@@ -45,6 +45,7 @@ import {
   CalendarDays,
   Award,
   Crown,
+  Clock,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -59,6 +60,7 @@ import { AfterhoursShiftScheduleDialog } from "@/components/AfterhoursShiftSched
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 import { SupervisorsSection } from "@/components/SupervisorsSection";
 import AfterhoursFleetTab from "@/components/AfterhoursFleetTab";
+import AfterhoursShiftFleetTab from "@/components/AfterhoursShiftFleetTab";
 import { supabase } from "@/integrations/supabase/client";
 
 // Generate month options for the last 12 months
