@@ -118,6 +118,36 @@ export type Database = {
         }
         Relationships: []
       }
+      afterhours_shift_schedule: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          scheduled_date: string
+          shift: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          scheduled_date: string
+          shift: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          scheduled_date?: string
+          shift?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       afterhours_sms_send_log: {
         Row: {
           assignment_id: string

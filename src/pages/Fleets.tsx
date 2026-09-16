@@ -55,6 +55,7 @@ import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AfterhoursScheduleDialog } from "@/components/AfterhoursScheduleDialog";
+import { AfterhoursShiftScheduleDialog } from "@/components/AfterhoursShiftScheduleDialog";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
 import { SupervisorsSection } from "@/components/SupervisorsSection";
 import AfterhoursFleetTab from "@/components/AfterhoursFleetTab";
@@ -111,6 +112,7 @@ const Fleets = () => {
   } | null>(null);
   const [driverCoverAssignments, setDriverCoverAssignments] = useState<Record<string, string>>({});
   const [isAfterhoursScheduleOpen, setIsAfterhoursScheduleOpen] = useState(false);
+  const [isAfterhoursShiftOpen, setIsAfterhoursShiftOpen] = useState(false);
   const [dayOffToggle, setDayOffToggle] = useState(false);
   const [isBonusesDialogOpen, setIsBonusesDialogOpen] = useState(false);
   const [bonusMonth, setBonusMonth] = useState(() => {
@@ -345,6 +347,15 @@ const Fleets = () => {
               >
                 <CalendarDays className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Weekend Schedule</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="sm:size-default"
+                onClick={() => setIsAfterhoursShiftOpen(true)}
+              >
+                <CalendarDays className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Afterhours Shifts</span>
               </Button>
               <Dialog open={isAssignDriverOpen} onOpenChange={setIsAssignDriverOpen}>
                 <DialogTrigger asChild>
@@ -1471,6 +1482,8 @@ const Fleets = () => {
       </AlertDialog>
 
       <AfterhoursScheduleDialog open={isAfterhoursScheduleOpen} onOpenChange={setIsAfterhoursScheduleOpen} />
+
+      <AfterhoursShiftScheduleDialog open={isAfterhoursShiftOpen} onOpenChange={setIsAfterhoursShiftOpen} />
 
       <DispatcherBonusesDialog
         open={isBonusesDialogOpen}
