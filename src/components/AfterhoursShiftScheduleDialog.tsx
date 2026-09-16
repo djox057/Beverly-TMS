@@ -345,7 +345,26 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
                                 <span className="text-[10px] sm:text-xs text-muted-foreground">
                                   {config.hours} · {totalCount} assigned
                                 </span>
+                                {availableUsers.length > 0 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-[10px] sm:text-xs ml-auto"
+                                    onClick={() =>
+                                      toggleAllForShift(
+                                        shift,
+                                        availableUsers.map((u) => u.id),
+                                      )
+                                    }
+                                  >
+                                    {availableUsers.every((u) => selectedUsers[shift].includes(u.id))
+                                      ? "Clear all"
+                                      : `Select all (${availableUsers.length})`}
+                                  </Button>
+                                )}
                               </div>
+
                               {availableUsers.length === 0 ? (
                                 <p className="text-[10px] sm:text-xs text-muted-foreground pl-2">
                                   Everyone is already scheduled for this shift
