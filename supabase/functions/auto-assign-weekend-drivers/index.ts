@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
     // --- Active drivers + their dispatcher offices ---
     const { data: drivers, error: driversErr } = await supabase
       .from("drivers")
-      .select("id, dispatcher_id, is_active")
+      .select("id, dispatcher_id, company_id, is_active")
       .eq("is_active", true);
     if (driversErr) throw driversErr;
 
@@ -191,10 +191,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    type EnrichedDriver = { id: string; dispatcher_id: string | null; office: string };
+    type EnrichedDriver = {
+      id: string;
+      dispatcher_id: string | null;
+      office: string;
+      company_id: string | null;
+    };
     const enrichedDrivers: EnrichedDriver[] = (drivers ?? []).map((d: any) => ({
       id: d.id,
       dispatcher_id: d.dispatcher_id ?? null,
+      company_id: d.company_id ?? null,
       office: groupKey(d.dispatcher_id ? dispatcherOfficeMap.get(d.dispatcher_id) : null),
     }));
 
@@ -215,6 +221,91 @@ Deno.serve(async (req) => {
       .delete()
       .is("scheduled_date", null);
 
+    const COMPANY_NONE = "__no_company__";
+
+    /**
+     * Company-first allocation: each user keeps their own weekday drivers,
+     * then remaining drivers are handed out company block by company block,
+     * preferring users who already run that company. Load balance is a soft
+     * cap only, so one user may end up with more drivers than another.
+     */
+    const allocate = (
+      userIds: string[],
+      officeDrivers: EnrichedDriver[],
+    ): Map<string, string[]> => {
+      const assigned = new Map<string, string[]>();
+      const load = new Map<string, number>();
+      userIds.forEach((id) => {
+        assigned.set(id, []);
+        load.set(id, 0);
+      });
+      if (userIds.length === 0 || officeDrivers.length === 0) return assigned;
+
+      const give = (userId: string, ids: string[]) => {
+        assigned.get(userId)!.push(...ids);
+        load.set(userId, (load.get(userId) || 0) + ids.length);
+      };
+
+      const own = new Map<string, EnrichedDriver[]>();
+      const rest: EnrichedDriver[] = [];
+      for (const d of officeDrivers) {
+        if (d.dispatcher_id && load.has(d.dispatcher_id)) {
+          if (!own.has(d.dispatcher_id)) own.set(d.dispatcher_id, []);
+          own.get(d.dispatcher_id)!.push(d);
+        } else {
+          rest.push(d);
+        }
+      }
+      for (const [uid, ds] of own) give(uid, ds.map((d) => d.id));
+
+      const preferred = new Map<string, string | null>();
+      for (const uid of userIds) {
+        const counts = new Map<string, number>();
+        (own.get(uid) ?? []).forEach((d) => {
+          const key = d.company_id || COMPANY_NONE;
+          counts.set(key, (counts.get(key) || 0) + 1);
+        });
+        let best: string | null = null;
+        let bestCount = 0;
+        for (const [k, c] of counts) {
+          if (c > bestCount) { bestCount = c; best = k; }
+        }
+        preferred.set(uid, best);
+      }
+
+      const baseShare = Math.ceil(officeDrivers.length / userIds.length);
+      const softCap = baseShare + Math.max(2, Math.ceil(baseShare * 0.5));
+
+      const byCompany = new Map<string, EnrichedDriver[]>();
+      rest.forEach((d) => {
+        const key = d.company_id || COMPANY_NONE;
+        if (!byCompany.has(key)) byCompany.set(key, []);
+        byCompany.get(key)!.push(d);
+      });
+
+      const blocks = [...byCompany.entries()].sort((a, b) => b[1].length - a[1].length);
+      for (const [company, block] of blocks) {
+        const pool = [...block];
+        while (pool.length > 0) {
+          const matching = userIds.filter((uid) => preferred.get(uid) === company);
+          const withRoom = (list: string[]) => list.filter((uid) => (load.get(uid) || 0) < softCap);
+          let candidates = withRoom(matching);
+          if (candidates.length === 0) candidates = withRoom(userIds);
+          if (candidates.length === 0) candidates = matching.length > 0 ? matching : userIds;
+
+          const target = candidates.reduce((best, uid) =>
+            (load.get(uid) || 0) < (load.get(best) || 0) ? uid : best
+          );
+          const room = Math.max(softCap - (load.get(target) || 0), 1);
+          const take = pool.splice(0, Math.min(room, pool.length));
+          give(target, take.map((d) => d.id));
+          if (matching.length === 0) preferred.set(target, company);
+        }
+      }
+
+      return assigned;
+    };
+
     // --- Build per-day distribution ---
     const allRows: { afterhours_user_id: string; driver_id: string; scheduled_date: string }[] = [];
 
@@ -223,109 +314,20 @@ Deno.serve(async (req) => {
         .filter((uid) => userOfficeMap.has(uid));
       if (userIdsForDay.length === 0) continue;
 
-      // Group weekend dispatchers by office
-      const weekendByOffice = new Map<string, string[]>();
+      const usersByOffice = new Map<string, string[]>();
       for (const uid of userIdsForDay) {
         const office = groupKey(userOfficeMap.get(uid));
-        if (!weekendByOffice.has(office)) weekendByOffice.set(office, []);
-        weekendByOffice.get(office)!.push(uid);
+        if (!usersByOffice.has(office)) usersByOffice.set(office, []);
+        usersByOffice.get(office)!.push(uid);
       }
 
-      for (const [office, weekendDispatchers] of weekendByOffice) {
+      for (const [office, officeUsers] of usersByOffice) {
         const officeDrivers = driversByOffice.get(office) || [];
-        if (officeDrivers.length === 0 || weekendDispatchers.length === 0) continue;
-
-        const numWD = weekendDispatchers.length;
-
-        // Group office drivers by their weekday dispatcher
-        const groupsByDispatcher = new Map<string, EnrichedDriver[]>();
-        for (const d of officeDrivers) {
-          const key = d.dispatcher_id || "__none__";
-          if (!groupsByDispatcher.has(key)) groupsByDispatcher.set(key, []);
-          groupsByDispatcher.get(key)!.push(d);
-        }
-        const groups = [...groupsByDispatcher.entries()]
-          .map(([dispId, ds]) => ({ dispId, drivers: [...ds] }))
-          .sort((a, b) => b.drivers.length - a.drivers.length);
-
-        // Sort weekend dispatchers by their weekday-driver count desc
-        const weekdayCount = new Map<string, number>();
-        for (const wd of weekendDispatchers) {
-          weekdayCount.set(wd, officeDrivers.filter((d) => d.dispatcher_id === wd).length);
-        }
-        const sortedWD = [...weekendDispatchers].sort(
-          (a, b) => (weekdayCount.get(b) || 0) - (weekdayCount.get(a) || 0),
-        );
-
-        const totalDrivers = officeDrivers.length;
-        const baseShare = Math.floor(totalDrivers / numWD);
-        const extra = totalDrivers % numWD;
-
-        const capacity = new Map<string, number>();
-        const assigned = new Map<string, string[]>();
-        sortedWD.forEach((wd, i) => {
-          capacity.set(wd, baseShare + (i < extra ? 1 : 0));
-          assigned.set(wd, []);
-        });
-
-        // First pass: each WD takes their OWN weekday drivers as a single
-        // block (no per-capacity cap here; we still try to keep the group
-        // together). The second pass enforces overall load balance.
-        for (const wd of sortedWD) {
-          const ownGroup = groups.find((g) => g.dispId === wd);
-          if (ownGroup && ownGroup.drivers.length > 0) {
-            assigned.get(wd)!.push(...ownGroup.drivers.map((d) => d.id));
-            ownGroup.drivers.length = 0;
-          }
-        }
-
-        // Second pass: place each remaining weekday-dispatcher group as a
-        // WHOLE block under the weekend dispatcher with the largest remaining
-        // capacity. Only split the group when no WD can absorb it without
-        // exceeding the largest current load by more than 1 driver.
-        const remaining = groups
-          .filter((g) => g.drivers.length > 0)
-          .sort((a, b) => b.drivers.length - a.drivers.length);
-
-        for (const group of remaining) {
-          while (group.drivers.length > 0) {
-            // Find WD with most remaining capacity
-            let bestWD = sortedWD[0];
-            let bestRem = capacity.get(bestWD)! - assigned.get(bestWD)!.length;
-            for (const wd of sortedWD) {
-              const rem = capacity.get(wd)! - assigned.get(wd)!.length;
-              if (rem > bestRem) { bestRem = rem; bestWD = wd; }
-            }
-
-            if (bestRem >= group.drivers.length) {
-              // Whole group fits within capacity — keep it together.
-              assigned.get(bestWD)!.push(...group.drivers.map((d) => d.id));
-              group.drivers.length = 0;
-              continue;
-            }
-
-            // No WD has enough free capacity for the whole group.
-            // Decide: place whole group anyway (tolerable imbalance) or split.
-            // Tolerable = placing the whole group keeps bestWD's load within
-            // 1 of the current max load across WDs.
-            const maxLoad = Math.max(...sortedWD.map((wd) => assigned.get(wd)!.length));
-            const projected = assigned.get(bestWD)!.length + group.drivers.length;
-            if (projected <= maxLoad + 1) {
-              assigned.get(bestWD)!.push(...group.drivers.map((d) => d.id));
-              group.drivers.length = 0;
-              continue;
-            }
-
-            // Otherwise split: take as many as fit (at least 1) into bestWD,
-            // loop continues with the rest.
-            const take = group.drivers.splice(0, Math.max(bestRem, 1));
-            assigned.get(bestWD)!.push(...take.map((d) => d.id));
-          }
-        }
-
-        for (const [wdId, driverIds] of assigned) {
+        if (officeDrivers.length === 0) continue;
+        const allocation = allocate(officeUsers, officeDrivers);
+        for (const [uid, driverIds] of allocation) {
           for (const dId of driverIds) {
-            allRows.push({ afterhours_user_id: wdId, driver_id: dId, scheduled_date: date });
+            allRows.push({ afterhours_user_id: uid, driver_id: dId, scheduled_date: date });
           }
         }
       }
@@ -343,7 +345,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(
-      `[${invocationId}] Weekend ${satStr}/${sunStr}: inserted=${inserted}`,
+      `[${invocationId}] Dates ${weekendDates.join(",")}: inserted=${inserted}`,
     );
 
     return new Response(

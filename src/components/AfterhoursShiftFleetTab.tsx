@@ -12,6 +12,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   UserX,
+  Wand2,
   ChevronDown,
   ChevronRight,
   Moon,
@@ -43,8 +44,15 @@ const SHIFT_LABEL: Record<ShiftKey, { label: string; hours: string; icon: typeof
 };
 
 const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatcherFilter, officeFilter }) => {
-  const { shiftFleetsByDay, allDriversWithTrucks, loading, assignDriversBulk, removeDriversBulk, unassignAll } =
-    useAfterhoursShiftAssignments();
+  const {
+    shiftFleetsByDay,
+    allDriversWithTrucks,
+    loading,
+    assignDriversBulk,
+    removeDriversBulk,
+    autoAssignDrivers,
+    unassignAll,
+  } = useAfterhoursShiftAssignments();
 
   const [assignTarget, setAssignTarget] = useState<{ userId: string; date: string; shift: ShiftKey } | null>(null);
   const [selectedForRemoval, setSelectedForRemoval] = useState<Record<string, Set<string>>>({});
@@ -55,6 +63,7 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
     count: number;
   } | null>(null);
   const [unassignAllConfirm, setUnassignAllConfirm] = useState(false);
+  const [assignAllConfirm, setAssignAllConfirm] = useState(false);
   const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
   const [allCollapsed, setAllCollapsed] = useState(false);
 
@@ -159,6 +168,10 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
               <ChevronsDownUp className="h-4 w-4 sm:mr-1" />
             )}
             <span className="hidden sm:inline">{allCollapsed ? "Expand All" : "Collapse All"}</span>
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setAssignAllConfirm(true)}>
+            <Wand2 className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Assign All</span>
           </Button>
           <Button
             size="sm"
@@ -381,6 +394,30 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
               }}
             >
               Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={assignAllConfirm} onOpenChange={setAssignAllConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Assign All Drivers</AlertDialogTitle>
+            <AlertDialogDescription>
+              This replaces all current shift assignments. Every scheduled night and morning shift gets drivers
+              distributed by office, keeping each person's own drivers and grouping drivers of the same company
+              together where possible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setAssignAllConfirm(false);
+                await autoAssignDrivers();
+              }}
+            >
+              Assign All
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

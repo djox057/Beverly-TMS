@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { allocateAfterhoursDrivers, AllocDriver, AllocUser } from '@/lib/afterhoursAutoAssign';
+
+const BG_OFFICES = new Set(['BG 1st floor', 'BG 4th floor']);
+const groupKey = (office: string | null | undefined): string =>
+  office && BG_OFFICES.has(office) ? 'BG' : (office || 'Unknown');
 
 export type ShiftKey = 'night' | 'morning';
 
@@ -70,7 +75,7 @@ export const useAfterhoursShiftAssignments = () => {
           .from('afterhours_shift_assignments')
           .select('id, afterhours_user_id, driver_id, scheduled_date, shift')
           .in('scheduled_date', dates),
-        supabase.from('drivers').select('id, name, dispatcher_id, is_active').eq('is_active', true),
+        supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true),
         supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id'),
       ]);
       if (assignmentsRes.error) throw assignmentsRes.error;
@@ -102,12 +107,16 @@ export const useAfterhoursShiftAssignments = () => {
         ...new Set((driversRes.data || []).map((d: any) => d.dispatcher_id).filter(Boolean)),
       ] as string[];
       const dispatcherMap = new Map<string, string>();
+      const dispatcherOfficeMap = new Map<string, string | null>();
       if (dispatcherIds.length > 0) {
         const { data: dispProfiles } = await supabase
           .from('profiles')
-          .select('user_id, full_name, email')
+          .select('user_id, full_name, email, office')
           .in('user_id', dispatcherIds);
-        (dispProfiles || []).forEach((p: any) => dispatcherMap.set(p.user_id, p.full_name || p.email));
+        (dispProfiles || []).forEach((p: any) => {
+          dispatcherMap.set(p.user_id, p.full_name || p.email);
+          dispatcherOfficeMap.set(p.user_id, p.office ?? null);
+        });
       }
 
       const truckByDriver = new Map<string, any>();
@@ -120,6 +129,7 @@ export const useAfterhoursShiftAssignments = () => {
         ...d,
         truck: truckByDriver.get(d.id) || null,
         dispatcher_name: d.dispatcher_id ? dispatcherMap.get(d.dispatcher_id) || null : null,
+        dispatcher_office: d.dispatcher_id ? dispatcherOfficeMap.get(d.dispatcher_id) ?? null : null,
       }));
       setAllDriversWithTrucks(enrichedDrivers);
 
@@ -217,6 +227,69 @@ export const useAfterhoursShiftAssignments = () => {
     }
   };
 
+  const autoAssignDrivers = async () => {
+    try {
+      setLoading(true);
+      if (shiftDates.length === 0) return;
+
+      const { error: delErr } = await supabase
+        .from('afterhours_shift_assignments')
+        .delete()
+        .in('scheduled_date', shiftDates);
+      if (delErr) throw delErr;
+
+      const allocDrivers: AllocDriver[] = allDriversWithTrucks.map((d: any) => ({
+        id: d.id,
+        dispatcher_id: d.dispatcher_id ?? null,
+        office: groupKey(d.dispatcher_office),
+        company_id: d.company_id ?? null,
+      }));
+
+      const rows: {
+        afterhours_user_id: string;
+        driver_id: string;
+        scheduled_date: string;
+        shift: ShiftKey;
+      }[] = [];
+
+      // Every day and every shift is distributed independently.
+      for (const day of shiftFleetsByDay) {
+        for (const group of day.groups) {
+          const allocUsers: AllocUser[] = group.fleets.map((f) => ({
+            id: f.user.id,
+            office: groupKey(f.user.office),
+          }));
+          if (allocUsers.length === 0) continue;
+          const allocation = allocateAfterhoursDrivers(allocUsers, allocDrivers);
+          for (const [userId, driverIds] of allocation) {
+            for (const driverId of driverIds) {
+              rows.push({
+                afterhours_user_id: userId,
+                driver_id: driverId,
+                scheduled_date: day.date,
+                shift: group.shift,
+              });
+            }
+          }
+        }
+      }
+
+      for (let i = 0; i < rows.length; i += 500) {
+        const chunk = rows.slice(i, i + 500);
+        const { error } = await supabase.from('afterhours_shift_assignments').insert(chunk);
+        if (error) throw error;
+      }
+
+      toast({ title: 'Success', description: `Assigned ${rows.length} driver-shift assignments` });
+      fetchData();
+    } catch (error: any) {
+      console.error('Error auto-assigning shift drivers:', error);
+      toast({ title: 'Error', description: error.message || 'Failed to assign all', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const unassignAll = async () => {
     try {
       if (shiftDates.length === 0) return;
@@ -241,6 +314,7 @@ export const useAfterhoursShiftAssignments = () => {
     refetch: fetchData,
     assignDriversBulk,
     removeDriversBulk,
+    autoAssignDrivers,
     unassignAll,
   };
 };
