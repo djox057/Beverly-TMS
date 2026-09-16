@@ -15,7 +15,7 @@ import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIE
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const emptyRefs:References={staff:[],trucks:[],companies:[]};
-const STATUS_COL_WIDTH=64;
+const STATUS_COL_WIDTH=44;
 const statusClass=(s:string)=>s==="Arrived"?"bg-emerald-100 text-emerald-900":s==="Canceled"?"bg-red-100 text-red-900":s==="Scheduled"?"bg-blue-100 text-blue-900":s==="Contacted"?"bg-amber-100 text-amber-900":"bg-muted text-foreground";
 const colLabel=(c:typeof COLUMNS[number])=>c.label ?? FIELD_LABELS[c.field];
 const COLOR_CHOICES:{value:RowColor;label:string;swatch:string}[]=[
@@ -37,7 +37,7 @@ export default function UpcomingDrivers() {
   const [expanded,setExpanded]=useState<Set<string>>(new Set());
   const toggleExpanded=(id:string)=>setExpanded(old=>{const next=new Set(old);if(next.has(id))next.delete(id);else next.add(id);return next;});
   const navigate=useNavigate();
-  const storageKey=`upcoming-drivers-widths:${user?.id}`;
+  const storageKey=`upcoming-drivers-widths-v2:${user?.id}`;
   const defaults=Object.fromEntries(COLUMNS.map(c=>[c.field,c.width]));
   const [widths,setWidths]=useState<Record<string,number>>(defaults);
   const drag=useRef<{field:string;x:number;width:number}|null>(null);
