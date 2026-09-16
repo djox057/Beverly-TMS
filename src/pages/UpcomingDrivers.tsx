@@ -20,7 +20,6 @@ export default function UpcomingDrivers() {
   const {user,getPrimaryRole}=useAuthContext();
   const [today,setToday]=useState(chicagoToday);
   const [week,setWeek]=useState(()=>mondayOf(chicagoToday()));
-  const [view,setView]=useState<"All"|"Upcoming"|"Arrived">("Upcoming");
   const [search,setSearch]=useState("");
   const [filters,setFilters]=useState({recruiter_id:"",safety_id:"",dispatcher_id:""});
   const [collapsed,setCollapsed]=useState<Set<string>>(new Set());
@@ -55,13 +54,11 @@ export default function UpcomingDrivers() {
   const filtered=useMemo(()=>{
     const q=search.trim().toLowerCase();
     return rows.filter(r=>{
-      if(view==="Upcoming" && ["Arrived","Canceled"].includes(r.status))return false;
-      if(view==="Arrived" && r.status!=="Arrived")return false;
       if(Object.entries(filters).some(([field,value])=>value && r[field as keyof typeof filters]!==value))return false;
       return !q || [r.driver_name,r.phone,...[r.recruiter_id,r.safety_id,r.dispatcher_id].map(id=>names.get(id ?? "")),trucks.get(r.truck_id ?? ""),r.status]
         .some(value=>value?.toLowerCase().includes(q)) || (/^[+\d\s().-]+$/.test(q) && !!q.replace(/\D/g,"") && r.phone.replace(/\D/g,"").includes(q.replace(/\D/g,"")));
     }).sort((a,b)=>(a.arrival_time || "99").localeCompare(b.arrival_time || "99") || a.driver_name.localeCompare(b.driver_name) || a.id.localeCompare(b.id));
-  },[rows,view,filters,search,names,trucks]);
+  },[rows,filters,search,names,trucks]);
   const days=[...Array.from({length:7},(_,i)=>addDays(week,i)),"unscheduled"];
   const scheduled=rows.filter(r=>!!r.arrival_date);
   const open=(id:string,field?:keyof CandidateFields)=>setEditor({id,field});
@@ -129,12 +126,6 @@ export default function UpcomingDrivers() {
       </div>
     </div>
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex gap-1 rounded-md bg-muted p-1" role="group" aria-label="Driver view">
-        {(["All","Upcoming","Arrived"] as const).map(v=>(
-          <Button key={v} variant={view===v?"default":"ghost"} size="sm" aria-pressed={view===v} onClick={()=>setView(v)}
-            className={view===v?"":"text-muted-foreground hover:text-foreground"}>{v}</Button>
-        ))}
-      </div>
       <div className="relative"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"/><Input aria-label="Search upcoming drivers" placeholder="Name, phone, staff, truck…" value={search} onChange={e=>setSearch(e.target.value)} className="h-9 w-56 pl-8"/></div>
       {([['recruiter_id','recruiting'],['safety_id','safety'],['dispatcher_id','dispatch']] as const).map(([field,role])=><div key={field} className="w-40"><Combobox
         options={refs.staff.filter(s=>s.role===role).map(s=>({value:s.user_id,label:s.full_name || "Unnamed user"}))}
