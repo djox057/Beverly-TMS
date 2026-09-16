@@ -8,6 +8,12 @@ export interface CandidateFields {
   preference: string; truck_id: string | null; truck_terms: string;
   drug_test_company: string; clearinghouse_status: string;
   status: CandidateStatus; ticket_note: string;
+  q_class_a_experience: string; q_current_company_tenure: string; q_company_changes: string;
+  q_leaving_reason: string; q_avg_weekly_miles: string; q_driving_type: string;
+  q_sap_refusal: string; q_accidents: string; q_trailer_types: string; q_freight_types: string;
+  q_truck_models: string; q_transmission: string; q_preferred_models: string;
+  q_truck_age_preference: string; q_max_weekly_miles: string; q_miles_comfort: string;
+  q_home_time: string; q_home_day: string;
   arrival_date: string | null; arrival_time: string | null; tentative: boolean;
   row_color: RowColor;
 }
@@ -25,7 +31,11 @@ export const EMPTY_CANDIDATE: CandidateFields = {
   recruiter_id: null, driver_name: "", phone: "", safety_id: null, dispatcher_id: null,
   sales: "", timing_note: "", application_status: "", transport_note: "", description: "",
   mvr: "", psp: "", preference: "", truck_id: null, truck_terms: "", drug_test_company: "",
-  clearinghouse_status: "", status: "New", ticket_note: "", arrival_date: null, arrival_time: null, tentative: false,
+  clearinghouse_status: "", status: "New", ticket_note: "",
+  q_class_a_experience: "", q_current_company_tenure: "", q_company_changes: "", q_leaving_reason: "",
+  q_avg_weekly_miles: "", q_driving_type: "", q_sap_refusal: "", q_accidents: "", q_trailer_types: "",
+  q_freight_types: "", q_truck_models: "", q_transmission: "", q_preferred_models: "",
+  q_truck_age_preference: "", q_max_weekly_miles: "", q_miles_comfort: "", q_home_time: "", q_home_day: "", arrival_date: null, arrival_time: null, tentative: false,
   row_color: null,
 };
 export const SUMMARY_FIELDS = "id,recruiter_id,driver_name,phone,safety_id,dispatcher_id,sales,timing_note,application_status,transport_preview,description_preview,mvr_preview,psp_preview,preference,truck_id,truck_terms,drug_test_company,clearinghouse_status,status,ticket_preview,arrival_date,arrival_time,tentative,row_color,archived,version,created_at,updated_at,created_by,updated_by";
@@ -36,7 +46,39 @@ export const FIELD_LABELS: Record<keyof CandidateFields, string> = {
   truck_id: "Truck", truck_terms: "Truck price / terms", drug_test_company: "Drug test company",
   clearinghouse_status: "CH", status: "Status", ticket_note: "Ticket", arrival_date: "Arrival date (Chicago)",
   arrival_time: "Arrival time (Chicago)", tentative: "50/50 — tentative", row_color: "Color",
+  q_class_a_experience: "Active Class A experience in the last 2 years?",
+  q_current_company_tenure: "How long with the current / most recent company?",
+  q_company_changes: "How many companies changed in the career (or last 2–3 years)?",
+  q_leaving_reason: "Major reason for leaving?",
+  q_avg_weekly_miles: "Average mileage per week?",
+  q_driving_type: "Type of driving in the last 2 years (Local / Regional / OTR — which area)?",
+  q_sap_refusal: "Ever on a SAP program, or refused an alcohol or drug test?",
+  q_accidents: "Any accidents? If yes, explanation",
+  q_trailer_types: "What types of trailers pulled?",
+  q_freight_types: "What types of loads / freight hauled?",
+  q_truck_models: "What truck models driven?",
+  q_transmission: "Automatic, manual, or both?",
+  q_preferred_models: "Which models preferred?",
+  q_truck_age_preference: "Start with a used truck 2023–2025, or something newer 2026–2027?",
+  q_max_weekly_miles: "Most miles driven in one week?",
+  q_miles_comfort: "Comfortable running 2,500–3,000 miles per week?",
+  q_home_time: "Weekly home time, bi-weekly, or longer OTR periods?",
+  q_home_day: "Any specific day needed at home?",
 };
+
+/** Screening answers, in the order recruiters ask them. */
+export const SCREENING_FIELDS: (keyof CandidateFields)[] = [
+  "q_class_a_experience","q_current_company_tenure","q_company_changes","q_leaving_reason",
+  "q_avg_weekly_miles","q_driving_type","q_sap_refusal","q_accidents","q_trailer_types",
+  "q_freight_types","q_truck_models","q_transmission","q_preferred_models","q_truck_age_preference",
+  "q_max_weekly_miles","q_miles_comfort","q_home_time","q_home_day",
+];
+
+/** The answers that decide whether a candidate can be hired at all. */
+export const SCREENING_KEY_FIELDS: (keyof CandidateFields)[] = [
+  "q_class_a_experience","q_current_company_tenure","q_company_changes","q_leaving_reason",
+  "q_sap_refusal","q_accidents","q_avg_weekly_miles","q_driving_type",
+];
 export function nextRowColor(current: RowColor): RowColor {
   const index = ROW_COLORS.indexOf(current as typeof ROW_COLORS[number]);
   return index === ROW_COLORS.length - 1 ? null : ROW_COLORS[index + 1];
