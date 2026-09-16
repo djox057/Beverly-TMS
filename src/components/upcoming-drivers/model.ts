@@ -98,7 +98,7 @@ export function rowColorForStatus(status: CandidateStatus): RowColor {
 }
 // Board columns: everything else lives in the expanded row details.
 export const COLUMNS: {field: keyof CandidateFields; letter: string; width: number; preview?: keyof CandidateSummary; label?: string}[] = [
-  {field:"recruiter_id",letter:"",width:90},{field:"driver_name",letter:"",width:130},
+  {field:"recruiter_id",letter:"",width:78},{field:"driver_name",letter:"",width:130},
   {field:"arrival_time",letter:"",width:95,label:"Time"},
   {field:"phone",letter:"",width:165},{field:"transport_note",letter:"",width:170,preview:"transport_preview"},
   {field:"description",letter:"",width:210,preview:"description_preview"},
