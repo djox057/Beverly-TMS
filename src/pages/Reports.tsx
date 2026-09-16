@@ -671,6 +671,18 @@ const Reports = () => {
     setActiveTabRaw(office);
   }, []);
 
+  // Coverage scope can arrive after mount (assignments load async) — keep the
+  // selected tab valid when the tab set changes.
+  useEffect(() => {
+    if (useCoverageTab) {
+      if (activeTab !== COVERAGE_TAB) setActiveTabRaw(COVERAGE_TAB);
+    } else if (activeTab === COVERAGE_TAB) {
+      setActiveTabRaw(getInitialTab());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useCoverageTab, activeTab]);
+
+
   // Spotlight driver: when load# search resolves to a driver in a different
   // office, this id is set so useReportsDateWindow can publish that one
   // driver first and load the rest of the office in the background.
