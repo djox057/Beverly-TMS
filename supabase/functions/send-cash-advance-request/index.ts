@@ -288,6 +288,10 @@ const handler = async (req: Request): Promise<Response> => {
       fromEmail = "efs@bfprime.net";
     } else if (normalizedCompany.includes("AP SILVER")) {
       fromEmail = "efs@apsilvertrans.net";
+    } else if (normalizedCompany.includes("LALE")) {
+      fromEmail = "efs@laletransport.com";
+    } else if (normalizedCompany.includes("JONES")) {
+      fromEmail = "efs@jonesfreight.net";
     }
 
     // Send email
