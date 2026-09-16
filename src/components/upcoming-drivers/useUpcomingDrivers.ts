@@ -41,12 +41,18 @@ export async function saveCandidate(id: string, fields: Partial<CandidateFields>
   return data as Candidate;
 }
 
+export async function deleteCandidate(id: string): Promise<void> {
+  const {error}=await db.from("upcoming_drivers").delete().eq("id",id);
+  if(error) throw error;
+}
+
 export function useUpcomingDrivers(week: string, archived: boolean) {
   const {user,getPrimaryRole}=useAuthContext();
   const role=getPrimaryRole();
   const canView=!!user && !!role && UPCOMING_DRIVERS_ROLES.includes(role);
   const canEdit=canView && role!=="chicago_management";
   const canArchive=!!role && ["admin","manager","supervisor"].includes(role);
+  const canDelete=canEdit && !!role && ["admin","manager","supervisor","recruiting"].includes(role);
   const [visible,setVisible]=useState(document.visibilityState!=="hidden");
   const [live,setLive]=useState("Connecting");
   const qc=useQueryClient();
