@@ -129,12 +129,6 @@ export default function UpcomingDrivers() {
       </div>
     </div>
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex gap-1 rounded-md bg-muted p-1" role="group" aria-label="Driver view">
-        {(["All","Upcoming","Arrived"] as const).map(v=>(
-          <Button key={v} variant={view===v?"default":"ghost"} size="sm" aria-pressed={view===v} onClick={()=>setView(v)}
-            className={view===v?"":"text-muted-foreground hover:text-foreground"}>{v}</Button>
-        ))}
-      </div>
       <div className="relative"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"/><Input aria-label="Search upcoming drivers" placeholder="Name, phone, staff, truck…" value={search} onChange={e=>setSearch(e.target.value)} className="h-9 w-56 pl-8"/></div>
       {([['recruiter_id','recruiting'],['safety_id','safety'],['dispatcher_id','dispatch']] as const).map(([field,role])=><div key={field} className="w-40"><Combobox
         options={refs.staff.filter(s=>s.role===role).map(s=>({value:s.user_id,label:s.full_name || "Unnamed user"}))}
