@@ -20,7 +20,6 @@ export default function UpcomingDrivers() {
   const {user,getPrimaryRole}=useAuthContext();
   const [today,setToday]=useState(chicagoToday);
   const [week,setWeek]=useState(()=>mondayOf(chicagoToday()));
-  const [view,setView]=useState<"All"|"Upcoming"|"Arrived">("Upcoming");
   const [search,setSearch]=useState("");
   const [filters,setFilters]=useState({recruiter_id:"",safety_id:"",dispatcher_id:""});
   const [collapsed,setCollapsed]=useState<Set<string>>(new Set());
@@ -59,7 +58,7 @@ export default function UpcomingDrivers() {
       return !q || [r.driver_name,r.phone,...[r.recruiter_id,r.safety_id,r.dispatcher_id].map(id=>names.get(id ?? "")),trucks.get(r.truck_id ?? ""),r.status]
         .some(value=>value?.toLowerCase().includes(q)) || (/^[+\d\s().-]+$/.test(q) && !!q.replace(/\D/g,"") && r.phone.replace(/\D/g,"").includes(q.replace(/\D/g,"")));
     }).sort((a,b)=>(a.arrival_time || "99").localeCompare(b.arrival_time || "99") || a.driver_name.localeCompare(b.driver_name) || a.id.localeCompare(b.id));
-  },[rows,view,filters,search,names,trucks]);
+  },[rows,filters,search,names,trucks]);
   const days=[...Array.from({length:7},(_,i)=>addDays(week,i)),"unscheduled"];
   const scheduled=rows.filter(r=>!!r.arrival_date);
   const open=(id:string,field?:keyof CandidateFields)=>setEditor({id,field});
