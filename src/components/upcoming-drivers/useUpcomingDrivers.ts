@@ -137,7 +137,13 @@ export function useUpcomingDrivers(week: string, archived: boolean) {
     // Mark other weeks/views stale without fetching inactive boards.
     void qc.invalidateQueries({queryKey:["upcoming-drivers-board"],refetchType:"none"});
   };
-  return {query,references,live,canEdit,canArchive,acceptSaved};
+  const removeCandidate=async(id:string)=>{
+    await deleteCandidate(id);
+    qc.setQueryData<CandidateSummary[]>(key,current=>(current ?? []).filter(r=>r.id!==id));
+    qc.removeQueries({queryKey:candidateKey(id)});
+    void qc.invalidateQueries({queryKey:["upcoming-drivers-board"],refetchType:"none"});
+  };
+  return {query,references,live,canEdit,canArchive,canDelete,acceptSaved,removeCandidate};
 }
 
 export function useCandidateHistory(id: string | null, enabled: boolean) {
