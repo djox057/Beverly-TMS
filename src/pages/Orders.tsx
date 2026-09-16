@@ -201,8 +201,7 @@ const Orders = () => {
   const shouldFilterByUser = individualMode || isDispatchOnly;
   // Exclude BG Prime Inc and Lale Transport booked-by orders entirely from /orders
   // (they live on /bg-loads and /lale-loads). Comma-separated list of company IDs.
-  const EXCLUDED_BOOKED_BY_COMPANY_ID =
-    "238a7acf-cbb5-4718-be7a-130d8d971a90,f0c75da4-7598-4a34-839a-c2eb4adc2a03"; // BG Prime Inc, Lale Transport LLC
+  const EXCLUDED_BOOKED_BY_COMPANY_ID = MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS;
   const orderFilterOptions = useMemo(
     () =>
       shouldFilterByUser
