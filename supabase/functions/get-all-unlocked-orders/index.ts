@@ -167,10 +167,13 @@ Deno.serve(async (req) => {
     } else if (dispatcherDriverIds.length > 0) {
       countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
     }
-    if (excludeBookedByCompanyId) {
-      countQuery = countQuery.or(
-        `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
-      );
+    const excludedCompanyIds = (excludeBookedByCompanyId || "")
+      .split(",").map((s: string) => s.trim()).filter(Boolean);
+    const exclusionFilter = excludedCompanyIds.length > 0
+      ? `${excludedCompanyIds.map((id: string) => `booked_by_company_id.neq.${id}`).join(",")},booked_by_company_id.is.null`
+      : null;
+    if (exclusionFilter) {
+      countQuery = countQuery.or(exclusionFilter);
     }
     if (bookedByCompanyId) {
       countQuery = countQuery.eq("booked_by_company_id", bookedByCompanyId);
