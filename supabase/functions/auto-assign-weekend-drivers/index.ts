@@ -273,9 +273,6 @@ Deno.serve(async (req) => {
         preferred.set(uid, best);
       }
 
-      const baseShare = Math.ceil(officeDrivers.length / userIds.length);
-      const softCap = baseShare + Math.max(2, Math.ceil(baseShare * 0.5));
-
       const byCompany = new Map<string, EnrichedDriver[]>();
       rest.forEach((d) => {
         const key = d.company_id || COMPANY_NONE;
@@ -283,25 +280,40 @@ Deno.serve(async (req) => {
         byCompany.get(key)!.push(d);
       });
 
+      // Water-filling quotas so totals stay close together.
+      const total = officeDrivers.length;
+      const quota = new Map<string, number>();
+      userIds.forEach((uid) => quota.set(uid, load.get(uid) || 0));
+      let placed = userIds.reduce((s, uid) => s + (load.get(uid) || 0), 0);
+      while (placed < total) {
+        const lowest = userIds.reduce((best, uid) =>
+          (quota.get(uid) || 0) < (quota.get(best) || 0) ? uid : best
+        );
+        quota.set(lowest, (quota.get(lowest) || 0) + 1);
+        placed += 1;
+      }
+      const TOLERANCE = 2;
+      const roomFor = (uid: string) =>
+        Math.max((quota.get(uid) || 0) + TOLERANCE - (load.get(uid) || 0), 0);
+
       const blocks = [...byCompany.entries()].sort((a, b) => b[1].length - a[1].length);
       for (const [company, block] of blocks) {
         const pool = [...block];
         while (pool.length > 0) {
-          const matching = userIds.filter((uid) => preferred.get(uid) === company);
-          const withRoom = (list: string[]) => list.filter((uid) => (load.get(uid) || 0) < softCap);
-          let candidates = withRoom(matching);
-          if (candidates.length === 0) candidates = withRoom(userIds);
-          if (candidates.length === 0) candidates = matching.length > 0 ? matching : userIds;
+          const matching = userIds.filter((uid) => preferred.get(uid) === company && roomFor(uid) > 0);
+          let candidates = matching;
+          if (candidates.length === 0) candidates = userIds.filter((uid) => roomFor(uid) > 0);
+          if (candidates.length === 0) candidates = userIds;
 
           const target = candidates.reduce((best, uid) =>
-            (load.get(uid) || 0) < (load.get(best) || 0) ? uid : best
+            roomFor(uid) > roomFor(best) ? uid : best
           );
-          const room = Math.max(softCap - (load.get(target) || 0), 1);
-          const take = pool.splice(0, Math.min(room, pool.length));
+          const take = pool.splice(0, Math.max(Math.min(roomFor(target), pool.length), 1));
           give(target, take.map((d) => d.id));
           if (matching.length === 0) preferred.set(target, company);
         }
       }
+
 
       return assigned;
     };
