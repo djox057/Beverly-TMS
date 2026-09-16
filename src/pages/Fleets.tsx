@@ -112,6 +112,7 @@ const Fleets = () => {
   } | null>(null);
   const [driverCoverAssignments, setDriverCoverAssignments] = useState<Record<string, string>>({});
   const [isAfterhoursScheduleOpen, setIsAfterhoursScheduleOpen] = useState(false);
+  const [isAfterhoursShiftOpen, setIsAfterhoursShiftOpen] = useState(false);
   const [dayOffToggle, setDayOffToggle] = useState(false);
   const [isBonusesDialogOpen, setIsBonusesDialogOpen] = useState(false);
   const [bonusMonth, setBonusMonth] = useState(() => {
