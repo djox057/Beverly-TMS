@@ -120,8 +120,10 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
   const setIndividualMode = useCallback(async (enabled: boolean) => {
     if (!profile?.user_id || !canUseIndividualMode) return;
 
+    userToggledRef.current = true;
     // Optimistic update
     setIndividualModeState(enabled);
+
 
     try {
       const { error } = await supabase
