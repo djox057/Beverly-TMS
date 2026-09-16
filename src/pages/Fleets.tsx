@@ -1483,6 +1483,8 @@ const Fleets = () => {
 
       <AfterhoursScheduleDialog open={isAfterhoursScheduleOpen} onOpenChange={setIsAfterhoursScheduleOpen} />
 
+      <AfterhoursShiftScheduleDialog open={isAfterhoursShiftOpen} onOpenChange={setIsAfterhoursShiftOpen} />
+
       <DispatcherBonusesDialog
         open={isBonusesDialogOpen}
         onOpenChange={setIsBonusesDialogOpen}
