@@ -4371,11 +4371,15 @@ const Trips = () => {
       });
 
       // EFS deductions
+      const isExcludedLaleDeduction = (text: string) => {
+        const t = (text || "").toLowerCase();
+        return t.includes("fridge") || t.includes("scale");
+      };
       const efsDeductions = (await fetchEfsDeductionsForStatement(
         firstOrder.driver1Id || "",
         weekStartDate,
         weekEndDate,
-      )).filter((efs) => !efs.description.toLowerCase().includes("fridge"));
+      )).filter((efs) => !isExcludedLaleDeduction(efs.description));
       efsDeductions.forEach((efs) => {
         if (negativeRow > 33) return;
         worksheet.getCell(`B${negativeRow}`).value = efs.description;
@@ -4389,7 +4393,7 @@ const Trips = () => {
       // Scheduled deductions from Stuff
       if (scheduledDeductions.length > 0) {
         const nonFridgeDeductions = scheduledDeductions.filter(
-          (d) => !(d.explanation || "").toLowerCase().includes("fridge"),
+          (d) => !isExcludedLaleDeduction(d.explanation || ""),
         );
         const creditDeductions = nonFridgeDeductions.filter((d) => d.expenseType === "credit");
         const expenseDeductions = nonFridgeDeductions.filter((d) => d.expenseType !== "credit");
