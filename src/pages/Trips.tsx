@@ -4441,6 +4441,286 @@ const Trips = () => {
     }
   };
 
+  // Jones Freight Lines LLC Template Export
+  const exportJonesFreightTemplate = async (
+    week: any,
+    weekStartDate: Date,
+    weekEndDate: Date,
+    firstOrder: any,
+    driver: any,
+    scheduledDeductions: ScheduledDeduction[] = [],
+  ) => {
+    try {
+      const response = await fetch(new URL("../assets/templates/Jones_Freight.xlsx", import.meta.url).toString());
+      const arrayBuffer = await response.arrayBuffer();
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+      const worksheet = workbook.getWorksheet(1);
+      if (!worksheet) throw new Error("Template worksheet not found");
+
+      const sortedOrders = sortOrdersAscending(week.orders);
+
+      // Statement number from DB
+      const { data: configData, error: configError } = await supabase
+        .from("invoice_number_config")
+        .select("*")
+        .eq("statement_type", "jones_freight")
+        .single();
+
+      let invoiceNumber = 1;
+      if (!configError && configData) {
+        const currentMonday = startOfWeek(weekStartDate, { weekStartsOn: 1 });
+        const lastMonday = new Date(configData.last_monday);
+        invoiceNumber = configData.current_number;
+        if (currentMonday.getTime() !== lastMonday.getTime()) {
+          invoiceNumber = configData.current_number + 1;
+          await supabase
+            .from("invoice_number_config")
+            .update({ current_number: invoiceNumber, last_monday: format(currentMonday, "yyyy-MM-dd") })
+            .eq("statement_type", "jones_freight");
+        }
+      }
+
+      // Thursday 2 weeks in the future from week start
+      const thursdayDate = addDays(weekStartDate, 16);
+
+      // F4: statement number, F5: issue date
+      worksheet.getCell("F4").value = invoiceNumber;
+      worksheet.getCell("F5").value = format(thursdayDate, "MM/dd/yyyy");
+
+      // I4: Unit#, I5: Driver, I6: Company, I7: Agreement start date, I8: Agreement terms
+      worksheet.getCell("I4").value = firstOrder.truckNumber || "";
+      worksheet.getCell("I5").value = driver?.name || firstOrder.driverName || "";
+      worksheet.getCell("I6").value = driver?.company_name || "Jones Freight Lines LLC";
+      if (driver?.agreement_start_date) {
+        const startCell = worksheet.getCell("I7");
+        startCell.value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
+        startCell.alignment = { horizontal: "center", vertical: "middle" };
+      }
+      if (driver?.weekly_payment && driver?.weeks_count) {
+        worksheet.getCell("I8").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
+      }
+
+      // B13: Pay period
+      worksheet.getCell("B13").value =
+        `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
+
+      // Clear trip rows 15-20
+      for (let row = 15; row <= 20; row++) {
+        for (const col of ["A", "B", "C", "D", "E", "F", "G", "H", "I"]) {
+          worksheet.getCell(`${col}${row}`).value = null;
+        }
+      }
+
+      // Fill trips (rows 15-20)
+      let currentRow = 15;
+      sortedOrders.forEach((order: any) => {
+        if (currentRow > 20) return;
+        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
+        worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
+        worksheet.getCell(`C${currentRow}`).value = [order.pickupCity, order.pickupState]
+          .filter(Boolean)
+          .join(", ");
+        worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
+        worksheet.getCell(`F${currentRow}`).value = [order.deliveryCity, order.deliveryState]
+          .filter(Boolean)
+          .join(", ");
+        worksheet.getCell(`H${currentRow}`).value = parseFloat(String(order.mileage)) || 0;
+
+        const driverPay = parseFloat(order.driverPrice) || 0;
+        const cellI = worksheet.getCell(`I${currentRow}`);
+        cellI.value = driverPay;
+        cellI.numFmt = "$#,##0.00";
+
+        const cellJ = worksheet.getCell(`J${currentRow}`);
+        cellJ.value = driverPay * 0.88;
+        cellJ.numFmt = "$#,##0.00";
+
+        currentRow++;
+      });
+
+      for (let row = 15; row <= 20; row++) {
+        worksheet.getCell(`I${row}`).numFmt = "$#,##0.00";
+        worksheet.getCell(`J${row}`).numFmt = "$#,##0.00";
+      }
+
+      // Credits (positive additionals) -> rows 54-56
+      const credits: Array<{ type: string; deliveryDate: string; amount: number }> = [];
+      sortedOrders.forEach((order: any) => {
+        const push = (type: string, amount: number) => {
+          if (amount > 0) credits.push({ type, deliveryDate: formatDateDisplay(order.deliveryDate), amount });
+        };
+        push("Detention", Number(order.detentionDriver) || 0);
+        push("Layover", Number(order.layoverDriver) || 0);
+        push("TONU", Number(order.tonuDriver) || 0);
+        push("Extra Stop", Number(order.extraStopDriver) || 0);
+        push("Lumper", Number(order.lumperDriver) || 0);
+        push(
+          (order as any).otherAdditionalsReason || "Other Additionals",
+          Number((order as any).otherAdditionalsDriver) || 0,
+        );
+      });
+
+      let creditsRow = 54;
+      credits.forEach((credit) => {
+        if (creditsRow > 56) return;
+        worksheet.getCell(`B${creditsRow}`).value = credit.type;
+        worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
+        const amtCell = worksheet.getCell(`J${creditsRow}`);
+        amtCell.value = credit.amount;
+        amtCell.numFmt = "$#,##0.00";
+        creditsRow++;
+      });
+
+      // Negative additionals -> deductions
+      const negativeAdditionals: Array<{
+        internalLoadNumber: string;
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+      sortedOrders.forEach((order: any) => {
+        const push = (type: string, amount: number) => {
+          if (amount > 0 && !type.toLowerCase().includes("fridge"))
+            negativeAdditionals.push({
+              internalLoadNumber: order.internalLoadNumber || "",
+              type,
+              deliveryDate: formatDateDisplay(order.deliveryDate),
+              amount,
+            });
+        };
+        push("Late Fee", Math.abs(Number(order.lateFeeDriver) || 0));
+        push("No Tracking Fee", Math.abs(Number(order.noTrackingFeeDriver) || 0));
+        push("Wrong Address Fee", Math.abs(Number(order.wrongAddressFeeDriver) || 0));
+        push(
+          (order as any).otherChargesReason || "Other Charges",
+          Math.abs(Number(order.otherChargesDriver) || 0),
+        );
+      });
+
+      // Fixed deductions (rows 41-46)
+      const endDateFormatted = format(weekEndDate, "MM/dd/yyyy");
+      const fixedDeductions = [
+        { row: 41, description: "Cargo Insurance", amount: 285.0 },
+        { row: 42, description: "Trailer + Insurance", amount: 285.0 },
+        { row: 43, description: "ELD", amount: 50.0 },
+        { row: 44, description: "Pre-Pass", amount: 20.0 },
+        { row: 45, description: "Truck Payment" as string, amount: undefined as number | undefined },
+        { row: 46, description: "Truck Insurance", amount: 195.0 },
+      ];
+      fixedDeductions.forEach(({ row, description, amount }) => {
+        worksheet.getCell(`B${row}`).value = description;
+        worksheet.getCell(`I${row}`).value = endDateFormatted;
+        if (amount !== undefined) {
+          const cellJ = worksheet.getCell(`J${row}`);
+          cellJ.value = amount;
+          cellJ.numFmt = "$#,##0.00";
+        }
+      });
+
+      // Truck payment info
+      if (driver?.agreement_start_date && driver?.weeks_count) {
+        const startDate = new Date(driver.agreement_start_date);
+        const weeksPassed = Math.floor((Date.now() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        const weeksCell = worksheet.getCell("E45");
+        weeksCell.value = `${weeksPassed}/${driver.weeks_count}`;
+        weeksCell.font = { bold: true, size: 11 };
+      }
+      if (driver?.weekly_payment) {
+        const truckPayCell = worksheet.getCell("J45");
+        truckPayCell.value = driver.weekly_payment;
+        truckPayCell.numFmt = "$#,##0.00";
+      }
+
+      // Extra deductions (rows 47-49)
+      let negativeRow = 47;
+      negativeAdditionals.forEach((neg) => {
+        if (negativeRow > 49) return;
+        worksheet.getCell(`B${negativeRow}`).value = `${neg.internalLoadNumber} ${neg.type}`.trim();
+        worksheet.getCell(`I${negativeRow}`).value = neg.deliveryDate;
+        const amtCell = worksheet.getCell(`J${negativeRow}`);
+        amtCell.value = neg.amount;
+        amtCell.numFmt = "$#,##0.00";
+        negativeRow++;
+      });
+
+      // EFS deductions
+      const efsDeductions = (await fetchEfsDeductionsForStatement(
+        firstOrder.driver1Id || "",
+        weekStartDate,
+        weekEndDate,
+      )).filter((efs) => !efs.description.toLowerCase().includes("fridge"));
+      efsDeductions.forEach((efs) => {
+        if (negativeRow > 49) return;
+        worksheet.getCell(`B${negativeRow}`).value = efs.description;
+        worksheet.getCell(`I${negativeRow}`).value = efs.date;
+        const amtCell = worksheet.getCell(`J${negativeRow}`);
+        amtCell.value = efs.amount;
+        amtCell.numFmt = "$#,##0.00";
+        negativeRow++;
+      });
+
+      // Scheduled deductions from Stuff
+      if (scheduledDeductions.length > 0) {
+        const nonFridgeDeductions = scheduledDeductions.filter(
+          (d) => !(d.explanation || "").toLowerCase().includes("fridge"),
+        );
+        nonFridgeDeductions
+          .filter((d) => d.expenseType === "credit")
+          .forEach((credit) => {
+            if (creditsRow > 56) return;
+            worksheet.getCell(`B${creditsRow}`).value = `Credit: ${credit.explanation}`;
+            worksheet.getCell(`I${creditsRow}`).value = endDateFormatted;
+            const amtCell = worksheet.getCell(`J${creditsRow}`);
+            amtCell.value = credit.deductionAmount;
+            amtCell.numFmt = "$#,##0.00";
+            creditsRow++;
+          });
+        nonFridgeDeductions
+          .filter((d) => d.expenseType !== "credit")
+          .forEach((deduction) => {
+            if (negativeRow > 49) return;
+            worksheet.getCell(`B${negativeRow}`).value = `Scheduled: ${deduction.explanation}`;
+            worksheet.getCell(`I${negativeRow}`).value = endDateFormatted;
+            const amtCell = worksheet.getCell(`J${negativeRow}`);
+            amtCell.value = deduction.deductionAmount;
+            amtCell.numFmt = "$#,##0.00";
+            negativeRow++;
+          });
+      }
+
+      // Fuel transactions (rows 25-36)
+      const fuelTransactions = await fetchFuelTransactionsForStatement(
+        firstOrder.truckNumber || "",
+        firstOrder.truckId || "",
+        week.orders,
+        weekStartDate,
+      );
+      writeFuelTransactionsForUES(worksheet, fuelTransactions, 25, 36);
+
+      const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
+      const driverName = driver?.name || firstOrder?.driverName || "";
+      const driverInfo = driverName && typeof driverName === "string" ? `_${driverName.replace(/\s+/g, "-")}` : "";
+      const filename = `Jones_Freight_${weekRange}${driverInfo}.xlsx`;
+
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 66, 11);
+      const buffer = await cleanWorkbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`Exported ${week.orders.length} trips to Excel`);
+    } catch (error) {
+      console.error("Error exporting Jones Freight template:", error);
+      toast.error("Failed to export statement");
+    }
+  };
+
 
 
   const exportBFPrimeTemplate = async (
