@@ -11,7 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { CandidateEditor, type EditorSelection } from "@/components/upcoming-drivers/CandidateEditor";
 import { ScreeningDetails } from "@/components/upcoming-drivers/ScreeningDetails";
 import { saveCandidate, useUpcomingDrivers } from "@/components/upcoming-drivers/useUpcomingDrivers";
-import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, ROW_COLORS, shortCompanyName, shortStaffName, type CandidateFields, type CandidateSummary, type References, type RowColor } from "@/components/upcoming-drivers/model";
+import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, shortCompanyName, shortStaffName, type CandidateFields, type CandidateSummary, type References, type RowColor } from "@/components/upcoming-drivers/model";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const emptyRefs:References={staff:[],trucks:[],companies:[]};
@@ -164,8 +164,8 @@ export default function UpcomingDrivers() {
         <colgroup>{COLUMNS.map(c=><Fragment key={c.field}>{c.field==="recruiter_id" && <col style={{width:STATUS_COL_WIDTH}}/>}<col style={{width:widths[c.field]}}/></Fragment>)}<col style={{width:65}}/></colgroup>
         <thead className="sticky top-0 z-30 bg-muted"><tr>
           {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="recruiter_id" && <th scope="col" className="h-11 border-b border-r bg-muted px-1 text-center font-semibold">Status</th>}<th scope="col" className={`relative h-11 border-b border-r bg-muted px-2 text-left font-semibold ${i<2?"sticky z-40":""}`} style={i<2?{left:i===0?0:widths.recruiter_id}:undefined}>
-            {FIELD_LABELS[c.field]}
-            <span role="separator" aria-orientation="vertical" aria-label={`Resize ${FIELD_LABELS[c.field]} column`} aria-valuenow={widths[c.field]} tabIndex={0}
+            {colLabel(c)}
+            <span role="separator" aria-orientation="vertical" aria-label={`Resize ${colLabel(c)} column`} aria-valuenow={widths[c.field]} tabIndex={0}
               className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none hover:bg-primary/20"
               onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);drag.current={field:c.field,x:e.clientX,width:widths[c.field]};}}
               onPointerMove={e=>{if(drag.current?.field===c.field)resize(c.field,drag.current.width+e.clientX-drag.current.x);}}
@@ -192,7 +192,7 @@ export default function UpcomingDrivers() {
                   <button type="button" className="min-w-0 flex-1 truncate py-2 text-left hover:text-primary hover:underline" aria-label={`${FIELD_LABELS[c.field]} for ${row.driver_name}`} onClick={()=>open(row.id,c.field)}>
                     {c.field==="status"?<span className={`rounded px-1.5 py-1 ${statusClass(row.status)}`}>{row.status}</span>:display(row,c)}
                   </button>
-                  {c.field==="driver_name" && <><button className="shrink-0 text-[10px] text-muted-foreground hover:underline" title="Change arrival schedule" onClick={()=>open(row.id,"arrival_date")}>{clockLabel(row.arrival_time) || "Date"}</button>{row.tentative && <span className="shrink-0 rounded bg-amber-100 px-1 text-[10px] text-amber-900">50/50</span>}</>}
+                  {c.field==="driver_name" && <>{row.tentative && <span className="shrink-0 rounded bg-amber-100 px-1 text-[10px] text-amber-900">50/50</span>}</>}
                   {c.field==="phone" && <><a href={`tel:${row.phone.replace(/[^+\d]/g,"")}`} aria-label={`Call ${row.driver_name}`}><Phone className="h-3 w-3"/></a><button aria-label={`Copy phone for ${row.driver_name}`} onClick={()=>void navigator.clipboard.writeText(row.phone).then(()=>toast({title:"Phone copied"})).catch(()=>toast({title:"Could not copy phone",variant:"destructive"}))}><Copy className="h-3 w-3"/></button></>}
                 </div>
               </td></Fragment>)}
