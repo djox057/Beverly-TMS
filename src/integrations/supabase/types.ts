@@ -4529,6 +4529,75 @@ export type Database = {
         }
         Relationships: []
       }
+      recruiting_driver_expense_lines: {
+        Row: {
+          airline: string | null
+          amount: number | null
+          card: string | null
+          created_at: string
+          details: string | null
+          driver_name: string
+          expense_date: string | null
+          expense_type: string
+          id: string
+          is_paid: boolean
+          nights: number | null
+          notice: string | null
+          payment_notes: string | null
+          recruiter: string | null
+          recruiter_id: string | null
+          source_id: string | null
+          status: string | null
+          trip_id: string
+          truck_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          airline?: string | null
+          amount?: number | null
+          card?: string | null
+          created_at?: string
+          details?: string | null
+          driver_name?: string
+          expense_date?: string | null
+          expense_type?: string
+          id?: string
+          is_paid?: boolean
+          nights?: number | null
+          notice?: string | null
+          payment_notes?: string | null
+          recruiter?: string | null
+          recruiter_id?: string | null
+          source_id?: string | null
+          status?: string | null
+          trip_id?: string
+          truck_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          airline?: string | null
+          amount?: number | null
+          card?: string | null
+          created_at?: string
+          details?: string | null
+          driver_name?: string
+          expense_date?: string | null
+          expense_type?: string
+          id?: string
+          is_paid?: boolean
+          nights?: number | null
+          notice?: string | null
+          payment_notes?: string | null
+          recruiter?: string | null
+          recruiter_id?: string | null
+          source_id?: string | null
+          status?: string | null
+          trip_id?: string
+          truck_number?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       recruiting_driver_expenses: {
         Row: {
           airline: string | null
