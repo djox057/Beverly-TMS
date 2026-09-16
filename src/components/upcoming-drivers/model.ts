@@ -102,7 +102,7 @@ export const COLUMNS: {field: keyof CandidateFields; letter: string; width: numb
   {field:"phone",letter:"",width:165},{field:"transport_note",letter:"",width:170,preview:"transport_preview"},
   {field:"description",letter:"",width:210,preview:"description_preview"},
   {field:"company_id",letter:"",width:170},{field:"truck_id",letter:"",width:150},
-  {field:"status",letter:"",width:110},
+  
   {field:"mvr",letter:"",width:130,preview:"mvr_preview"},{field:"psp",letter:"",width:130,preview:"psp_preview"},
   {field:"clearinghouse_status",letter:"",width:85},
 ];
