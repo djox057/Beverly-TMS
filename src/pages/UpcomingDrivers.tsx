@@ -15,7 +15,7 @@ import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIE
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const emptyRefs:References={staff:[],trucks:[],companies:[]};
-const STATUS_COL_WIDTH=44;
+const STATUS_COL_WIDTH=32;
 const statusClass=(s:string)=>s==="Arrived"?"bg-emerald-100 text-emerald-900":s==="Canceled"?"bg-red-100 text-red-900":s==="Scheduled"?"bg-blue-100 text-blue-900":s==="Contacted"?"bg-amber-100 text-amber-900":"bg-muted text-foreground";
 const colLabel=(c:typeof COLUMNS[number])=>c.label ?? FIELD_LABELS[c.field];
 const COLOR_CHOICES:{value:RowColor;label:string;swatch:string}[]=[
@@ -115,14 +115,14 @@ export default function UpcomingDrivers() {
       <PopoverTrigger asChild>
         <button type="button" disabled={!canEdit || marking===row.id}
           aria-label={`Choose a color for ${row.driver_name}`} title="Choose a color"
-          className="mx-auto block h-6 w-10 rounded border border-border"
+          className="mx-auto block h-4 w-4 rounded-sm border border-border"
           style={{backgroundColor:row.row_color?`hsl(var(--row-mark-${row.row_color}))`:"transparent"}}/>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-40 p-2">
         <div className="flex flex-col gap-1">
           {COLOR_CHOICES.map(choice=><button key={choice.label} type="button" onClick={()=>void setColor(row,choice.value)}
             className="flex items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-muted">
-            <span className="h-4 w-6 rounded border border-border" style={{backgroundColor:choice.swatch}}/>{choice.label}
+            <span className="h-4 w-4 rounded-sm border border-border" style={{backgroundColor:choice.swatch}}/>{choice.label}
           </button>)}
         </div>
       </PopoverContent>
