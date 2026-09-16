@@ -326,13 +326,6 @@ Deno.serve(async (req) => {
         .filter((uid) => userOfficeMap.has(uid));
       if (userIdsForDay.length === 0) continue;
 
-      const usersByOffice = new Map<string, string[]>();
-      for (const uid of userIdsForDay) {
-        const office = groupKey(userOfficeMap.get(uid));
-        if (!usersByOffice.has(office)) usersByOffice.set(office, []);
-        usersByOffice.get(office)!.push(uid);
-      }
-
       const push = (allocation: Map<string, string[]>) => {
         for (const [uid, driverIds] of allocation) {
           for (const dId of driverIds) {
@@ -341,24 +334,9 @@ Deno.serve(async (req) => {
         }
       };
 
-      const leftoverUsers: string[] = [];
-      const coveredOffices = new Set<string>();
-      for (const [office, officeUsers] of usersByOffice) {
-        const officeDrivers = driversByOffice.get(office) || [];
-        if (officeDrivers.length === 0) {
-          leftoverUsers.push(...officeUsers);
-          continue;
-        }
-        coveredOffices.add(office);
-        push(allocate(officeUsers, officeDrivers));
-      }
-
-      const leftoverDrivers = enrichedDrivers.filter((d) => !coveredOffices.has(d.office));
-      if (leftoverUsers.length > 0) {
-        push(allocate(leftoverUsers, leftoverDrivers.length > 0 ? leftoverDrivers : enrichedDrivers));
-      } else if (leftoverDrivers.length > 0) {
-        push(allocate(userIdsForDay, leftoverDrivers));
-      }
+      // Single global allocation (no office bucketing) so the whole fleet is
+      // split evenly across everyone on duty.
+      push(allocate(userIdsForDay, enrichedDrivers));
     }
 
     // --- Bulk insert ---
