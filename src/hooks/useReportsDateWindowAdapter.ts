@@ -450,7 +450,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   // Determine if we're viewing a non-user office in Individual Mode
   // In this case, we should show a message instead of loading data
   // EXCEPT: When there's an active search, we should load data for the search result
-  const isViewingOtherOfficeInIndividualMode = individualMode && 
+  // EXCEPT: Override scopes (afterhours weekend/shift assignments) are explicit
+  // driver-id lists that can span offices — never office-restrict those.
+  const isViewingOtherOfficeInIndividualMode = individualMode &&
+    !individualOverrideDriverIds &&
     isViewingOtherOffice &&
     !hasActiveSearch; // Allow loading when search is active
   
