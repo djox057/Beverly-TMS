@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface AfterhoursDriverInfo {
@@ -6,10 +6,18 @@ interface AfterhoursDriverInfo {
   userId: string;
 }
 
+const fmt = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 /**
  * Builds a map of driver_id -> afterhours user info for display in Reports.
- * Only active when today is a scheduled afterhours day (weekends/holidays from afterhours_schedule),
- * between 6:00 AM and 5:00 PM Chicago time.
+ *
+ * Two sources, treated identically:
+ *  - Weekend/holiday schedule (afterhours_schedule + afterhours_assignments),
+ *    active 6:00 AM - 5:00 PM Chicago time on a scheduled day.
+ *  - Afterhours shift schedule (afterhours_shift_assignments):
+ *      night shift   22:00 -> 06:00 (belongs to the date the shift started)
+ *      morning shift 06:00 -> 14:00
  */
 export const useAfterhoursDriverMap = () => {
   const [driverAfterhoursMap, setDriverAfterhoursMap] = useState<Map<string, AfterhoursDriverInfo>>(new Map());
@@ -19,52 +27,79 @@ export const useAfterhoursDriverMap = () => {
   useEffect(() => {
     const chicagoNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
     const hour = chicagoNow.getHours();
+    const todayStr = fmt(chicagoNow);
 
-    // Must be between 6 AM and 5 PM Chicago time
-    if (hour < 6 || hour >= 17) {
+    // Which afterhours shift (if any) is live right now?
+    let activeShift: { shift: 'night' | 'morning'; date: string } | null = null;
+    if (hour >= 22) {
+      activeShift = { shift: 'night', date: todayStr };
+    } else if (hour < 6) {
+      const y = new Date(chicagoNow);
+      y.setDate(chicagoNow.getDate() - 1);
+      activeShift = { shift: 'night', date: fmt(y) };
+    } else if (hour < 14) {
+      activeShift = { shift: 'morning', date: todayStr };
+    }
+
+    const weekendWindowOpen = hour >= 6 && hour < 17;
+
+    if (!activeShift && !weekendWindowOpen) {
       setLoading(false);
       return;
     }
 
-    // Check if today is a scheduled afterhours day
-    const todayStr = `${chicagoNow.getFullYear()}-${String(chicagoNow.getMonth() + 1).padStart(2, '0')}-${String(chicagoNow.getDate()).padStart(2, '0')}`;
+    let cancelled = false;
 
     const fetchData = async () => {
       try {
-        // Check if today exists in afterhours_schedule
-        const { data: scheduleData, error: scheduleErr } = await supabase
-          .from('afterhours_schedule')
-          .select('id')
-          .eq('scheduled_date', todayStr)
-          .limit(1);
+        const rows: { afterhours_user_id: string; driver_id: string }[] = [];
 
-        if (scheduleErr) throw scheduleErr;
+        // Weekend / holiday schedule
+        if (weekendWindowOpen) {
+          const { data: scheduleData, error: scheduleErr } = await supabase
+            .from('afterhours_schedule')
+            .select('id')
+            .eq('scheduled_date', todayStr)
+            .limit(1);
+          if (scheduleErr) throw scheduleErr;
 
-        if (!scheduleData || scheduleData.length === 0) {
-          // Today is not a scheduled afterhours day
+          if (scheduleData && scheduleData.length > 0) {
+            const { data: assignData, error: assignErr } = await supabase
+              .from('afterhours_assignments')
+              .select('afterhours_user_id, driver_id')
+              .eq('scheduled_date', todayStr);
+            if (assignErr) throw assignErr;
+            rows.push(...((assignData || []) as any[]));
+          }
+        }
+
+        // Afterhours shift schedule
+        if (activeShift) {
+          const { data: shiftData, error: shiftErr } = await supabase
+            .from('afterhours_shift_assignments')
+            .select('afterhours_user_id, driver_id')
+            .eq('scheduled_date', activeShift.date)
+            .eq('shift', activeShift.shift);
+          if (shiftErr) throw shiftErr;
+          rows.push(...((shiftData || []) as any[]));
+        }
+
+        if (cancelled) return;
+
+        if (rows.length === 0) {
           setLoading(false);
           return;
         }
 
         setIsWeekendWindow(true);
 
-        // Fetch assignments for today only
-        const { data: assignData, error: assignErr } = await supabase
-          .from('afterhours_assignments')
-          .select('afterhours_user_id, driver_id')
-          .eq('scheduled_date', todayStr);
-
-        if (assignErr) throw assignErr;
-        if (!assignData || assignData.length === 0) {
-          setLoading(false);
-          return;
-        }
-
-        const userIds = [...new Set(assignData.map(a => a.afterhours_user_id))];
+        const userIds = [...new Set(rows.map(r => r.afterhours_user_id))];
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, full_name, email')
           .in('user_id', userIds);
+
+        if (cancelled) return;
 
         const profileMap = new Map<string, string>();
         (profiles || []).forEach(p => {
@@ -72,21 +107,22 @@ export const useAfterhoursDriverMap = () => {
         });
 
         const map = new Map<string, AfterhoursDriverInfo>();
-        assignData.forEach(a => {
-          const userName = profileMap.get(a.afterhours_user_id);
-          if (userName) {
-            map.set(a.driver_id, { userName, userId: a.afterhours_user_id });
+        rows.forEach(r => {
+          const userName = profileMap.get(r.afterhours_user_id);
+          if (userName && r.driver_id) {
+            map.set(r.driver_id, { userName, userId: r.afterhours_user_id });
           }
         });
         setDriverAfterhoursMap(map);
       } catch (err) {
         console.error('Error fetching afterhours driver map:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchData();
+    return () => { cancelled = true; };
   }, []);
 
   return { driverAfterhoursMap, isWeekendWindow, loading };
