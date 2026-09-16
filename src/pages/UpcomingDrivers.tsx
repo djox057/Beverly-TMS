@@ -51,14 +51,15 @@ export default function UpcomingDrivers() {
   });
   const names=useMemo(()=>new Map(refs.staff.map(s=>[s.user_id,s.full_name])),[refs.staff]);
   const trucks=useMemo(()=>new Map(refs.trucks.map(t=>[t.id,t.truck_number])),[refs.trucks]);
+  const companies=useMemo(()=>new Map(refs.companies.map(c=>[c.id,c.name])),[refs.companies]);
   const filtered=useMemo(()=>{
     const q=search.trim().toLowerCase();
     return rows.filter(r=>{
       if(Object.entries(filters).some(([field,value])=>value && r[field as keyof typeof filters]!==value))return false;
-      return !q || [r.driver_name,r.phone,...[r.recruiter_id,r.safety_id,r.dispatcher_id].map(id=>names.get(id ?? "")),trucks.get(r.truck_id ?? ""),r.status]
+      return !q || [r.driver_name,r.phone,...[r.recruiter_id,r.safety_id,r.dispatcher_id].map(id=>names.get(id ?? "")),trucks.get(r.truck_id ?? ""),companies.get(r.company_id ?? ""),r.status]
         .some(value=>value?.toLowerCase().includes(q)) || (/^[+\d\s().-]+$/.test(q) && !!q.replace(/\D/g,"") && r.phone.replace(/\D/g,"").includes(q.replace(/\D/g,"")));
     }).sort((a,b)=>(a.arrival_time || "99").localeCompare(b.arrival_time || "99") || a.driver_name.localeCompare(b.driver_name) || a.id.localeCompare(b.id));
-  },[rows,filters,search,names,trucks]);
+  },[rows,filters,search,names,trucks,companies]);
   const days=[...Array.from({length:7},(_,i)=>addDays(week,i)),"unscheduled"];
   const scheduled=rows.filter(r=>!!r.arrival_date);
   const open=(id:string,field?:keyof CandidateFields)=>setEditor({id,field});
@@ -68,6 +69,7 @@ export default function UpcomingDrivers() {
     if(["recruiter_id","safety_id","dispatcher_id"].includes(c.field)) {
       const id=r[c.field as "recruiter_id"];return id?(names.get(id) || "Assigned user"):"—";
     }
+    if(c.field==="company_id") return companies.get(r.company_id ?? "") || "—";
     if(c.field==="truck_id") return [trucks.get(r.truck_id ?? ""),r.truck_terms].filter(Boolean).join(" · ") || "—";
     return String(r[(c.preview ?? c.field) as keyof CandidateSummary] ?? "") || "—";
   };
@@ -177,7 +179,7 @@ export default function UpcomingDrivers() {
               </div></td>
             </tr>,
             expanded.has(row.id) && <tr key={`${row.id}-details`} className="bg-muted/30"><td colSpan={20} className="border-b p-0">
-              <ScreeningDetails id={row.id} onEdit={field=>open(row.id,field)}/>
+              <ScreeningDetails id={row.id} staff={refs.staff} onEdit={field=>open(row.id,field)}/>
             </td></tr>,
             ])}
             {!closed && !members.length && <tr><td colSpan={20} className="border-b"><p className="sticky left-0 w-fit px-8 py-3 text-muted-foreground">{day==="unscheduled"?"No unscheduled drivers in this view.":"No drivers in this view."}</p></td></tr>}

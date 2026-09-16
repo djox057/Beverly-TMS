@@ -12,15 +12,16 @@ import { candidateKey, fetchCandidate, saveCandidate, useCandidateHistory } from
 import { changedFields, clockLabel, EMPTY_CANDIDATE, FIELD_LABELS, rowColorForStatus, SCREENING_FIELDS, STATUSES, validateCandidate, type Candidate, type CandidateFields, type CandidateStatus, type References } from "./model";
 
 const longFields=["transport_note","description","mvr","psp","ticket_note","preference","truck_terms"];
-const nullableFields=["recruiter_id","safety_id","dispatcher_id","truck_id","arrival_date","arrival_time"];
+const nullableFields=["recruiter_id","safety_id","dispatcher_id","company_id","truck_id","arrival_date","arrival_time"];
 export interface EditorSelection {id:string | null; createId?:string; date?:string | null; field?:keyof CandidateFields}
 
 function FieldInput({field,draft,onChange,refs,disabled}:{field:keyof CandidateFields;draft:CandidateFields;onChange:(value:unknown)=>void;refs:References;disabled:boolean}) {
   const id=`upcoming-${field}`;
   const value=String(draft[field] ?? "");
   const staffRole=({recruiter_id:"recruiting",safety_id:"safety",dispatcher_id:"dispatch"} as Record<string,string>)[field];
-  if(staffRole || field==="truck_id") {
+  if(staffRole || field==="truck_id" || field==="company_id") {
     const options=staffRole ? refs.staff.filter(s=>s.role===staffRole).map(s=>({value:s.user_id,label:s.full_name || "Unnamed user"}))
+      : field==="company_id" ? refs.companies.map(c=>({value:c.id,label:c.name}))
       : refs.trucks.map(t=>({value:t.id,label:t.truck_number}));
     if(value && !options.some(o=>o.value===value)) options.unshift({value,label:"Previously assigned"});
     options.sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true}));
@@ -75,13 +76,14 @@ export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose
   const historyValue=(field:string,value:unknown):string=>{
     if(value===null || value===undefined || value==="")return "—";
     if(["recruiter_id","safety_id","dispatcher_id"].includes(field))return refs.staff.find(s=>s.user_id===value)?.full_name || "Previously assigned user";
+    if(field==="company_id")return refs.companies.find(c=>c.id===value)?.name || "Previously selected company";
     if(field==="truck_id")return refs.trucks.find(t=>t.id===value)?.truck_number || "Previously selected truck";
     if(field==="arrival_time")return clockLabel(String(value));
     if(typeof value==="boolean")return value?"Yes":"No";
     return String(value);
   };
   const fields: (keyof CandidateFields)[]=allFields
-    ? ["driver_name","phone",...SCREENING_FIELDS,"arrival_date","arrival_time","tentative","status","recruiter_id","safety_id","dispatcher_id","sales","timing_note","application_status","transport_note","description","mvr","psp","preference","truck_id","truck_terms","drug_test_company","clearinghouse_status","ticket_note"]
+    ? ["driver_name","phone",...SCREENING_FIELDS,"arrival_date","arrival_time","tentative","status","recruiter_id","safety_id","dispatcher_id","company_id","sales","timing_note","application_status","transport_note","description","mvr","psp","preference","truck_id","truck_terms","drug_test_company","clearinghouse_status","ticket_note"]
     : focused==="truck_id"?["truck_id","truck_terms"]:focused==="arrival_date"?["arrival_date","arrival_time","tentative"]:[focused];
   return <>
     <Sheet open onOpenChange={open=>{if(!open)close();}}>

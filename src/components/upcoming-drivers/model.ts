@@ -2,7 +2,7 @@ export const STATUSES = ["New", "Contacted", "Scheduled", "Arrived", "Canceled"]
 export type CandidateStatus = typeof STATUSES[number];
 export interface CandidateFields {
   recruiter_id: string | null; driver_name: string; phone: string;
-  safety_id: string | null; dispatcher_id: string | null;
+  safety_id: string | null; dispatcher_id: string | null; company_id: string | null;
   sales: string; timing_note: string; application_status: string;
   transport_note: string; description: string; mvr: string; psp: string;
   preference: string; truck_id: string | null; truck_terms: string;
@@ -30,7 +30,7 @@ export type CandidateSummary = Omit<Candidate, "transport_note" | "description" 
 export interface Staff { user_id: string; full_name: string; role: string }
 export interface References { staff: Staff[]; trucks: {id: string; truck_number: string}[]; companies: {id: string; name: string}[] }
 export const EMPTY_CANDIDATE: CandidateFields = {
-  recruiter_id: null, driver_name: "", phone: "", safety_id: null, dispatcher_id: null,
+  recruiter_id: null, driver_name: "", phone: "", safety_id: null, dispatcher_id: null, company_id: null,
   sales: "", timing_note: "", application_status: "", transport_note: "", description: "",
   mvr: "", psp: "", preference: "", truck_id: null, truck_terms: "", drug_test_company: "",
   clearinghouse_status: "", status: "New", ticket_note: "",
@@ -40,9 +40,10 @@ export const EMPTY_CANDIDATE: CandidateFields = {
   q_truck_age_preference: "", q_max_weekly_miles: "", q_miles_comfort: "", q_home_time: "", q_home_day: "", arrival_date: null, arrival_time: null, tentative: false,
   row_color: null,
 };
-export const SUMMARY_FIELDS = "id,recruiter_id,driver_name,phone,safety_id,dispatcher_id,sales,timing_note,application_status,transport_preview,description_preview,mvr_preview,psp_preview,preference,truck_id,truck_terms,drug_test_company,clearinghouse_status,status,ticket_preview,arrival_date,arrival_time,tentative,row_color,archived,version,created_at,updated_at,created_by,updated_by";
+export const SUMMARY_FIELDS = "id,recruiter_id,driver_name,phone,safety_id,dispatcher_id,company_id,sales,timing_note,application_status,transport_preview,description_preview,mvr_preview,psp_preview,preference,truck_id,truck_terms,drug_test_company,clearinghouse_status,status,ticket_preview,arrival_date,arrival_time,tentative,row_color,archived,version,created_at,updated_at,created_by,updated_by";
 export const FIELD_LABELS: Record<keyof CandidateFields, string> = {
   recruiter_id: "Recruiter", driver_name: "Driver", phone: "Phone", safety_id: "Safety", dispatcher_id: "Dispatcher",
+  company_id: "Company they will work for",
   sales: "Sales", timing_note: "Time", application_status: "APP", transport_note: "Uber / Transport notes",
   description: "Description / Comments", mvr: "Driver’s MVR", psp: "Driver’s PSP", preference: "Preference",
   truck_id: "Truck", truck_terms: "Truck price / terms", drug_test_company: "Drug test company",
@@ -95,17 +96,15 @@ export function rowColorForStatus(status: CandidateStatus): RowColor {
   if (status === "Contacted") return "yellow";
   return null;
 }
+// Board columns: everything else lives in the expanded row details.
 export const COLUMNS: {field: keyof CandidateFields; letter: string; width: number; preview?: keyof CandidateSummary}[] = [
-  {field:"recruiter_id",letter:"A",width:130},{field:"driver_name",letter:"B",width:190},
-  {field:"phone",letter:"C",width:175},{field:"safety_id",letter:"D",width:125},
-  {field:"dispatcher_id",letter:"E",width:125},{field:"sales",letter:"F",width:100},
-  {field:"timing_note",letter:"G",width:130},{field:"application_status",letter:"H",width:80},
-  {field:"transport_note",letter:"I",width:155,preview:"transport_preview"},
-  {field:"description",letter:"J",width:200,preview:"description_preview"},
-  {field:"mvr",letter:"K",width:135,preview:"mvr_preview"},{field:"psp",letter:"L",width:135,preview:"psp_preview"},
-  {field:"preference",letter:"M",width:135},{field:"truck_id",letter:"N",width:150},
-  {field:"drug_test_company",letter:"O",width:150},{field:"clearinghouse_status",letter:"P",width:85},
-  {field:"status",letter:"Q",width:110},{field:"ticket_note",letter:"R",width:180,preview:"ticket_preview"},
+  {field:"recruiter_id",letter:"",width:130},{field:"driver_name",letter:"",width:190},
+  {field:"phone",letter:"",width:165},{field:"transport_note",letter:"",width:170,preview:"transport_preview"},
+  {field:"description",letter:"",width:210,preview:"description_preview"},
+  {field:"company_id",letter:"",width:170},{field:"truck_id",letter:"",width:150},
+  {field:"status",letter:"",width:110},
+  {field:"mvr",letter:"",width:130,preview:"mvr_preview"},{field:"psp",letter:"",width:130,preview:"psp_preview"},
+  {field:"clearinghouse_status",letter:"",width:85},
 ];
 
 // Only the live clock uses Chicago. Entered dates are calendar keys, never instants.

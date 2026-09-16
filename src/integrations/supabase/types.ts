@@ -6312,6 +6312,7 @@ export type Database = {
           arrival_date: string | null
           arrival_time: string | null
           clearinghouse_status: string
+          company_id: string | null
           created_at: string
           created_by: string | null
           description: string
@@ -6367,6 +6368,7 @@ export type Database = {
           arrival_date?: string | null
           arrival_time?: string | null
           clearinghouse_status?: string
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string
@@ -6422,6 +6424,7 @@ export type Database = {
           arrival_date?: string | null
           arrival_time?: string | null
           clearinghouse_status?: string
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string
@@ -6472,6 +6475,13 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "upcoming_drivers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "upcoming_drivers_truck_id_fkey"
             columns: ["truck_id"]
