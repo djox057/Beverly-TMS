@@ -1,0 +1,1 @@
+ALTER TABLE public.upcoming_drivers ADD COLUMN company_id uuid NULL REFERENCES public.companies(id) ON DELETE SET NULL;
