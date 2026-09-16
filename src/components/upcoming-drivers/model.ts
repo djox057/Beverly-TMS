@@ -24,7 +24,9 @@ export interface Candidate extends CandidateFields {
   created_at: string; updated_at: string; created_by: string | null; updated_by: string | null;
   transport_preview: string; description_preview: string; mvr_preview: string; psp_preview: string; ticket_preview: string;
 }
-export type CandidateSummary = Omit<Candidate, "transport_note" | "description" | "mvr" | "psp" | "ticket_note">;
+/** Screening answers are loaded on demand, so the board summary omits them. */
+export type ScreeningField = Extract<keyof CandidateFields, `q_${string}`>;
+export type CandidateSummary = Omit<Candidate, "transport_note" | "description" | "mvr" | "psp" | "ticket_note" | ScreeningField>;
 export interface Staff { user_id: string; full_name: string; role: string }
 export interface References { staff: Staff[]; trucks: {id: string; truck_number: string}[]; companies: {id: string; name: string}[] }
 export const EMPTY_CANDIDATE: CandidateFields = {
