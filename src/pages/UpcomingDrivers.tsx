@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Copy, Loader2, Phone, Plus, RefreshCw, Search, UserPlus } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronsDownUp, Copy, Loader2, Phone, Plus, RefreshCw, Search, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
 import { CandidateEditor, type EditorSelection } from "@/components/upcoming-drivers/CandidateEditor";
+import { ScreeningDetails } from "@/components/upcoming-drivers/ScreeningDetails";
 import { saveCandidate, useUpcomingDrivers } from "@/components/upcoming-drivers/useUpcomingDrivers";
 import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, nextRowColor, type CandidateFields, type CandidateSummary, type References } from "@/components/upcoming-drivers/model";
 
@@ -24,6 +25,8 @@ export default function UpcomingDrivers() {
   const [filters,setFilters]=useState({recruiter_id:"",safety_id:"",dispatcher_id:""});
   const [collapsed,setCollapsed]=useState<Set<string>>(new Set());
   const [editor,setEditor]=useState<EditorSelection | null>(null);
+  const [expanded,setExpanded]=useState<Set<string>>(new Set());
+  const toggleExpanded=(id:string)=>setExpanded(old=>{const next=new Set(old);if(next.has(id))next.delete(id);else next.add(id);return next;});
   const navigate=useNavigate();
   const storageKey=`upcoming-drivers-widths:${user?.id}`;
   const defaults=Object.fromEntries(COLUMNS.map(c=>[c.field,c.width]));
@@ -167,7 +170,7 @@ export default function UpcomingDrivers() {
                 {canEdit && <Button variant="ghost" size="sm" aria-label={`Add driver for ${day}`} onClick={()=>add(day==="unscheduled"?null:day)}><Plus className="h-3 w-3"/></Button>}
               </div>
             </td></tr>
-            {!closed && members.map((row,index)=><tr key={row.id} className={row.row_color?"":index%2?"bg-muted/20":"bg-background"} style={{backgroundColor:rowBg(row),color:rowFg(row)}}>
+            {!closed && members.map((row,index)=>[<tr key={row.id} className={row.row_color?"":index%2?"bg-muted/20":"bg-background"} style={{backgroundColor:rowBg(row),color:rowFg(row)}}>
               {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="recruiter_id" && colorCell(row)}<td className={`h-10 border-b border-r px-2 ${i<2?"sticky z-10":""} ${i<2 && !row.row_color?"bg-background":""}`} style={{...(i<2?{left:i===0?0:widths.recruiter_id}:{}),backgroundColor:rowBg(row)}}>
                 <div className="flex min-w-0 items-center gap-1">
                   <button type="button" className="min-w-0 flex-1 truncate py-2 text-left hover:text-primary hover:underline" aria-label={`${FIELD_LABELS[c.field]} for ${row.driver_name}`} onClick={()=>open(row.id,c.field)}>
@@ -177,8 +180,15 @@ export default function UpcomingDrivers() {
                   {c.field==="phone" && <><a href={`tel:${row.phone.replace(/[^+\d]/g,"")}`} aria-label={`Call ${row.driver_name}`}><Phone className="h-3 w-3"/></a><button aria-label={`Copy phone for ${row.driver_name}`} onClick={()=>void navigator.clipboard.writeText(row.phone).then(()=>toast({title:"Phone copied"})).catch(()=>toast({title:"Could not copy phone",variant:"destructive"}))}><Copy className="h-3 w-3"/></button></>}
                 </div>
               </td></Fragment>)}
-              <td className="border-b px-2" style={{backgroundColor:rowBg(row)}}><Button size="icon" variant="ghost" title="Add as driver" aria-label={`Add ${row.driver_name} as a driver`} onClick={()=>createDriver(row)}><UserPlus className="h-4 w-4"/></Button></td>
-            </tr>)}
+              <td className="border-b px-2" style={{backgroundColor:rowBg(row)}}><div className="flex items-center gap-1">
+                <Button size="icon" variant="ghost" title={expanded.has(row.id)?"Hide screening answers":"Show screening answers"} aria-expanded={expanded.has(row.id)} aria-label={`Screening answers for ${row.driver_name}`} onClick={()=>toggleExpanded(row.id)}>{expanded.has(row.id)?<ChevronsDownUp className="h-4 w-4"/>:<ChevronDown className="h-4 w-4"/>}</Button>
+                <Button size="icon" variant="ghost" title="Add as driver" aria-label={`Add ${row.driver_name} as a driver`} onClick={()=>createDriver(row)}><UserPlus className="h-4 w-4"/></Button>
+              </div></td>
+            </tr>,
+            expanded.has(row.id) && <tr key={`${row.id}-details`} className="bg-muted/30"><td colSpan={20} className="border-b p-0">
+              <ScreeningDetails id={row.id} onEdit={field=>open(row.id,field)}/>
+            </td></tr>,
+            ]}
             {!closed && !members.length && <tr><td colSpan={20} className="border-b"><p className="sticky left-0 w-fit px-8 py-3 text-muted-foreground">{day==="unscheduled"?"No unscheduled drivers in this view.":"No drivers in this view."}</p></td></tr>}
           </tbody>;
         })}
