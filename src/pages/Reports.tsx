@@ -699,9 +699,10 @@ const Reports = () => {
   // Reports.tsx must call exactly ONE reports hook consistently.
   // Use activeTab to fetch data for the currently selected office tab
   const activeHook = useReportsDateWindowAdapter({
-    // When the virtual "BG" tab is active, do not constrain by a single office
-    // value; the individual-mode driver-id scope already narrows correctly.
-    priorityOffice: activeTab === "BG" && useCombinedBgTab ? null : activeTab,
+    // When a virtual tab ("BG", "MY DRIVERS") is active, do not constrain by a single
+    // office value; the individual-mode driver-id scope already narrows correctly.
+    priorityOffice:
+      activeTab === COVERAGE_TAB || (activeTab === "BG" && useCombinedBgTab) ? null : activeTab,
     dispatcherId: profile?.user_id || null,
     dispatcherProfileId: profile?.id || null,
     selectedDate: selectedDateForWindow,
