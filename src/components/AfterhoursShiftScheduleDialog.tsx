@@ -416,7 +416,8 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
                             </div>
                           );
                         })}
-                      </div>
+                       </div>
+                      </>
                     )}
 
                     <Button
