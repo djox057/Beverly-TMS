@@ -1,44 +1,46 @@
-# Recovery Loads: how it should work vs. what actually happens
+# Driver Expenses: one row per expense
 
-## The intended workflow
+Today each driver trip is a single wide row holding the ticket, bag, motel, Uber and total together. The page becomes a simple list where every expense is its own row, with far fewer columns.
 
-1. A dispatcher has a load a driver can no longer cover. From the load popup in Reports they either:
-   - tick **Recovery** on the load, or
-   - open **Cancel** and choose **send to Recovery instead**, entering TONU, driver rate, DH miles, notes and a countdown (default 2 hours).
-2. The load appears on the **Recovery Loads** page and in the sidebar badge.
-3. Nearby help is alerted: dispatchers whose truck delivers that same day within 150 miles of the pickup get an email from the booking company's dispatch address.
-4. Someone takes the load: **Assign** picks truck, driver, trailer, driver rate and DH miles. Booked By becomes the new driver's dispatcher. The load leaves the recovery list and becomes a normal load.
-5. If nobody takes it before the countdown ends, a job every 30 minutes cancels it using the entered TONU / rate / DH miles / notes, backing up the original values first.
-6. The badge and the list stop showing it, whichever way it ended.
+## What the data shows
 
-## What is actually happening (checked against live data)
+2,434 existing rows, one per driver trip:
+- 1,455 have a ticket amount
+- 1,851 have an Uber amount
+- 1,877 have motel nights, but the motel cost is empty on every single row
+- 88 have a bag amount
+- Total Exp is the sum of ticket + bag + motel + Uber
 
-Working correctly:
-- Both entry paths write the recovery flag, and the page and sidebar badge both count only open, non-canceled recovery loads (14 today, matching).
-- The 30-minute auto-cancel job is scheduled and active, backs up original values, and skips loads that were assigned or canceled in the meantime.
-- Assigning clears the countdown, re-points Booked By to the new driver's dispatcher, and auto-fills DH miles from the driver's last delivery.
+## New layout
 
-Gaps found:
-1. **No alert emails on the cancel-instead path.** Ticking the Recovery box sends the nearby-dispatcher emails; sending it to recovery from the Cancel dialog does not send anything. That is the path with a deadline attached, so the loads most at risk of auto-cancelling are the ones nobody is told about.
-2. **Almost no recovery load has a countdown.** 13 of the 14 open recovery loads have no deadline at all (they came from the checkbox path), so the auto-cancel job can never act on them and they sit on the list indefinitely with "—" under Cancels At.
-3. **Cancelled loads keep the recovery flag.** 10 canceled orders are still flagged as recovery loads. They are hidden from the list and badge, but they still show up in the Statistics tab and any future query on the flag.
-4. **Nobody is told when a load gets picked up.** Assigning notifies neither the dispatcher who sent it to recovery nor the assigning side; the original dispatcher has to keep re-checking the page.
-5. **"Only the booking dispatcher can assign" is cosmetic.** The Assign button is disabled in the interface for other dispatchers, but the database allows any dispatch user to update any unlocked load, so the rule is not actually enforced.
-6. **Assign dialog is unscoped.** It lists every active truck, driver and trailer in the fleet with no office or company narrowing, which makes picking the right unit harder on a large list.
+One row per expense, driver name repeated on each line:
 
-## Proposed fixes (in order)
+```text
+Recruiter | Driver         | Truck | Type   | Amount  | Date       | Details                 | Card | Airline | Paid   | Notes
+Tyler     | Edward Jones   | 5936  | Ticket | 342.40  | 09/11/2026 |                         | 1234 | Delta   | Unpaid |
+Tyler     | Edward Jones   | 5936  | Motel  |         | 09/13/2026 | 1 night                 |      |         | Unpaid |
+Tyler     | Edward Jones   | 5936  | Uber   |  79.81  | 09/13/2026 | ORD-office              |      |         | Paid   |
+```
 
-1. Send the nearby-dispatcher alert from the cancel-instead path too, reusing the same alert call and the same result toast.
-2. When a load is marked recovery via the checkbox, give it a countdown as well (default 2 hours, editable on the page as today) so the auto-cancel job can finish the loop; keep the existing "Clear" control for loads that should stay open.
-3. Clear the recovery flag whenever a load is canceled or reverted, and clean up the 10 existing rows.
-4. On assign, notify the dispatcher who sent the load to recovery (email, same sender rules as the alert) that it was taken, by whom and on which truck.
-5. Enforce the assign rule in the database, not just the button: only the booking dispatcher, managers and admins may flip a recovery load to assigned.
-6. Scope the Assign dialog lists to the assigning user's office, with a toggle to see the whole fleet.
+Expense types: Ticket, Bag, Motel, Uber, Other.
+
+- Paid/Unpaid is tracked per expense line, so the ticket can be paid while the Uber is still open.
+- Motel lines keep the number of nights and gain an amount field you can fill in (blank on all imported rows).
+- Card and Airline stay on the lines they apply to (normally the ticket line).
+- Details holds the Uber destinations, motel nights text, or a free note.
+
+## Behaviour
+
+- Same filters as now: search, Recruiter, Airline, Status, Card, Paid/Unpaid, date range — plus a new Type filter.
+- Double-click a cell to edit inline, exactly as today.
+- "Add expense" creates a single line. A driver's rows group together visually (same driver + trip stay adjacent), and the totals bar shows the sum of the visible lines.
+- Instead of a per-row Total Exp column, each driver's trip total appears as a small subtotal on the driver's first line, so nothing is lost.
+- Same access rules: admin, manager, recruiting, chicago_management can view; admin, manager, recruiting can edit.
 
 ## Technical notes
 
-- Entry points: `src/pages/Reports.tsx` `applyRecoveryToggle` (checkbox, invokes `send-recovery-load-alert`) and `handleSendToRecovery` (sets `recovery_auto_cancel_at`, `recovery_cancel_payload`, `recovery_requested_by/at`, no alert).
-- Page and assign: `src/pages/RecoveryLoads.tsx`, `src/components/recovery/AssignRecoveryLoadDialog.tsx` (sets `retrieval=false`, `recovery_assigned=true`, clears deadline/payload).
-- Badge: `get_recovery_loads_badge` RPC (`retrieval = true AND canceled = false`) via `src/hooks/useRecoveryLoadsCount.ts`.
-- Auto-cancel: `supabase/functions/recovery-auto-cancel` on cron `*/30 * * * *`, backs up to `canceled_orders_backup`, sets `retrieval=false`.
-- Enforcement gap: `orders` UPDATE policies allow any `dispatch`/`afterhours` role on any unlocked order; a recovery-specific check (or a security-definer assign function) is needed for item 5.
+- New table `recruiting_driver_expense_lines`: `id`, `trip_id` (groups the lines of one driver trip), `recruiter`, `recruiter_id`, `driver_name`, `truck_number`, `expense_type` (ticket/bag/motel/uber/other), `amount`, `expense_date`, `details`, `nights`, `card`, `airline`, `status`, `is_paid`, `payment_notes`, `notice`, timestamps. GRANTs to `authenticated`/`service_role`, RLS mirroring `recruiting_driver_expenses` (SELECT for admin/manager/recruiting/chicago_management, write for admin/manager/recruiting), indexes on `trip_id`, `expense_date DESC`, `lower(driver_name)`, `updated_at` trigger.
+- One-time backfill from the existing 2,434 rows: a ticket line where `ticket_price` is set (carrying card, airline, purchase_date), a bag line where `bag_amount` is set, a motel line where `motel_nights` is set (amount null, nights carried, arrival_date as date), an Uber line where `uber_amount` is set (uber_destinations as details, arrival_date as date). `status`, `payment_notes`, `notice` copy to every line of the trip; `is_paid` derives from the existing paid/unpaid text. Trips with no amounts at all still get one "other" line so no driver disappears.
+- `recruiting_driver_expenses` is left untouched as a fallback until you confirm the new page looks right; it can be dropped afterwards.
+- `src/pages/DriverExpenses.tsx` is rewritten against the new table: lean column set, Type filter, per-line inline editing, per-line paid toggle, per-trip subtotal, visible-lines totals bar. Access helpers in `src/lib/driverExpensesAccess.ts` unchanged.
+- `src/lib/mcp/tools/list-driver-expenses.ts` targets a different table (`driver_expenses`, the fleet debt sheet) and is not affected.
