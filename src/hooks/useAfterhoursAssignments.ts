@@ -76,7 +76,7 @@ export const useAfterhoursAssignments = () => {
       const [scheduleRes, assignmentsRes, driversRes, trucksRes] = await Promise.all([
         supabase.from('afterhours_schedule').select('*').in('scheduled_date', dates),
         supabase.from('afterhours_assignments').select('*').in('scheduled_date', dates),
-        supabase.from('drivers').select('id, name, dispatcher_id, is_active').eq('is_active', true),
+        supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true),
         supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id, trailer_id'),
       ]);
 
