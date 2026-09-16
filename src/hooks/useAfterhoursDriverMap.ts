@@ -32,6 +32,9 @@ export const useAfterhoursDriverMap = () => {
     yesterday.setDate(chicagoNow.getDate() - 1);
     const yesterdayStr = fmt(yesterday);
 
+    // Afterhours shift coverage tags are only shown between 16:00 and 07:00 Chicago.
+    const inAfterhoursTagWindow = hour >= 16 || hour < 7;
+
     // Which afterhours shift (if any) is live right now? Live coverage wins when a
     // driver is covered by more than one person today.
     let activeShift: { shift: 'night' | 'morning'; date: string } | null = null;
