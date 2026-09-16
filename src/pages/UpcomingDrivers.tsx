@@ -188,7 +188,7 @@ export default function UpcomingDrivers() {
             expanded.has(row.id) && <tr key={`${row.id}-details`} className="bg-muted/30"><td colSpan={20} className="border-b p-0">
               <ScreeningDetails id={row.id} onEdit={field=>open(row.id,field)}/>
             </td></tr>,
-            ]}
+            ])}
             {!closed && !members.length && <tr><td colSpan={20} className="border-b"><p className="sticky left-0 w-fit px-8 py-3 text-muted-foreground">{day==="unscheduled"?"No unscheduled drivers in this view.":"No drivers in this view."}</p></td></tr>}
           </tbody>;
         })}
