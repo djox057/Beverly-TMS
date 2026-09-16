@@ -13,6 +13,7 @@ import { ScreeningDetails } from "@/components/upcoming-drivers/ScreeningDetails
 import { saveCandidate, useUpcomingDrivers } from "@/components/upcoming-drivers/useUpcomingDrivers";
 import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, shortCompanyName, shortStaffName, type CandidateFields, type CandidateSummary, type References, type RowColor } from "@/components/upcoming-drivers/model";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const emptyRefs:References={staff:[],trucks:[],companies:[]};
 const STATUS_COL_WIDTH=32;
@@ -41,7 +42,9 @@ export default function UpcomingDrivers() {
   const defaults=Object.fromEntries(COLUMNS.map(c=>[c.field,c.width]));
   const [widths,setWidths]=useState<Record<string,number>>(defaults);
   const drag=useRef<{field:string;x:number;width:number}|null>(null);
-  const {query,references,live,canEdit,acceptSaved}=useUpcomingDrivers(week,false);
+  const {query,references,live,canEdit,canDelete,acceptSaved,removeCandidate}=useUpcomingDrivers(week,false);
+  const [deleting,setDeleting]=useState<CandidateSummary | null>(null);
+  const [removing,setRemoving]=useState(false);
   const refs=references.data ?? emptyRefs;
   const rows=useMemo(()=>query.data ?? [],[query.data]);
   useEffect(()=>{
@@ -202,7 +205,7 @@ export default function UpcomingDrivers() {
               </div></td>
             </tr>,
             expanded.has(row.id) && <tr key={`${row.id}-details`} className="bg-muted/30"><td colSpan={20} className="border-b p-0">
-              <ScreeningDetails id={row.id} staff={refs.staff} onEdit={field=>open(row.id,field)}/>
+              <ScreeningDetails id={row.id} staff={refs.staff} onEdit={field=>open(row.id,field)} onDelete={canDelete?()=>setDeleting(row):undefined}/>
             </td></tr>,
             ])}
             {!closed && !members.length && <tr><td colSpan={20} className="border-b"><p className="sticky left-0 w-fit px-8 py-3 text-muted-foreground">{day==="unscheduled"?"No unscheduled drivers in this view.":"No drivers in this view."}</p></td></tr>}
@@ -211,6 +214,30 @@ export default function UpcomingDrivers() {
       </table>
     </div>}
     <p className="text-xs text-muted-foreground">{filtered.length} entries shown · Click a cell for full details or editing. Drag a column edge to resize. Arrival dates and times are entered exactly as Chicago local values.</p>
+    <AlertDialog open={!!deleting} onOpenChange={next=>{if(!next && !removing)setDeleting(null);}}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {deleting?.driver_name}?</AlertDialogTitle>
+          <AlertDialogDescription>This removes the entry and its change history for good. This cannot be undone.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+          <AlertDialogAction disabled={removing} onClick={async event=>{
+            event.preventDefault();
+            if(!deleting)return;
+            setRemoving(true);
+            try{
+              await removeCandidate(deleting.id);
+              setExpanded(old=>{const next=new Set(old);next.delete(deleting.id);return next;});
+              toast({title:"Driver deleted"});
+              setDeleting(null);
+            }catch(error){
+              toast({title:"Could not delete this driver",description:String((error as {message?:string})?.message ?? ""),variant:"destructive"});
+            }finally{setRemoving(false);}
+          }}>{removing?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:null}Delete</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     {editor && <CandidateEditor key={`${editor.id ?? editor.createId}:${editor.field ?? "all"}`} selection={editor} refs={refs} canEdit={canEdit}
       defaultRecruiter={getPrimaryRole()==="recruiting"?user?.id ?? null:null} onClose={()=>setEditor(null)} onSaved={acceptSaved}/>}
   </div>;
