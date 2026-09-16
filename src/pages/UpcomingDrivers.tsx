@@ -11,11 +11,20 @@ import { toast } from "@/hooks/use-toast";
 import { CandidateEditor, type EditorSelection } from "@/components/upcoming-drivers/CandidateEditor";
 import { ScreeningDetails } from "@/components/upcoming-drivers/ScreeningDetails";
 import { saveCandidate, useUpcomingDrivers } from "@/components/upcoming-drivers/useUpcomingDrivers";
-import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, nextRowColor, type CandidateFields, type CandidateSummary, type References } from "@/components/upcoming-drivers/model";
+import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, ROW_COLORS, shortCompanyName, shortStaffName, type CandidateFields, type CandidateSummary, type References, type RowColor } from "@/components/upcoming-drivers/model";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const emptyRefs:References={staff:[],trucks:[],companies:[]};
-const STATUS_COL_WIDTH=96;
+const STATUS_COL_WIDTH=64;
 const statusClass=(s:string)=>s==="Arrived"?"bg-emerald-100 text-emerald-900":s==="Canceled"?"bg-red-100 text-red-900":s==="Scheduled"?"bg-blue-100 text-blue-900":s==="Contacted"?"bg-amber-100 text-amber-900":"bg-muted text-foreground";
+const colLabel=(c:typeof COLUMNS[number])=>c.label ?? FIELD_LABELS[c.field];
+const COLOR_CHOICES:{value:RowColor;label:string;swatch:string}[]=[
+  {value:"blue",label:"Blue",swatch:"hsl(var(--row-mark-blue))"},
+  {value:"yellow",label:"Yellow",swatch:"hsl(var(--row-mark-yellow))"},
+  {value:"green",label:"Green",swatch:"hsl(var(--row-mark-green))"},
+  {value:null,label:"No color",swatch:"transparent"},
+];
+
 
 export default function UpcomingDrivers() {
   const {user,getPrimaryRole}=useAuthContext();
