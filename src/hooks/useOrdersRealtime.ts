@@ -5,6 +5,15 @@ import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { transformOrders } from "@/utils/ordersTransform";
 import { traceFetch } from "@/utils/fetchTrace";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
+import { MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS } from "@/lib/constants";
+
+// BG Prime / Lale loads live on their own pages — keep them out of the main
+// Loads caches even when they arrive via realtime updates.
+const EXCLUDED_BOOKED_COMPANY_SET = new Set(
+  MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS.split(",").map((s) => s.trim()).filter(Boolean)
+);
+const isExcludedBookedByCompany = (companyId?: string | null) =>
+  !!companyId && EXCLUDED_BOOKED_COMPANY_SET.has(companyId);
 
 // Flat column list - NO joins (matches edge function pattern)
 const ORDER_COLUMNS = `

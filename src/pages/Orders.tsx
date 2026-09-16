@@ -51,6 +51,7 @@ import { useBrokers } from "@/hooks/useBrokers";
 import { useOrdersSearch } from "@/hooks/useOrdersSearch";
 import { useFilteredOrdersSearch } from "@/hooks/useFilteredOrdersSearch";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS } from "@/lib/constants";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
