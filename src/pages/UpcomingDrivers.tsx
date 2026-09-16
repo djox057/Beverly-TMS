@@ -11,11 +11,20 @@ import { toast } from "@/hooks/use-toast";
 import { CandidateEditor, type EditorSelection } from "@/components/upcoming-drivers/CandidateEditor";
 import { ScreeningDetails } from "@/components/upcoming-drivers/ScreeningDetails";
 import { saveCandidate, useUpcomingDrivers } from "@/components/upcoming-drivers/useUpcomingDrivers";
-import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, nextRowColor, type CandidateFields, type CandidateSummary, type References } from "@/components/upcoming-drivers/model";
+import { addDays, chicagoToday, clockLabel, COLOR_STATUS, COLUMNS, dayLabel, FIELD_LABELS, formatPhone, mondayOf, shortCompanyName, shortStaffName, type CandidateFields, type CandidateSummary, type References, type RowColor } from "@/components/upcoming-drivers/model";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const emptyRefs:References={staff:[],trucks:[],companies:[]};
-const STATUS_COL_WIDTH=96;
+const STATUS_COL_WIDTH=64;
 const statusClass=(s:string)=>s==="Arrived"?"bg-emerald-100 text-emerald-900":s==="Canceled"?"bg-red-100 text-red-900":s==="Scheduled"?"bg-blue-100 text-blue-900":s==="Contacted"?"bg-amber-100 text-amber-900":"bg-muted text-foreground";
+const colLabel=(c:typeof COLUMNS[number])=>c.label ?? FIELD_LABELS[c.field];
+const COLOR_CHOICES:{value:RowColor;label:string;swatch:string}[]=[
+  {value:"blue",label:"Blue",swatch:"hsl(var(--row-mark-blue))"},
+  {value:"yellow",label:"Yellow",swatch:"hsl(var(--row-mark-yellow))"},
+  {value:"green",label:"Green",swatch:"hsl(var(--row-mark-green))"},
+  {value:null,label:"No color",swatch:"transparent"},
+];
+
 
 export default function UpcomingDrivers() {
   const {user,getPrimaryRole}=useAuthContext();
@@ -67,10 +76,12 @@ export default function UpcomingDrivers() {
   const add=(date:string|null=null)=>setEditor({id:null,createId:crypto.randomUUID(),date});
   const display=(r:CandidateSummary,c:typeof COLUMNS[number])=>{
     if(c.field==="phone") return formatPhone(r.phone);
+    if(c.field==="arrival_time") return clockLabel(r.arrival_time) || "—";
     if(["recruiter_id","safety_id","dispatcher_id"].includes(c.field)) {
-      const id=r[c.field as "recruiter_id"];return id?(names.get(id) || "Assigned user"):"—";
+      const id=r[c.field as "recruiter_id"];const full=id?(names.get(id) || "Assigned user"):"";
+      return full?(c.field==="recruiter_id"?shortStaffName(full):full):"—";
     }
-    if(c.field==="company_id") return companies.get(r.company_id ?? "") || "—";
+    if(c.field==="company_id"){const name=companies.get(r.company_id ?? "");return name?shortCompanyName(name):"—";}
     if(c.field==="truck_id") return [trucks.get(r.truck_id ?? ""),r.truck_terms].filter(Boolean).join(" · ") || "—";
     return String(r[(c.preview ?? c.field) as keyof CandidateSummary] ?? "") || "—";
   };
@@ -87,11 +98,10 @@ export default function UpcomingDrivers() {
     }}});
   };
   const [marking,setMarking]=useState<string | null>(null);
-  const cycleColor=async(row:CandidateSummary)=>{
+  const setColor=async(row:CandidateSummary,color:RowColor)=>{
     if(!canEdit || marking)return;
     setMarking(row.id);
     try{
-      const color=nextRowColor(row.row_color);
       acceptSaved(await saveCandidate(row.id,{row_color:color,...(color?{status:COLOR_STATUS[color]}:{})},row.version));
     }
     catch(e){toast({title:"Could not change the color",description:e instanceof Error?e.message:"Please retry.",variant:"destructive"});}
@@ -99,16 +109,26 @@ export default function UpcomingDrivers() {
   };
   const rowBg=(row:CandidateSummary)=>row.row_color?`hsl(var(--row-mark-${row.row_color}))`:undefined;
   const rowFg=(row:CandidateSummary)=>row.row_color?"hsl(var(--row-mark-foreground))":undefined;
-  // Status and color are one column: the label shows the status, clicking cycles the color/state.
+  // One color button per row: clicking opens a small picker instead of cycling automatically.
   const statusCell=(row:CandidateSummary)=><td className="h-10 border-b border-r px-1 text-center" style={{backgroundColor:rowBg(row)}}>
-    <button type="button" disabled={!canEdit || marking===row.id}
-      aria-label={`Change status for ${row.driver_name} (currently ${row.status})`}
-      title="Click to change: Scheduled (blue) → Contacted (yellow) → Arrived (green) → none"
-      onClick={()=>void cycleColor(row)}
-      className={`mx-auto block max-w-full truncate rounded px-1.5 py-1 text-xs ${statusClass(row.status)}`}>
-      {row.status}
-    </button>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" disabled={!canEdit || marking===row.id}
+          aria-label={`Choose a color for ${row.driver_name}`} title="Choose a color"
+          className="mx-auto block h-6 w-10 rounded border border-border"
+          style={{backgroundColor:row.row_color?`hsl(var(--row-mark-${row.row_color}))`:"transparent"}}/>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-40 p-2">
+        <div className="flex flex-col gap-1">
+          {COLOR_CHOICES.map(choice=><button key={choice.label} type="button" onClick={()=>void setColor(row,choice.value)}
+            className="flex items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-muted">
+            <span className="h-4 w-6 rounded border border-border" style={{backgroundColor:choice.swatch}}/>{choice.label}
+          </button>)}
+        </div>
+      </PopoverContent>
+    </Popover>
   </td>;
+
   const totalWidth=COLUMNS.reduce((sum,c)=>sum+widths[c.field],0)+65+STATUS_COL_WIDTH;
   return <div className="flex h-[calc(100dvh-3rem)] min-h-0 flex-col gap-3 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -144,8 +164,8 @@ export default function UpcomingDrivers() {
         <colgroup>{COLUMNS.map(c=><Fragment key={c.field}>{c.field==="recruiter_id" && <col style={{width:STATUS_COL_WIDTH}}/>}<col style={{width:widths[c.field]}}/></Fragment>)}<col style={{width:65}}/></colgroup>
         <thead className="sticky top-0 z-30 bg-muted"><tr>
           {COLUMNS.map((c,i)=><Fragment key={c.field}>{c.field==="recruiter_id" && <th scope="col" className="h-11 border-b border-r bg-muted px-1 text-center font-semibold">Status</th>}<th scope="col" className={`relative h-11 border-b border-r bg-muted px-2 text-left font-semibold ${i<2?"sticky z-40":""}`} style={i<2?{left:i===0?0:widths.recruiter_id}:undefined}>
-            {FIELD_LABELS[c.field]}
-            <span role="separator" aria-orientation="vertical" aria-label={`Resize ${FIELD_LABELS[c.field]} column`} aria-valuenow={widths[c.field]} tabIndex={0}
+            {colLabel(c)}
+            <span role="separator" aria-orientation="vertical" aria-label={`Resize ${colLabel(c)} column`} aria-valuenow={widths[c.field]} tabIndex={0}
               className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none hover:bg-primary/20"
               onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);drag.current={field:c.field,x:e.clientX,width:widths[c.field]};}}
               onPointerMove={e=>{if(drag.current?.field===c.field)resize(c.field,drag.current.width+e.clientX-drag.current.x);}}
@@ -172,7 +192,7 @@ export default function UpcomingDrivers() {
                   <button type="button" className="min-w-0 flex-1 truncate py-2 text-left hover:text-primary hover:underline" aria-label={`${FIELD_LABELS[c.field]} for ${row.driver_name}`} onClick={()=>open(row.id,c.field)}>
                     {c.field==="status"?<span className={`rounded px-1.5 py-1 ${statusClass(row.status)}`}>{row.status}</span>:display(row,c)}
                   </button>
-                  {c.field==="driver_name" && <><button className="shrink-0 text-[10px] text-muted-foreground hover:underline" title="Change arrival schedule" onClick={()=>open(row.id,"arrival_date")}>{clockLabel(row.arrival_time) || "Date"}</button>{row.tentative && <span className="shrink-0 rounded bg-amber-100 px-1 text-[10px] text-amber-900">50/50</span>}</>}
+                  {c.field==="driver_name" && <>{row.tentative && <span className="shrink-0 rounded bg-amber-100 px-1 text-[10px] text-amber-900">50/50</span>}</>}
                   {c.field==="phone" && <><a href={`tel:${row.phone.replace(/[^+\d]/g,"")}`} aria-label={`Call ${row.driver_name}`}><Phone className="h-3 w-3"/></a><button aria-label={`Copy phone for ${row.driver_name}`} onClick={()=>void navigator.clipboard.writeText(row.phone).then(()=>toast({title:"Phone copied"})).catch(()=>toast({title:"Could not copy phone",variant:"destructive"}))}><Copy className="h-3 w-3"/></button></>}
                 </div>
               </td></Fragment>)}
