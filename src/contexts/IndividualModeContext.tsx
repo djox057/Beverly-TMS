@@ -43,15 +43,16 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
 
     let cancelled = false;
     const load = async () => {
-      const today = new Date();
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      // Work in Chicago time so the day boundary matches the schedules.
+      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
       const dow = today.getDay(); // 0=Sun .. 6=Sat
       const daysUntilSat = dow === 6 ? 0 : dow === 0 ? -1 : (6 - dow);
       const sat = new Date(today);
       sat.setDate(today.getDate() + daysUntilSat);
       const sun = new Date(sat);
       sun.setDate(sat.getDate() + 1);
-      const fmt = (d: Date) =>
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const dates = Array.from(new Set([fmt(today), fmt(sat), fmt(sun)]));
 
       // Shift assignments: yesterday (night shift crossing midnight) + today
@@ -71,6 +72,7 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
           .eq('afterhours_user_id', profile.user_id)
           .in('scheduled_date', shiftDates),
       ]);
+
 
       if (cancelled) return;
       if (weekendRes.error || shiftRes.error) {
