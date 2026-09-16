@@ -348,6 +348,15 @@ const Fleets = () => {
                 <CalendarDays className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Weekend Schedule</span>
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="sm:size-default"
+                onClick={() => setIsAfterhoursShiftOpen(true)}
+              >
+                <CalendarDays className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Afterhours Shifts</span>
+              </Button>
               <Dialog open={isAssignDriverOpen} onOpenChange={setIsAssignDriverOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="sm:size-default">
