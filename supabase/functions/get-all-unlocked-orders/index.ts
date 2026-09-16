@@ -212,10 +212,8 @@ Deno.serve(async (req) => {
       } else if (dispatcherDriverIds.length > 0) {
         query = query.in("driver1_id", dispatcherDriverIds);
       }
-      if (excludeBookedByCompanyId) {
-        query = query.or(
-          `booked_by_company_id.neq.${excludeBookedByCompanyId},booked_by_company_id.is.null`
-        );
+      if (exclusionFilter) {
+        query = query.or(exclusionFilter);
       }
       if (bookedByCompanyId) {
         query = query.eq("booked_by_company_id", bookedByCompanyId);
