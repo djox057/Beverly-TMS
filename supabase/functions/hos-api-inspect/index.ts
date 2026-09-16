@@ -52,11 +52,13 @@ serve(async (req) => {
 
     // Gather API keys
     const apiKeysEnv = Deno.env.get('TRANSIT_TRACKING_API_KEYS');
-    const unitedApiKey = Deno.env.get('TRANSIT_TRACKING_API_KEY_UNITED');
 
     const apiKeys: string[] = [];
     if (apiKeysEnv) apiKeys.push(...apiKeysEnv.split(',').map(k => k.trim()).filter(k => k.length > 0));
-    if (unitedApiKey?.trim()) apiKeys.push(unitedApiKey.trim());
+    for (const name of ['TRANSIT_TRACKING_API_KEY_UNITED', 'TRANSIT_TRACKING_API_KEY_JONES', 'TRANSIT_TRACKING_API_KEY_LALE']) {
+      const key = Deno.env.get(name)?.trim();
+      if (key) apiKeys.push(key);
+    }
 
     if (!apiKeys.length) {
       return new Response(JSON.stringify({ error: 'No API keys configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
