@@ -321,15 +321,31 @@ Deno.serve(async (req) => {
         usersByOffice.get(office)!.push(uid);
       }
 
-      for (const [office, officeUsers] of usersByOffice) {
-        const officeDrivers = driversByOffice.get(office) || [];
-        if (officeDrivers.length === 0) continue;
-        const allocation = allocate(officeUsers, officeDrivers);
+      const push = (allocation: Map<string, string[]>) => {
         for (const [uid, driverIds] of allocation) {
           for (const dId of driverIds) {
             allRows.push({ afterhours_user_id: uid, driver_id: dId, scheduled_date: date });
           }
         }
+      };
+
+      const leftoverUsers: string[] = [];
+      const coveredOffices = new Set<string>();
+      for (const [office, officeUsers] of usersByOffice) {
+        const officeDrivers = driversByOffice.get(office) || [];
+        if (officeDrivers.length === 0) {
+          leftoverUsers.push(...officeUsers);
+          continue;
+        }
+        coveredOffices.add(office);
+        push(allocate(officeUsers, officeDrivers));
+      }
+
+      const leftoverDrivers = enrichedDrivers.filter((d) => !coveredOffices.has(d.office));
+      if (leftoverUsers.length > 0) {
+        push(allocate(leftoverUsers, leftoverDrivers.length > 0 ? leftoverDrivers : enrichedDrivers));
+      } else if (leftoverDrivers.length > 0) {
+        push(allocate(userIdsForDay, leftoverDrivers));
       }
     }
 

@@ -52,9 +52,8 @@ export function allocateAfterhoursDrivers(
     driversByOffice.get(d.office)!.push(d);
   });
 
-  for (const [office, officeUsers] of usersByOffice) {
-    const officeDrivers = driversByOffice.get(office) || [];
-    if (officeDrivers.length === 0) continue;
+  const allocateBucket = (officeUsers: AllocUser[], officeDrivers: AllocDriver[]) => {
+    if (officeUsers.length === 0 || officeDrivers.length === 0) return;
 
     const load = new Map<string, number>();
     officeUsers.forEach((u) => load.set(u.id, 0));
@@ -137,6 +136,34 @@ export function allocateAfterhoursDrivers(
         if (matching.length === 0) preferredCompany.set(target.id, company);
       }
     }
+  };
+
+  // Office-matched allocation.
+  const leftoverUsers: AllocUser[] = [];
+  const coveredDriverOffices = new Set<string>();
+  for (const [office, officeUsers] of usersByOffice) {
+    const officeDrivers = driversByOffice.get(office) || [];
+    if (officeDrivers.length === 0) {
+      // Nobody in this office has weekday drivers (typical for dedicated
+      // afterhours users) — they still need coverage, handled below.
+      leftoverUsers.push(...officeUsers);
+      continue;
+    }
+    coveredDriverOffices.add(office);
+    allocateBucket(officeUsers, officeDrivers);
+  }
+
+  // Drivers whose office has no covering user at all.
+  const leftoverDrivers = drivers.filter((d) => !coveredDriverOffices.has(d.office));
+
+  if (leftoverUsers.length > 0) {
+    // Give office-less users the drivers nobody covers; if every driver is
+    // already covered, spread the full fleet across them so they are never
+    // left empty.
+    allocateBucket(leftoverUsers, leftoverDrivers.length > 0 ? leftoverDrivers : drivers);
+  } else if (leftoverDrivers.length > 0) {
+    // No spare users — hand uncovered drivers to everyone on duty.
+    allocateBucket(users, leftoverDrivers);
   }
 
   return result;
