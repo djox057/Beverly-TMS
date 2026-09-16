@@ -97,11 +97,8 @@ export function allocateAfterhoursDrivers(
       preferredCompany.set(u.id, best);
     }
 
-    // Soft cap: allows meaningful imbalance in favour of company purity.
-    const baseShare = Math.ceil(officeDrivers.length / officeUsers.length);
-    const softCap = baseShare + Math.max(2, Math.ceil(baseShare * 0.5));
-
-    // 3) Remaining drivers, company block by company block (largest first).
+    // 3) Remaining drivers, company block by company block (largest first),
+    //    but each user gets an even quota so totals stay close together.
     const byCompany = new Map<string, AllocDriver[]>();
     remaining.forEach((d) => {
       const key = d.company_id || COMPANY_NONE;
@@ -109,26 +106,41 @@ export function allocateAfterhoursDrivers(
       byCompany.get(key)!.push(d);
     });
 
+    // Water-filling quotas: everyone should end at roughly the same total.
+    const total = officeDrivers.length;
+    const quota = new Map<string, number>();
+    officeUsers.forEach((u) => quota.set(u.id, load.get(u.id) || 0));
+    let placed = officeUsers.reduce((s, u) => s + (load.get(u.id) || 0), 0);
+    while (placed < total) {
+      // Give the next slot to the currently lowest quota holder.
+      const target = officeUsers.reduce((best, u) =>
+        (quota.get(u.id) || 0) < (quota.get(best.id) || 0) ? u : best,
+      );
+      quota.set(target.id, (quota.get(target.id) || 0) + 1);
+      placed += 1;
+    }
+    // Small tolerance so a company block does not need to be split over a
+    // single driver difference.
+    const TOLERANCE = 2;
+    const room = (u: AllocUser) =>
+      Math.max((quota.get(u.id) || 0) + TOLERANCE - (load.get(u.id) || 0), 0);
+
     const companyBlocks = [...byCompany.entries()].sort((a, b) => b[1].length - a[1].length);
 
     for (const [company, block] of companyBlocks) {
       const pool = [...block];
       while (pool.length > 0) {
-        // Prefer users whose company matches; fall back to everyone.
-        const matching = officeUsers.filter((u) => preferredCompany.get(u.id) === company);
-        const withRoom = (list: AllocUser[]) => list.filter((u) => (load.get(u.id) || 0) < softCap);
-
-        let candidates = withRoom(matching);
-        if (candidates.length === 0) candidates = withRoom(officeUsers);
-        if (candidates.length === 0) candidates = matching.length > 0 ? matching : officeUsers;
-
-        // Least loaded candidate.
-        const target = candidates.reduce((best, u) =>
-          (load.get(u.id) || 0) < (load.get(best.id) || 0) ? u : best,
+        const matching = officeUsers.filter(
+          (u) => preferredCompany.get(u.id) === company && room(u) > 0,
         );
+        let candidates = matching;
+        if (candidates.length === 0) candidates = officeUsers.filter((u) => room(u) > 0);
+        if (candidates.length === 0) candidates = officeUsers;
 
-        const room = Math.max(softCap - (load.get(target.id) || 0), 1);
-        const take = pool.splice(0, Math.min(room, pool.length));
+        // Most room first, so blocks stay together without overloading anyone.
+        const target = candidates.reduce((best, u) => (room(u) > room(best) ? u : best));
+
+        const take = pool.splice(0, Math.max(Math.min(room(target), pool.length), 1));
         assign(target.id, take.map((d) => d.id));
 
         // If nobody has a matching preference for this company, the first
@@ -136,6 +148,7 @@ export function allocateAfterhoursDrivers(
         if (matching.length === 0) preferredCompany.set(target.id, company);
       }
     }
+
   };
 
   // Office-matched allocation.
