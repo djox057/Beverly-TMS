@@ -2,7 +2,7 @@ export const STATUSES = ["New", "Contacted", "Scheduled", "Arrived", "Canceled"]
 export type CandidateStatus = typeof STATUSES[number];
 export interface CandidateFields {
   recruiter_id: string | null; driver_name: string; phone: string;
-  safety_id: string | null; dispatcher_id: string | null;
+  safety_id: string | null; dispatcher_id: string | null; company_id: string | null;
   sales: string; timing_note: string; application_status: string;
   transport_note: string; description: string; mvr: string; psp: string;
   preference: string; truck_id: string | null; truck_terms: string;
