@@ -1755,6 +1755,9 @@ const Trips = () => {
         await exportAPSilverTransTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else if (resolvedCompanyName === "Lale Transport LLC") {
         await exportLaleTransportTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
+      } else if (resolvedCompanyName === "Jones Freight Lines LLC") {
+        await exportJonesFreightTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
+
       } else {
         // Use the old export method for other companies
         exportGenericExcel(week, weekStartDate, weekEndDate);
