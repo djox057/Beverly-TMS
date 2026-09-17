@@ -361,7 +361,17 @@ export default function YardArrivals() {
         })
       );
 
-      return driversWithTrucks as TwoWeekNoticeDriver[];
+      // Resolve driver company names (driver's company is the source of truth)
+      const twoWeekCompanyIds = [...new Set((driversWithTrucks || []).map(d => d.company_id).filter(Boolean))] as string[];
+      const { data: twoWeekCompanies } = twoWeekCompanyIds.length > 0
+        ? await supabase.from("companies").select("id, name").in("id", twoWeekCompanyIds)
+        : { data: [] };
+      const twoWeekCompaniesMap = new Map((twoWeekCompanies || []).map(c => [c.id, c.name]));
+
+      return (driversWithTrucks || []).map(d => ({
+        ...d,
+        company: d.company_id ? twoWeekCompaniesMap.get(d.company_id) || null : null,
+      })) as TwoWeekNoticeDriver[];
     },
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
