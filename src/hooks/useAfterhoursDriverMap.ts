@@ -144,7 +144,7 @@ export const useAfterhoursDriverMap = () => {
 
     fetchData();
     return () => { cancelled = true; };
-  }, []);
+  }, [currentUserId]);
 
   return { driverAfterhoursMap, isWeekendWindow, loading };
 };
