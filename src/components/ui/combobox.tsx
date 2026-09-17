@@ -30,6 +30,8 @@ interface ComboboxProps {
   searchPlaceholder?: string;
   emptyText?: string;
   className?: string;
+  /** Extra classes for the dropdown panel, e.g. to widen it beyond the trigger. */
+  contentClassName?: string;
   disabled?: boolean;
   modal?: boolean;
 }
@@ -42,6 +44,7 @@ export function Combobox({
   searchPlaceholder = "Search...",
   emptyText = "No results found.",
   className,
+  contentClassName,
   disabled,
   modal,
 }: ComboboxProps) {
@@ -59,11 +62,16 @@ export function Combobox({
           className={cn("w-full justify-between", className)}
           disabled={disabled}
         >
-          {selectedOption ? selectedOption.label : placeholder}
+          <span className="min-w-0 flex-1 truncate text-left">
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 pointer-events-auto">
+      <PopoverContent
+        align="start"
+        className={cn("w-[--radix-popover-trigger-width] p-0 pointer-events-auto", contentClassName)}
+      >
         <Command className="pointer-events-auto">
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList
@@ -84,11 +92,11 @@ export function Combobox({
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "mr-2 h-4 w-4 shrink-0",
                       value === option.value ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {option.label}
+                  <span className="truncate">{option.label}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
