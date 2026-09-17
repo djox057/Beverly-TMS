@@ -18,15 +18,17 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
-  Check,
+  CheckCheck,
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Pencil,
   Pin,
   PinOff,
   Plus,
   Search,
   Trash2,
+  X,
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { TranslatableComplaintText } from "@/components/complaints/TranslatableComplaintText";
@@ -60,7 +62,10 @@ const chicagoDateKey = (iso: string) =>
 
 const HISTORY_PAGE_SIZE = 25;
 
-type EditTarget = { id: string; field: "driver_name" | "truck_number" | "reason" | "updates" };
+type EditTarget = {
+  id: string;
+  field: "driver_name" | "truck_number" | "problem" | "reason" | "updates";
+};
 
 export function HrReportsBoard() {
   const { user, profile } = useAuthContext();
