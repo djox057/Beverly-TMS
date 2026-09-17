@@ -6159,7 +6159,7 @@ const Trips = () => {
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Stop Amt
                     </TableHead>
-                    <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Freight Amt
                     </TableHead>
                     {canSeePaidColumn && (
@@ -6167,7 +6167,7 @@ const Trips = () => {
                         Paid
                       </TableHead>
                     )}
-                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                    <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Actions
                     </TableHead>
                   </TableRow>
@@ -6403,53 +6403,55 @@ const Trips = () => {
                                     return (
                                       <Fragment key={historyKey}>
                                         <TableRow className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-l-yellow-500">
-                                          {canMoveLoads && <TableCell></TableCell>}
-                                          <TableCell className="text-sm font-semibold">
-                                            {order._historyDateDisplay}
-                                          </TableCell>
-                                          <TableCell colSpan={4} className="text-sm font-medium">
-                                            <div className="flex items-center gap-2">
-                                              <span>{order._changeDescription}</span>
-                                              {/* Show toggle button to expand driver's trips inline */}
-                                              {canShowNestedTrips && (
-                                                <NestedDriverTripsDropdown
-                                                  driverName={order._entityName}
-                                                  driverId={order._entityId}
-                                                  onSearchDriver={(name) => {
-                                                    setSearchFilter(name);
-                                                    setCurrentPage(1);
-                                                  }}
-                                                  isOpen={isExpanded}
-                                                  onToggle={() => toggleNestedTrips(historyKey)}
-                                                />
-                                              )}
-                                              {/* Show dash for non-driver entries */}
-                                              {!canShowNestedTrips && <span className="text-muted-foreground">—</span>}
+                                          <TableCell
+                                            colSpan={totalColSpan}
+                                            className="text-sm font-medium"
+                                          >
+                                            <div className="flex items-center justify-between gap-2">
+                                              <div className="flex items-center gap-2 min-w-0">
+                                                <span className="font-semibold whitespace-nowrap">
+                                                  {order._historyDateDisplay}
+                                                </span>
+                                                <span className="truncate">{order._changeDescription}</span>
+                                                {order._reason && (
+                                                  <span className="text-muted-foreground truncate">{order._reason}</span>
+                                                )}
+                                                {/* Show toggle button to expand driver's trips inline */}
+                                                {canShowNestedTrips && (
+                                                  <NestedDriverTripsDropdown
+                                                    driverName={order._entityName}
+                                                    driverId={order._entityId}
+                                                    onSearchDriver={(name) => {
+                                                      setSearchFilter(name);
+                                                      setCurrentPage(1);
+                                                    }}
+                                                    isOpen={isExpanded}
+                                                    onToggle={() => toggleNestedTrips(historyKey)}
+                                                  />
+                                                )}
+                                                {/* Show dash for non-driver entries */}
+                                                {!canShowNestedTrips && <span className="text-muted-foreground">—</span>}
+                                              </div>
+                                              {/* Delete button for admins */}
+                                              {hasRole("admin") &&
+                                                order._historyEntryIds &&
+                                                order._historyEntryIds.length > 0 && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 shrink-0 text-destructive hover:bg-destructive/10"
+                                                    onClick={() =>
+                                                      setDeleteHistoryConfirmDialog({
+                                                        historyEntryIds: order._historyEntryIds,
+                                                        description: order._changeDescription,
+                                                      })
+                                                    }
+                                                    title="Delete assignment history entry"
+                                                  >
+                                                    <Trash2 className="h-4 w-4" />
+                                                  </Button>
+                                                )}
                                             </div>
-                                          </TableCell>
-                                          <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm">
-                                            {order._reason || "—"}
-                                          </TableCell>
-                                          <TableCell className="text-center">
-                                            {/* Delete button for admins */}
-                                            {hasRole("admin") &&
-                                              order._historyEntryIds &&
-                                              order._historyEntryIds.length > 0 && (
-                                                <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                                                  onClick={() =>
-                                                    setDeleteHistoryConfirmDialog({
-                                                      historyEntryIds: order._historyEntryIds,
-                                                      description: order._changeDescription,
-                                                    })
-                                                  }
-                                                  title="Delete assignment history entry"
-                                                >
-                                                  <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                              )}
                                           </TableCell>
                                         </TableRow>
                                         {/* Render inline driver trips content when expanded */}
