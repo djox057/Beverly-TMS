@@ -117,7 +117,15 @@ export const useAfterhoursDriverMap = () => {
         });
 
         const map = new Map<string, AfterhoursDriverInfo>();
-        rows.forEach(r => {
+        // The signed-in user's own coverage always wins over someone else's,
+        // so a covering user never sees another person's name on their trucks.
+        const ordered = currentUserId
+          ? [
+              ...rows.filter(r => r.afterhours_user_id !== currentUserId),
+              ...rows.filter(r => r.afterhours_user_id === currentUserId),
+            ]
+          : rows;
+        ordered.forEach(r => {
           const userName = profileMap.get(r.afterhours_user_id);
           if (userName && r.driver_id) {
             map.set(r.driver_id, { userName, userId: r.afterhours_user_id });
