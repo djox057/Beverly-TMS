@@ -4871,7 +4871,9 @@ const Reports = () => {
                 <div className="text-center py-12 text-muted-foreground">
                   {USE_DATE_WINDOW_LOADING
                     ? "No drivers assigned to your dispatcher (or you have no active loads in this window)."
-                    : `No trucks assigned to dispatchers in ${activeTab}`}
+                    : inCoverageView
+                      ? "No trucks assigned to you for this coverage shift."
+                      : `No trucks assigned to dispatchers in ${activeTab}`}
                 </div>
               </div>
             ) : (
