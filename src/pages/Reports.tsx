@@ -749,7 +749,8 @@ const Reports = () => {
     if (!groupedReports) return [];
     const companies = new Set<string>();
     groupedReports
-      .filter((group) => expandOffice(activeTab).includes(group.office))
+      // Coverage view: data is already scoped to the covered drivers — no office filter.
+      .filter((group) => inCoverageView || expandOffice(activeTab).includes(group.office))
       .forEach((group) => {
         group.trucks.forEach((truck: any) => {
           if (truck.companyName) companies.add(truck.companyName);
