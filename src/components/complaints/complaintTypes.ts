@@ -38,9 +38,9 @@ export const ASSIGNABLE_TYPES: ComplaintTypeKey[] = [
 ];
 
 export const COMPLAINT_GROUPS: { label: string; types: ComplaintTypeKey[] }[] = [
+  { label: "Dispatcher Reportings", types: ["dispatcher_reporting"] },
   { label: "HOS · Gross/RPM · Dispatcher · Recruiting", types: ["hos", "gross_rpm", "dispatcher", "recruiting"] },
   { label: "Accounting · Maintenance · Trucks · Other", types: ["accounting", "maintenance", "trucks", "other"] },
-  { label: "Dispatcher Reportings", types: ["dispatcher_reporting"] },
 ];
 
 export interface DriverComplaint {
