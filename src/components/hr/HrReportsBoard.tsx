@@ -19,14 +19,17 @@ import {
 import { toast } from "sonner";
 import {
   Check,
+  CheckCheck,
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Pencil,
   Pin,
   PinOff,
   Plus,
   Search,
   Trash2,
+  X,
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { TranslatableComplaintText } from "@/components/complaints/TranslatableComplaintText";
@@ -60,7 +63,10 @@ const chicagoDateKey = (iso: string) =>
 
 const HISTORY_PAGE_SIZE = 25;
 
-type EditTarget = { id: string; field: "driver_name" | "truck_number" | "reason" | "updates" };
+type EditTarget = {
+  id: string;
+  field: "driver_name" | "truck_number" | "problem" | "reason" | "updates";
+};
 
 export function HrReportsBoard() {
   const { user, profile } = useAuthContext();
@@ -252,8 +258,10 @@ export function HrReportsBoard() {
 
   const startEdit = (row: HrReport, field: EditTarget["field"]) => {
     setEdit({ id: row.id, field });
-    setDraft((row[field] as string | null) ?? "");
+    setDraft(field === "problem" ? (row.problem_other ?? "") : ((row[field] as string | null) ?? ""));
   };
+
+  const cancelEdit = () => setEdit(null);
 
   const commitEdit = () => {
     if (!edit || savingRef.current) return;
@@ -269,126 +277,182 @@ export function HrReportsBoard() {
     );
   };
 
+  // Wraps a cell's display value; shows a pencil on hover that opens the editor.
+  const cellShell = (row: HrReport, field: EditTarget["field"], display: React.ReactNode) => (
+    <div className="group/cell relative min-h-[20px] pr-5">
+      {display}
+      <button
+        type="button"
+        title="Edit"
+        className="absolute right-0 top-0 hidden h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground group-hover/cell:flex"
+        onClick={() => startEdit(row, field)}
+      >
+        <Pencil className="h-3 w-3" />
+      </button>
+    </div>
+  );
+
+  const cancelButton = (
+    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" title="Cancel" onClick={cancelEdit}>
+      <X className="h-3 w-3" />
+    </Button>
+  );
+
   const textCell = (
     row: HrReport,
-    field: EditTarget["field"],
-    opts?: { translate?: boolean; multiline?: boolean },
+    field: "reason" | "updates",
+    opts?: { translate?: boolean },
   ) => {
     const isEditing = edit?.id === row.id && edit.field === field;
     const value = (row[field] as string | null) ?? "";
     if (isEditing) {
-      return opts?.multiline ? (
-        <Textarea
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commitEdit}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setEdit(null);
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) commitEdit();
-          }}
-          className="min-h-[70px] text-xs"
-        />
-      ) : (
-        <Input
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commitEdit}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setEdit(null);
-            if (e.key === "Enter") commitEdit();
-          }}
-          className="h-7 text-xs"
-        />
+      return (
+        <div className="flex items-start gap-1">
+          <Textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setEdit(null);
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) commitEdit();
+            }}
+            className="min-h-[60px] text-xs"
+          />
+          {cancelButton}
+        </div>
       );
     }
-    return (
-      <div
-        className="cursor-text min-h-[20px]"
-        title="Double-click to edit"
-        onDoubleClick={() => startEdit(row, field)}
-      >
-        {opts?.translate && value ? (
-          <TranslatableComplaintText text={value} size="xs" />
-        ) : (
-          <span className="text-xs whitespace-pre-wrap break-words">{value || "—"}</span>
-        )}
-      </div>
+    return cellShell(
+      row,
+      field,
+      opts?.translate && value ? (
+        <TranslatableComplaintText text={value} size="xs" />
+      ) : (
+        <span className="text-xs whitespace-pre-wrap break-words">{value || "—"}</span>
+      ),
     );
   };
 
-  const driverCell = (row: HrReport) => (
-    <Combobox
-      className="h-7 w-full text-xs"
-      options={
-        row.driver_name && !driverOptions.some((o) => o.value === row.driver_name)
-          ? [{ value: row.driver_name, label: row.driver_name }, ...driverOptions]
-          : driverOptions
-      }
-      value={row.driver_name}
-      onValueChange={(v) => {
-        const truck = truckByName.get(v);
-        updateRow.mutate({
-          id: row.id,
-          patch: { driver_name: v, ...(truck ? { truck_number: truck } : {}) },
-        });
-      }}
-      placeholder="Driver"
-      searchPlaceholder="Search driver..."
-    />
-  );
+  const driverCell = (row: HrReport) => {
+    const isEditing = edit?.id === row.id && edit.field === "driver_name";
+    if (isEditing) {
+      return (
+        <div className="flex items-start gap-1">
+          <Combobox
+            className="h-7 w-full text-xs"
+            options={
+              row.driver_name && !driverOptions.some((o) => o.value === row.driver_name)
+                ? [{ value: row.driver_name, label: row.driver_name }, ...driverOptions]
+                : driverOptions
+            }
+            value={row.driver_name}
+            onValueChange={(v) => {
+              const truck = truckByName.get(v);
+              updateRow.mutate({
+                id: row.id,
+                patch: { driver_name: v, ...(truck ? { truck_number: truck } : {}) },
+              });
+              setEdit(null);
+            }}
+            placeholder="Driver"
+            searchPlaceholder="Search driver..."
+          />
+          {cancelButton}
+        </div>
+      );
+    }
+    return cellShell(
+      row,
+      "driver_name",
+      <span className="text-xs">{row.driver_name || "—"}</span>,
+    );
+  };
 
-  const truckCell = (row: HrReport) => (
-    <Combobox
-      className="h-7 w-full text-xs"
-      options={
-        row.truck_number && !truckOptions.some((o) => o.value === row.truck_number)
-          ? [{ value: row.truck_number, label: row.truck_number }, ...truckOptions]
-          : truckOptions
-      }
-      value={row.truck_number}
-      onValueChange={(v) => {
-        const name = nameByTruck.get(v);
-        updateRow.mutate({
-          id: row.id,
-          patch: { truck_number: v, ...(name ? { driver_name: name } : {}) },
-        });
-      }}
-      placeholder="Truck"
-      searchPlaceholder="Search truck..."
-    />
-  );
+  const truckCell = (row: HrReport) => {
+    const isEditing = edit?.id === row.id && edit.field === "truck_number";
+    if (isEditing) {
+      return (
+        <div className="flex items-start gap-1">
+          <Combobox
+            className="h-7 w-full text-xs"
+            options={
+              row.truck_number && !truckOptions.some((o) => o.value === row.truck_number)
+                ? [{ value: row.truck_number, label: row.truck_number }, ...truckOptions]
+                : truckOptions
+            }
+            value={row.truck_number}
+            onValueChange={(v) => {
+              const name = nameByTruck.get(v);
+              updateRow.mutate({
+                id: row.id,
+                patch: { truck_number: v, ...(name ? { driver_name: name } : {}) },
+              });
+              setEdit(null);
+            }}
+            placeholder="Truck"
+            searchPlaceholder="Search truck..."
+          />
+          {cancelButton}
+        </div>
+      );
+    }
+    return cellShell(
+      row,
+      "truck_number",
+      <span className="text-xs">{row.truck_number || "—"}</span>,
+    );
+  };
 
-  const problemCell = (row: HrReport) => (
-    <div className="space-y-1">
-      <Combobox
-        className="h-7 w-full text-xs"
-        options={HR_PROBLEM_TYPES.map((t) => ({ value: t, label: HR_PROBLEM_LABELS[t] }))}
-        value={row.problem_type}
-        onValueChange={(v) =>
-          updateRow.mutate({
-            id: row.id,
-            patch: { problem_type: v, problem_other: v === "other" ? row.problem_other : null },
-          })
-        }
-        placeholder="Problem"
-        searchPlaceholder="Search..."
-      />
-      {row.problem_type === "other" && (
-        <Input
-          defaultValue={row.problem_other ?? ""}
-          placeholder="Type problem..."
-          className="h-7 text-xs"
-          onBlur={(e) => {
-            const v = e.target.value;
-            if (v !== (row.problem_other ?? ""))
-              updateRow.mutate({ id: row.id, patch: { problem_other: v } });
-          }}
-        />
-      )}
-    </div>
-  );
+  const problemCell = (row: HrReport) => {
+    const isEditing = edit?.id === row.id && edit.field === "problem";
+    if (isEditing) {
+      return (
+        <div className="space-y-1">
+          <div className="flex items-start gap-1">
+            <Combobox
+              className="h-7 w-full text-xs"
+              options={HR_PROBLEM_TYPES.map((t) => ({ value: t, label: HR_PROBLEM_LABELS[t] }))}
+              value={row.problem_type}
+              onValueChange={(v) => {
+                updateRow.mutate({
+                  id: row.id,
+                  patch: { problem_type: v, problem_other: v === "other" ? row.problem_other : null },
+                });
+                if (v !== "other") setEdit(null);
+              }}
+              placeholder="Problem"
+              searchPlaceholder="Search..."
+            />
+            {cancelButton}
+          </div>
+          {row.problem_type === "other" && (
+            <Input
+              autoFocus
+              value={draft}
+              placeholder="Type problem..."
+              className="h-7 text-xs"
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => {
+                if (draft !== (row.problem_other ?? ""))
+                  updateRow.mutate({ id: row.id, patch: { problem_other: draft } });
+                setEdit(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                if (e.key === "Escape") setEdit(null);
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+    return cellShell(
+      row,
+      "problem",
+      <span className="text-xs">{problemLabel(row)}</span>,
+    );
+  };
 
   if (isLoading) {
     return (
@@ -412,14 +476,14 @@ export function HrReportsBoard() {
           <table className="w-full table-fixed text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="w-[150px] px-3 py-2 text-left">Driver name</th>
+                <th className="w-[180px] px-3 py-2 text-left">Driver name</th>
                 <th className="w-[90px] px-3 py-2 text-left">Truck #</th>
-                <th className="w-[150px] px-3 py-2 text-left">Problem</th>
+                <th className="w-[120px] px-3 py-2 text-left">Problem</th>
                 <th className="px-3 py-2 text-left">Reason</th>
-                <th className="w-[300px] px-3 py-2 text-left">Updates</th>
-                <th className="w-[110px] px-3 py-2 text-left">Added</th>
-                <th className="w-[130px] px-3 py-2 text-center">Complete</th>
-                <th className="w-[80px] px-3 py-2 text-center"></th>
+                <th className="w-[22%] px-3 py-2 text-left">Updates</th>
+                <th className="w-[100px] px-3 py-2 text-left">Added</th>
+                <th className="w-[110px] px-3 py-2 text-center">Complete</th>
+                <th className="w-[70px] px-3 py-2 text-center"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -445,10 +509,10 @@ export function HrReportsBoard() {
                   <td className="px-3 py-2 align-top">{truckCell(row)}</td>
                   <td className="px-3 py-2 align-top">{problemCell(row)}</td>
                   <td className="px-3 py-2 align-top">
-                    {textCell(row, "reason", { translate: true, multiline: true })}
+                    {textCell(row, "reason", { translate: true })}
                   </td>
                   <td className="px-3 py-2 align-top">
-                    {textCell(row, "updates", { translate: true, multiline: true })}
+                    {textCell(row, "updates", { translate: true })}
                   </td>
                   <td className="px-3 py-2 align-top text-xs text-muted-foreground">
                     {chicagoDate(row.created_at)} {chicagoTime(row.created_at)}
@@ -456,21 +520,18 @@ export function HrReportsBoard() {
                   </td>
                   <td className="px-3 py-2 align-top text-center">
                     <Button
-                      variant={row.is_resolved ? "default" : "outline"}
                       size="sm"
-                      className="h-7 text-xs"
+                      disabled={row.is_resolved}
+                      className="h-8 rounded-md bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-100 dark:bg-green-950/50 dark:text-green-300 dark:hover:bg-green-900/60"
+                      title={row.is_resolved ? "Completed" : "Mark done"}
                       onClick={() =>
                         updateRow.mutate({
                           id: row.id,
-                          patch: {
-                            is_resolved: !row.is_resolved,
-                            resolved_at: row.is_resolved ? null : new Date().toISOString(),
-                          },
+                          patch: { is_resolved: true, resolved_at: new Date().toISOString() },
                         })
                       }
                     >
-                      <Check className="h-3 w-3 mr-1" />
-                      {row.is_resolved ? "Complete" : "Mark done"}
+                      <CheckCheck className="h-4 w-4" />
                     </Button>
                   </td>
                   <td className="px-3 py-2 align-top text-center whitespace-nowrap">
@@ -633,7 +694,7 @@ export function HrReportsBoard() {
                     {row.reason ? <TranslatableComplaintText text={row.reason} size="xs" /> : "—"}
                   </td>
                   <td className="px-3 py-2 align-top">
-                    {textCell(row, "updates", { translate: true, multiline: true })}
+                    {textCell(row, "updates", { translate: true })}
                   </td>
                   <td className="px-3 py-2 align-top text-xs text-muted-foreground">
                     {chicagoDate(row.created_at)} {chicagoTime(row.created_at)}
