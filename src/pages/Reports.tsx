@@ -649,7 +649,6 @@ const Reports = () => {
 
   // Set initial tab based on user's office, default to "Čačak" if not found
   const getInitialTab = () => {
-    if (useCoverageTab) return COVERAGE_TAB;
     if (useCombinedBgTab) return "BG";
     if (profile?.office && offices.includes(profile.office)) {
       return profile.office;
@@ -663,30 +662,16 @@ const Reports = () => {
   const [activeTab, setActiveTabRaw] = useState<string>(getInitialTab());
 
   // Picking a real office while covering turns Individual Mode off (so the whole
-  // office loads); picking MY TRUCKS turns it back on.
+  // office loads); turning Individual Mode back on returns to the coverage view.
   const setActiveTab = useCallback(
     (office: string) => {
       setActiveTabRaw(office);
-      if (!hasCoverageScope) return;
-      if (office === COVERAGE_TAB) {
-        if (!individualMode) void setIndividualMode(true);
-      } else if (individualMode) {
+      if (hasCoverageScope && individualMode) {
         void setIndividualMode(false);
       }
     },
     [hasCoverageScope, individualMode, setIndividualMode],
   );
-
-  // Coverage scope can arrive after mount (assignments load async) — keep the
-  // selected tab valid when the tab set changes.
-  useEffect(() => {
-    if (useCoverageTab) {
-      if (activeTab !== COVERAGE_TAB) setActiveTabRaw(COVERAGE_TAB);
-    } else if (activeTab === COVERAGE_TAB) {
-      setActiveTabRaw(getInitialTab());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useCoverageTab, activeTab]);
 
 
 
