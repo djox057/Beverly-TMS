@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +17,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
-  Check,
   CheckCheck,
   ChevronLeft,
   ChevronRight,
@@ -116,7 +114,6 @@ export function HrReportsBoard() {
   const [fTruck, setFTruck] = useState("");
   const [fDate, setFDate] = useState("");
   const [fProblem, setFProblem] = useState("");
-  const [onlyNotReviewed, setOnlyNotReviewed] = useState(false);
   const [page, setPage] = useState(0);
   const [semanticIds, setSemanticIds] = useState<string[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -268,7 +265,6 @@ export function HrReportsBoard() {
       if (fTruck && !r.truck_number.toLowerCase().includes(fTruck.toLowerCase())) return false;
       if (fDate && chicagoDateKey(r.created_at) !== fDate) return false;
       if (fProblem && r.problem_type !== fProblem) return false;
-      if (onlyNotReviewed && r.reviewed) return false;
       if (!q) return true;
       const words =
         r.driver_name.toLowerCase().includes(q) ||
@@ -278,14 +274,14 @@ export function HrReportsBoard() {
         (r.updates || "").toLowerCase().includes(q);
       return words || (semantic ? semantic.has(r.id) : false);
     });
-  }, [historyAll, historySearch, semanticIds, fDriver, fTruck, fDate, fProblem, onlyNotReviewed]);
+  }, [historyAll, historySearch, semanticIds, fDriver, fTruck, fDate, fProblem]);
 
   const pageCount = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
   const pageRows = history.slice(page * HISTORY_PAGE_SIZE, (page + 1) * HISTORY_PAGE_SIZE);
 
   useEffect(() => {
     setPage(0);
-  }, [historySearch, fDriver, fTruck, fDate, fProblem, onlyNotReviewed]);
+  }, [historySearch, fDriver, fTruck, fDate, fProblem]);
 
   const startEdit = (row: HrReport, field: EditTarget["field"]) => {
     setEdit({ id: row.id, field });
@@ -379,6 +375,7 @@ export function HrReportsBoard() {
         <div className="flex items-start gap-1">
           <Combobox
             className="h-7 w-full text-xs"
+            contentClassName="w-[260px]"
             options={
               row.driver_name && !driverOptions.some((o) => o.value === row.driver_name)
                 ? [{ value: row.driver_name, label: row.driver_name }, ...driverOptions]
@@ -414,6 +411,7 @@ export function HrReportsBoard() {
         <div className="flex items-start gap-1">
           <Combobox
             className="h-7 w-full text-xs"
+            contentClassName="w-[240px]"
             options={
               row.truck_number && !truckOptions.some((o) => o.value === row.truck_number)
                 ? [{ value: row.truck_number, label: row.truck_number }, ...truckOptions]
@@ -450,6 +448,7 @@ export function HrReportsBoard() {
           <div className="flex items-start gap-1">
             <Combobox
               className="h-7 w-full text-xs"
+              contentClassName="w-[200px]"
               options={HR_PROBLEM_TYPES.map((t) => ({ value: t, label: HR_PROBLEM_LABELS[t] }))}
               value={row.problem_type}
               onValueChange={(v) => {
@@ -516,7 +515,7 @@ export function HrReportsBoard() {
               <tr>
                 <th className="w-[140px] px-3 py-2 text-left">Driver name</th>
                 <th className="w-[90px] px-3 py-2 text-left">Truck #</th>
-                <th className="w-[120px] px-3 py-2 text-left">Problem</th>
+                <th className="w-[140px] px-3 py-2 text-left">Problem</th>
                 <th className="px-3 py-2 text-left">Reason</th>
                 <th className="w-[22%] px-3 py-2 text-left">Updates</th>
                 <th className="w-[140px] px-3 py-2 text-left">Added</th>
@@ -671,14 +670,7 @@ export function HrReportsBoard() {
               placeholder="All problems"
               searchPlaceholder="Search..."
             />
-            <label className="flex items-center gap-2 text-xs">
-              <Checkbox
-                checked={onlyNotReviewed}
-                onCheckedChange={(v) => setOnlyNotReviewed(v === true)}
-              />
-              Only not reviewed
-            </label>
-            {(fDriver || fTruck || fDate || fProblem || onlyNotReviewed || historySearch) && (
+            {(fDriver || fTruck || fDate || fProblem || historySearch) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -688,7 +680,6 @@ export function HrReportsBoard() {
                   setFTruck("");
                   setFDate("");
                   setFProblem("");
-                  setOnlyNotReviewed(false);
                   setHistorySearch("");
                   setSemanticIds(null);
                 }}
@@ -708,13 +699,12 @@ export function HrReportsBoard() {
                 <th className="px-3 py-2 text-left">Reason</th>
                 <th className="w-[300px] px-3 py-2 text-left">Updates</th>
                 <th className="w-[150px] px-3 py-2 text-left">Date</th>
-                <th className="w-[120px] px-3 py-2 text-center">Reviewed</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {pageRows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">
                     Nothing in history yet.
                   </td>
                 </tr>
@@ -747,26 +737,6 @@ export function HrReportsBoard() {
                   </td>
                   <td className="px-3 py-2 align-top text-xs text-muted-foreground">
                     {chicagoDate(row.created_at)} {chicagoTime(row.created_at)}
-                  </td>
-                  <td className="px-3 py-2 align-top text-center">
-                    <Button
-                      variant={row.reviewed ? "default" : "outline"}
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() =>
-                        updateRow.mutate({
-                          id: row.id,
-                          patch: {
-                            reviewed: !row.reviewed,
-                            reviewed_at: row.reviewed ? null : new Date().toISOString(),
-                            reviewed_by_name: row.reviewed ? null : profile?.full_name ?? null,
-                          },
-                        })
-                      }
-                    >
-                      <Check className="h-3 w-3 mr-1" />
-                      {row.reviewed ? "Reviewed" : "Review"}
-                    </Button>
                   </td>
                 </tr>
               ))}
