@@ -6413,6 +6413,9 @@ const Trips = () => {
                                                   {order._historyDateDisplay}
                                                 </span>
                                                 <span className="truncate">{order._changeDescription}</span>
+                                                {order._reason && (
+                                                  <span className="text-muted-foreground truncate">{order._reason}</span>
+                                                )}
                                                 {/* Show toggle button to expand driver's trips inline */}
                                                 {canShowNestedTrips && (
                                                   <NestedDriverTripsDropdown
