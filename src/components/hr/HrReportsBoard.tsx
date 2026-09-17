@@ -1,4 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+
+// Clamps text to two lines; when truncated, clicking opens the full text.
+function ClampedText({ text, onShowFull }: { text: string; onShowFull?: () => void }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [truncated, setTruncated] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setTruncated(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text]);
+
+  const clickable = truncated && !!onShowFull;
+  return (
+    <span
+      ref={ref}
+      onClick={clickable ? onShowFull : undefined}
+      title={clickable ? "Click to view full text" : undefined}
+      className={`line-clamp-2 whitespace-pre-wrap break-words text-xs ${
+        clickable ? "cursor-pointer hover:text-primary" : ""
+      }`}
+    >
+      {text || "—"}
+    </span>
+  );
+}
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { subscribeTable } from "@/hooks/realtimeBus";
