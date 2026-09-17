@@ -6705,7 +6705,7 @@ const Trips = () => {
                                               );
                                             }}
                                           >
-                                            <div className="line-clamp-2">{order.mileage?.toLocaleString() || "0"}</div>
+                                            <div className="whitespace-nowrap">{order.mileage?.toLocaleString() || "0"}</div>
                                           </TableCell>
                                           <TableCell>
                                             <div className="line-clamp-2">{order.brokerName}</div>
