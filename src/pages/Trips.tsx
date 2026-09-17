@@ -6148,7 +6148,7 @@ const Trips = () => {
                     {canMoveLoads && (
                       <TableHead className="w-[32px] min-w-[32px] max-w-[32px] bg-yellow-200 dark:bg-yellow-800"></TableHead>
                     )}
-                    <TableHead className="w-[80px] min-w-[80px] max-w-[80px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                    <TableHead className="w-[56px] min-w-[56px] max-w-[56px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Truck#
                     </TableHead>
                     <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
@@ -6178,7 +6178,7 @@ const Trips = () => {
                     <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Broker Load#
                     </TableHead>
-                    <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                    <TableHead className="w-[64px] min-w-[64px] max-w-[64px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       T Company
                     </TableHead>
 
