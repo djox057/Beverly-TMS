@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
+  Check,
   CheckCheck,
   ChevronLeft,
   ChevronRight,
@@ -693,7 +694,7 @@ export function HrReportsBoard() {
                     {row.reason ? <TranslatableComplaintText text={row.reason} size="xs" /> : "—"}
                   </td>
                   <td className="px-3 py-2 align-top">
-                    {textCell(row, "updates", { translate: true, multiline: true })}
+                    {textCell(row, "updates", { translate: true })}
                   </td>
                   <td className="px-3 py-2 align-top text-xs text-muted-foreground">
                     {chicagoDate(row.created_at)} {chicagoTime(row.created_at)}
