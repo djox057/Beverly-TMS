@@ -352,6 +352,7 @@ const DriversComplaints = () => {
         </div>
       </div>
 
+      {!isHrPage && (
       <div className="relative flex items-center justify-center gap-3">
         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftWeek(-7)} title="Previous week">
           <ChevronLeft className="h-4 w-4" />
@@ -495,8 +496,13 @@ const DriversComplaints = () => {
           </div>
         </div>
       </div>
+      )}
 
-      {isSearching ? (
+      {isHrPage ? (
+        <div className="pt-4">
+          <HrReportsBoard />
+        </div>
+      ) : isSearching ? (
         <div className="space-y-4 pt-4">
           <p className="text-sm text-muted-foreground">
             {searchResults.reduce((n, [, items]) => n + items.length, 0)} result(s) across all
