@@ -128,6 +128,8 @@ interface TwoWeekNoticeDriver {
   name: string;
   first_name: string;
   last_name: string;
+  company_id?: string | null;
+  company?: string | null;
   two_week_block_date: string;
   is_checked_for_termination: boolean;
   truck: {
@@ -308,6 +310,7 @@ export default function YardArrivals() {
           name,
           first_name,
           last_name,
+          company_id,
           two_week_block_date,
           is_checked_for_termination
         `)
@@ -360,7 +363,17 @@ export default function YardArrivals() {
         })
       );
 
-      return driversWithTrucks as TwoWeekNoticeDriver[];
+      // Resolve driver company names (driver's company is the source of truth)
+      const twoWeekCompanyIds = [...new Set((driversWithTrucks || []).map(d => d.company_id).filter(Boolean))] as string[];
+      const { data: twoWeekCompanies } = twoWeekCompanyIds.length > 0
+        ? await supabase.from("companies").select("id, name").in("id", twoWeekCompanyIds)
+        : { data: [] };
+      const twoWeekCompaniesMap = new Map((twoWeekCompanies || []).map(c => [c.id, c.name]));
+
+      return (driversWithTrucks || []).map(d => ({
+        ...d,
+        company: d.company_id ? twoWeekCompaniesMap.get(d.company_id) || null : null,
+      })) as TwoWeekNoticeDriver[];
     },
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -920,6 +933,11 @@ export default function YardArrivals() {
                                 {action.truck.make} {action.truck.model} {action.truck.year}
                               </p>
                             )}
+                            {action.company && (
+                              <p className="text-xs text-muted-foreground">
+                                {action.company}
+                              </p>
+                            )}
                             <div className="flex items-center justify-between">
                               <p className="font-semibold">
                                 #{action.truck?.truck_number || "N/A"}{" "}
@@ -1156,6 +1174,11 @@ export default function YardArrivals() {
                               {action.truck.make} {action.truck.model} {action.truck.year}
                             </p>
                           )}
+                          {action.company && (
+                            <p className="text-xs text-muted-foreground">
+                              {action.company}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between">
                             <p className="font-semibold">
                               #{action.truck?.truck_number || "N/A"}{" "}
@@ -1279,6 +1302,11 @@ export default function YardArrivals() {
                               {action.truck.make} {action.truck.model} {action.truck.year}
                             </p>
                           )}
+                          {action.company && (
+                            <p className="text-xs text-muted-foreground">
+                              {action.company}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between">
                             <p className="font-semibold">
                               #{action.truck?.truck_number || "N/A"}{" "}
@@ -1399,6 +1427,9 @@ export default function YardArrivals() {
                                 ) : (
                                   driver.name || `${driver.first_name} ${driver.last_name}`
                                 )}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {driver.company}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 Last day: {formatDate(date, "MMMM d, yyyy")}
