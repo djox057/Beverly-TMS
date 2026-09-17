@@ -6116,13 +6116,13 @@ const Trips = () => {
         <CardContent className="p-0">
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="p-2 md:p-6 relative overflow-x-auto">
-              <Table className="min-w-[900px]">
+              <Table className="min-w-[900px] table-fixed">
                 <TableHeader className="sticky top-0 z-20">
                   <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-4 border-black border-b-4">
                     {canMoveLoads && (
                       <TableHead className="w-[32px] min-w-[32px] max-w-[32px] bg-yellow-200 dark:bg-yellow-800"></TableHead>
                     )}
-                    <TableHead className="w-[34px] min-w-[34px] max-w-[34px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                    <TableHead className="w-[52px] min-w-[52px] max-w-[52px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap px-1">
                       Truck#
                     </TableHead>
                     <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
@@ -6574,7 +6574,7 @@ const Trips = () => {
                                               </div>
                                             </TableCell>
                                           )}
-                                          <TableCell className="font-medium">
+                                          <TableCell className="font-medium px-1">
                                             <div className="flex items-center gap-1">
                                               {auditMode && (
                                                 <Checkbox
@@ -6586,7 +6586,7 @@ const Trips = () => {
                                                   className="shrink-0"
                                                 />
                                               )}
-                                              <div className="line-clamp-2">{order.truckNumber}</div>
+                                              <div className="truncate">{order.truckNumber}</div>
                                             </div>
                                           </TableCell>
                                           <TableCell>
