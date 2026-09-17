@@ -59,14 +59,19 @@ export function DriverComplaintDialog({
     setType("");
   }, [open]);
 
+  const subjectText = [truckNumber?.trim() ? `#${truckNumber.trim()}` : "", driverName?.trim() || ""]
+    .filter(Boolean)
+    .join(" - ");
+  const hasTarget = !!subjectText || !!driverId;
+
   const handleSubmit = async () => {
-    if (!content.trim() || !user) return;
+    if (!content.trim() || !user || !hasTarget) return;
     if (canChooseType && !type) return;
     setSaving(true);
 
     const { error } = await supabase.from("driver_complaints").insert({
       complaint_type: canChooseType ? (type as ComplaintTypeKey) : DISPATCHER_REPORTING,
-      subject_text: `#${truckNumber}${driverName ? ` - ${driverName}` : ""}`,
+      subject_text: subjectText || "Unknown truck / driver",
       content: content.trim(),
       driver_id: driverId || null,
       created_by: user.id,
@@ -94,7 +99,7 @@ export function DriverComplaintDialog({
             Add Driver Complaint
           </DialogTitle>
           <DialogDescription>
-            {driverName} (Truck #{truckNumber})
+            {hasTarget ? subjectText || "Selected driver" : "No truck or driver selected — open this from a driver row"}
             {!canChooseType && " — filed as a Dispatcher Reporting"}
           </DialogDescription>
         </DialogHeader>
@@ -137,7 +142,7 @@ export function DriverComplaintDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={saving || !content.trim() || (canChooseType && !type)}
+            disabled={saving || !content.trim() || !hasTarget || (canChooseType && !type)}
           >
             {saving ? (
               <>
