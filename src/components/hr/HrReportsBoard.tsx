@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
-  Check,
   CheckCheck,
   ChevronLeft,
   ChevronRight,
@@ -116,7 +115,6 @@ export function HrReportsBoard() {
   const [fTruck, setFTruck] = useState("");
   const [fDate, setFDate] = useState("");
   const [fProblem, setFProblem] = useState("");
-  const [onlyNotReviewed, setOnlyNotReviewed] = useState(false);
   const [page, setPage] = useState(0);
   const [semanticIds, setSemanticIds] = useState<string[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -268,7 +266,6 @@ export function HrReportsBoard() {
       if (fTruck && !r.truck_number.toLowerCase().includes(fTruck.toLowerCase())) return false;
       if (fDate && chicagoDateKey(r.created_at) !== fDate) return false;
       if (fProblem && r.problem_type !== fProblem) return false;
-      if (onlyNotReviewed && r.reviewed) return false;
       if (!q) return true;
       const words =
         r.driver_name.toLowerCase().includes(q) ||
@@ -278,14 +275,14 @@ export function HrReportsBoard() {
         (r.updates || "").toLowerCase().includes(q);
       return words || (semantic ? semantic.has(r.id) : false);
     });
-  }, [historyAll, historySearch, semanticIds, fDriver, fTruck, fDate, fProblem, onlyNotReviewed]);
+  }, [historyAll, historySearch, semanticIds, fDriver, fTruck, fDate, fProblem]);
 
   const pageCount = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
   const pageRows = history.slice(page * HISTORY_PAGE_SIZE, (page + 1) * HISTORY_PAGE_SIZE);
 
   useEffect(() => {
     setPage(0);
-  }, [historySearch, fDriver, fTruck, fDate, fProblem, onlyNotReviewed]);
+  }, [historySearch, fDriver, fTruck, fDate, fProblem]);
 
   const startEdit = (row: HrReport, field: EditTarget["field"]) => {
     setEdit({ id: row.id, field });
