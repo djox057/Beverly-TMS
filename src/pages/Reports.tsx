@@ -661,6 +661,22 @@ const Reports = () => {
   // Track active office tab state - defined early so it can be used in hook
   const [activeTab, setActiveTabRaw] = useState<string>(getInitialTab());
 
+  // While afterhours / weekend coverage + Individual Mode are on, no office tab is
+  // selected: the tab value moves to a sentinel that matches no real office, so the
+  // tab row shows no selection and the data shown is the user's covered trucks.
+  const COVERAGE_TAB = "__coverage__";
+  const inCoverageView = hasCoverageScope && individualMode;
+  useEffect(() => {
+    if (inCoverageView) {
+      setActiveTabRaw((prev) => (prev === COVERAGE_TAB ? prev : COVERAGE_TAB));
+    } else {
+      // Clicking a real office sets the tab first and turns Individual Mode off, so
+      // only restore the default office when we're still parked on the sentinel.
+      setActiveTabRaw((prev) => (prev === COVERAGE_TAB ? getInitialTab() : prev));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inCoverageView]);
+
   // Picking a real office while covering turns Individual Mode off (so the whole
   // office loads); turning Individual Mode back on returns to the coverage view.
   const setActiveTab = useCallback(
