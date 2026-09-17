@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 interface AfterhoursDriverInfo {
   userName: string;
@@ -23,6 +24,8 @@ export const useAfterhoursDriverMap = () => {
   const [driverAfterhoursMap, setDriverAfterhoursMap] = useState<Map<string, AfterhoursDriverInfo>>(new Map());
   const [loading, setLoading] = useState(true);
   const [isWeekendWindow, setIsWeekendWindow] = useState(false);
+  const { profile } = useAuthContext();
+  const currentUserId = profile?.user_id ?? null;
 
   useEffect(() => {
     const chicagoNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
@@ -117,7 +120,15 @@ export const useAfterhoursDriverMap = () => {
         });
 
         const map = new Map<string, AfterhoursDriverInfo>();
-        rows.forEach(r => {
+        // The signed-in user's own coverage always wins over someone else's,
+        // so a covering user never sees another person's name on their trucks.
+        const ordered = currentUserId
+          ? [
+              ...rows.filter(r => r.afterhours_user_id !== currentUserId),
+              ...rows.filter(r => r.afterhours_user_id === currentUserId),
+            ]
+          : rows;
+        ordered.forEach(r => {
           const userName = profileMap.get(r.afterhours_user_id);
           if (userName && r.driver_id) {
             map.set(r.driver_id, { userName, userId: r.afterhours_user_id });
@@ -133,7 +144,7 @@ export const useAfterhoursDriverMap = () => {
 
     fetchData();
     return () => { cancelled = true; };
-  }, []);
+  }, [currentUserId]);
 
   return { driverAfterhoursMap, isWeekendWindow, loading };
 };
