@@ -132,9 +132,5 @@ export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose
       <AlertDialogHeader><AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle><AlertDialogDescription>Your changes have not been saved.</AlertDialogDescription></AlertDialogHeader>
       <AlertDialogFooter><AlertDialogCancel>Keep editing</AlertDialogCancel><AlertDialogAction onClick={onClose}>Discard</AlertDialogAction></AlertDialogFooter>
     </AlertDialogContent></AlertDialog>
-    <AlertDialog open={confirmReload} onOpenChange={setConfirmReload}><AlertDialogContent>
-      <AlertDialogHeader><AlertDialogTitle>Reload the latest entry?</AlertDialogTitle><AlertDialogDescription>This replaces your unsaved draft with the latest saved information.</AlertDialogDescription></AlertDialogHeader>
-      <AlertDialogFooter><AlertDialogCancel>Keep editing</AlertDialogCancel><AlertDialogAction onClick={()=>void reload()}>Reload</AlertDialogAction></AlertDialogFooter>
-    </AlertDialogContent></AlertDialog>
   </>;
 }
