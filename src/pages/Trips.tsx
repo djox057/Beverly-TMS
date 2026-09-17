@@ -6522,7 +6522,7 @@ const Trips = () => {
                                           {order._terminationDescription}
                                         </TableCell>
                                         <TableCell
-                                          colSpan={canSeePaidColumn ? 8 : 7}
+                                          colSpan={canSeePaidColumn ? 9 : 8}
                                           className="text-sm text-red-600 dark:text-red-400"
                                         >
                                           {order._terminationNote}
