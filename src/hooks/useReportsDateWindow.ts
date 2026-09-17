@@ -619,7 +619,7 @@ const fetchAllOfficeDriverScopes = async (): Promise<Map<string, { driverIds: st
  */
 const globalAccumulatedOrders = new Map<string, any>();
 const globalLoadedWindows = new Set<string>();
-let lastIndividualMode: boolean | undefined = undefined;
+let lastScopeSignature: string | undefined = undefined;
 
 // Version counter to trigger re-renders when orders are injected externally
 let globalOrdersVersion = 0;
