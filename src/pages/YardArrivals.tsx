@@ -116,10 +116,12 @@ interface YardAction {
     model?: string;
     year?: number;
   } | null;
+  company: string | null;
   creator: {
     full_name: string | null;
   } | null;
 }
+
 
 interface TwoWeekNoticeDriver {
   id: string;
@@ -229,32 +231,59 @@ export default function YardArrivals() {
         (creatorsData || []).map(c => [c.user_id, c.full_name])
       );
 
-      // Fetch truck details for make/model/year
+      // Fetch truck details for make/model/year + company fallback
       const truckNumbers = [...new Set((data || []).map(a => a.truck_number).filter(Boolean))] as string[];
       const { data: trucksData } = truckNumbers.length > 0
         ? await supabase
             .from("trucks")
-            .select("truck_number, make, model, year")
+            .select("truck_number, make, model, year, company_id, driver1_id")
             .in("truck_number", truckNumbers)
         : { data: [] };
       
       const trucksMap = new Map(
-        (trucksData || []).map(t => [t.truck_number, { make: t.make, model: t.model, year: t.year }])
+        (trucksData || []).map(t => [t.truck_number, { make: t.make, model: t.model, year: t.year, company_id: t.company_id, driver1_id: t.driver1_id }])
       );
+
+      // Resolve company names: driver's company first, truck's company as fallback
+      const driverIds = [...new Set((data || []).map(a => a.driver_id).filter(Boolean))] as string[];
+      const truckDriverIds = (trucksData || []).map(t => t.driver1_id).filter(Boolean) as string[];
+      const allDriverIds = [...new Set([...driverIds, ...truckDriverIds])];
+      const { data: driverCompanies } = allDriverIds.length > 0
+        ? await supabase.from("drivers").select("id, company_id").in("id", allDriverIds)
+        : { data: [] };
+
+      const companyIds = [
+        ...(driverCompanies || []).map(d => d.company_id),
+        ...(trucksData || []).map(t => t.company_id),
+      ].filter(Boolean) as string[];
+      const { data: companiesData } = [...new Set(companyIds)].length > 0
+        ? await supabase.from("companies").select("id, name").in("id", [...new Set(companyIds)])
+        : { data: [] };
+
+      const companiesMap = new Map((companiesData || []).map(c => [c.id, c.name]));
+      const driverCompanyMap = new Map((driverCompanies || []).map(d => [d.id, d.company_id]));
+
 
       // Map actions with truck info from saved truck_number
       const actionsWithTrucks = (data || []).map((action) => {
+        const truckInfo = action.truck_number ? trucksMap.get(action.truck_number) : undefined;
+        // Driver's company wins; fallback to the truck's company (driver1's company, then truck company_id)
+        const company = driverCompanyMap.get(action.driver_id)
+          || (truckInfo?.driver1_id ? driverCompanyMap.get(truckInfo.driver1_id) : undefined)
+          || truckInfo?.company_id;
         return {
           ...action,
           driver: action.drivers,
           truck: action.truck_number ? { 
             truck_number: action.truck_number,
-            ...trucksMap.get(action.truck_number)
+            ...truckInfo,
           } : null,
+          company: company ? companiesMap.get(company) || null : null,
           is_team: action.is_team || false,
           creator: action.created_by ? { full_name: creatorsMap.get(action.created_by) || null } : null,
         };
       });
+
 
       // Sort by arrival_datetime or created_at, ascending
       const sorted = actionsWithTrucks.sort((a, b) => {
@@ -1006,6 +1035,12 @@ export default function YardArrivals() {
                               {action.truck.make} {action.truck.model} {action.truck.year}
                             </p>
                           )}
+                          {action.company && (
+                            <p className="text-xs text-muted-foreground">
+                              {action.company}
+                            </p>
+                          )}
+
                           <div className="flex items-center justify-between">
                             <p className="font-semibold">
                               #{action.truck?.truck_number || "N/A"}{" "}
