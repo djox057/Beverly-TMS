@@ -307,6 +307,15 @@ export default function BeverlyHeatmapLane() {
               placeholder="City, State or address..."
               value={pickupAddress}
               onChange={e => setPickupAddress(e.target.value)}
+              onPaste={e => {
+                const text = e.clipboardData.getData("text");
+                const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                if (lines.length >= 2) {
+                  e.preventDefault();
+                  setPickupAddress(lines[0]);
+                  setDeliveryAddress(lines.slice(1).join(" "));
+                }
+              }}
               onKeyDown={e => e.key === "Enter" && handleSearch()}
               className="flex-1"
             />
