@@ -257,8 +257,10 @@ export function HrReportsBoard() {
 
   const startEdit = (row: HrReport, field: EditTarget["field"]) => {
     setEdit({ id: row.id, field });
-    setDraft((row[field] as string | null) ?? "");
+    setDraft(field === "problem" ? (row.problem_other ?? "") : ((row[field] as string | null) ?? ""));
   };
+
+  const cancelEdit = () => setEdit(null);
 
   const commitEdit = () => {
     if (!edit || savingRef.current) return;
