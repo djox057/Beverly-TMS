@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,7 +44,7 @@ function FieldInput({field,draft,onChange,refs,disabled}:{field:keyof CandidateF
   </>;
 }
 
-export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose,onSaved}:{selection:EditorSelection;refs:References;canEdit:boolean;defaultRecruiter:string|null;onClose:()=>void;onSaved:(row:Candidate)=>void}) {
+export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose,onSaved,onDelete}:{selection:EditorSelection;refs:References;canEdit:boolean;defaultRecruiter:string|null;onClose:()=>void;onSaved:(row:Candidate)=>void;onDelete?:()=>void}) {
   const [base,setBase]=useState<Candidate | null>(null);
   const [draft,setDraft]=useState<CandidateFields>({...EMPTY_CANDIDATE,recruiter_id:defaultRecruiter,arrival_date:selection.date ?? null});
   const [initialDraft]=useState(draft);
@@ -83,7 +83,7 @@ export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose
     return String(value);
   };
   const fields: (keyof CandidateFields)[]=allFields
-    ? ["driver_name","phone",...SCREENING_FIELDS,"arrival_date","arrival_time","tentative","status","recruiter_id","safety_id","dispatcher_id","company_id","sales","timing_note","application_status","transport_note","description","mvr","psp","preference","truck_id","truck_terms","drug_test_company","clearinghouse_status","ticket_note"]
+    ? ["driver_name","phone","arrival_date","arrival_time","tentative","status","recruiter_id","safety_id","dispatcher_id","company_id","sales","timing_note","application_status","transport_note","description","mvr","psp","preference","truck_id","truck_terms","drug_test_company","clearinghouse_status","ticket_note",...SCREENING_FIELDS]
     : focused==="truck_id"?["truck_id","truck_terms"]:focused==="arrival_date"?["arrival_date","arrival_time","tentative"]:[focused];
   return <>
     <Sheet open onOpenChange={open=>{if(!open)close();}}>
@@ -110,7 +110,9 @@ export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose
           <div className="sticky bottom-0 flex flex-wrap gap-2 border-t bg-background py-3">
             {canEdit && <Button type="submit" disabled={saving || changedElsewhere || (!!base && !dirty)}>{saving?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:null}Save</Button>}
             <Button type="button" variant="outline" disabled={saving} onClick={close}>{canEdit?"Cancel":"Close"}</Button>
-            {selection.id && <Button type="button" variant="ghost" disabled={saving} onClick={()=>dirty?setConfirmReload(true):void reload()}>Reload latest</Button>}
+            {selection.id && allFields && onDelete && <Button type="button" variant="destructive" disabled={saving} onClick={onDelete}>
+              <Trash2 className="mr-2 h-4 w-4" /> Delete driver
+            </Button>}
           </div>
         </form>}
         {selection.id && <section className="border-t pt-4">
