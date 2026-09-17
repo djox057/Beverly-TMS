@@ -6122,7 +6122,7 @@ const Trips = () => {
                     {canMoveLoads && (
                       <TableHead className="w-[32px] min-w-[32px] max-w-[32px] bg-yellow-200 dark:bg-yellow-800"></TableHead>
                     )}
-                    <TableHead className="w-[52px] min-w-[52px] max-w-[52px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap px-1">
+                    <TableHead className="w-[72px] min-w-[72px] max-w-[72px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap px-1">
                       Truck#
                     </TableHead>
                     <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
@@ -6131,19 +6131,19 @@ const Trips = () => {
                     <TableHead className="w-[70px] min-w-[70px] max-w-[70px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Load#
                     </TableHead>
-                    <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Pickup Date
                     </TableHead>
                     <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Pickup City
                     </TableHead>
-                    <TableHead className="w-[115px] min-w-[115px] max-w-[115px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Delivery Date
                     </TableHead>
                     <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Delivery City
                     </TableHead>
-                    <TableHead className="w-[70px] min-w-[70px] max-w-[70px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                    <TableHead className="w-[56px] min-w-[56px] max-w-[56px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Miles
                     </TableHead>
                     <TableHead className="w-[140px] min-w-[140px] max-w-[140px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
