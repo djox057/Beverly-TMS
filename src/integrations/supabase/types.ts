@@ -3316,6 +3316,75 @@ export type Database = {
         }
         Relationships: []
       }
+      hr_reports: {
+        Row: {
+          archived: boolean
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          driver_name: string
+          embedding: string | null
+          id: string
+          is_pinned: boolean
+          is_resolved: boolean
+          problem_other: string | null
+          problem_type: string
+          reason: string
+          resolved_at: string | null
+          reviewed: boolean
+          reviewed_at: string | null
+          reviewed_by_name: string | null
+          truck_number: string
+          updated_at: string
+          updates: string | null
+        }
+        Insert: {
+          archived?: boolean
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          driver_name?: string
+          embedding?: string | null
+          id?: string
+          is_pinned?: boolean
+          is_resolved?: boolean
+          problem_other?: string | null
+          problem_type?: string
+          reason?: string
+          resolved_at?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          reviewed_by_name?: string | null
+          truck_number?: string
+          updated_at?: string
+          updates?: string | null
+        }
+        Update: {
+          archived?: boolean
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          driver_name?: string
+          embedding?: string | null
+          id?: string
+          is_pinned?: boolean
+          is_resolved?: boolean
+          problem_other?: string | null
+          problem_type?: string
+          reason?: string
+          resolved_at?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          reviewed_by_name?: string | null
+          truck_number?: string
+          updated_at?: string
+          updates?: string | null
+        }
+        Relationships: []
+      }
       ifta_records: {
         Row: {
           created_at: string
@@ -6685,6 +6754,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      archive_completed_hr_reports: { Args: never; Returns: number }
       auth_user_roles: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"][]
@@ -6944,6 +7014,17 @@ export type Database = {
         Returns: undefined
       }
       resolve_login_email: { Args: { p_email: string }; Returns: string }
+      search_hr_reports: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          id: string
+          similarity: number
+        }[]
+      }
       search_orders_hydrate: { Args: { p_ids: string[] }; Returns: Json }
       search_orders_ids: {
         Args: {
