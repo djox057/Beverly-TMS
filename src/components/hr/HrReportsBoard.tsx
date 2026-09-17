@@ -376,6 +376,7 @@ export function HrReportsBoard() {
         <div className="flex items-start gap-1">
           <Combobox
             className="h-7 w-full text-xs"
+            contentClassName="w-[260px]"
             options={
               row.driver_name && !driverOptions.some((o) => o.value === row.driver_name)
                 ? [{ value: row.driver_name, label: row.driver_name }, ...driverOptions]
@@ -411,6 +412,7 @@ export function HrReportsBoard() {
         <div className="flex items-start gap-1">
           <Combobox
             className="h-7 w-full text-xs"
+            contentClassName="w-[240px]"
             options={
               row.truck_number && !truckOptions.some((o) => o.value === row.truck_number)
                 ? [{ value: row.truck_number, label: row.truck_number }, ...truckOptions]
@@ -447,6 +449,7 @@ export function HrReportsBoard() {
           <div className="flex items-start gap-1">
             <Combobox
               className="h-7 w-full text-xs"
+              contentClassName="w-[200px]"
               options={HR_PROBLEM_TYPES.map((t) => ({ value: t, label: HR_PROBLEM_LABELS[t] }))}
               value={row.problem_type}
               onValueChange={(v) => {
@@ -513,7 +516,7 @@ export function HrReportsBoard() {
               <tr>
                 <th className="w-[140px] px-3 py-2 text-left">Driver name</th>
                 <th className="w-[90px] px-3 py-2 text-left">Truck #</th>
-                <th className="w-[120px] px-3 py-2 text-left">Problem</th>
+                <th className="w-[140px] px-3 py-2 text-left">Problem</th>
                 <th className="px-3 py-2 text-left">Reason</th>
                 <th className="w-[22%] px-3 py-2 text-left">Updates</th>
                 <th className="w-[140px] px-3 py-2 text-left">Added</th>
