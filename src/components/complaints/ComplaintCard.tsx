@@ -150,7 +150,11 @@ export function ComplaintCard({ type, complaints, assignedSourceIds }: Complaint
                       }`}
                     >
                       <div className="flex items-start justify-between gap-1">
-                        <p className="font-semibold text-sm break-words">{c.subject_text}</p>
+                        <p className="font-semibold text-sm break-words">
+                          {c.subject_text && c.subject_text.trim() !== "#"
+                            ? c.subject_text
+                            : "Unknown truck / driver"}
+                        </p>
                         {canEditRow(c) && (
                           <div className="flex gap-0.5 shrink-0">
                             {canManage && isReportingCard && (
