@@ -308,6 +308,7 @@ export default function YardArrivals() {
           name,
           first_name,
           last_name,
+          company_id,
           two_week_block_date,
           is_checked_for_termination
         `)
