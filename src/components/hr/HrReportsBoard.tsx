@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { TranslatableComplaintText } from "@/components/complaints/TranslatableComplaintText";
+import { useDriverTruckOptions } from "./useDriverTruckOptions";
 import {
   HR_PROBLEM_LABELS,
   HR_PROBLEM_TYPES,
@@ -64,6 +65,7 @@ type EditTarget = { id: string; field: "driver_name" | "truck_number" | "reason"
 export function HrReportsBoard() {
   const { user, profile } = useAuthContext();
   const queryClient = useQueryClient();
+  const { driverOptions, truckOptions, truckByName, nameByTruck } = useDriverTruckOptions();
   const [edit, setEdit] = useState<EditTarget | null>(null);
   const [draft, setDraft] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -316,6 +318,48 @@ export function HrReportsBoard() {
     );
   };
 
+  const driverCell = (row: HrReport) => (
+    <Combobox
+      className="h-7 w-full text-xs"
+      options={
+        row.driver_name && !driverOptions.some((o) => o.value === row.driver_name)
+          ? [{ value: row.driver_name, label: row.driver_name }, ...driverOptions]
+          : driverOptions
+      }
+      value={row.driver_name}
+      onValueChange={(v) => {
+        const truck = truckByName.get(v);
+        updateRow.mutate({
+          id: row.id,
+          patch: { driver_name: v, ...(truck ? { truck_number: truck } : {}) },
+        });
+      }}
+      placeholder="Driver"
+      searchPlaceholder="Search driver..."
+    />
+  );
+
+  const truckCell = (row: HrReport) => (
+    <Combobox
+      className="h-7 w-full text-xs"
+      options={
+        row.truck_number && !truckOptions.some((o) => o.value === row.truck_number)
+          ? [{ value: row.truck_number, label: row.truck_number }, ...truckOptions]
+          : truckOptions
+      }
+      value={row.truck_number}
+      onValueChange={(v) => {
+        const name = nameByTruck.get(v);
+        updateRow.mutate({
+          id: row.id,
+          patch: { truck_number: v, ...(name ? { driver_name: name } : {}) },
+        });
+      }}
+      placeholder="Truck"
+      searchPlaceholder="Search truck..."
+    />
+  );
+
   const problemCell = (row: HrReport) => (
     <div className="space-y-1">
       <Combobox
@@ -397,8 +441,8 @@ export function HrReportsBoard() {
                         : undefined
                   }
                 >
-                  <td className="px-3 py-2 align-top">{textCell(row, "driver_name")}</td>
-                  <td className="px-3 py-2 align-top">{textCell(row, "truck_number")}</td>
+                  <td className="px-3 py-2 align-top">{driverCell(row)}</td>
+                  <td className="px-3 py-2 align-top">{truckCell(row)}</td>
                   <td className="px-3 py-2 align-top">{problemCell(row)}</td>
                   <td className="px-3 py-2 align-top">
                     {textCell(row, "reason", { translate: true, multiline: true })}
@@ -648,6 +692,10 @@ export function HrReportsBoard() {
       </div>
 
       <AddHrReportDialog
+        driverOptions={driverOptions}
+        truckOptions={truckOptions}
+        truckByName={truckByName}
+        nameByTruck={nameByTruck}
         open={addOpen}
         onOpenChange={setAddOpen}
         saving={createRow.isPending}
@@ -679,11 +727,19 @@ export function HrReportsBoard() {
 }
 
 function AddHrReportDialog({
+  driverOptions,
+  truckOptions,
+  truckByName,
+  nameByTruck,
   open,
   onOpenChange,
   saving,
   onSubmit,
 }: {
+  driverOptions: { value: string; label: string; searchText?: string }[];
+  truckOptions: { value: string; label: string; searchText?: string }[];
+  truckByName: Map<string, string>;
+  nameByTruck: Map<string, string>;
   open: boolean;
   onOpenChange: (o: boolean) => void;
   saving: boolean;
@@ -741,8 +797,28 @@ function AddHrReportDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <Input placeholder="Driver name" value={driver} onChange={(e) => setDriver(e.target.value)} />
-            <Input placeholder="Truck number" value={truck} onChange={(e) => setTruck(e.target.value)} />
+            <Combobox
+              options={driverOptions}
+              value={driver}
+              onValueChange={(v) => {
+                setDriver(v);
+                const t = truckByName.get(v);
+                if (t) setTruck(t);
+              }}
+              placeholder="Driver name"
+              searchPlaceholder="Search driver..."
+            />
+            <Combobox
+              options={truckOptions}
+              value={truck}
+              onValueChange={(v) => {
+                setTruck(v);
+                const n = nameByTruck.get(v);
+                if (n) setDriver(n);
+              }}
+              placeholder="Truck number"
+              searchPlaceholder="Search truck..."
+            />
           </div>
           <Combobox
             options={HR_PROBLEM_TYPES.map((t) => ({ value: t, label: HR_PROBLEM_LABELS[t] }))}
