@@ -737,13 +737,23 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
   
   const windowKey = getWindowKey(currentWindow);
   
-  // Reset global state ONLY when individual mode changes (complete data context switch)
-  if (lastIndividualMode !== undefined && lastIndividualMode !== individualMode) {
-    console.log(`[useReportsDateWindow] Individual mode changed, clearing global accumulated orders`);
+  // Reset global state whenever the data scope identity changes (individual mode
+  // toggled, a different user signed in, or a different coverage driver list).
+  // Otherwise orders accumulated for the previous scope keep showing up.
+  const scopeSignature = [
+    individualMode ? 'individual' : 'all',
+    individualMode ? currentUserDispatcherId || 'no-user' : 'all-dispatchers',
+    individualMode && individualOverrideDriverIds
+      ? `override:${individualOverrideDriverIds.length}:${[...individualOverrideDriverIds].sort().slice(0, 5).join(',')}`
+      : 'no-override',
+  ].join('|');
+  if (lastScopeSignature !== undefined && lastScopeSignature !== scopeSignature) {
+    console.log('[useReportsDateWindow] Scope changed, clearing global accumulated orders');
     globalAccumulatedOrders.clear();
     globalLoadedWindows.clear();
   }
-  lastIndividualMode = individualMode;
+  lastScopeSignature = scopeSignature;
+
   
   // Create a stable query key that is OFFICE-INDEPENDENT
   // Tab switching is now a synchronous map lookup from the cached allScopes
