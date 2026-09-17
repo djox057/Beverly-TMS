@@ -20,6 +20,10 @@ import { Combobox } from "@/components/ui/combobox";
 import { ComplaintComments } from "@/components/complaints/ComplaintComments";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useComplaintsAccess } from "@/components/complaints/useComplaintsAccess";
+import { HrReportsBoard } from "@/components/hr/HrReportsBoard";
+import { useHrReportsAccess } from "@/components/hr/useHrReportsAccess";
+
+const HR_GROUP = { label: "HR Reports", types: [] as ComplaintTypeKey[], hr: true } as const;
 
 // --- Chicago week helpers (Mon–Sun) ---
 const chicagoDateKey = (d: Date) =>
@@ -68,12 +72,19 @@ const chicagoTime = (iso: string) =>
 const DriversComplaints = () => {
   const { user } = useAuthContext();
   const { canManage, isDispatchOnly } = useComplaintsAccess();
-  const groups = useMemo(
-    () =>
-      isDispatchOnly
-        ? COMPLAINT_GROUPS.filter((g) => g.types.includes(DISPATCHER_REPORTING))
-        : COMPLAINT_GROUPS,
-    [isDispatchOnly],
+  const { canAccess: canAccessHr } = useHrReportsAccess();
+  const groups = useMemo<{ label: string; types: ComplaintTypeKey[]; hr?: boolean }[]>(
+    () => {
+      if (isDispatchOnly) {
+        return COMPLAINT_GROUPS.filter((g) => g.types.includes(DISPATCHER_REPORTING));
+      }
+      if (!canAccessHr) return COMPLAINT_GROUPS;
+      const base = [...COMPLAINT_GROUPS];
+      const idx = base.findIndex((g) => g.types.includes(DISPATCHER_REPORTING));
+      base.splice(idx + 1, 0, { ...HR_GROUP, types: [...HR_GROUP.types] });
+      return base;
+    },
+    [isDispatchOnly, canAccessHr],
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [groupIndex, setGroupIndex] = useState(0);
@@ -271,7 +282,10 @@ const DriversComplaints = () => {
     !!searchQuery.trim() || !!companyFilter || !!typeFilter || !!officeFilter;
 
   const groupCounts = useMemo(
-    () => groups.map((g) => g.types.reduce((sum, t) => sum + (byType.get(t)?.length || 0), 0)),
+    () =>
+      groups.map((g) =>
+        g.hr ? 1 : g.types.reduce((sum, t) => sum + (byType.get(t)?.length || 0), 0),
+      ),
     [groups, byType],
   );
 
@@ -300,7 +314,8 @@ const DriversComplaints = () => {
   }
 
   const activeGroup = groups[Math.min(groupIndex, groups.length - 1)];
-  const typeOnly = !!typeFilter;
+  const isHrPage = !!activeGroup.hr;
+  const typeOnly = !!typeFilter && !isHrPage;
   const activeTypes = typeOnly
     ? ([typeFilter] as ComplaintTypeKey[])
     : activeGroup.types;
