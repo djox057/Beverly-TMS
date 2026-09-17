@@ -699,7 +699,18 @@ export function HrReportsBoard() {
                     </Badge>
                   </td>
                   <td className="px-3 py-2 align-top">
-                    {row.reason ? <TranslatableComplaintText text={row.reason} size="xs" /> : "—"}
+                    <ClampedText
+                      text={row.reason || ""}
+                      onShowFull={
+                        row.reason
+                          ? () =>
+                              setViewFull({
+                                title: `${row.driver_name || row.truck_number || "Entry"} — Reason`,
+                                text: row.reason,
+                              })
+                          : undefined
+                      }
+                    />
                   </td>
                   <td className="px-3 py-2 align-top">
                     {textCell(row, "updates", { translate: true })}
@@ -770,6 +781,18 @@ export function HrReportsBoard() {
         saving={createRow.isPending}
         onSubmit={(values) => createRow.mutate(values)}
       />
+
+      {/* Full text viewer (opened by clicking a clamped cell) */}
+      <Dialog open={!!viewFull} onOpenChange={(o) => !o && setViewFull(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{viewFull?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap break-words text-sm">
+            {viewFull && <TranslatableComplaintText text={viewFull.text} size="sm" />}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <DialogContent className="max-w-sm">
