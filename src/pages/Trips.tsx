@@ -6178,6 +6178,9 @@ const Trips = () => {
                     <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Broker Load#
                     </TableHead>
+                    <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      T Company
+                    </TableHead>
 
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Stop Amt
@@ -6199,7 +6202,7 @@ const Trips = () => {
                   {groupedByWeek.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={canMoveLoads ? (canSeePaidColumn ? 14 : 13) : canSeePaidColumn ? 13 : 12}
+                        colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : canSeePaidColumn ? 14 : 13}
                         className="text-center py-8 text-muted-foreground"
                       >
                         No trips found
@@ -6279,7 +6282,7 @@ const Trips = () => {
                             >
                               {week.weekTotal.miles.toLocaleString()}
                             </TableCell>
-                            <TableCell colSpan={2} className="py-3"></TableCell>
+                            <TableCell colSpan={3} className="py-3"></TableCell>
                             <TableCell
                               className={`py-3 cursor-pointer select-none transition-colors ${
                                 isSelected(`week-driver-${week.weekStart}`)
@@ -6386,7 +6389,7 @@ const Trips = () => {
                                 {snapshot.isDraggingOver && (
                                   <TableRow className="bg-blue-100 dark:bg-blue-900/50 border-2 border-dashed border-blue-500 animate-pulse">
                                     <TableCell
-                                      colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : canSeePaidColumn ? 14 : 13}
+                                      colSpan={canMoveLoads ? (canSeePaidColumn ? 16 : 15) : canSeePaidColumn ? 15 : 14}
                                       className="py-4 text-center"
                                     >
                                       <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
@@ -6403,7 +6406,7 @@ const Trips = () => {
                                   className={snapshot.isDraggingOver ? "bg-blue-50 dark:bg-blue-950" : ""}
                                 >
                                   <td
-                                    colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : canSeePaidColumn ? 14 : 13}
+                                    colSpan={canMoveLoads ? (canSeePaidColumn ? 16 : 15) : canSeePaidColumn ? 15 : 14}
                                     style={{ padding: 0, height: snapshot.isDraggingOver ? "4px" : "0px" }}
                                   />
                                 </tr>
@@ -6418,11 +6421,11 @@ const Trips = () => {
                                       order._entityName !== "Unassigned";
                                     const totalColSpan = canMoveLoads
                                       ? canSeePaidColumn
-                                        ? 15
-                                        : 14
+                                        ? 16
+                                        : 15
                                       : canSeePaidColumn
-                                        ? 14
-                                        : 13;
+                                        ? 15
+                                        : 14;
 
                                     return (
                                       <Fragment key={historyKey}>
@@ -6451,7 +6454,7 @@ const Trips = () => {
                                               {!canShowNestedTrips && <span className="text-muted-foreground">—</span>}
                                             </div>
                                           </TableCell>
-                                          <TableCell colSpan={canSeePaidColumn ? 7 : 6} className="text-sm">
+                                          <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm">
                                             {order._reason || "—"}
                                           </TableCell>
                                           <TableCell className="text-center">
@@ -6519,7 +6522,7 @@ const Trips = () => {
                                           {order._terminationDescription}
                                         </TableCell>
                                         <TableCell
-                                          colSpan={canSeePaidColumn ? 8 : 7}
+                                          colSpan={canSeePaidColumn ? 9 : 8}
                                           className="text-sm text-red-600 dark:text-red-400"
                                         >
                                           {order._terminationNote}
@@ -6730,6 +6733,11 @@ const Trips = () => {
                                           </TableCell>
                                           <TableCell>
                                             <div className="line-clamp-2">{order.brokerLoadNumber}</div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="line-clamp-2">
+                                              {order.driverCompanyName || order.truckCompanyName}
+                                            </div>
                                           </TableCell>
                                           <TableCell
                                             className={`cursor-pointer select-none transition-colors ${
