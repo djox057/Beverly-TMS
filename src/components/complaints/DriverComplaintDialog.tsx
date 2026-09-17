@@ -142,7 +142,7 @@ export function DriverComplaintDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={saving || !content.trim() || (canChooseType && !type)}
+            disabled={saving || !content.trim() || !hasTarget || (canChooseType && !type)}
           >
             {saving ? (
               <>
