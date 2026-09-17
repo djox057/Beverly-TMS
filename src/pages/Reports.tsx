@@ -3685,6 +3685,16 @@ const Reports = () => {
   const filterReportsByOffice = useMemo(() => {
     return (office: string) => {
       if (!groupedReports) return [];
+      // Coverage view: data is already scoped to the covered drivers — no office filter.
+      if (inCoverageView) {
+        let all = groupedReports;
+        if (debouncedDispatchNameFilter) {
+          all = all.filter((group) =>
+            group.dispatcher.toLowerCase().includes(debouncedDispatchNameFilter.toLowerCase()),
+          );
+        }
+        return all;
+      }
       const allowed = expandOffice(office);
       let filtered = groupedReports.filter((group) => allowed.includes(group.office));
 
