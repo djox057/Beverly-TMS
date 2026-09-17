@@ -128,6 +128,8 @@ interface TwoWeekNoticeDriver {
   name: string;
   first_name: string;
   last_name: string;
+  company_id?: string | null;
+  company?: string | null;
   two_week_block_date: string;
   is_checked_for_termination: boolean;
   truck: {
@@ -1425,6 +1427,9 @@ export default function YardArrivals() {
                                 ) : (
                                   driver.name || `${driver.first_name} ${driver.last_name}`
                                 )}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {driver.company}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 Last day: {formatDate(date, "MMMM d, yyyy")}
