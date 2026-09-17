@@ -618,10 +618,11 @@ const Reports = () => {
   // collapse "BG 1st floor" and "BG 4th floor" into a single virtual "BG" tab so
   // all of their assigned trucks across both floors are visible in one place.
   // Afterhours / weekend coverage: the scope is an explicit list of drivers that can
-  // span several offices, so show ONE virtual tab holding all of them instead of
+  // span several offices, so offer a "MY TRUCKS" tab holding all of them instead of
   // splitting the same person's drivers across Čačak / Kragujevac / BG tabs.
-  const COVERAGE_TAB = "MY DRIVERS";
-  const useCoverageTab = individualMode && (individualOverrideDriverIds?.length ?? 0) > 0;
+  const COVERAGE_TAB = "MY TRUCKS";
+  const hasCoverageScope = (individualOverrideDriverIds?.length ?? 0) > 0;
+  const useCoverageTab = individualMode && hasCoverageScope;
 
   const useCombinedBgTab =
     !useCoverageTab &&
@@ -629,8 +630,8 @@ const Reports = () => {
     individualMode &&
     (profile?.office === "BG 1st floor" || profile?.office === "BG 4th floor");
   const ALL_OFFICES = ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 4th floor", "Recovery"];
-  const offices = useCoverageTab
-    ? [COVERAGE_TAB]
+  const offices = hasCoverageScope
+    ? [COVERAGE_TAB, ...ALL_OFFICES]
     : useCombinedBgTab
       ? ["Čačak", "KRAGUJEVAC", "BG", "Recovery"]
       : ALL_OFFICES;
@@ -667,9 +668,20 @@ const Reports = () => {
   // Track active office tab state - defined early so it can be used in hook
   const [activeTab, setActiveTabRaw] = useState<string>(getInitialTab());
 
-  const setActiveTab = useCallback((office: string) => {
-    setActiveTabRaw(office);
-  }, []);
+  // Picking a real office while covering turns Individual Mode off (so the whole
+  // office loads); picking MY TRUCKS turns it back on.
+  const setActiveTab = useCallback(
+    (office: string) => {
+      setActiveTabRaw(office);
+      if (!hasCoverageScope) return;
+      if (office === COVERAGE_TAB) {
+        if (!individualMode) void setIndividualMode(true);
+      } else if (individualMode) {
+        void setIndividualMode(false);
+      }
+    },
+    [hasCoverageScope, individualMode, setIndividualMode],
+  );
 
   // Coverage scope can arrive after mount (assignments load async) — keep the
   // selected tab valid when the tab set changes.
@@ -681,6 +693,8 @@ const Reports = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useCoverageTab, activeTab]);
+
+
 
 
   // Spotlight driver: when load# search resolves to a driver in a different
