@@ -6574,7 +6574,7 @@ const Trips = () => {
                                               </div>
                                             </TableCell>
                                           )}
-                                          <TableCell className="font-medium">
+                                          <TableCell className="font-medium px-1">
                                             <div className="flex items-center gap-1">
                                               {auditMode && (
                                                 <Checkbox
