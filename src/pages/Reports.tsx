@@ -3800,6 +3800,7 @@ const Reports = () => {
     companyFilter,
     proximityMatchedTrucks,
     expandOffice,
+    inCoverageView,
   ]);
 
   // Collect all driver IDs for weekly plans hook
