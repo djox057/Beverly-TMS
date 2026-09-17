@@ -760,11 +760,18 @@ const Reports = () => {
   }, [groupedReports, activeTab, expandOffice, inCoverageView]);
 
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
+  // During coverage the visible tab is the sentinel that matches no office; feed the
+  // search engine the user's real office so "found in my office" still matches the
+  // loaded coverage data instead of forcing a switch out of Individual Mode.
+  const autoSwitchActiveTab =
+    inCoverageView && profile?.office && ALL_OFFICES.includes(profile.office)
+      ? profile.office
+      : activeTab;
   const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
     truckDriverFilter: debouncedTruckDriverFilter,
     dispatchNameFilter: debouncedDispatchNameFilter,
     loadNumberFilter: debouncedLoadNumberFilter,
-    activeTab,
+    activeTab: autoSwitchActiveTab,
     setActiveTab,
     offices,
     groupedReports,
