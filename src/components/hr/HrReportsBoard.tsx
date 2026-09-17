@@ -519,21 +519,18 @@ export function HrReportsBoard() {
                   </td>
                   <td className="px-3 py-2 align-top text-center">
                     <Button
-                      variant={row.is_resolved ? "default" : "outline"}
                       size="sm"
-                      className="h-7 text-xs"
+                      disabled={row.is_resolved}
+                      className="h-8 rounded-md bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-100 dark:bg-green-950/50 dark:text-green-300 dark:hover:bg-green-900/60"
+                      title={row.is_resolved ? "Completed" : "Mark done"}
                       onClick={() =>
                         updateRow.mutate({
                           id: row.id,
-                          patch: {
-                            is_resolved: !row.is_resolved,
-                            resolved_at: row.is_resolved ? null : new Date().toISOString(),
-                          },
+                          patch: { is_resolved: true, resolved_at: new Date().toISOString() },
                         })
                       }
                     >
-                      <Check className="h-3 w-3 mr-1" />
-                      {row.is_resolved ? "Complete" : "Mark done"}
+                      <CheckCheck className="h-4 w-4" />
                     </Button>
                   </td>
                   <td className="px-3 py-2 align-top text-center whitespace-nowrap">
