@@ -6122,7 +6122,7 @@ const Trips = () => {
                     {canMoveLoads && (
                       <TableHead className="w-[32px] min-w-[32px] max-w-[32px] bg-yellow-200 dark:bg-yellow-800"></TableHead>
                     )}
-                    <TableHead className="w-[34px] min-w-[34px] max-w-[34px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                    <TableHead className="w-[52px] min-w-[52px] max-w-[52px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap px-1">
                       Truck#
                     </TableHead>
                     <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
