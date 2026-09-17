@@ -476,12 +476,12 @@ export function HrReportsBoard() {
           <table className="w-full table-fixed text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="w-[180px] px-3 py-2 text-left">Driver name</th>
+                <th className="w-[140px] px-3 py-2 text-left">Driver name</th>
                 <th className="w-[90px] px-3 py-2 text-left">Truck #</th>
                 <th className="w-[120px] px-3 py-2 text-left">Problem</th>
                 <th className="px-3 py-2 text-left">Reason</th>
                 <th className="w-[22%] px-3 py-2 text-left">Updates</th>
-                <th className="w-[100px] px-3 py-2 text-left">Added</th>
+                <th className="w-[140px] px-3 py-2 text-left">Added</th>
                 <th className="w-[110px] px-3 py-2 text-center">Complete</th>
                 <th className="w-[70px] px-3 py-2 text-center"></th>
               </tr>
@@ -664,12 +664,12 @@ export function HrReportsBoard() {
           <table className="w-full table-fixed text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="w-[150px] px-3 py-2 text-left">Driver name</th>
+                <th className="w-[120px] px-3 py-2 text-left">Driver name</th>
                 <th className="w-[90px] px-3 py-2 text-left">Truck #</th>
                 <th className="w-[130px] px-3 py-2 text-left">Problem</th>
                 <th className="px-3 py-2 text-left">Reason</th>
                 <th className="w-[300px] px-3 py-2 text-left">Updates</th>
-                <th className="w-[110px] px-3 py-2 text-left">Date</th>
+                <th className="w-[150px] px-3 py-2 text-left">Date</th>
                 <th className="w-[120px] px-3 py-2 text-center">Reviewed</th>
               </tr>
             </thead>
