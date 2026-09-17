@@ -757,7 +757,7 @@ const Reports = () => {
         });
       });
     return Array.from(companies).sort();
-  }, [groupedReports, activeTab, expandOffice]);
+  }, [groupedReports, activeTab, expandOffice, inCoverageView]);
 
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
   const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
