@@ -13,6 +13,7 @@ export interface OrderSnapshot {
   layover?: number | null;
   layoverDriver?: number | null;
   extraStop?: number | null;
+  extraStopDriver?: number | null;
   lateFee?: number | null;
   lateFeeDriver?: number | null;
   tonu?: number | null;
@@ -204,6 +205,9 @@ export function generateChangeMessages(
   }
   if (original.extraStop !== updated.extraStop) {
     changes.push(`Extra stop fee changed from ${formatCurrency(original.extraStop)} to ${formatCurrency(updated.extraStop)}`);
+  }
+  if (original.extraStopDriver !== updated.extraStopDriver) {
+    changes.push(`Extra stop driver amount changed from ${formatCurrency(original.extraStopDriver)} to ${formatCurrency(updated.extraStopDriver)}`);
   }
   if (original.lateFee !== updated.lateFee) {
     changes.push(`Late fee changed from ${formatCurrency(original.lateFee)} to ${formatCurrency(updated.lateFee)}`);
