@@ -99,7 +99,7 @@ export function DriverComplaintDialog({
             Add Driver Complaint
           </DialogTitle>
           <DialogDescription>
-            {driverName} (Truck #{truckNumber})
+            {hasTarget ? subjectText || "Selected driver" : "No truck or driver selected — open this from a driver row"}
             {!canChooseType && " — filed as a Dispatcher Reporting"}
           </DialogDescription>
         </DialogHeader>
