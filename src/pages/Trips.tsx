@@ -6426,7 +6426,6 @@ const Trips = () => {
                                       : canSeePaidColumn
                                         ? 15
                                         : 14;
-                                        : 13;
 
                                     return (
                                       <Fragment key={historyKey}>
@@ -6455,7 +6454,7 @@ const Trips = () => {
                                               {!canShowNestedTrips && <span className="text-muted-foreground">—</span>}
                                             </div>
                                           </TableCell>
-                                          <TableCell colSpan={canSeePaidColumn ? 7 : 6} className="text-sm">
+                                          <TableCell colSpan={canSeePaidColumn ? 8 : 7} className="text-sm">
                                             {order._reason || "—"}
                                           </TableCell>
                                           <TableCell className="text-center">
