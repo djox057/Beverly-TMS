@@ -24,7 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 const ADDITIONAL_TYPES = [
   { value: "detention", label: "Detention", hasDriver: true },
   { value: "layover", label: "Layover", hasDriver: true },
-  { value: "extra_stop", label: "Extra Stop", hasDriver: false },
+  { value: "extra_stop", label: "Extra Stop", hasDriver: true },
   { value: "lumper", label: "Lumper", hasDriver: false },
   { value: "late_fee", label: "Late Fee", hasDriver: true },
   { value: "no_tracking_fee", label: "No Tracking Fee", hasDriver: true },
@@ -95,6 +95,8 @@ interface OrderAdditionalsManagerProps {
   setLayoverDriver: (value: string) => void;
   extraStop: string;
   setExtraStop: (value: string) => void;
+  extraStopDriver: string;
+  setExtraStopDriver: (value: string) => void;
   // Lumper is now multi-entry, each with its own amount, optional reason, and file
   lumperItems: LumperItem[];
   setLumperItems: (items: LumperItem[]) => void;
@@ -141,6 +143,8 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
   setLayoverDriver,
   extraStop,
   setExtraStop,
+  extraStopDriver,
+  setExtraStopDriver,
   lumperItems,
   setLumperItems,
   onUploadLumperReceipt,
@@ -193,7 +197,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
       case "layover":
         return { company: layover, setCompany: setLayover, driver: layoverDriver, setDriver: setLayoverDriver };
       case "extra_stop":
-        return { company: extraStop, setCompany: setExtraStop, driver: "", setDriver: () => {} };
+        return { company: extraStop, setCompany: setExtraStop, driver: extraStopDriver, setDriver: setExtraStopDriver };
       case "late_fee":
         return { company: lateFee, setCompany: setLateFee, driver: lateFeeDriver, setDriver: setLateFeeDriver };
       case "no_tracking_fee":
@@ -264,7 +268,7 @@ export const OrderAdditionalsManager = forwardRef<OrderAdditionalsManagerRef, Or
 
     return items;
   }, [
-    detention, detentionDriver, layover, layoverDriver, extraStop, lumperItems,
+    detention, detentionDriver, layover, layoverDriver, extraStop, extraStopDriver, lumperItems,
     lateFee, lateFeeDriver, noTrackingFee, noTrackingFeeDriver,
     wrongAddressFee, wrongAddressFeeDriver, tonu, tonuDriver,
     otherChargesItems, otherAdditionalsItems,

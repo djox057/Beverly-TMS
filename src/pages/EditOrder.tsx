@@ -155,6 +155,7 @@ const EditOrder = () => {
   const [detention, setDetention] = useState("");
   const [layover, setLayover] = useState("");
   const [extraStop, setExtraStop] = useState("");
+  const [extraStopDriver, setExtraStopDriver] = useState("");
   // Lumper is now multi-entry, each with its own amount, optional reason, and receipt file.
   // Derived legacy `lumper` total (sum) is computed below for backward compatibility.
   const [lumperItems, setLumperItems] = useState<
@@ -378,17 +379,19 @@ const EditOrder = () => {
     const base = parseFloat(driverPrice) || 0;
     const det = parseFloat(detentionDriver) || 0;
     const lay = parseFloat(layoverDriver) || 0;
+    const extraStp = parseFloat(extraStopDriver) || 0;
     const late = parseFloat(lateFeeDriver) || 0;
     const ton = parseFloat(tonuDriver) || 0;
     const other = parseFloat(otherChargesDriver) || 0;
     const otherAdd = parseFloat(otherAdditionalsDriver) || 0;
     const noTracking = parseFloat(noTrackingFeeDriver) || 0;
     const wrongAddr = parseFloat(wrongAddressFeeDriver) || 0;
-    return base + det + lay - late + ton - other + otherAdd - noTracking - wrongAddr;
+    return base + det + lay + extraStp - late + ton - other + otherAdd - noTracking - wrongAddr;
   }, [
     driverPrice,
     detentionDriver,
     layoverDriver,
+    extraStopDriver,
     lateFeeDriver,
     tonuDriver,
     otherChargesDriver,
@@ -803,6 +806,7 @@ const EditOrder = () => {
         setDetention((orderData as any).detention?.toString() || "");
         setLayover((orderData as any).layover?.toString() || "");
         setExtraStop((orderData as any).extra_stop?.toString() || "");
+        setExtraStopDriver((orderData as any).extra_stop_driver?.toString() || "");
         // Load lumper_items (multi-entry). Fallback to legacy scalar `lumper`.
         {
           const itemsRaw = (orderData as any).lumper_items;
@@ -949,6 +953,7 @@ const EditOrder = () => {
           ((orderData as any).layover && parseFloat((orderData as any).layover) > 0) ||
           ((orderData as any).layover_driver && parseFloat((orderData as any).layover_driver) > 0) ||
           ((orderData as any).extra_stop && parseFloat((orderData as any).extra_stop) > 0) ||
+          ((orderData as any).extra_stop_driver && parseFloat((orderData as any).extra_stop_driver) > 0) ||
           ((orderData as any).lumper && parseFloat((orderData as any).lumper) > 0) ||
           ((orderData as any).late_fee && parseFloat((orderData as any).late_fee) > 0) ||
           ((orderData as any).late_fee_driver && parseFloat((orderData as any).late_fee_driver) > 0) ||
@@ -2459,6 +2464,7 @@ const EditOrder = () => {
       layover: layover ? parseFloat(layover) : null,
       layoverDriver: layoverDriver ? parseFloat(layoverDriver) : null,
       extraStop: extraStop ? parseFloat(extraStop) : null,
+      extraStopDriver: extraStopDriver ? parseFloat(extraStopDriver) : null,
       lateFee: lateFee ? parseFloat(lateFee) : null,
       lateFeeDriver: lateFeeDriver ? parseFloat(lateFeeDriver) : null,
       tonu: tonu ? parseFloat(tonu) : null,
@@ -2508,6 +2514,7 @@ const EditOrder = () => {
     layover,
     layoverDriver,
     extraStop,
+    extraStopDriver,
     lateFee,
     lateFeeDriver,
     tonu,
@@ -2677,6 +2684,7 @@ const EditOrder = () => {
         detention: detention ? parseFloat(detention) : null,
         layover: layover ? parseFloat(layover) : null,
         extra_stop: extraStop ? parseFloat(extraStop) : null,
+        extra_stop_driver: extraStopDriver !== "" ? parseFloat(extraStopDriver) : null,
         lumper: lumper ? parseFloat(lumper) : null,
         lumper_items: lumperItems.length > 0 ? lumperItems : null,
         late_fee: lateFee ? parseFloat(lateFee) : null,
@@ -3896,6 +3904,8 @@ const EditOrder = () => {
                   setLayoverDriver={setLayoverDriver}
                   extraStop={extraStop}
                   setExtraStop={setExtraStop}
+                  extraStopDriver={extraStopDriver}
+                  setExtraStopDriver={setExtraStopDriver}
                   lumperItems={lumperItems}
                   setLumperItems={setLumperItems}
                   onUploadLumperReceipt={handleUploadLumperReceipt}
