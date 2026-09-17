@@ -920,6 +920,11 @@ export default function YardArrivals() {
                                 {action.truck.make} {action.truck.model} {action.truck.year}
                               </p>
                             )}
+                            {action.company && (
+                              <p className="text-xs text-muted-foreground">
+                                {action.company}
+                              </p>
+                            )}
                             <div className="flex items-center justify-between">
                               <p className="font-semibold">
                                 #{action.truck?.truck_number || "N/A"}{" "}
@@ -1156,6 +1161,11 @@ export default function YardArrivals() {
                               {action.truck.make} {action.truck.model} {action.truck.year}
                             </p>
                           )}
+                          {action.company && (
+                            <p className="text-xs text-muted-foreground">
+                              {action.company}
+                            </p>
+                          )}
                           <div className="flex items-center justify-between">
                             <p className="font-semibold">
                               #{action.truck?.truck_number || "N/A"}{" "}
@@ -1277,6 +1287,11 @@ export default function YardArrivals() {
                           {action.truck?.make && (
                             <p className="text-xs text-muted-foreground">
                               {action.truck.make} {action.truck.model} {action.truck.year}
+                            </p>
+                          )}
+                          {action.company && (
+                            <p className="text-xs text-muted-foreground">
+                              {action.company}
                             </p>
                           )}
                           <div className="flex items-center justify-between">
