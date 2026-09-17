@@ -617,29 +617,23 @@ const Reports = () => {
   // For afterhours users in Individual Mode whose office is one of the BG floors,
   // collapse "BG 1st floor" and "BG 4th floor" into a single virtual "BG" tab so
   // all of their assigned trucks across both floors are visible in one place.
-  // Afterhours / weekend coverage: the scope is an explicit list of drivers that can
-  // span several offices, so offer a "MY TRUCKS" tab holding all of them instead of
-  // splitting the same person's drivers across Čačak / Kragujevac / BG tabs.
-  const COVERAGE_TAB = "MY TRUCKS";
+  // Afterhours / weekend coverage: individual mode is enabled automatically and its
+  // scope is an explicit list of drivers that can span several offices, so no office
+  // constraint is applied while it is on — no extra tab is shown for it.
   const hasCoverageScope = (individualOverrideDriverIds?.length ?? 0) > 0;
-  const useCoverageTab = individualMode && hasCoverageScope;
 
   const useCombinedBgTab =
-    !useCoverageTab &&
     getPrimaryRole() === "afterhours" &&
     individualMode &&
     (profile?.office === "BG 1st floor" || profile?.office === "BG 4th floor");
   const ALL_OFFICES = ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 4th floor", "Recovery"];
-  const offices = hasCoverageScope
-    ? [COVERAGE_TAB, ...ALL_OFFICES]
-    : useCombinedBgTab
-      ? ["Čačak", "KRAGUJEVAC", "BG", "Recovery"]
-      : ALL_OFFICES;
+  const offices = useCombinedBgTab
+    ? ["Čačak", "KRAGUJEVAC", "BG", "Recovery"]
+    : ALL_OFFICES;
 
   // Map virtual tabs to the real underlying office values.
   const expandOffice = useCallback(
     (tab: string): string[] => {
-      if (tab === COVERAGE_TAB) return ALL_OFFICES;
       if (tab === "BG" && useCombinedBgTab) return ["BG 1st floor", "BG 4th floor"];
       return [tab];
     },
@@ -655,7 +649,6 @@ const Reports = () => {
 
   // Set initial tab based on user's office, default to "Čačak" if not found
   const getInitialTab = () => {
-    if (useCoverageTab) return COVERAGE_TAB;
     if (useCombinedBgTab) return "BG";
     if (profile?.office && offices.includes(profile.office)) {
       return profile.office;
@@ -669,30 +662,16 @@ const Reports = () => {
   const [activeTab, setActiveTabRaw] = useState<string>(getInitialTab());
 
   // Picking a real office while covering turns Individual Mode off (so the whole
-  // office loads); picking MY TRUCKS turns it back on.
+  // office loads); turning Individual Mode back on returns to the coverage view.
   const setActiveTab = useCallback(
     (office: string) => {
       setActiveTabRaw(office);
-      if (!hasCoverageScope) return;
-      if (office === COVERAGE_TAB) {
-        if (!individualMode) void setIndividualMode(true);
-      } else if (individualMode) {
+      if (hasCoverageScope && individualMode) {
         void setIndividualMode(false);
       }
     },
     [hasCoverageScope, individualMode, setIndividualMode],
   );
-
-  // Coverage scope can arrive after mount (assignments load async) — keep the
-  // selected tab valid when the tab set changes.
-  useEffect(() => {
-    if (useCoverageTab) {
-      if (activeTab !== COVERAGE_TAB) setActiveTabRaw(COVERAGE_TAB);
-    } else if (activeTab === COVERAGE_TAB) {
-      setActiveTabRaw(getInitialTab());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useCoverageTab, activeTab]);
 
 
 
@@ -716,7 +695,9 @@ const Reports = () => {
     // When a virtual tab ("BG", "MY DRIVERS") is active, do not constrain by a single
     // office value; the individual-mode driver-id scope already narrows correctly.
     priorityOffice:
-      activeTab === COVERAGE_TAB || (activeTab === "BG" && useCombinedBgTab) ? null : activeTab,
+      (hasCoverageScope && individualMode) || (activeTab === "BG" && useCombinedBgTab)
+        ? null
+        : activeTab,
     dispatcherId: profile?.user_id || null,
     dispatcherProfileId: profile?.id || null,
     selectedDate: selectedDateForWindow,
