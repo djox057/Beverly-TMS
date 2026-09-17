@@ -671,14 +671,7 @@ export function HrReportsBoard() {
               placeholder="All problems"
               searchPlaceholder="Search..."
             />
-            <label className="flex items-center gap-2 text-xs">
-              <Checkbox
-                checked={onlyNotReviewed}
-                onCheckedChange={(v) => setOnlyNotReviewed(v === true)}
-              />
-              Only not reviewed
-            </label>
-            {(fDriver || fTruck || fDate || fProblem || onlyNotReviewed || historySearch) && (
+            {(fDriver || fTruck || fDate || fProblem || historySearch) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -688,7 +681,6 @@ export function HrReportsBoard() {
                   setFTruck("");
                   setFDate("");
                   setFProblem("");
-                  setOnlyNotReviewed(false);
                   setHistorySearch("");
                   setSemanticIds(null);
                 }}
@@ -708,13 +700,12 @@ export function HrReportsBoard() {
                 <th className="px-3 py-2 text-left">Reason</th>
                 <th className="w-[300px] px-3 py-2 text-left">Updates</th>
                 <th className="w-[150px] px-3 py-2 text-left">Date</th>
-                <th className="w-[120px] px-3 py-2 text-center">Reviewed</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {pageRows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">
                     Nothing in history yet.
                   </td>
                 </tr>
@@ -747,26 +738,6 @@ export function HrReportsBoard() {
                   </td>
                   <td className="px-3 py-2 align-top text-xs text-muted-foreground">
                     {chicagoDate(row.created_at)} {chicagoTime(row.created_at)}
-                  </td>
-                  <td className="px-3 py-2 align-top text-center">
-                    <Button
-                      variant={row.reviewed ? "default" : "outline"}
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() =>
-                        updateRow.mutate({
-                          id: row.id,
-                          patch: {
-                            reviewed: !row.reviewed,
-                            reviewed_at: row.reviewed ? null : new Date().toISOString(),
-                            reviewed_by_name: row.reviewed ? null : profile?.full_name ?? null,
-                          },
-                        })
-                      }
-                    >
-                      <Check className="h-3 w-3 mr-1" />
-                      {row.reviewed ? "Reviewed" : "Review"}
-                    </Button>
                   </td>
                 </tr>
               ))}
