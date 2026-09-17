@@ -6202,7 +6202,7 @@ const Trips = () => {
                   {groupedByWeek.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={canMoveLoads ? (canSeePaidColumn ? 14 : 13) : canSeePaidColumn ? 13 : 12}
+                        colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : canSeePaidColumn ? 14 : 13}
                         className="text-center py-8 text-muted-foreground"
                       >
                         No trips found
@@ -6282,7 +6282,7 @@ const Trips = () => {
                             >
                               {week.weekTotal.miles.toLocaleString()}
                             </TableCell>
-                            <TableCell colSpan={2} className="py-3"></TableCell>
+                            <TableCell colSpan={3} className="py-3"></TableCell>
                             <TableCell
                               className={`py-3 cursor-pointer select-none transition-colors ${
                                 isSelected(`week-driver-${week.weekStart}`)
@@ -6389,7 +6389,7 @@ const Trips = () => {
                                 {snapshot.isDraggingOver && (
                                   <TableRow className="bg-blue-100 dark:bg-blue-900/50 border-2 border-dashed border-blue-500 animate-pulse">
                                     <TableCell
-                                      colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : canSeePaidColumn ? 14 : 13}
+                                      colSpan={canMoveLoads ? (canSeePaidColumn ? 16 : 15) : canSeePaidColumn ? 15 : 14}
                                       className="py-4 text-center"
                                     >
                                       <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
@@ -6406,7 +6406,7 @@ const Trips = () => {
                                   className={snapshot.isDraggingOver ? "bg-blue-50 dark:bg-blue-950" : ""}
                                 >
                                   <td
-                                    colSpan={canMoveLoads ? (canSeePaidColumn ? 15 : 14) : canSeePaidColumn ? 14 : 13}
+                                    colSpan={canMoveLoads ? (canSeePaidColumn ? 16 : 15) : canSeePaidColumn ? 15 : 14}
                                     style={{ padding: 0, height: snapshot.isDraggingOver ? "4px" : "0px" }}
                                   />
                                 </tr>
@@ -6421,10 +6421,11 @@ const Trips = () => {
                                       order._entityName !== "Unassigned";
                                     const totalColSpan = canMoveLoads
                                       ? canSeePaidColumn
-                                        ? 15
-                                        : 14
+                                        ? 16
+                                        : 15
                                       : canSeePaidColumn
-                                        ? 14
+                                        ? 15
+                                        : 14;
                                         : 13;
 
                                     return (
