@@ -76,6 +76,7 @@ export function HrReportsBoard() {
   const [draft, setDraft] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [viewFull, setViewFull] = useState<{ title: string; text: string } | null>(null);
   const savingRef = useRef(false);
 
   // history filters
@@ -326,11 +327,18 @@ export function HrReportsBoard() {
     return cellShell(
       row,
       field,
-      opts?.translate && value ? (
-        <TranslatableComplaintText text={value} size="xs" />
-      ) : (
-        <span className="text-xs whitespace-pre-wrap break-words">{value || "—"}</span>
-      ),
+      <ClampedText
+        text={value}
+        onShowFull={
+          value
+            ? () =>
+                setViewFull({
+                  title: `${row.driver_name || row.truck_number || "Entry"} — ${field === "reason" ? "Reason" : "Updates"}`,
+                  text: value,
+                })
+            : undefined
+        }
+      />
     );
   };
 
@@ -365,7 +373,7 @@ export function HrReportsBoard() {
     return cellShell(
       row,
       "driver_name",
-      <span className="text-xs">{row.driver_name || "—"}</span>,
+      <span className="text-xs line-clamp-2 break-words">{row.driver_name || "—"}</span>,
     );
   };
 
@@ -400,7 +408,7 @@ export function HrReportsBoard() {
     return cellShell(
       row,
       "truck_number",
-      <span className="text-xs">{row.truck_number || "—"}</span>,
+      <span className="text-xs line-clamp-2 break-words">{row.truck_number || "—"}</span>,
     );
   };
 
@@ -450,7 +458,7 @@ export function HrReportsBoard() {
     return cellShell(
       row,
       "problem",
-      <span className="text-xs">{problemLabel(row)}</span>,
+      <span className="text-xs line-clamp-2 break-words">{problemLabel(row)}</span>,
     );
   };
 
