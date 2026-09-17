@@ -6116,7 +6116,7 @@ const Trips = () => {
         <CardContent className="p-0">
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="p-2 md:p-6 relative overflow-x-auto">
-              <Table className="min-w-[900px]">
+              <Table className="min-w-[900px] table-fixed">
                 <TableHeader className="sticky top-0 z-20">
                   <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-4 border-black border-b-4">
                     {canMoveLoads && (
