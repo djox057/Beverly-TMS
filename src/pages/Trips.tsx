@@ -6586,7 +6586,7 @@ const Trips = () => {
                                                   className="shrink-0"
                                                 />
                                               )}
-                                              <div className="line-clamp-2">{order.truckNumber}</div>
+                                              <div className="truncate">{order.truckNumber}</div>
                                             </div>
                                           </TableCell>
                                           <TableCell>
