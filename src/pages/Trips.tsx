@@ -492,10 +492,7 @@ const Trips = () => {
     queryKey: ["trips-dispatch-assigned-drivers", profile?.user_id],
     queryFn: async () => {
       if (!profile?.user_id) return [] as string[];
-      const { data, error } = await supabase
-        .from("drivers")
-        .select("id")
-        .eq("dispatcher_id", profile.user_id);
+      const { data, error } = await supabase.from("drivers").select("id").eq("dispatcher_id", profile.user_id);
       if (error) throw error;
       return (data || []).map((d) => d.id);
     },
@@ -517,7 +514,7 @@ const Trips = () => {
         (o.driver2Id && allowed.has(o.driver2Id)) ||
         (o.originalDriver1Id && allowed.has(o.originalDriver1Id)) ||
         (o.originalDriver2Id && allowed.has(o.originalDriver2Id)) ||
-        (!!userFullName && o.bookedBy === userFullName)
+        (!!userFullName && o.bookedBy === userFullName),
     );
   }, [ordersRaw, isDispatchOnly, dispatchAssignedDriverIds, profile?.full_name]);
 
@@ -1410,11 +1407,7 @@ const Trips = () => {
   }, [filteredOrders, weekOverrides, itemsPerPage]);
 
   const totalPages = Math.max(1, weekPages.length);
-  const paginatedOrders = useMemo(
-    () => weekPages[currentPage - 1] || [],
-    [weekPages, currentPage],
-  );
-
+  const paginatedOrders = useMemo(() => weekPages[currentPage - 1] || [], [weekPages, currentPage]);
 
   // Group paginated orders by week (Monday-Sunday), respecting week overrides
   const groupedByWeek = useMemo(() => {
@@ -1757,7 +1750,6 @@ const Trips = () => {
         await exportLaleTransportTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else if (resolvedCompanyName === "Jones Freight Lines LLC") {
         await exportJonesFreightTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
-
       } else {
         // Use the old export method for other companies
         exportGenericExcel(week, weekStartDate, weekEndDate);
@@ -4210,8 +4202,7 @@ const Trips = () => {
       worksheet.getCell("F3").value = format(thursdayDate, "MM/dd/yyyy");
 
       // B11: Pay period
-      worksheet.getCell("B11").value =
-        `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
+      worksheet.getCell("B11").value = `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
 
       // E5: Driver name, E6: Company name, E7: Agreement start date, E8: Truck number, E9: Agreement terms
       worksheet.getCell("E5").value = driver?.name || firstOrder.driverName || "";
@@ -4317,10 +4308,7 @@ const Trips = () => {
         push("Late Fee", Math.abs(Number(order.lateFeeDriver) || 0));
         push("No Tracking Fee", Math.abs(Number(order.noTrackingFeeDriver) || 0));
         push("Wrong Address Fee", Math.abs(Number(order.wrongAddressFeeDriver) || 0));
-        push(
-          (order as any).otherChargesReason || "Other Charges",
-          Math.abs(Number(order.otherChargesDriver) || 0),
-        );
+        push((order as any).otherChargesReason || "Other Charges", Math.abs(Number(order.otherChargesDriver) || 0));
       });
 
       // Fixed deductions (rows 25-33, total at row 34)
@@ -4375,11 +4363,9 @@ const Trips = () => {
         const t = (text || "").toLowerCase();
         return t.includes("fridge") || t.includes("scale");
       };
-      const efsDeductions = (await fetchEfsDeductionsForStatement(
-        firstOrder.driver1Id || "",
-        weekStartDate,
-        weekEndDate,
-      )).filter((efs) => !isExcludedLaleDeduction(efs.description));
+      const efsDeductions = (
+        await fetchEfsDeductionsForStatement(firstOrder.driver1Id || "", weekStartDate, weekEndDate)
+      ).filter((efs) => !isExcludedLaleDeduction(efs.description));
       efsDeductions.forEach((efs) => {
         if (negativeRow > 33) return;
         worksheet.getCell(`B${negativeRow}`).value = efs.description;
@@ -4392,9 +4378,7 @@ const Trips = () => {
 
       // Scheduled deductions from Stuff
       if (scheduledDeductions.length > 0) {
-        const nonFridgeDeductions = scheduledDeductions.filter(
-          (d) => !isExcludedLaleDeduction(d.explanation || ""),
-        );
+        const nonFridgeDeductions = scheduledDeductions.filter((d) => !isExcludedLaleDeduction(d.explanation || ""));
         const creditDeductions = nonFridgeDeductions.filter((d) => d.expenseType === "credit");
         const expenseDeductions = nonFridgeDeductions.filter((d) => d.expenseType !== "credit");
         creditDeductions.forEach((credit) => {
@@ -4523,8 +4507,7 @@ const Trips = () => {
       }
 
       // B13: Pay period
-      worksheet.getCell("B13").value =
-        `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
+      worksheet.getCell("B13").value = `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
 
       // Clear trip rows 15-20
       for (let row = 15; row <= 20; row++) {
@@ -4611,10 +4594,7 @@ const Trips = () => {
         push("Late Fee", Math.abs(Number(order.lateFeeDriver) || 0));
         push("No Tracking Fee", Math.abs(Number(order.noTrackingFeeDriver) || 0));
         push("Wrong Address Fee", Math.abs(Number(order.wrongAddressFeeDriver) || 0));
-        push(
-          (order as any).otherChargesReason || "Other Charges",
-          Math.abs(Number(order.otherChargesDriver) || 0),
-        );
+        push((order as any).otherChargesReason || "Other Charges", Math.abs(Number(order.otherChargesDriver) || 0));
       });
 
       // Fixed deductions (rows 41-46)
@@ -4664,11 +4644,9 @@ const Trips = () => {
       });
 
       // EFS deductions
-      const efsDeductions = (await fetchEfsDeductionsForStatement(
-        firstOrder.driver1Id || "",
-        weekStartDate,
-        weekEndDate,
-      )).filter((efs) => !efs.description.toLowerCase().includes("fridge"));
+      const efsDeductions = (
+        await fetchEfsDeductionsForStatement(firstOrder.driver1Id || "", weekStartDate, weekEndDate)
+      ).filter((efs) => !efs.description.toLowerCase().includes("fridge"));
       efsDeductions.forEach((efs) => {
         if (negativeRow > 49) return;
         worksheet.getCell(`B${negativeRow}`).value = efs.description;
@@ -4738,8 +4716,6 @@ const Trips = () => {
       toast.error("Failed to export statement");
     }
   };
-
-
 
   const exportBFPrimeTemplate = async (
     week: any,
@@ -5216,9 +5192,7 @@ const Trips = () => {
 
   const exportAuditSelection = () => {
     try {
-      const selected = filteredOrders.filter((o: any) =>
-        auditSelected.has(o.virtualId ?? o.id),
-      );
+      const selected = filteredOrders.filter((o: any) => auditSelected.has(o.virtualId ?? o.id));
       if (selected.length === 0) {
         toast.error("No orders selected");
         return;
@@ -5371,7 +5345,6 @@ const Trips = () => {
         await exportLaleTransportTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
       } else if (companyName === "Jones Freight Lines LLC") {
         await exportJonesFreightTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
-
       } else {
         exportGenericExcel(weekData, earliestDate, latestDate);
       }
@@ -6094,7 +6067,8 @@ const Trips = () => {
       <Card className="w-full min-w-0">
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-4 md:p-6">
           <CardTitle className="text-base md:text-lg">
-            Trips ({filteredOrders.length} total, showing {paginatedOrders.length} on page {currentPage} of {totalPages})
+            Trips ({filteredOrders.length} total, showing {paginatedOrders.length} on page {currentPage} of {totalPages}
+            )
             {filterInfo.companyName && searchFilter && (
               <span className="ml-2 text-sm font-normal text-muted-foreground">— {filterInfo.companyName}</span>
             )}
@@ -6179,7 +6153,7 @@ const Trips = () => {
                       Broker Load#
                     </TableHead>
                     <TableHead className="w-[64px] min-w-[64px] max-w-[64px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
-                      T Company
+                      T Comp
                     </TableHead>
 
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
@@ -6244,7 +6218,6 @@ const Trips = () => {
                                               weekDriverName,
                                               week.weekStart,
                                               week.actualOrders,
-
                                             )
                                           }
                                         />
@@ -6618,7 +6591,7 @@ const Trips = () => {
                                           </TableCell>
                                           <TableCell>
                                             <div className="line-clamp-2">
-                                              {(order.driver2Id || order.driver2Name) ? (
+                                              {order.driver2Id || order.driver2Name ? (
                                                 <Popover>
                                                   <PopoverTrigger asChild>
                                                     <button
@@ -6631,8 +6604,14 @@ const Trips = () => {
                                                   </PopoverTrigger>
                                                   <PopoverContent className="w-auto p-3">
                                                     <div className="space-y-1 text-sm">
-                                                      <p><span className="font-semibold">Driver 1:</span> {order.driver1Name || "N/A"}</p>
-                                                      <p><span className="font-semibold">Driver 2:</span> {order.driver2Name || "N/A"}</p>
+                                                      <p>
+                                                        <span className="font-semibold">Driver 1:</span>{" "}
+                                                        {order.driver1Name || "N/A"}
+                                                      </p>
+                                                      <p>
+                                                        <span className="font-semibold">Driver 2:</span>{" "}
+                                                        {order.driver2Name || "N/A"}
+                                                      </p>
                                                     </div>
                                                   </PopoverContent>
                                                 </Popover>
