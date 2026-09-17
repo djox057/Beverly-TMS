@@ -50,7 +50,7 @@ export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose
   const [initialDraft]=useState(draft);
   const [allFields,setAllFields]=useState(!selection.field);
   const [saving,setSaving]=useState(false),[error,setError]=useState("");
-  const [confirmClose,setConfirmClose]=useState(false),[confirmReload,setConfirmReload]=useState(false),[showHistory,setShowHistory]=useState(false);
+  const [confirmClose,setConfirmClose]=useState(false),[showHistory,setShowHistory]=useState(false);
   const detail=useQuery({queryKey:candidateKey(selection.id ?? ""),queryFn:()=>fetchCandidate(selection.id!),enabled:!!selection.id,staleTime:0});
   const history=useCandidateHistory(selection.id,showHistory);
   useEffect(()=>{if(detail.data && !base){setBase(detail.data);setDraft(detail.data);}},[detail.data,base]);
@@ -67,10 +67,6 @@ export function CandidateEditor({selection,refs,canEdit,defaultRecruiter,onClose
       onSaved(row);onClose();
     } catch(e){setError(e instanceof Error?e.message:"Unable to save this entry. Your draft has been kept.");}
     finally{setSaving(false);}
-  };
-  const reload=async()=>{
-    const result=await detail.refetch();
-    if(result.data){setBase(result.data);setDraft(result.data);setError("");setConfirmReload(false);}
   };
   const focused=selection.field!;
   const historyValue=(field:string,value:unknown):string=>{
