@@ -59,14 +59,19 @@ export function DriverComplaintDialog({
     setType("");
   }, [open]);
 
+  const subjectText = [truckNumber?.trim() ? `#${truckNumber.trim()}` : "", driverName?.trim() || ""]
+    .filter(Boolean)
+    .join(" - ");
+  const hasTarget = !!subjectText || !!driverId;
+
   const handleSubmit = async () => {
-    if (!content.trim() || !user) return;
+    if (!content.trim() || !user || !hasTarget) return;
     if (canChooseType && !type) return;
     setSaving(true);
 
     const { error } = await supabase.from("driver_complaints").insert({
       complaint_type: canChooseType ? (type as ComplaintTypeKey) : DISPATCHER_REPORTING,
-      subject_text: `#${truckNumber}${driverName ? ` - ${driverName}` : ""}`,
+      subject_text: subjectText || "Unknown truck / driver",
       content: content.trim(),
       driver_id: driverId || null,
       created_by: user.id,
