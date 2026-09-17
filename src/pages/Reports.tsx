@@ -661,6 +661,22 @@ const Reports = () => {
   // Track active office tab state - defined early so it can be used in hook
   const [activeTab, setActiveTabRaw] = useState<string>(getInitialTab());
 
+  // While afterhours / weekend coverage + Individual Mode are on, no office tab is
+  // selected: the tab value moves to a sentinel that matches no real office, so the
+  // tab row shows no selection and the data shown is the user's covered trucks.
+  const COVERAGE_TAB = "__coverage__";
+  const inCoverageView = hasCoverageScope && individualMode;
+  useEffect(() => {
+    if (inCoverageView) {
+      setActiveTabRaw((prev) => (prev === COVERAGE_TAB ? prev : COVERAGE_TAB));
+    } else {
+      // Clicking a real office sets the tab first and turns Individual Mode off, so
+      // only restore the default office when we're still parked on the sentinel.
+      setActiveTabRaw((prev) => (prev === COVERAGE_TAB ? getInitialTab() : prev));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inCoverageView]);
+
   // Picking a real office while covering turns Individual Mode off (so the whole
   // office loads); turning Individual Mode back on returns to the coverage view.
   const setActiveTab = useCallback(
@@ -733,21 +749,29 @@ const Reports = () => {
     if (!groupedReports) return [];
     const companies = new Set<string>();
     groupedReports
-      .filter((group) => expandOffice(activeTab).includes(group.office))
+      // Coverage view: data is already scoped to the covered drivers — no office filter.
+      .filter((group) => inCoverageView || expandOffice(activeTab).includes(group.office))
       .forEach((group) => {
         group.trucks.forEach((truck: any) => {
           if (truck.companyName) companies.add(truck.companyName);
         });
       });
     return Array.from(companies).sort();
-  }, [groupedReports, activeTab, expandOffice]);
+  }, [groupedReports, activeTab, expandOffice, inCoverageView]);
 
   // Auto-switch office based on filter inputs (shared engine for all 3 filters)
+  // During coverage the visible tab is the sentinel that matches no office; feed the
+  // search engine the user's real office so "found in my office" still matches the
+  // loaded coverage data instead of forcing a switch out of Individual Mode.
+  const autoSwitchActiveTab =
+    inCoverageView && profile?.office && ALL_OFFICES.includes(profile.office)
+      ? profile.office
+      : activeTab;
   const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
     truckDriverFilter: debouncedTruckDriverFilter,
     dispatchNameFilter: debouncedDispatchNameFilter,
     loadNumberFilter: debouncedLoadNumberFilter,
-    activeTab,
+    activeTab: autoSwitchActiveTab,
     setActiveTab,
     offices,
     groupedReports,
@@ -3668,6 +3692,16 @@ const Reports = () => {
   const filterReportsByOffice = useMemo(() => {
     return (office: string) => {
       if (!groupedReports) return [];
+      // Coverage view: data is already scoped to the covered drivers — no office filter.
+      if (inCoverageView) {
+        let all = groupedReports;
+        if (debouncedDispatchNameFilter) {
+          all = all.filter((group) =>
+            group.dispatcher.toLowerCase().includes(debouncedDispatchNameFilter.toLowerCase()),
+          );
+        }
+        return all;
+      }
       const allowed = expandOffice(office);
       let filtered = groupedReports.filter((group) => allowed.includes(group.office));
 
@@ -3773,6 +3807,7 @@ const Reports = () => {
     companyFilter,
     proximityMatchedTrucks,
     expandOffice,
+    inCoverageView,
   ]);
 
   // Collect all driver IDs for weekly plans hook
@@ -4836,7 +4871,9 @@ const Reports = () => {
                 <div className="text-center py-12 text-muted-foreground">
                   {USE_DATE_WINDOW_LOADING
                     ? "No drivers assigned to your dispatcher (or you have no active loads in this window)."
-                    : `No trucks assigned to dispatchers in ${activeTab}`}
+                    : inCoverageView
+                      ? "No trucks assigned to you for this coverage shift."
+                      : `No trucks assigned to dispatchers in ${activeTab}`}
                 </div>
               </div>
             ) : (
