@@ -205,7 +205,7 @@ export default function UpcomingDrivers() {
               </div></td>
             </tr>,
             expanded.has(row.id) && <tr key={`${row.id}-details`} className="bg-muted/30"><td colSpan={20} className="border-b p-0">
-              <ScreeningDetails id={row.id} staff={refs.staff} onEdit={field=>open(row.id,field)} onDelete={canDelete?()=>setDeleting(row):undefined}/>
+              <ScreeningDetails id={row.id} staff={refs.staff} onEdit={field=>open(row.id,field)}/>
             </td></tr>,
             ])}
             {!closed && !members.length && <tr><td colSpan={20} className="border-b"><p className="sticky left-0 w-fit px-8 py-3 text-muted-foreground">{day==="unscheduled"?"No unscheduled drivers in this view.":"No drivers in this view."}</p></td></tr>}
@@ -239,6 +239,7 @@ export default function UpcomingDrivers() {
       </AlertDialogContent>
     </AlertDialog>
     {editor && <CandidateEditor key={`${editor.id ?? editor.createId}:${editor.field ?? "all"}`} selection={editor} refs={refs} canEdit={canEdit}
-      defaultRecruiter={getPrimaryRole()==="recruiting"?user?.id ?? null:null} onClose={()=>setEditor(null)} onSaved={acceptSaved}/>}
+      defaultRecruiter={getPrimaryRole()==="recruiting"?user?.id ?? null:null} onClose={()=>setEditor(null)} onSaved={acceptSaved}
+      onDelete={canDelete&&editor.id?()=>{const row=rows.find(r=>r.id===editor.id);if(row){setEditor(null);setDeleting(row);}}:undefined}/>}
   </div>;
 }
