@@ -6178,6 +6178,9 @@ const Trips = () => {
                     <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Broker Load#
                     </TableHead>
+                    <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                      T Company
+                    </TableHead>
 
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Stop Amt
@@ -6730,6 +6733,11 @@ const Trips = () => {
                                           </TableCell>
                                           <TableCell>
                                             <div className="line-clamp-2">{order.brokerLoadNumber}</div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="line-clamp-2">
+                                              {order.driverCompanyName || order.truckCompanyName}
+                                            </div>
                                           </TableCell>
                                           <TableCell
                                             className={`cursor-pointer select-none transition-colors ${
