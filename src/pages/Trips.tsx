@@ -56,7 +56,7 @@ import { rebuildWorkbookClean } from "@/utils/excel/rebuildWorkbookClean";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuth } from "@/hooks/useAuth";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
-import { formatInternalLoadNumber, parseInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
+import { formatInternalLoadNumber, parseInternalLoadNumber, getCompanySuffix } from "@/utils/formatInternalLoadNumber";
 import {
   useAssignmentHistory,
   AssignmentHistoryEntry,
@@ -6736,7 +6736,7 @@ const Trips = () => {
                                           </TableCell>
                                           <TableCell>
                                             <div className="line-clamp-2">
-                                              {order.driverCompanyName || order.truckCompanyName}
+                                              {getCompanySuffix(order.driverCompanyName || order.truckCompanyName)}
                                             </div>
                                           </TableCell>
                                           <TableCell
