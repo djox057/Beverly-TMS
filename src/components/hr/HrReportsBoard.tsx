@@ -68,6 +68,36 @@ type EditTarget = {
   field: "driver_name" | "truck_number" | "problem" | "reason" | "updates";
 };
 
+// Clamps text to two lines; when truncated, clicking opens the full text.
+function ClampedText({ text, onShowFull }: { text: string; onShowFull?: () => void }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [truncated, setTruncated] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setTruncated(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text]);
+
+  const clickable = truncated && !!onShowFull;
+  return (
+    <span
+      ref={ref}
+      onClick={clickable ? onShowFull : undefined}
+      title={clickable ? "Click to view full text" : undefined}
+      className={`line-clamp-2 whitespace-pre-wrap break-words text-xs ${
+        clickable ? "cursor-pointer hover:text-primary" : ""
+      }`}
+    >
+      {text || "—"}
+    </span>
+  );
+}
+
 export function HrReportsBoard() {
   const { user, profile } = useAuthContext();
   const queryClient = useQueryClient();
@@ -76,6 +106,7 @@ export function HrReportsBoard() {
   const [draft, setDraft] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [viewFull, setViewFull] = useState<{ title: string; text: string } | null>(null);
   const savingRef = useRef(false);
 
   // history filters
@@ -326,11 +357,18 @@ export function HrReportsBoard() {
     return cellShell(
       row,
       field,
-      opts?.translate && value ? (
-        <TranslatableComplaintText text={value} size="xs" />
-      ) : (
-        <span className="text-xs whitespace-pre-wrap break-words">{value || "—"}</span>
-      ),
+      <ClampedText
+        text={value}
+        onShowFull={
+          value
+            ? () =>
+                setViewFull({
+                  title: `${row.driver_name || row.truck_number || "Entry"} — ${field === "reason" ? "Reason" : "Updates"}`,
+                  text: value,
+                })
+            : undefined
+        }
+      />
     );
   };
 
@@ -365,7 +403,7 @@ export function HrReportsBoard() {
     return cellShell(
       row,
       "driver_name",
-      <span className="text-xs">{row.driver_name || "—"}</span>,
+      <span className="text-xs line-clamp-2 break-words">{row.driver_name || "—"}</span>,
     );
   };
 
@@ -400,7 +438,7 @@ export function HrReportsBoard() {
     return cellShell(
       row,
       "truck_number",
-      <span className="text-xs">{row.truck_number || "—"}</span>,
+      <span className="text-xs line-clamp-2 break-words">{row.truck_number || "—"}</span>,
     );
   };
 
@@ -450,7 +488,7 @@ export function HrReportsBoard() {
     return cellShell(
       row,
       "problem",
-      <span className="text-xs">{problemLabel(row)}</span>,
+      <span className="text-xs line-clamp-2 break-words">{problemLabel(row)}</span>,
     );
   };
 
@@ -691,7 +729,18 @@ export function HrReportsBoard() {
                     </Badge>
                   </td>
                   <td className="px-3 py-2 align-top">
-                    {row.reason ? <TranslatableComplaintText text={row.reason} size="xs" /> : "—"}
+                    <ClampedText
+                      text={row.reason || ""}
+                      onShowFull={
+                        row.reason
+                          ? () =>
+                              setViewFull({
+                                title: `${row.driver_name || row.truck_number || "Entry"} — Reason`,
+                                text: row.reason,
+                              })
+                          : undefined
+                      }
+                    />
                   </td>
                   <td className="px-3 py-2 align-top">
                     {textCell(row, "updates", { translate: true })}
@@ -762,6 +811,18 @@ export function HrReportsBoard() {
         saving={createRow.isPending}
         onSubmit={(values) => createRow.mutate(values)}
       />
+
+      {/* Full text viewer (opened by clicking a clamped cell) */}
+      <Dialog open={!!viewFull} onOpenChange={(o) => !o && setViewFull(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{viewFull?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap break-words text-sm">
+            {viewFull && <TranslatableComplaintText text={viewFull.text} size="sm" />}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <DialogContent className="max-w-sm">
