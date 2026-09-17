@@ -24,6 +24,8 @@ export const useAfterhoursDriverMap = () => {
   const [driverAfterhoursMap, setDriverAfterhoursMap] = useState<Map<string, AfterhoursDriverInfo>>(new Map());
   const [loading, setLoading] = useState(true);
   const [isWeekendWindow, setIsWeekendWindow] = useState(false);
+  const { profile } = useAuthContext();
+  const currentUserId = profile?.user_id ?? null;
 
   useEffect(() => {
     const chicagoNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
