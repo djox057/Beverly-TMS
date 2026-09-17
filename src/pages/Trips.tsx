@@ -6671,7 +6671,7 @@ const Trips = () => {
                                             </div>
                                           </TableCell>
                                           <TableCell>
-                                            <div className="line-clamp-2">{formatDateDisplay(order.pickupDate)}</div>
+                                            <div className="whitespace-nowrap">{formatDateDisplay(order.pickupDate)}</div>
                                           </TableCell>
                                           <TableCell>
                                             <div className="line-clamp-2">
@@ -6681,7 +6681,7 @@ const Trips = () => {
                                             </div>
                                           </TableCell>
                                           <TableCell>
-                                            <div className="line-clamp-2">{formatDateDisplay(order.deliveryDate)}</div>
+                                            <div className="whitespace-nowrap">{formatDateDisplay(order.deliveryDate)}</div>
                                           </TableCell>
                                           <TableCell>
                                             <div className="line-clamp-2">
