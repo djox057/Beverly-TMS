@@ -1610,7 +1610,7 @@ const Analytics = () => {
         return false;
       }) || [];
     return filtered;
-  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices, isPrecomputed]);
+  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices, isPrecomputed, minRcWeightFilter]);
 
   // Helper function to get week start date
   const getWeekStartDate = (weeksAgo: number) => {
@@ -3277,6 +3277,16 @@ const Analytics = () => {
                           value={minGrossFilter}
                           onChange={(e) => setMinGrossFilter(e.target.value)}
                           className="w-28 h-8 text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">Min RC Weight</span>
+                        <Input
+                          type="number"
+                          placeholder="e.g. 40000"
+                          value={minRcWeightFilter}
+                          onChange={(e) => setMinRcWeightFilter(e.target.value)}
+                          className="w-24 h-8 text-sm"
                         />
                       </div>
                     </div>
