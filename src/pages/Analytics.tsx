@@ -284,6 +284,7 @@ const Analytics = () => {
   const [lostDayRawDatesByUser, setLostDayRawDatesByUser] = useState<Record<string, string[]>>({});
   const [ptoDaysByUser, setPtoDaysByUser] = useState<Record<string, number>>({});
   const [minGrossFilter, setMinGrossFilter] = useState<string>("");
+  const [minRcWeightFilter, setMinRcWeightFilter] = useState<string>("");
   const [minAvgTrucksFilter, setMinAvgTrucksFilter] = useState<string>("");
 
   // Loads tab custom rate thresholds (default under $3.00/mile, over $5.00/mile)
@@ -1476,6 +1477,16 @@ const Analytics = () => {
         // TONU from canceled orders should still count in gross/commission
         if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) {
           return false;
+        }
+
+        // Min RC Weight filter — hide loads lighter than the threshold.
+        // Loads without a recorded RC weight are kept (weight unknown).
+        const minRcWeight = parseFloat(minRcWeightFilter);
+        if (minRcWeight > 0) {
+          const rcWeight = Number(order.weightRc);
+          if (rcWeight > 0 && rcWeight < minRcWeight) {
+            return false;
+          }
         }
 
         // Date filtering - use delivery date for month filters, pickup date for week/custom filters
