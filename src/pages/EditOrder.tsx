@@ -1142,6 +1142,7 @@ const EditOrder = () => {
           layover: (orderData as any).layover,
           layoverDriver: (orderData as any).layover_driver,
           extraStop: (orderData as any).extra_stop,
+          extraStopDriver: (orderData as any).extra_stop_driver,
           lateFee: (orderData as any).late_fee,
           lateFeeDriver: (orderData as any).late_fee_driver,
           tonu: (orderData as any).tonu,
