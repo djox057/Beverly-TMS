@@ -206,7 +206,7 @@ export function generateChangeMessages(
   if (original.extraStop !== updated.extraStop) {
     changes.push(`Extra stop fee changed from ${formatCurrency(original.extraStop)} to ${formatCurrency(updated.extraStop)}`);
   }
-  if (original.extraStopDriver !== updated.extraStopDriver) {
+  if ((Number(original.extraStopDriver) || 0) !== (Number(updated.extraStopDriver) || 0)) {
     changes.push(`Extra stop driver amount changed from ${formatCurrency(original.extraStopDriver)} to ${formatCurrency(updated.extraStopDriver)}`);
   }
   if (original.lateFee !== updated.lateFee) {
