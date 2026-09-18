@@ -3017,44 +3017,37 @@ const Trips = () => {
       // Week starts on Tuesday, so Thursday is +2 days, then +14 days for 2 weeks = 16 total
       const thursdayDate = addDays(weekStartDate, 16);
 
-      // C7: Statement number
-      const c7Cell = worksheet.getCell("C7");
-      c7Cell.value = invoiceNumber;
+      // The new BG Prime template no longer displays the statement number, but
+      // the sequence is still advanced above to preserve existing numbering.
+      void invoiceNumber;
 
-      // C8: Issue date (Thursday 2 weeks in future)
-      const c8Cell = worksheet.getCell("C8");
-      c8Cell.value = format(thursdayDate, "M/d/yyyy");
+      // B7: Issue date (Thursday 2 weeks in future)
+      worksheet.getCell("B7").value = format(thursdayDate, "M/d/yyyy");
 
-      // C9: Pay period (date range)
-      const c9Cell = worksheet.getCell("C9");
-      c9Cell.value = `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
+      // B8: Pay period (date range)
+      worksheet.getCell("B8").value = `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
 
-      // F8: Driver's company name (the company the driver has/owns)
-      const f8Cell = worksheet.getCell("F8");
-      f8Cell.value = driver?.company_name || "";
+      // F3: Driver name
+      worksheet.getCell("F3").value = driver?.name || firstOrder.driverName || "";
 
-      // F9: Driver name
-      const f9Cell = worksheet.getCell("F9");
-      f9Cell.value = driver?.name || firstOrder.driverName || "";
+      // F4: Driver's company name (the company the driver has/owns)
+      worksheet.getCell("F4").value = driver?.company_name || "";
 
-      // J8: Agreement start date
+      // F7: Agreement start date
       if (driver?.agreement_start_date) {
-        const j8Cell = worksheet.getCell("J8");
-        j8Cell.value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
+        worksheet.getCell("F7").value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
       }
 
-      // J9: Truck number
-      const j9Cell = worksheet.getCell("J9");
-      j9Cell.value = firstOrder.truckNumber || "";
+      // F8: Truck number
+      worksheet.getCell("F8").value = firstOrder.truckNumber || "";
 
-      // J10: Agreement terms (weekly payment/weeks count)
+      // F9: Agreement terms (weekly payment/weeks count)
       if (driver?.weekly_payment && driver?.weeks_count) {
-        const j10Cell = worksheet.getCell("J10");
-        j10Cell.value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
+        worksheet.getCell("F9").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
       }
 
-      // Clear the trip rows (rows 13-19) by directly setting values to null
-      for (let row = 13; row <= 19; row++) {
+      // Clear the trip rows (rows 13-20) while preserving the template formulas in J.
+      for (let row = 13; row <= 20; row++) {
         worksheet.getCell(`A${row}`).value = null;
         worksheet.getCell(`B${row}`).value = null;
         worksheet.getCell(`C${row}`).value = null;
@@ -3070,6 +3063,7 @@ const Trips = () => {
       let currentRow = 13;
 
       sortedOrders.forEach((order: any) => {
+        if (currentRow > 20) return;
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
         worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
@@ -3084,18 +3078,21 @@ const Trips = () => {
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = driverPay;
         cellI.numFmt = "$#,##0.00";
+        const cellJ = worksheet.getCell(`J${currentRow}`);
+        cellJ.value = { formula: `I${currentRow}*0.88` };
+        cellJ.numFmt = "$#,##0.00";
 
         currentRow++;
       });
 
-      // Apply USD currency format to Trips section Column I (rows 13-19)
-      for (let row = 13; row <= 19; row++) {
+      // Apply USD currency format to Trips section Column I (rows 13-20)
+      for (let row = 13; row <= 20; row++) {
         const cell = worksheet.getCell(`I${row}`);
         cell.numFmt = "$#,##0.00";
       }
 
-      // Apply USD currency format to Fuel section Column I (rows 38-44)
-      for (let row = 38; row <= 44; row++) {
+      // Apply USD currency format to Fuel section Column I (rows 39-54)
+      for (let row = 39; row <= 54; row++) {
         const cell = worksheet.getCell(`I${row}`);
         cell.numFmt = "$#,##0.00";
       }
@@ -3165,10 +3162,10 @@ const Trips = () => {
         }
       });
 
-      // Write credits section (rows 48-50 for BG Inc)
-      let creditsRow = 48;
+      // Write credits section (rows 58-59 for the new BG Inc template)
+      let creditsRow = 58;
       credits.forEach((credit) => {
-        if (creditsRow > 50) return; // Credits section is 48-50
+        if (creditsRow > 59) return;
         worksheet.getCell(`B${creditsRow}`).value = credit.internalLoadNumber;
         worksheet.getCell(`C${creditsRow}`).value = credit.type;
         worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
@@ -3226,12 +3223,12 @@ const Trips = () => {
       });
       const endDateFormatted = format(weekEndDate, "M/d/yyyy");
       const deductions = [
-        { row: 24, description: "Cargo Insurance", amount: 285.0 },
-        { row: 25, description: "Trailer + Insurance", amount: 285.0 },
-        { row: 26, description: "ELD", amount: 50.0 },
-        { row: 27, description: "Pre-Pass", amount: 20.0 },
-        { row: 28, description: "Truck Payment" },
-        { row: 29, description: "Truck Insurance", amount: 195.0 },
+        { row: 25, description: "Cargo Insurance", amount: 285.0 },
+        { row: 26, description: "Trailer + Insurance", amount: 285.0 },
+        { row: 27, description: "ELD", amount: 50.0 },
+        { row: 28, description: "Pre-Pass", amount: 20.0 },
+        { row: 29, description: "Truck Payment" },
+        { row: 30, description: "Truck Insurance", amount: 195.0 },
       ];
 
       deductions.forEach(({ row, description, amount }) => {
@@ -3250,22 +3247,22 @@ const Trips = () => {
         const currentDate = new Date();
         const weeksPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
 
-        const e28Cell = worksheet.getCell("E28");
-        e28Cell.value = `${weeksPassed}/${driver.weeks_count}`;
-        e28Cell.font = { bold: true, size: 11 };
+        const e29Cell = worksheet.getCell("E29");
+        e29Cell.value = `${weeksPassed}/${driver.weeks_count}`;
+        e29Cell.font = { bold: true, size: 11 };
       }
 
-      // Set J28 (truck payment deduction) to weekly_payment
+      // Set J29 (truck payment deduction) to weekly_payment
       if (driver?.weekly_payment) {
-        const j28Cell = worksheet.getCell("J28");
-        j28Cell.value = driver.weekly_payment;
-        j28Cell.numFmt = "$#,##0.00";
+        const j29Cell = worksheet.getCell("J29");
+        j29Cell.value = driver.weekly_payment;
+        j29Cell.numFmt = "$#,##0.00";
       }
 
-      // Write negative additionals after fixed deductions (rows 30-32)
-      let negativeRow = 30;
+      // Write negative additionals after fixed deductions (rows 31-33)
+      let negativeRow = 31;
       negativeAdditionals.forEach((neg) => {
-        if (negativeRow > 32) return; // Deductions section ends at 32
+        if (negativeRow > 33) return;
         worksheet.getCell(`B${negativeRow}`).value = neg.internalLoadNumber;
         worksheet.getCell(`C${negativeRow}`).value = neg.type;
         worksheet.getCell(`I${negativeRow}`).value = neg.deliveryDate;
@@ -3282,7 +3279,7 @@ const Trips = () => {
         weekEndDate,
       );
       efsDeductions.forEach((efs) => {
-        if (negativeRow > 32) return; // Deductions section ends at 32
+        if (negativeRow > 33) return;
         worksheet.getCell(`B${negativeRow}`).value = efs.description;
         worksheet.getCell(`I${negativeRow}`).value = efs.date;
         const amtCell = worksheet.getCell(`J${negativeRow}`);
@@ -3297,9 +3294,9 @@ const Trips = () => {
         const creditDeductions = scheduledDeductions.filter((d) => d.expenseType === "credit");
         const expenseDeductions = scheduledDeductions.filter((d) => d.expenseType !== "credit");
 
-        // Write credits to credits section (rows 19-21 for BG Inc)
+        // Write credits after the order-level credits in rows 58-59.
         creditDeductions.forEach((credit) => {
-          if (creditsRow > 21) return;
+          if (creditsRow > 59) return;
           worksheet.getCell(`C${creditsRow}`).value = `Credit: ${credit.explanation}`;
           worksheet.getCell(`I${creditsRow}`).value = endDateFormatted;
           const amtCell = worksheet.getCell(`J${creditsRow}`);
@@ -3310,7 +3307,7 @@ const Trips = () => {
 
         // Write expense/yearly deductions
         expenseDeductions.forEach((deduction) => {
-          if (negativeRow > 32) return;
+          if (negativeRow > 33) return;
           worksheet.getCell(`B${negativeRow}`).value = `Scheduled: ${deduction.explanation}`;
           worksheet.getCell(`I${negativeRow}`).value = endDateFormatted;
           const amtCell = worksheet.getCell(`J${negativeRow}`);
@@ -3320,7 +3317,7 @@ const Trips = () => {
         });
       }
 
-      // Fetch and write fuel transactions (rows 38-44 for BG Inc)
+      // Fetch and write fuel transactions (rows 39-54 for the new BG Inc template)
       // Uses new logic: prev week last delivery to current week last delivery - 1
       const fuelTransactions = await fetchFuelTransactionsForStatement(
         firstOrder.truckNumber || "",
@@ -3328,7 +3325,7 @@ const Trips = () => {
         week.orders,
         weekStartDate,
       );
-      writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 38, 44);
+      writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 39, 54);
 
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
@@ -3337,7 +3334,7 @@ const Trips = () => {
       const filename = `BG_Prime_Inc_${weekRange}${driverInfo}.xlsx`;
 
       // Nuclear option: rebuild workbook from scratch with only the data we need
-      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 61, 12);
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70, 11);
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
@@ -5575,11 +5572,13 @@ const Trips = () => {
       if (!worksheet) throw new Error("Template not found");
 
       const orderCount = week.orders.length;
-      const extraRowsNeeded = Math.max(0, orderCount - 7);
-      const deductionStartRow = 24 + extraRowsNeeded;
+      const extraRowsNeeded = Math.max(0, orderCount - 8);
+      const totalEarningsRow = 21 + extraRowsNeeded;
+      const deductionStartRow = 25 + extraRowsNeeded;
 
-      // Clear shared formulas in trip rows BEFORE splicing
-      for (let row = 13; row <= 30; row++) {
+      // Clear only trip values before splicing; keep the new template's
+      // totals, section headings, and formulas below the trip block intact.
+      for (let row = 13; row <= 20; row++) {
         ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].forEach((col) => {
           const cell = worksheet.getCell(`${col}${row}`);
           if (cell.model && cell.model.sharedFormula) delete cell.model.sharedFormula;
@@ -5587,22 +5586,17 @@ const Trips = () => {
         });
       }
 
-      if (extraRowsNeeded > 0) worksheet.spliceRows(20, 0, ...Array(extraRowsNeeded).fill([]));
+      if (extraRowsNeeded > 0) worksheet.spliceRows(21, 0, ...Array(extraRowsNeeded).fill([]));
 
-      const { data: configData } = await supabase
-        .from("invoice_number_config")
-        .select("*")
-        .eq("statement_type", "bg_prime_inc")
-        .maybeSingle();
-      worksheet.getCell("C7").value = `F-${configData?.current_number || 1332}`;
-      worksheet.getCell("C8").value = format(new Date(), "M/d/yyyy");
-      worksheet.getCell("C9").value = `${format(startDate, "M/d/yyyy")}-${format(endDate, "M/d/yyyy")}`;
-      worksheet.getCell("F8").value = driver?.name || firstOrder.driverName || "";
+      worksheet.getCell("B7").value = format(new Date(), "M/d/yyyy");
+      worksheet.getCell("B8").value = `${format(startDate, "M/d/yyyy")}-${format(endDate, "M/d/yyyy")}`;
+      worksheet.getCell("F3").value = driver?.name || firstOrder.driverName || "";
+      worksheet.getCell("F4").value = driver?.company_name || "";
       if (driver?.agreement_start_date)
-        worksheet.getCell("J8").value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
-      worksheet.getCell("J9").value = firstOrder.truckNumber || "";
+        worksheet.getCell("F7").value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
+      worksheet.getCell("F8").value = firstOrder.truckNumber || "";
       if (driver?.weekly_payment && driver?.weeks_count)
-        worksheet.getCell("J10").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
+        worksheet.getCell("F9").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
 
       // Sort orders ascending by date for statement export
       const sortedOrders = sortOrdersAscending(week.orders);
@@ -5620,8 +5614,14 @@ const Trips = () => {
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = parseFloat(order.totalDriverPay) || 0;
         cellI.numFmt = "$#,##0.00";
+        const cellJ = worksheet.getCell(`J${currentRow}`);
+        cellJ.value = { formula: `I${currentRow}*0.88` };
+        cellJ.numFmt = "$#,##0.00";
         currentRow++;
       });
+
+      worksheet.getCell(`I${totalEarningsRow}`).value = { formula: `SUM(I13:I${20 + extraRowsNeeded})` };
+      worksheet.getCell(`J${totalEarningsRow}`).value = { formula: `SUM(J13:J${20 + extraRowsNeeded})` };
 
       const endDateFormatted = format(endDate, "M/d/yyyy");
       const deductions = [
@@ -5659,8 +5659,25 @@ const Trips = () => {
         c.numFmt = "$#,##0.00";
       }
 
+      const totalDeductionsRow = 34 + extraRowsNeeded;
+      const totalFuelRow = 55 + extraRowsNeeded;
+      const totalCreditsRow = 61 + extraRowsNeeded;
+      const netPayRow = 68 + extraRowsNeeded;
+      worksheet.getCell(`J${totalDeductionsRow}`).value = {
+        formula: `SUM(J${deductionStartRow}:J${33 + extraRowsNeeded})`,
+      };
+      worksheet.getCell(`J${totalFuelRow}`).value = {
+        formula: `SUM(J${39 + extraRowsNeeded}:J${54 + extraRowsNeeded})`,
+      };
+      worksheet.getCell(`J${totalCreditsRow}`).value = {
+        formula: `SUM(J${58 + extraRowsNeeded}:J${59 + extraRowsNeeded})`,
+      };
+      worksheet.getCell(`I${netPayRow}`).value = {
+        formula: `SUM((J${totalEarningsRow}+J${totalCreditsRow})-J${totalDeductionsRow}-J${totalFuelRow})`,
+      };
+
       // Nuclear option: rebuild workbook from scratch with only the data we need
-      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 61 + extraRowsNeeded, 12);
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70 + extraRowsNeeded, 11);
       const filename = `BG_Prime_Final_${format(startDate, "MMM-d")}-${format(endDate, "MMM-d-yyyy")}_${(driver?.name || "Unknown").replace(/\s+/g, "-")}.xlsx`;
       const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
