@@ -3078,6 +3078,9 @@ const Trips = () => {
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = driverPay;
         cellI.numFmt = "$#,##0.00";
+        const cellJ = worksheet.getCell(`J${currentRow}`);
+        cellJ.value = { formula: `I${currentRow}*0.88` };
+        cellJ.numFmt = "$#,##0.00";
 
         currentRow++;
       });
@@ -5573,8 +5576,9 @@ const Trips = () => {
       const totalEarningsRow = 21 + extraRowsNeeded;
       const deductionStartRow = 25 + extraRowsNeeded;
 
-      // Clear shared formulas in trip rows BEFORE splicing
-      for (let row = 13; row <= 30; row++) {
+      // Clear only trip values before splicing; keep the new template's
+      // totals, section headings, and formulas below the trip block intact.
+      for (let row = 13; row <= 20; row++) {
         ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].forEach((col) => {
           const cell = worksheet.getCell(`${col}${row}`);
           if (cell.model && cell.model.sharedFormula) delete cell.model.sharedFormula;
@@ -5616,6 +5620,9 @@ const Trips = () => {
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = parseFloat(order.totalDriverPay) || 0;
         cellI.numFmt = "$#,##0.00";
+        const cellJ = worksheet.getCell(`J${currentRow}`);
+        cellJ.value = { formula: `I${currentRow}*0.88` };
+        cellJ.numFmt = "$#,##0.00";
         currentRow++;
       });
 
