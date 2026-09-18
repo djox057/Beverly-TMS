@@ -284,7 +284,7 @@ const Analytics = () => {
   const [lostDayRawDatesByUser, setLostDayRawDatesByUser] = useState<Record<string, string[]>>({});
   const [ptoDaysByUser, setPtoDaysByUser] = useState<Record<string, number>>({});
   const [minGrossFilter, setMinGrossFilter] = useState<string>("");
-  const [minRcWeightFilter, setMinRcWeightFilter] = useState<string>("");
+  const [maxRcWeightFilter, setMaxRcWeightFilter] = useState<string>("");
   const [minAvgTrucksFilter, setMinAvgTrucksFilter] = useState<string>("");
 
   // Loads tab custom rate thresholds (default under $3.00/mile, over $5.00/mile)
@@ -1479,12 +1479,12 @@ const Analytics = () => {
           return false;
         }
 
-        // Min RC Weight filter — hide loads lighter than the threshold.
+        // Max RC Weight filter — hide loads heavier than the threshold.
         // Loads without a recorded RC weight are kept (weight unknown).
-        const minRcWeight = parseFloat(minRcWeightFilter);
-        if (minRcWeight > 0) {
+        const maxRcWeight = parseFloat(maxRcWeightFilter);
+        if (maxRcWeight > 0) {
           const rcWeight = Number(order.weightRc);
-          if (rcWeight > 0 && rcWeight < minRcWeight) {
+          if (rcWeight > 0 && rcWeight > maxRcWeight) {
             return false;
           }
         }
@@ -1610,7 +1610,7 @@ const Analytics = () => {
         return false;
       }) || [];
     return filtered;
-  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices, isPrecomputed, minRcWeightFilter]);
+  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices, isPrecomputed, maxRcWeightFilter]);
 
   // Helper function to get week start date
   const getWeekStartDate = (weeksAgo: number) => {
@@ -3280,12 +3280,12 @@ const Analytics = () => {
                         />
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-sm text-muted-foreground whitespace-nowrap">Min RC Weight</span>
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">Max RC Weight</span>
                         <Input
                           type="number"
                           placeholder="e.g. 40000"
-                          value={minRcWeightFilter}
-                          onChange={(e) => setMinRcWeightFilter(e.target.value)}
+                          value={maxRcWeightFilter}
+                          onChange={(e) => setMaxRcWeightFilter(e.target.value)}
                           className="w-24 h-8 text-sm"
                         />
                       </div>
