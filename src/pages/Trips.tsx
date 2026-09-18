@@ -5588,12 +5588,6 @@ const Trips = () => {
 
       if (extraRowsNeeded > 0) worksheet.spliceRows(21, 0, ...Array(extraRowsNeeded).fill([]));
 
-      const { data: configData } = await supabase
-        .from("invoice_number_config")
-        .select("*")
-        .eq("statement_type", "bg_prime_inc")
-        .maybeSingle();
-      void configData;
       worksheet.getCell("B7").value = format(new Date(), "M/d/yyyy");
       worksheet.getCell("B8").value = `${format(startDate, "M/d/yyyy")}-${format(endDate, "M/d/yyyy")}`;
       worksheet.getCell("F3").value = driver?.name || firstOrder.driverName || "";
@@ -5664,6 +5658,23 @@ const Trips = () => {
         c.value = driver.weekly_payment;
         c.numFmt = "$#,##0.00";
       }
+
+      const totalDeductionsRow = 34 + extraRowsNeeded;
+      const totalFuelRow = 55 + extraRowsNeeded;
+      const totalCreditsRow = 61 + extraRowsNeeded;
+      const netPayRow = 68 + extraRowsNeeded;
+      worksheet.getCell(`J${totalDeductionsRow}`).value = {
+        formula: `SUM(J${deductionStartRow}:J${33 + extraRowsNeeded})`,
+      };
+      worksheet.getCell(`J${totalFuelRow}`).value = {
+        formula: `SUM(J${39 + extraRowsNeeded}:J${54 + extraRowsNeeded})`,
+      };
+      worksheet.getCell(`J${totalCreditsRow}`).value = {
+        formula: `SUM(J${58 + extraRowsNeeded}:J${59 + extraRowsNeeded})`,
+      };
+      worksheet.getCell(`I${netPayRow}`).value = {
+        formula: `SUM((J${totalEarningsRow}+J${totalCreditsRow})-J${totalDeductionsRow}-J${totalFuelRow})`,
+      };
 
       // Nuclear option: rebuild workbook from scratch with only the data we need
       const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70 + extraRowsNeeded, 11);
