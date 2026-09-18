@@ -39,6 +39,7 @@ const ORDER_COLUMNS_ANALYTICS = `
   wrong_address_fee, wrong_address_fee_driver, escort_fee,
   other_charges, other_charges_driver,
   other_additionals, other_additionals_driver,
+  weight_rc,
   loaded_miles, dh_miles, additional_miles, mileage,
   deleted_truck_number, deleted_driver1_name, deleted_driver2_name,
   pod_force_complete
