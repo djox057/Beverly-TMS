@@ -1325,10 +1325,18 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                     }
                                                     className="h-3.5 w-3.5 sm:h-4 sm:w-4"
                                                   />
-                                                   <span className="text-xs sm:text-sm flex-1 truncate">
-                                                     {user.full_name || user.email}
-                                                   </span>
-                                                  {hasNotWorked ? (
+                                                    <span className="text-xs sm:text-sm flex-1 truncate">
+                                                      {user.full_name || user.email}
+                                                    </span>
+                                                   {toOfficeKey(user.office) !== office && (
+                                                     <Badge
+                                                       variant="outline"
+                                                       className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0 border-amber-500/50 text-amber-600 flex-shrink-0"
+                                                     >
+                                                       {OFFICE_SHORT[toOfficeKey(user.office)]} → {OFFICE_SHORT[office]}
+                                                     </Badge>
+                                                   )}
+                                                   {hasNotWorked ? (
                                                     <Badge
                                                       variant="outline"
                                                       className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0 border-amber-500/50 text-amber-500 flex-shrink-0"
