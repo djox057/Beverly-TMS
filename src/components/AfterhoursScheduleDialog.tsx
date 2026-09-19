@@ -26,6 +26,8 @@ interface ScheduleEntry {
   id: string;
   user_id: string;
   scheduled_date: string;
+  /** Admin-only cross-office override: office bucket this user covers that day. */
+  override_office?: string | null;
   user?: {
     id: string;
     email: string;
