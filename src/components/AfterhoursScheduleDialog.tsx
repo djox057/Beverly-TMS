@@ -62,6 +62,23 @@ type SelectionKey = OfficeKey | ExtraKey;
 
 const EXTRA_KEYS = ["maintenance", "eld"] as ExtraKey[];
 
+// Normalize a raw profile.office value into one of the three office buckets.
+const toOfficeKey = (officeRaw: string | null | undefined): OfficeKey => {
+  const o = (officeRaw || "").toLowerCase();
+  if (o.includes("cacak") || o.includes("čačak")) return "cacak";
+  if (o.includes("beograd") || o.startsWith("bg ")) return "beograd";
+  return "kragujevac";
+};
+
+const OFFICE_SHORT: Record<OfficeKey, string> = {
+  kragujevac: "KG",
+  cacak: "CA",
+  beograd: "BG",
+};
+
+const isOfficeKey = (v: string | null | undefined): v is OfficeKey =>
+  v === "kragujevac" || v === "cacak" || v === "beograd";
+
 // Special users who can manage weekend schedules regardless of role
 const SCHEDULE_MANAGER_EMAILS = ["tommyj@bfprime.net", "acccoc225@gmail.com"];
 
