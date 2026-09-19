@@ -70,17 +70,23 @@ export const useAfterhoursShiftAssignments = () => {
         return;
       }
 
-      const [assignmentsRes, driversRes, trucksRes] = await Promise.all([
-        supabase
-          .from('afterhours_shift_assignments')
-          .select('id, afterhours_user_id, driver_id, scheduled_date, shift')
-          .in('scheduled_date', dates),
-        supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true),
-        supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id'),
+      // Paged: hundreds of rows per date otherwise hit the 1000-row cap and
+      // whole fleets would show up empty.
+      const [assignmentRows, driverRows, truckRows] = await Promise.all([
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from('afterhours_shift_assignments')
+            .select('id, afterhours_user_id, driver_id, scheduled_date, shift')
+            .in('scheduled_date', dates)
+            .range(from, to)),
+        fetchAllRows<any>((from, to) =>
+          supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true).range(from, to)),
+        fetchAllRows<any>((from, to) =>
+          supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id').range(from, to)),
       ]);
-      if (assignmentsRes.error) throw assignmentsRes.error;
-      if (driversRes.error) throw driversRes.error;
-      if (trucksRes.error) throw trucksRes.error;
+      const assignmentsRes = { data: assignmentRows };
+      const driversRes = { data: driverRows };
+      const trucksRes = { data: truckRows };
 
       const userIds = [...new Set((scheduleRows || []).map((s: any) => s.user_id as string).filter(Boolean))];
 
