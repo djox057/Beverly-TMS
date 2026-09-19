@@ -265,7 +265,10 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
 
                 {/* Already scheduled for this date - grouped by shift */}
                 {totalScheduledForDate > 0 && (
-                  <ScrollArea className="border rounded-md p-2 sm:p-3 bg-muted/30 max-h-[35vh]">
+                  <div
+                    className="border rounded-md p-2 sm:p-3 bg-muted/30 overflow-y-auto overscroll-contain max-h-[40vh] sm:max-h-[35vh]"
+                    style={{ WebkitOverflowScrolling: "touch" }}
+                  >
                     {SHIFT_KEYS.map((shift) => {
                       const list = scheduledFor(shift);
                       if (list.length === 0) return null;
@@ -314,7 +317,7 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
                         </div>
                       );
                     })}
-                  </ScrollArea>
+                  </div>
                 )}
 
                 {isPastDate && totalScheduledForDate === 0 && (
