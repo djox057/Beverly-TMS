@@ -2,10 +2,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { allocateAfterhoursDrivers, AllocDriver, AllocUser } from '@/lib/afterhoursAutoAssign';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
-const BG_OFFICES = new Set(['BG 1st floor', 'BG 4th floor']);
-const groupKey = (office: string | null | undefined): string =>
-  office && BG_OFFICES.has(office) ? 'BG' : (office || 'Unknown');
+// Canonical office bucket key, shared spelling with profile offices and admin
+// cross-office override values.
+const groupKey = (office: string | null | undefined): string => {
+  const s = (office || '').toLowerCase().trim();
+  if (!s) return 'unknown';
+  if (s.includes('cacak') || s.includes('čačak')) return 'cacak';
+  if (s.includes('beograd') || s.startsWith('bg')) return 'beograd';
+  if (s.includes('kragujevac')) return 'kragujevac';
+  return s;
+};
 
 export type ShiftKey = 'night' | 'morning';
 

@@ -64,23 +64,25 @@ export const useAfterhoursDriverMap = () => {
         if (scheduleErr) throw scheduleErr;
 
         if (scheduleData && scheduleData.length > 0) {
-          const { data: assignData, error: assignErr } = await supabase
-            .from('afterhours_assignments')
-            .select('afterhours_user_id, driver_id')
-            .eq('scheduled_date', todayStr);
-          if (assignErr) throw assignErr;
-          rows.push(...((assignData || []) as any[]));
+          const assignData = await fetchAllRows<any>((from, to) =>
+            supabase
+              .from('afterhours_assignments')
+              .select('afterhours_user_id, driver_id')
+              .eq('scheduled_date', todayStr)
+              .range(from, to));
+          rows.push(...assignData);
         }
 
         // Afterhours shift schedule, only inside the 16:00 -> 07:00 Chicago tag window:
         //  - evening (>= 16:00): tonight's shifts
         //  - early morning (< 07:00): last night's night shift + this morning's shift
         if (inAfterhoursTagWindow) {
-          const { data: shiftData, error: shiftErr } = await supabase
-            .from('afterhours_shift_assignments')
-            .select('afterhours_user_id, driver_id, scheduled_date, shift')
-            .in('scheduled_date', [yesterdayStr, todayStr]);
-          if (shiftErr) throw shiftErr;
+          const shiftData = await fetchAllRows<any>((from, to) =>
+            supabase
+              .from('afterhours_shift_assignments')
+              .select('afterhours_user_id, driver_id, scheduled_date, shift')
+              .in('scheduled_date', [yesterdayStr, todayStr])
+              .range(from, to));
 
           const shiftRows = ((shiftData || []) as any[]).filter(r => {
             if (hour >= 16) return r.scheduled_date === todayStr;
