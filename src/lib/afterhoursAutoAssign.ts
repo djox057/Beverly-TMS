@@ -13,8 +13,11 @@
 
 export interface AllocUser {
   id: string;
-  /** Already-normalized office bucket (e.g. "BG"). */
+  /** Already-normalized office bucket (e.g. "BG"). For cross-office weekend
+   *  overrides this is the office the user COVERS that day, not their home office. */
   office: string;
+  /** ELD / maintenance people never receive trucks. */
+  isEld?: boolean;
 }
 
 export interface AllocDriver {
@@ -23,6 +26,11 @@ export interface AllocDriver {
   /** Already-normalized office bucket of the driver's weekday dispatcher. */
   office: string;
   company_id: string | null;
+}
+
+export interface AllocOptions {
+  /** Split per office: covering users only get drivers from the office they cover. */
+  bucketByOffice?: boolean;
 }
 
 const COMPANY_NONE = '__no_company__';
@@ -34,10 +42,14 @@ const COMPANY_NONE = '__no_company__';
 export function allocateAfterhoursDrivers(
   users: AllocUser[],
   drivers: AllocDriver[],
+  options: AllocOptions = {},
 ): Map<string, string[]> {
   const result = new Map<string, string[]>();
   users.forEach((u) => result.set(u.id, []));
-  if (users.length === 0 || drivers.length === 0) return result;
+  // ELD users are on duty but never cover trucks.
+  const eligible = users.filter((u) => !u.isEld);
+  if (eligible.length === 0 || drivers.length === 0) return result;
+
 
 
   const allocateBucket = (officeUsers: AllocUser[], officeDrivers: AllocDriver[]) => {
@@ -139,11 +151,39 @@ export function allocateAfterhoursDrivers(
 
   };
 
-  // Single global allocation: offices are NOT used to bucket anyone, so the
-  // whole fleet is split evenly across everyone on duty (own drivers first,
-  // then company blocks). Office-based bucketing used to leave one covering
-  // user with a whole office (e.g. 71 drivers) while others had 12.
-  allocateBucket(users, drivers);
+  if (!options.bucketByOffice) {
+    // Global allocation: whole fleet split evenly across everyone on duty.
+    allocateBucket(eligible, drivers);
+    return result;
+  }
+
+  // Office allocation: each covering user only gets drivers of the office they
+  // cover (cross-office overrides already changed user.office upstream).
+  const usersByOffice = new Map<string, AllocUser[]>();
+  eligible.forEach((u) => {
+    if (!usersByOffice.has(u.office)) usersByOffice.set(u.office, []);
+    usersByOffice.get(u.office)!.push(u);
+  });
+
+  const driversByOffice = new Map<string, AllocDriver[]>();
+  drivers.forEach((d) => {
+    if (!driversByOffice.has(d.office)) driversByOffice.set(d.office, []);
+    driversByOffice.get(d.office)!.push(d);
+  });
+
+  const uncovered: AllocDriver[] = [];
+  for (const [office, officeDrivers] of driversByOffice) {
+    const officeUsers = usersByOffice.get(office);
+    if (officeUsers && officeUsers.length > 0) {
+      allocateBucket(officeUsers, officeDrivers);
+    } else {
+      uncovered.push(...officeDrivers);
+    }
+  }
+
+  // Offices with nobody on duty: spread those drivers across everyone.
+  if (uncovered.length > 0) allocateBucket(eligible, uncovered);
+
 
   return result;
 }

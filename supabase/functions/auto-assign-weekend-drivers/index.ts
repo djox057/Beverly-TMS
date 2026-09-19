@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
     // --- Fetch scheduled afterhours users for candidate dates ---
     const { data: schedule, error: scheduleErr } = await supabase
       .from("afterhours_schedule")
-      .select("user_id, scheduled_date")
+      .select("user_id, scheduled_date, override_office")
       .in("scheduled_date", candidateDates);
     if (scheduleErr) throw scheduleErr;
 
@@ -140,20 +140,26 @@ Deno.serve(async (req) => {
 
     const dateUsersMap = new Map<string, Set<string>>();
     const allUserIds = new Set<string>();
-    (schedule ?? []).filter((s) => s.user_id).forEach((s) => {
+    // Admin cross-office override: userId -> date -> office they cover.
+    const overrideByUserDate = new Map<string, Map<string, string>>();
+    (schedule ?? []).filter((s) => s.user_id).forEach((s: any) => {
       allUserIds.add(s.user_id as string);
       if (!dateUsersMap.has(s.scheduled_date)) {
         dateUsersMap.set(s.scheduled_date, new Set());
       }
       dateUsersMap.get(s.scheduled_date)!.add(s.user_id as string);
+      if (s.override_office) {
+        if (!overrideByUserDate.has(s.user_id)) overrideByUserDate.set(s.user_id, new Map());
+        overrideByUserDate.get(s.user_id)!.set(s.scheduled_date, s.override_office);
+      }
     });
 
-    // Filter out maintenance users; load profile offices.
+    // Filter out maintenance and ELD users (they never cover trucks); load offices.
     const userOfficeMap = new Map<string, string | null>();
     if (allUserIds.size > 0) {
       const ids = [...allUserIds];
       const [profilesRes, maintRes] = await Promise.all([
-        supabase.from("profiles").select("user_id, office").in("user_id", ids),
+        supabase.from("profiles").select("user_id, office, is_eld").in("user_id", ids),
         supabase
           .from("user_roles")
           .select("user_id")
@@ -163,7 +169,7 @@ Deno.serve(async (req) => {
       if (profilesRes.error) throw profilesRes.error;
       const maintIds = new Set((maintRes.data ?? []).map((r: any) => r.user_id));
       (profilesRes.data ?? []).forEach((p: any) => {
-        if (!maintIds.has(p.user_id)) {
+        if (!maintIds.has(p.user_id) && !p.is_eld) {
           userOfficeMap.set(p.user_id, p.office ?? null);
         }
       });
@@ -334,9 +340,29 @@ Deno.serve(async (req) => {
         }
       };
 
-      // Single global allocation (no office bucketing) so the whole fleet is
-      // split evenly across everyone on duty.
-      push(allocate(userIdsForDay, enrichedDrivers));
+      // Office-based allocation: each covering user only gets drivers of the
+      // office they cover that day (admin cross-office override wins over the
+      // user's home office). Drivers of offices with nobody on duty are spread
+      // across everyone.
+      const usersByOffice = new Map<string, string[]>();
+      for (const uid of userIdsForDay) {
+        const office = groupKey(
+          overrideByUserDate.get(uid)?.get(date) ?? userOfficeMap.get(uid) ?? null,
+        );
+        if (!usersByOffice.has(office)) usersByOffice.set(office, []);
+        usersByOffice.get(office)!.push(uid);
+      }
+
+      const uncovered: EnrichedDriver[] = [];
+      for (const [office, officeDrivers] of driversByOffice) {
+        const officeUsers = usersByOffice.get(office);
+        if (officeUsers && officeUsers.length > 0) {
+          push(allocate(officeUsers, officeDrivers));
+        } else {
+          uncovered.push(...officeDrivers);
+        }
+      }
+      if (uncovered.length > 0) push(allocate(userIdsForDay, uncovered));
     }
 
     // --- Bulk insert ---

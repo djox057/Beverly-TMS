@@ -17,6 +17,8 @@ interface AfterhoursUser {
   office: string | null;
   scheduledDays: string[]; // e.g. ['Saturday', 'Sunday']
   isMaintenance?: boolean;
+  isEld?: boolean;
+
 }
 
 export interface AfterhoursFleet {
@@ -135,6 +137,8 @@ export const useAfterhoursAssignments = () => {
             email: p.email,
             office: p.office,
             isMaintenance: maintenanceUserIds.has(p.user_id) && !!(p as any).is_eld,
+            isEld: !!(p as any).is_eld,
+
             scheduledDays: [...(userDaysMap.get(p.user_id) || [])],
             scheduledDatesList: [...(userDatesMap.get(p.user_id) || [])],
           }));
@@ -332,9 +336,10 @@ export const useAfterhoursAssignments = () => {
         const allocUsers: AllocUser[] = dayFleets.map((f) => ({
           id: f.user.id,
           office: groupKey(f.user.office),
+          isEld: !!f.user.isEld,
         }));
 
-        const allocation = allocateAfterhoursDrivers(allocUsers, allocDrivers);
+        const allocation = allocateAfterhoursDrivers(allocUsers, allocDrivers, { bucketByOffice: true });
         for (const [wdId, driverIds] of allocation) {
           for (const dId of driverIds) {
             allRows.push({ afterhours_user_id: wdId, driver_id: dId, scheduled_date: date });
