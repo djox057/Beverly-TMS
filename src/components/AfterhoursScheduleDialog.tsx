@@ -109,6 +109,13 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   });
   // Force show office in selection area (for adding more users via + button)
   const [forceShowOffice, setForceShowOffice] = useState<SelectionKey | null>(null);
+  // Admin-only: allow picking users from other offices into an office bucket
+  // (e.g. a Čačak user covering Kragujevac). Saved as override_office.
+  const [crossOfficeMode, setCrossOfficeMode] = useState<Record<OfficeKey, boolean>>({
+    kragujevac: false,
+    cacak: false,
+    beograd: false,
+  });
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [existingSchedules, setExistingSchedules] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -386,11 +393,20 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     try {
       const dateStr = format(selectedDate, "yyyy-MM-dd");
 
-      // Insert schedule entries for each selected user
-      const entries = allSelectedUsers.map((userId) => ({
-        user_id: userId,
-        scheduled_date: dateStr,
-      }));
+      // Insert schedule entries for each selected user. Admin cross-office
+      // picks record the bucket office as override_office so every downstream
+      // calculation treats the user as covering that office.
+      const userById = new Map(scheduleUsers.map((u) => [u.id, u]));
+      const entries = (Object.entries(selectedUsers) as [SelectionKey, string[]][]).flatMap(([key, ids]) =>
+        ids.map((userId) => {
+          let overrideOffice: string | null = null;
+          if (isAdmin && isOfficeKey(key)) {
+            const u = userById.get(userId);
+            if (u && toOfficeKey(u.office) !== key) overrideOffice = key;
+          }
+          return { user_id: userId, scheduled_date: dateStr, override_office: overrideOffice };
+        }),
+      );
 
       const { error } = await supabase
         .from("afterhours_schedule")
@@ -897,23 +913,30 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   );
 
                   // Group office scheduled users by office
-                  const scheduledByOffice = officeSchedulesOnly.reduce(
-                    (acc, schedule) => {
-                      const officeRaw = schedule.user?.office?.toLowerCase() || "";
-                      let office: OfficeKey = "kragujevac"; // Default fallback
-                      if (officeRaw.includes("cacak") || officeRaw.includes("čačak")) {
-                        office = "cacak";
-                      } else if (officeRaw.includes("beograd") || officeRaw.startsWith("bg ")) {
-                        office = "beograd";
-                      } else if (officeRaw.includes("kragujevac")) {
-                        office = "kragujevac";
-                      }
-                      if (!acc[office]) acc[office] = [];
-                      acc[office].push(schedule);
-                      return acc;
-                    },
-                    {} as Record<OfficeKey, ScheduleEntry[]>,
-                  );
+                   const scheduledByOffice = officeSchedulesOnly.reduce(
+                     (acc, schedule) => {
+                       // Admin cross-office override wins over the profile office:
+                       // the user counts toward the office they cover that day.
+                       const overrideKey = isOfficeKey(schedule.override_office)
+                         ? (schedule.override_office as OfficeKey)
+                         : null;
+                       const officeRaw = schedule.user?.office?.toLowerCase() || "";
+                       let office: OfficeKey = overrideKey ?? "kragujevac"; // Default fallback
+                       if (!overrideKey) {
+                         if (officeRaw.includes("cacak") || officeRaw.includes("čačak")) {
+                           office = "cacak";
+                         } else if (officeRaw.includes("beograd") || officeRaw.startsWith("bg ")) {
+                           office = "beograd";
+                         } else if (officeRaw.includes("kragujevac")) {
+                           office = "kragujevac";
+                         }
+                       }
+                       if (!acc[office]) acc[office] = [];
+                       acc[office].push(schedule);
+                       return acc;
+                     },
+                     {} as Record<OfficeKey, ScheduleEntry[]>,
+                   );
 
                   // Check which offices need more dispatchers
                   const officesBelowThreshold = (["kragujevac", "cacak", "beograd"] as OfficeKey[]).filter(
@@ -985,20 +1008,29 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                         key={schedule.id}
                                         className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
                                       >
-                                        <span className="flex items-center gap-1 sm:gap-2 truncate">
-                                           <span className="truncate">
-                                             {schedule.user?.full_name || schedule.user?.email || "Unknown"}
-                                           </span>
-                                           
-                                          {isExtra && (
-                                            <Badge
-                                              variant="outline"
-                                              className="text-[10px] sm:text-xs text-orange-500 border-orange-500 flex-shrink-0"
-                                            >
-                                              extra
-                                            </Badge>
-                                          )}
-                                        </span>
+                                         <span className="flex items-center gap-1 sm:gap-2 truncate">
+                                            <span className="truncate">
+                                              {schedule.user?.full_name || schedule.user?.email || "Unknown"}
+                                            </span>
+                                           {isOfficeKey(schedule.override_office) &&
+                                             schedule.override_office !== toOfficeKey(schedule.user?.office) && (
+                                               <Badge
+                                                 variant="outline"
+                                                 className="text-[10px] sm:text-xs text-amber-600 border-amber-500 flex-shrink-0"
+                                               >
+                                                 {OFFICE_SHORT[toOfficeKey(schedule.user?.office)]} →{" "}
+                                                 {OFFICE_SHORT[schedule.override_office as OfficeKey]}
+                                               </Badge>
+                                             )}
+                                           {isExtra && (
+                                             <Badge
+                                               variant="outline"
+                                               className="text-[10px] sm:text-xs text-orange-500 border-orange-500 flex-shrink-0"
+                                             >
+                                               extra
+                                             </Badge>
+                                           )}
+                                         </span>
                                         {canManageSchedules && !isPastDate && (
                                           <Button
                                             variant="ghost"
@@ -1140,28 +1172,37 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     if (existingCount >= MIN_THRESHOLDS[office] && forceShowOffice !== office)
                                       return null;
 
-                                    // Filter out already scheduled users
-                                    const alreadyScheduledIds = new Set(
-                                      (scheduledByOffice[office] || []).map((s) => s.user_id),
-                                    );
-                                    const availableUsers = officeUsersForOffice.filter(
-                                      (u) => !alreadyScheduledIds.has(u.id) && matchesSearch(u),
-                                    );
+                                     // Filter out already scheduled users
+                                     const alreadyScheduledIds = new Set(
+                                       (scheduledByOffice[office] || []).map((s) => s.user_id),
+                                     );
+                                     // Admin cross-office mode: pick users from ANY office into this bucket
+                                     const crossOn = isAdmin && crossOfficeMode[office];
+                                     const poolUsers = crossOn ? officeUsers : officeUsersForOffice;
+                                     const availableUsers = poolUsers.filter(
+                                       (u) => !alreadyScheduledIds.has(u.id) && matchesSearch(u),
+                                     );
 
-                                    // Get suggestions for this office
-                                    const { notWorkedThisMonth, workCounts } = selectedDate
-                                      ? getSuggestions(selectedDate, office, alreadyScheduledIds)
-                                      : { notWorkedThisMonth: [], workCounts: {} };
-                                    const notWorkedIds = new Set(notWorkedThisMonth.map((u) => u.id));
+                                     // Get suggestions for this office
+                                     const { notWorkedThisMonth, workCounts } = selectedDate
+                                       ? getSuggestions(selectedDate, office, alreadyScheduledIds)
+                                       : { notWorkedThisMonth: [], workCounts: {} };
+                                     const notWorkedIds = new Set(notWorkedThisMonth.map((u) => u.id));
 
-                                    // Sort users: those who haven't worked first, then by name
-                                    const sortedUsers = [...availableUsers].sort((a, b) => {
-                                      const aNotWorked = notWorkedIds.has(a.id);
-                                      const bNotWorked = notWorkedIds.has(b.id);
-                                      if (aNotWorked && !bNotWorked) return -1;
-                                      if (!aNotWorked && bNotWorked) return 1;
-                                      return (a.full_name || a.email).localeCompare(b.full_name || b.email);
-                                    });
+                                     // Sort users: home-office first (in cross-office mode), then those
+                                     // who haven't worked, then by name
+                                     const sortedUsers = [...availableUsers].sort((a, b) => {
+                                       if (crossOn) {
+                                         const aHome = toOfficeKey(a.office) === office ? 0 : 1;
+                                         const bHome = toOfficeKey(b.office) === office ? 0 : 1;
+                                         if (aHome !== bHome) return aHome - bHome;
+                                       }
+                                       const aNotWorked = notWorkedIds.has(a.id);
+                                       const bNotWorked = notWorkedIds.has(b.id);
+                                       if (aNotWorked && !bNotWorked) return -1;
+                                       if (!aNotWorked && bNotWorked) return 1;
+                                       return (a.full_name || a.email).localeCompare(b.full_name || b.email);
+                                     });
 
                                     const isFilled = totalCount >= config.slots;
 
@@ -1228,21 +1269,37 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
                                     return (
                                       <div key={office} className="mb-3 sm:mb-4">
-                                        <div className="flex items-center gap-2 mb-1 sm:mb-2 sticky top-0 bg-background py-1 flex-wrap">
-                                          <Badge variant="outline" className="text-xs">
-                                            {config.label}
-                                          </Badge>
-                                          <span className="text-[10px] sm:text-xs text-muted-foreground">
-                                            {totalCount}/{config.slots} (need {MIN_THRESHOLDS[office] - existingCount}{" "}
-                                            more)
-                                          </span>
-                                          {notWorkedThisMonth.length > 0 && (
-                                            <span className="text-[10px] sm:text-xs text-amber-500 flex items-center gap-1">
-                                              <Lightbulb className="h-3 w-3" />
-                                              {notWorkedThisMonth.length} haven't worked
-                                            </span>
-                                          )}
-                                        </div>
+                                         <div className="flex items-center gap-2 mb-1 sm:mb-2 sticky top-0 bg-background py-1 flex-wrap">
+                                           <Badge variant="outline" className="text-xs">
+                                             {config.label}
+                                           </Badge>
+                                           <span className="text-[10px] sm:text-xs text-muted-foreground">
+                                             {totalCount}/{config.slots} (need {MIN_THRESHOLDS[office] - existingCount}{" "}
+                                             more)
+                                           </span>
+                                           {notWorkedThisMonth.length > 0 && (
+                                             <span className="text-[10px] sm:text-xs text-amber-500 flex items-center gap-1">
+                                               <Lightbulb className="h-3 w-3" />
+                                               {notWorkedThisMonth.length} haven't worked
+                                             </span>
+                                           )}
+                                           {isAdmin && (
+                                             <button
+                                               type="button"
+                                               onClick={() =>
+                                                 setCrossOfficeMode((prev) => ({ ...prev, [office]: !prev[office] }))
+                                               }
+                                               className={`text-[10px] sm:text-xs px-1.5 py-0 rounded border transition-colors ${
+                                                 crossOfficeMode[office]
+                                                   ? "border-amber-500 text-amber-600 bg-amber-500/10"
+                                                   : "border-muted-foreground/30 text-muted-foreground hover:bg-muted"
+                                               }`}
+                                               title="Admin only: allow assigning users from other offices to this office"
+                                             >
+                                               Cross-office {crossOfficeMode[office] ? "ON" : "OFF"}
+                                             </button>
+                                           )}
+                                         </div>
                                         {sortedUsers.length === 0 ? (
                                           <p className="text-[10px] sm:text-xs text-muted-foreground pl-2">
                                             No available users in this office
@@ -1268,10 +1325,18 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                                     }
                                                     className="h-3.5 w-3.5 sm:h-4 sm:w-4"
                                                   />
-                                                   <span className="text-xs sm:text-sm flex-1 truncate">
-                                                     {user.full_name || user.email}
-                                                   </span>
-                                                  {hasNotWorked ? (
+                                                    <span className="text-xs sm:text-sm flex-1 truncate">
+                                                      {user.full_name || user.email}
+                                                    </span>
+                                                   {toOfficeKey(user.office) !== office && (
+                                                     <Badge
+                                                       variant="outline"
+                                                       className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0 border-amber-500/50 text-amber-600 flex-shrink-0"
+                                                     >
+                                                       {OFFICE_SHORT[toOfficeKey(user.office)]} → {OFFICE_SHORT[office]}
+                                                     </Badge>
+                                                   )}
+                                                   {hasNotWorked ? (
                                                     <Badge
                                                       variant="outline"
                                                       className="text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0 border-amber-500/50 text-amber-500 flex-shrink-0"
