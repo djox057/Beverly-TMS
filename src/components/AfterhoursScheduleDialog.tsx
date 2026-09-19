@@ -1172,28 +1172,37 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     if (existingCount >= MIN_THRESHOLDS[office] && forceShowOffice !== office)
                                       return null;
 
-                                    // Filter out already scheduled users
-                                    const alreadyScheduledIds = new Set(
-                                      (scheduledByOffice[office] || []).map((s) => s.user_id),
-                                    );
-                                    const availableUsers = officeUsersForOffice.filter(
-                                      (u) => !alreadyScheduledIds.has(u.id) && matchesSearch(u),
-                                    );
+                                     // Filter out already scheduled users
+                                     const alreadyScheduledIds = new Set(
+                                       (scheduledByOffice[office] || []).map((s) => s.user_id),
+                                     );
+                                     // Admin cross-office mode: pick users from ANY office into this bucket
+                                     const crossOn = isAdmin && crossOfficeMode[office];
+                                     const poolUsers = crossOn ? officeUsers : officeUsersForOffice;
+                                     const availableUsers = poolUsers.filter(
+                                       (u) => !alreadyScheduledIds.has(u.id) && matchesSearch(u),
+                                     );
 
-                                    // Get suggestions for this office
-                                    const { notWorkedThisMonth, workCounts } = selectedDate
-                                      ? getSuggestions(selectedDate, office, alreadyScheduledIds)
-                                      : { notWorkedThisMonth: [], workCounts: {} };
-                                    const notWorkedIds = new Set(notWorkedThisMonth.map((u) => u.id));
+                                     // Get suggestions for this office
+                                     const { notWorkedThisMonth, workCounts } = selectedDate
+                                       ? getSuggestions(selectedDate, office, alreadyScheduledIds)
+                                       : { notWorkedThisMonth: [], workCounts: {} };
+                                     const notWorkedIds = new Set(notWorkedThisMonth.map((u) => u.id));
 
-                                    // Sort users: those who haven't worked first, then by name
-                                    const sortedUsers = [...availableUsers].sort((a, b) => {
-                                      const aNotWorked = notWorkedIds.has(a.id);
-                                      const bNotWorked = notWorkedIds.has(b.id);
-                                      if (aNotWorked && !bNotWorked) return -1;
-                                      if (!aNotWorked && bNotWorked) return 1;
-                                      return (a.full_name || a.email).localeCompare(b.full_name || b.email);
-                                    });
+                                     // Sort users: home-office first (in cross-office mode), then those
+                                     // who haven't worked, then by name
+                                     const sortedUsers = [...availableUsers].sort((a, b) => {
+                                       if (crossOn) {
+                                         const aHome = toOfficeKey(a.office) === office ? 0 : 1;
+                                         const bHome = toOfficeKey(b.office) === office ? 0 : 1;
+                                         if (aHome !== bHome) return aHome - bHome;
+                                       }
+                                       const aNotWorked = notWorkedIds.has(a.id);
+                                       const bNotWorked = notWorkedIds.has(b.id);
+                                       if (aNotWorked && !bNotWorked) return -1;
+                                       if (!aNotWorked && bNotWorked) return 1;
+                                       return (a.full_name || a.email).localeCompare(b.full_name || b.email);
+                                     });
 
                                     const isFilled = totalCount >= config.slots;
 
