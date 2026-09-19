@@ -159,17 +159,41 @@ export function allocateAfterhoursDrivers(
 
   // Office allocation: each covering user only gets drivers of the office they
   // cover (cross-office overrides already changed user.office upstream).
+  // Users with no office on their profile get no office bucket of their own;
+  // they share in the drivers of offices nobody is covering instead.
+  const UNKNOWN = 'unknown';
   const usersByOffice = new Map<string, AllocUser[]>();
-  eligible.forEach((u) => {
-    if (!usersByOffice.has(u.office)) usersByOffice.set(u.office, []);
-    usersByOffice.get(u.office)!.push(u);
-  });
+  eligible
+    .filter((u) => u.office && u.office !== UNKNOWN)
+    .forEach((u) => {
+      if (!usersByOffice.has(u.office)) usersByOffice.set(u.office, []);
+      usersByOffice.get(u.office)!.push(u);
+    });
 
   const driversByOffice = new Map<string, AllocDriver[]>();
   drivers.forEach((d) => {
     if (!driversByOffice.has(d.office)) driversByOffice.set(d.office, []);
     driversByOffice.get(d.office)!.push(d);
   });
+
+  // Office-less users join the office that currently carries the heaviest load
+  // per person, so they always get a real share instead of an empty bucket.
+  const officeless = eligible.filter((u) => !u.office || u.office === UNKNOWN);
+  for (const u of officeless) {
+    const covered = [...usersByOffice.keys()].filter(
+      (office) => (driversByOffice.get(office) || []).length > 0,
+    );
+    if (covered.length === 0) {
+      usersByOffice.set(UNKNOWN, [...(usersByOffice.get(UNKNOWN) || []), u]);
+      continue;
+    }
+    const heaviest = covered.reduce((best, office) => {
+      const ratio = (o: string) =>
+        (driversByOffice.get(o) || []).length / (usersByOffice.get(o)!.length || 1);
+      return ratio(office) > ratio(best) ? office : best;
+    });
+    usersByOffice.get(heaviest)!.push(u);
+  }
 
   const uncovered: AllocDriver[] = [];
   for (const [office, officeDrivers] of driversByOffice) {
@@ -181,7 +205,8 @@ export function allocateAfterhoursDrivers(
     }
   }
 
-  // Offices with nobody on duty: spread those drivers across everyone.
+  // Offices with nobody on duty (and drivers with no office at all): spread
+  // those across everyone on duty.
   if (uncovered.length > 0) allocateBucket(eligible, uncovered);
 
 

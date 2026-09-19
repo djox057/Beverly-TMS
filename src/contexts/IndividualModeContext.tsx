@@ -65,12 +65,14 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
           .from('afterhours_assignments')
           .select('driver_id, scheduled_date')
           .eq('afterhours_user_id', profile.user_id)
-          .in('scheduled_date', dates),
+          .in('scheduled_date', dates)
+          .range(0, 4999),
         supabase
           .from('afterhours_shift_assignments')
           .select('driver_id, scheduled_date, shift')
           .eq('afterhours_user_id', profile.user_id)
-          .in('scheduled_date', shiftDates),
+          .in('scheduled_date', shiftDates)
+          .range(0, 4999),
       ]);
 
 

@@ -350,12 +350,33 @@ Deno.serve(async (req) => {
       // user's home office). Drivers of offices with nobody on duty are spread
       // across everyone.
       const usersByOffice = new Map<string, string[]>();
+      const officeless: string[] = [];
       for (const uid of userIdsForDay) {
         const office = groupKey(
           overrideByUserDate.get(uid)?.get(date) ?? userOfficeMap.get(uid) ?? null,
         );
+        if (office === "unknown") {
+          officeless.push(uid);
+          continue;
+        }
         if (!usersByOffice.has(office)) usersByOffice.set(office, []);
         usersByOffice.get(office)!.push(uid);
+      }
+
+      // Office-less users join the office carrying the heaviest load per person
+      // so they always get a real share instead of an empty bucket.
+      for (const uid of officeless) {
+        const covered = [...usersByOffice.keys()].filter(
+          (office) => (driversByOffice.get(office) ?? []).length > 0,
+        );
+        if (covered.length === 0) {
+          usersByOffice.set("unknown", [...(usersByOffice.get("unknown") ?? []), uid]);
+          continue;
+        }
+        const ratio = (o: string) =>
+          (driversByOffice.get(o) ?? []).length / (usersByOffice.get(o)!.length || 1);
+        const heaviest = covered.reduce((best, o) => (ratio(o) > ratio(best) ? o : best));
+        usersByOffice.get(heaviest)!.push(uid);
       }
 
       const uncovered: EnrichedDriver[] = [];

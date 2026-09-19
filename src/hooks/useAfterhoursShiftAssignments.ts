@@ -2,10 +2,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { allocateAfterhoursDrivers, AllocDriver, AllocUser } from '@/lib/afterhoursAutoAssign';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
-const BG_OFFICES = new Set(['BG 1st floor', 'BG 4th floor']);
-const groupKey = (office: string | null | undefined): string =>
-  office && BG_OFFICES.has(office) ? 'BG' : (office || 'Unknown');
+// Canonical office bucket key, shared spelling with profile offices and admin
+// cross-office override values.
+const groupKey = (office: string | null | undefined): string => {
+  const s = (office || '').toLowerCase().trim();
+  if (!s) return 'unknown';
+  if (s.includes('cacak') || s.includes('čačak')) return 'cacak';
+  if (s.includes('beograd') || s.startsWith('bg')) return 'beograd';
+  if (s.includes('kragujevac')) return 'kragujevac';
+  return s;
+};
 
 export type ShiftKey = 'night' | 'morning';
 
@@ -70,17 +78,23 @@ export const useAfterhoursShiftAssignments = () => {
         return;
       }
 
-      const [assignmentsRes, driversRes, trucksRes] = await Promise.all([
-        supabase
-          .from('afterhours_shift_assignments')
-          .select('id, afterhours_user_id, driver_id, scheduled_date, shift')
-          .in('scheduled_date', dates),
-        supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true),
-        supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id'),
+      // Paged: hundreds of rows per date otherwise hit the 1000-row cap and
+      // whole fleets would show up empty.
+      const [assignmentRows, driverRows, truckRows] = await Promise.all([
+        fetchAllRows<any>((from, to) =>
+          supabase
+            .from('afterhours_shift_assignments')
+            .select('id, afterhours_user_id, driver_id, scheduled_date, shift')
+            .in('scheduled_date', dates)
+            .range(from, to)),
+        fetchAllRows<any>((from, to) =>
+          supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true).range(from, to)),
+        fetchAllRows<any>((from, to) =>
+          supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id').range(from, to)),
       ]);
-      if (assignmentsRes.error) throw assignmentsRes.error;
-      if (driversRes.error) throw driversRes.error;
-      if (trucksRes.error) throw trucksRes.error;
+      const assignmentsRes = { data: assignmentRows };
+      const driversRes = { data: driverRows };
+      const trucksRes = { data: truckRows };
 
       const userIds = [...new Set((scheduleRows || []).map((s: any) => s.user_id as string).filter(Boolean))];
 
