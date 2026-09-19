@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { allocateAfterhoursDrivers, AllocDriver, AllocUser } from '@/lib/afterhoursAutoAssign';
+import { fetchAllRows } from '@/lib/fetchAllRows';
 
 // Canonical office bucket key for weekend distribution only. Profile offices
 // ("Čačak", "KRAGUJEVAC", "BG 1st/4th floor") and admin cross-office override
@@ -81,18 +82,23 @@ export const useAfterhoursAssignments = () => {
       }
       setWeekendDates(dates);
 
-      // Parallel: scheduled users for upcoming weekend, assignments, active drivers, trucks
-      const [scheduleRes, assignmentsRes, driversRes, trucksRes] = await Promise.all([
+      // Parallel: scheduled users for upcoming weekend, assignments, active drivers, trucks.
+      // Assignments/drivers/trucks are paged: several hundred rows per date blows
+      // past PostgREST's implicit 1000-row cap and would silently drop fleets.
+      const [scheduleRes, assignmentRows, driverRows, truckRows] = await Promise.all([
         supabase.from('afterhours_schedule').select('*').in('scheduled_date', dates),
-        supabase.from('afterhours_assignments').select('*').in('scheduled_date', dates),
-        supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true),
-        supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id, trailer_id'),
+        fetchAllRows<any>((from, to) =>
+          supabase.from('afterhours_assignments').select('*').in('scheduled_date', dates).range(from, to)),
+        fetchAllRows<any>((from, to) =>
+          supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true).range(from, to)),
+        fetchAllRows<any>((from, to) =>
+          supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id, trailer_id').range(from, to)),
       ]);
 
       if (scheduleRes.error) throw scheduleRes.error;
-      if (assignmentsRes.error) throw assignmentsRes.error;
-      if (driversRes.error) throw driversRes.error;
-      if (trucksRes.error) throw trucksRes.error;
+      const assignmentsRes = { data: assignmentRows };
+      const driversRes = { data: driverRows };
+      const trucksRes = { data: truckRows };
 
       // Build map of user_id -> scheduled dates and days
       const userDaysMap = new Map<string, Set<string>>();
