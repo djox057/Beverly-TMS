@@ -336,9 +336,10 @@ export const useAfterhoursAssignments = () => {
         const allocUsers: AllocUser[] = dayFleets.map((f) => ({
           id: f.user.id,
           office: groupKey(f.user.office),
+          isEld: !!f.user.isEld,
         }));
 
-        const allocation = allocateAfterhoursDrivers(allocUsers, allocDrivers);
+        const allocation = allocateAfterhoursDrivers(allocUsers, allocDrivers, { bucketByOffice: true });
         for (const [wdId, driverIds] of allocation) {
           for (const dId of driverIds) {
             allRows.push({ afterhours_user_id: wdId, driver_id: dId, scheduled_date: date });
