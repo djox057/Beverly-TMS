@@ -13,8 +13,11 @@
 
 export interface AllocUser {
   id: string;
-  /** Already-normalized office bucket (e.g. "BG"). */
+  /** Already-normalized office bucket (e.g. "BG"). For cross-office weekend
+   *  overrides this is the office the user COVERS that day, not their home office. */
   office: string;
+  /** ELD / maintenance people never receive trucks. */
+  isEld?: boolean;
 }
 
 export interface AllocDriver {
@@ -23,6 +26,11 @@ export interface AllocDriver {
   /** Already-normalized office bucket of the driver's weekday dispatcher. */
   office: string;
   company_id: string | null;
+}
+
+export interface AllocOptions {
+  /** Split per office: covering users only get drivers from the office they cover. */
+  bucketByOffice?: boolean;
 }
 
 const COMPANY_NONE = '__no_company__';
@@ -34,10 +42,14 @@ const COMPANY_NONE = '__no_company__';
 export function allocateAfterhoursDrivers(
   users: AllocUser[],
   drivers: AllocDriver[],
+  options: AllocOptions = {},
 ): Map<string, string[]> {
   const result = new Map<string, string[]>();
   users.forEach((u) => result.set(u.id, []));
-  if (users.length === 0 || drivers.length === 0) return result;
+  // ELD users are on duty but never cover trucks.
+  const eligible = users.filter((u) => !u.isEld);
+  if (eligible.length === 0 || drivers.length === 0) return result;
+
 
 
   const allocateBucket = (officeUsers: AllocUser[], officeDrivers: AllocDriver[]) => {
