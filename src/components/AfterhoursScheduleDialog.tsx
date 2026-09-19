@@ -1269,21 +1269,37 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
                                     return (
                                       <div key={office} className="mb-3 sm:mb-4">
-                                        <div className="flex items-center gap-2 mb-1 sm:mb-2 sticky top-0 bg-background py-1 flex-wrap">
-                                          <Badge variant="outline" className="text-xs">
-                                            {config.label}
-                                          </Badge>
-                                          <span className="text-[10px] sm:text-xs text-muted-foreground">
-                                            {totalCount}/{config.slots} (need {MIN_THRESHOLDS[office] - existingCount}{" "}
-                                            more)
-                                          </span>
-                                          {notWorkedThisMonth.length > 0 && (
-                                            <span className="text-[10px] sm:text-xs text-amber-500 flex items-center gap-1">
-                                              <Lightbulb className="h-3 w-3" />
-                                              {notWorkedThisMonth.length} haven't worked
-                                            </span>
-                                          )}
-                                        </div>
+                                         <div className="flex items-center gap-2 mb-1 sm:mb-2 sticky top-0 bg-background py-1 flex-wrap">
+                                           <Badge variant="outline" className="text-xs">
+                                             {config.label}
+                                           </Badge>
+                                           <span className="text-[10px] sm:text-xs text-muted-foreground">
+                                             {totalCount}/{config.slots} (need {MIN_THRESHOLDS[office] - existingCount}{" "}
+                                             more)
+                                           </span>
+                                           {notWorkedThisMonth.length > 0 && (
+                                             <span className="text-[10px] sm:text-xs text-amber-500 flex items-center gap-1">
+                                               <Lightbulb className="h-3 w-3" />
+                                               {notWorkedThisMonth.length} haven't worked
+                                             </span>
+                                           )}
+                                           {isAdmin && (
+                                             <button
+                                               type="button"
+                                               onClick={() =>
+                                                 setCrossOfficeMode((prev) => ({ ...prev, [office]: !prev[office] }))
+                                               }
+                                               className={`text-[10px] sm:text-xs px-1.5 py-0 rounded border transition-colors ${
+                                                 crossOfficeMode[office]
+                                                   ? "border-amber-500 text-amber-600 bg-amber-500/10"
+                                                   : "border-muted-foreground/30 text-muted-foreground hover:bg-muted"
+                                               }`}
+                                               title="Admin only: allow assigning users from other offices to this office"
+                                             >
+                                               Cross-office {crossOfficeMode[office] ? "ON" : "OFF"}
+                                             </button>
+                                           )}
+                                         </div>
                                         {sortedUsers.length === 0 ? (
                                           <p className="text-[10px] sm:text-xs text-muted-foreground pl-2">
                                             No available users in this office
