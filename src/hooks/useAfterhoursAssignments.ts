@@ -137,6 +137,8 @@ export const useAfterhoursAssignments = () => {
             email: p.email,
             office: p.office,
             isMaintenance: maintenanceUserIds.has(p.user_id) && !!(p as any).is_eld,
+            isEld: !!(p as any).is_eld,
+
             scheduledDays: [...(userDaysMap.get(p.user_id) || [])],
             scheduledDatesList: [...(userDatesMap.get(p.user_id) || [])],
           }));
