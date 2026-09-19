@@ -91,6 +91,8 @@ export const useAfterhoursAssignments = () => {
       const userDatesMap = new Map<string, Set<string>>();
       // Also build date -> user_ids
       const dateUsersMap = new Map<string, Set<string>>();
+      // Admin cross-office overrides: user_id -> date -> office they cover that day
+      const overrideByUserDate = new Map<string, Map<string, string>>();
       (scheduleRes.data || []).filter(s => s.user_id).forEach(s => {
         const dayName = new Date(s.scheduled_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
         if (!userDaysMap.has(s.user_id!)) userDaysMap.set(s.user_id!, new Set());
@@ -99,6 +101,11 @@ export const useAfterhoursAssignments = () => {
         userDatesMap.get(s.user_id!)!.add(s.scheduled_date);
         if (!dateUsersMap.has(s.scheduled_date)) dateUsersMap.set(s.scheduled_date, new Set());
         dateUsersMap.get(s.scheduled_date)!.add(s.user_id!);
+        const ov = (s as any).override_office as string | null | undefined;
+        if (ov) {
+          if (!overrideByUserDate.has(s.user_id!)) overrideByUserDate.set(s.user_id!, new Map());
+          overrideByUserDate.get(s.user_id!)!.set(s.scheduled_date, ov);
+        }
       });
 
       const afterhoursUserIds = [...userDaysMap.keys()];
@@ -176,13 +183,19 @@ export const useAfterhoursAssignments = () => {
         const usersForDay = afterhoursUsers.filter(u => u.scheduledDatesList.includes(dateStr));
         const dayAssignments = assignments.filter((a: any) => a.scheduled_date === dateStr);
 
-        const fleets: AfterhoursFleet[] = usersForDay.map(user => ({
-          user,
-          drivers: dayAssignments
-            .filter((a: any) => a.afterhours_user_id === user.id)
-            .map((a: any) => driverMap.get(a.driver_id))
-            .filter(Boolean),
-        }));
+        const fleets: AfterhoursFleet[] = usersForDay.map(user => {
+          // Cross-office override: treat the user as belonging to the office
+          // they cover that day (drives office grouping and allocation).
+          const overrideOffice = overrideByUserDate.get(user.id)?.get(dateStr) || null;
+          const effectiveUser = overrideOffice ? { ...user, office: overrideOffice } : user;
+          return {
+            user: effectiveUser,
+            drivers: dayAssignments
+              .filter((a: any) => a.afterhours_user_id === user.id)
+              .map((a: any) => driverMap.get(a.driver_id))
+              .filter(Boolean),
+          };
+        });
 
         if (fleets.length > 0) {
           fleetsByDay.push({ date: dateStr, dayName, fleets });
