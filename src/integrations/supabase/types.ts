@@ -97,6 +97,7 @@ export type Database = {
           created_by: string | null
           dispatcher_name: string | null
           id: string
+          override_office: string | null
           scheduled_date: string
           user_id: string | null
         }
@@ -105,6 +106,7 @@ export type Database = {
           created_by?: string | null
           dispatcher_name?: string | null
           id?: string
+          override_office?: string | null
           scheduled_date: string
           user_id?: string | null
         }
@@ -113,6 +115,7 @@ export type Database = {
           created_by?: string | null
           dispatcher_name?: string | null
           id?: string
+          override_office?: string | null
           scheduled_date?: string
           user_id?: string | null
         }
