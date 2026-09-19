@@ -17,6 +17,8 @@ interface AfterhoursUser {
   office: string | null;
   scheduledDays: string[]; // e.g. ['Saturday', 'Sunday']
   isMaintenance?: boolean;
+  isEld?: boolean;
+
 }
 
 export interface AfterhoursFleet {
