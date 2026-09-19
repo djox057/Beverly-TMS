@@ -176,6 +176,25 @@ export function allocateAfterhoursDrivers(
     driversByOffice.get(d.office)!.push(d);
   });
 
+  // Office-less users join the office that currently carries the heaviest load
+  // per person, so they always get a real share instead of an empty bucket.
+  const officeless = eligible.filter((u) => !u.office || u.office === UNKNOWN);
+  for (const u of officeless) {
+    const covered = [...usersByOffice.keys()].filter(
+      (office) => (driversByOffice.get(office) || []).length > 0,
+    );
+    if (covered.length === 0) {
+      usersByOffice.set(UNKNOWN, [...(usersByOffice.get(UNKNOWN) || []), u]);
+      continue;
+    }
+    const heaviest = covered.reduce((best, office) => {
+      const ratio = (o: string) =>
+        (driversByOffice.get(o) || []).length / (usersByOffice.get(o)!.length || 1);
+      return ratio(office) > ratio(best) ? office : best;
+    });
+    usersByOffice.get(heaviest)!.push(u);
+  }
+
   const uncovered: AllocDriver[] = [];
   for (const [office, officeDrivers] of driversByOffice) {
     const officeUsers = usersByOffice.get(office);
@@ -186,8 +205,8 @@ export function allocateAfterhoursDrivers(
     }
   }
 
-  // Offices with nobody on duty (and drivers with no office): spread across
-  // everyone on duty, which is how office-less users get an equal share.
+  // Offices with nobody on duty (and drivers with no office at all): spread
+  // those across everyone on duty.
   if (uncovered.length > 0) allocateBucket(eligible, uncovered);
 
 
