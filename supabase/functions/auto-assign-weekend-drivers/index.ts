@@ -340,9 +340,29 @@ Deno.serve(async (req) => {
         }
       };
 
-      // Single global allocation (no office bucketing) so the whole fleet is
-      // split evenly across everyone on duty.
-      push(allocate(userIdsForDay, enrichedDrivers));
+      // Office-based allocation: each covering user only gets drivers of the
+      // office they cover that day (admin cross-office override wins over the
+      // user's home office). Drivers of offices with nobody on duty are spread
+      // across everyone.
+      const usersByOffice = new Map<string, string[]>();
+      for (const uid of userIdsForDay) {
+        const office = groupKey(
+          overrideByUserDate.get(uid)?.get(date) ?? userOfficeMap.get(uid) ?? null,
+        );
+        if (!usersByOffice.has(office)) usersByOffice.set(office, []);
+        usersByOffice.get(office)!.push(uid);
+      }
+
+      const uncovered: EnrichedDriver[] = [];
+      for (const [office, officeDrivers] of driversByOffice) {
+        const officeUsers = usersByOffice.get(office);
+        if (officeUsers && officeUsers.length > 0) {
+          push(allocate(officeUsers, officeDrivers));
+        } else {
+          uncovered.push(...officeDrivers);
+        }
+      }
+      if (uncovered.length > 0) push(allocate(userIdsForDay, uncovered));
     }
 
     // --- Bulk insert ---
