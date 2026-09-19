@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
     // --- Fetch scheduled afterhours users for candidate dates ---
     const { data: schedule, error: scheduleErr } = await supabase
       .from("afterhours_schedule")
-      .select("user_id, scheduled_date")
+      .select("user_id, scheduled_date, override_office")
       .in("scheduled_date", candidateDates);
     if (scheduleErr) throw scheduleErr;
 
