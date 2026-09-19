@@ -913,23 +913,30 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   );
 
                   // Group office scheduled users by office
-                  const scheduledByOffice = officeSchedulesOnly.reduce(
-                    (acc, schedule) => {
-                      const officeRaw = schedule.user?.office?.toLowerCase() || "";
-                      let office: OfficeKey = "kragujevac"; // Default fallback
-                      if (officeRaw.includes("cacak") || officeRaw.includes("čačak")) {
-                        office = "cacak";
-                      } else if (officeRaw.includes("beograd") || officeRaw.startsWith("bg ")) {
-                        office = "beograd";
-                      } else if (officeRaw.includes("kragujevac")) {
-                        office = "kragujevac";
-                      }
-                      if (!acc[office]) acc[office] = [];
-                      acc[office].push(schedule);
-                      return acc;
-                    },
-                    {} as Record<OfficeKey, ScheduleEntry[]>,
-                  );
+                   const scheduledByOffice = officeSchedulesOnly.reduce(
+                     (acc, schedule) => {
+                       // Admin cross-office override wins over the profile office:
+                       // the user counts toward the office they cover that day.
+                       const overrideKey = isOfficeKey(schedule.override_office)
+                         ? (schedule.override_office as OfficeKey)
+                         : null;
+                       const officeRaw = schedule.user?.office?.toLowerCase() || "";
+                       let office: OfficeKey = overrideKey ?? "kragujevac"; // Default fallback
+                       if (!overrideKey) {
+                         if (officeRaw.includes("cacak") || officeRaw.includes("čačak")) {
+                           office = "cacak";
+                         } else if (officeRaw.includes("beograd") || officeRaw.startsWith("bg ")) {
+                           office = "beograd";
+                         } else if (officeRaw.includes("kragujevac")) {
+                           office = "kragujevac";
+                         }
+                       }
+                       if (!acc[office]) acc[office] = [];
+                       acc[office].push(schedule);
+                       return acc;
+                     },
+                     {} as Record<OfficeKey, ScheduleEntry[]>,
+                   );
 
                   // Check which offices need more dispatchers
                   const officesBelowThreshold = (["kragujevac", "cacak", "beograd"] as OfficeKey[]).filter(
