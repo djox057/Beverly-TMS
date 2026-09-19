@@ -159,11 +159,16 @@ export function allocateAfterhoursDrivers(
 
   // Office allocation: each covering user only gets drivers of the office they
   // cover (cross-office overrides already changed user.office upstream).
+  // Users with no office on their profile get no office bucket of their own;
+  // they share in the drivers of offices nobody is covering instead.
+  const UNKNOWN = 'unknown';
   const usersByOffice = new Map<string, AllocUser[]>();
-  eligible.forEach((u) => {
-    if (!usersByOffice.has(u.office)) usersByOffice.set(u.office, []);
-    usersByOffice.get(u.office)!.push(u);
-  });
+  eligible
+    .filter((u) => u.office && u.office !== UNKNOWN)
+    .forEach((u) => {
+      if (!usersByOffice.has(u.office)) usersByOffice.set(u.office, []);
+      usersByOffice.get(u.office)!.push(u);
+    });
 
   const driversByOffice = new Map<string, AllocDriver[]>();
   drivers.forEach((d) => {
@@ -181,7 +186,8 @@ export function allocateAfterhoursDrivers(
     }
   }
 
-  // Offices with nobody on duty: spread those drivers across everyone.
+  // Offices with nobody on duty (and drivers with no office): spread across
+  // everyone on duty, which is how office-less users get an equal share.
   if (uncovered.length > 0) allocateBucket(eligible, uncovered);
 
 
