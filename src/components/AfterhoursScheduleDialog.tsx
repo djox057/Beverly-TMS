@@ -1008,20 +1008,29 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                         key={schedule.id}
                                         className="flex items-center justify-between bg-background rounded px-2 py-1 sm:py-1.5 text-xs sm:text-sm"
                                       >
-                                        <span className="flex items-center gap-1 sm:gap-2 truncate">
-                                           <span className="truncate">
-                                             {schedule.user?.full_name || schedule.user?.email || "Unknown"}
-                                           </span>
-                                           
-                                          {isExtra && (
-                                            <Badge
-                                              variant="outline"
-                                              className="text-[10px] sm:text-xs text-orange-500 border-orange-500 flex-shrink-0"
-                                            >
-                                              extra
-                                            </Badge>
-                                          )}
-                                        </span>
+                                         <span className="flex items-center gap-1 sm:gap-2 truncate">
+                                            <span className="truncate">
+                                              {schedule.user?.full_name || schedule.user?.email || "Unknown"}
+                                            </span>
+                                           {isOfficeKey(schedule.override_office) &&
+                                             schedule.override_office !== toOfficeKey(schedule.user?.office) && (
+                                               <Badge
+                                                 variant="outline"
+                                                 className="text-[10px] sm:text-xs text-amber-600 border-amber-500 flex-shrink-0"
+                                               >
+                                                 {OFFICE_SHORT[toOfficeKey(schedule.user?.office)]} →{" "}
+                                                 {OFFICE_SHORT[schedule.override_office as OfficeKey]}
+                                               </Badge>
+                                             )}
+                                           {isExtra && (
+                                             <Badge
+                                               variant="outline"
+                                               className="text-[10px] sm:text-xs text-orange-500 border-orange-500 flex-shrink-0"
+                                             >
+                                               extra
+                                             </Badge>
+                                           )}
+                                         </span>
                                         {canManageSchedules && !isPastDate && (
                                           <Button
                                             variant="ghost"
