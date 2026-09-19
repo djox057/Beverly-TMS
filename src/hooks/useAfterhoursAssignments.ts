@@ -3,12 +3,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { allocateAfterhoursDrivers, AllocDriver, AllocUser } from '@/lib/afterhoursAutoAssign';
 
-// BG 1st floor and BG 4th floor are treated as a single "BG" office for
-// weekend distribution purposes only. Underlying profile.office values are
-// unchanged; this only affects bucketing inside autoAssignDrivers().
-const BG_OFFICES = new Set(['BG 1st floor', 'BG 4th floor']);
-const groupKey = (office: string | null | undefined): string =>
-  office && BG_OFFICES.has(office) ? 'BG' : (office || 'Unknown');
+// Canonical office bucket key for weekend distribution only. Profile offices
+// ("Čačak", "KRAGUJEVAC", "BG 1st/4th floor") and admin cross-office override
+// values ("cacak", "kragujevac", "beograd") must map to the SAME bucket,
+// otherwise a cross-office user ends up alone in a bucket with no drivers.
+const groupKey = (office: string | null | undefined): string => {
+  const s = (office || '').toLowerCase().trim();
+  if (!s) return 'unknown';
+  if (s.includes('cacak') || s.includes('čačak')) return 'cacak';
+  if (s.includes('beograd') || s.startsWith('bg')) return 'beograd';
+  if (s.includes('kragujevac')) return 'kragujevac';
+  return s;
+};
 
 interface AfterhoursUser {
   id: string;
