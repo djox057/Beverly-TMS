@@ -109,6 +109,13 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   });
   // Force show office in selection area (for adding more users via + button)
   const [forceShowOffice, setForceShowOffice] = useState<SelectionKey | null>(null);
+  // Admin-only: allow picking users from other offices into an office bucket
+  // (e.g. a Čačak user covering Kragujevac). Saved as override_office.
+  const [crossOfficeMode, setCrossOfficeMode] = useState<Record<OfficeKey, boolean>>({
+    kragujevac: false,
+    cacak: false,
+    beograd: false,
+  });
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [existingSchedules, setExistingSchedules] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -386,11 +393,20 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     try {
       const dateStr = format(selectedDate, "yyyy-MM-dd");
 
-      // Insert schedule entries for each selected user
-      const entries = allSelectedUsers.map((userId) => ({
-        user_id: userId,
-        scheduled_date: dateStr,
-      }));
+      // Insert schedule entries for each selected user. Admin cross-office
+      // picks record the bucket office as override_office so every downstream
+      // calculation treats the user as covering that office.
+      const userById = new Map(scheduleUsers.map((u) => [u.id, u]));
+      const entries = (Object.entries(selectedUsers) as [SelectionKey, string[]][]).flatMap(([key, ids]) =>
+        ids.map((userId) => {
+          let overrideOffice: string | null = null;
+          if (isAdmin && isOfficeKey(key)) {
+            const u = userById.get(userId);
+            if (u && toOfficeKey(u.office) !== key) overrideOffice = key;
+          }
+          return { user_id: userId, scheduled_date: dateStr, override_office: overrideOffice };
+        }),
+      );
 
       const { error } = await supabase
         .from("afterhours_schedule")
