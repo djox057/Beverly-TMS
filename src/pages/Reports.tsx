@@ -103,7 +103,6 @@ import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { removeOrderFromGlobalStore } from "@/hooks/useReportsDateWindow";
 import { useDispatcherLazyOrders, clearDispatcherLazyData } from "@/hooks/useDispatcherLazyOrders";
 import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
-import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { useLumperMissingRevisedRC } from "@/hooks/useLumperMissingRevisedRC";
 import lumperReceiptIcon from "@/assets/lumper-receipt-icon.png";
 import wrenchIcon from "@/assets/wrench-icon.png";
@@ -1123,7 +1122,6 @@ const Reports = () => {
   // When true, proximity search matches trucks by their current GPS location
   // instead of their last delivery location.
   const [proximityLiveMode, setProximityLiveMode] = useState(false);
-  const { data: samsaraLocations } = useSamsaraLocations(proximityLiveMode);
   const groupedReportsRef = useRef(groupedReports);
   useEffect(() => {
     groupedReportsRef.current = groupedReports;
