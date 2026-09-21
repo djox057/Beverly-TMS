@@ -79,7 +79,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
             d.company_name?.toLowerCase().includes(s)
           );
         })
-      : availableDrivers;
+      : companyFiltered;
 
     // Build dispatcher map
     const dispMap = new Map<string, { id: string; name: string; office: string; drivers: Driver[] }>();
@@ -113,7 +113,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     });
 
     return Array.from(groups.values()).sort((a, b) => a.office.localeCompare(b.office));
-  }, [availableDrivers, search]);
+  }, [availableDrivers, companyFilter, search]);
 
   const toggleDriver = (id: string) => {
     setSelectedIds((prev) => {
