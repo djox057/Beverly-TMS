@@ -148,7 +148,9 @@ export const useAfterhoursAssignments = () => {
             full_name: p.full_name,
             email: p.email,
             office: p.office,
-            isMaintenance: maintenanceUserIds.has(p.user_id) && !!(p as any).is_eld,
+            // Maintenance bucket: maintenance role, or no office on the profile
+            // (matches the Weekend Schedule dialog's Maintenance group).
+            isMaintenance: maintenanceUserIds.has(p.user_id) || !p.office,
             isEld: !!(p as any).is_eld,
 
             scheduledDays: [...(userDaysMap.get(p.user_id) || [])],
