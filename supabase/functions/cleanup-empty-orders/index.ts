@@ -32,25 +32,28 @@ Deno.serve(async (req) => {
 
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // All four amount/mile fields must be null or 0
+    // DISABLED: loads must never be deleted from the database.
+    // This routine is now report-only — it counts what the old rule would have
+    // matched and deletes nothing. Cancellation is the only removal mechanism.
     const { data, error } = await supabase
       .from("orders")
-      .delete()
+      .select("id")
       .lt("created_at", cutoff)
       .eq("canceled", true)
       .or("freight_amount.is.null,freight_amount.eq.0")
       .or("driver_price.is.null,driver_price.eq.0")
       .or("loaded_miles.is.null,loaded_miles.eq.0")
-      .or("dh_miles.is.null,dh_miles.eq.0")
-      .select("id");
+      .or("dh_miles.is.null,dh_miles.eq.0");
 
     if (error) throw error;
 
-    const deletedCount = data?.length ?? 0;
-    console.log(`cleanup-empty-orders: deleted ${deletedCount} orders older than ${cutoff}`);
+    const matchedCount = data?.length ?? 0;
+    console.log(
+      `cleanup-empty-orders: DISABLED (no deletions). ${matchedCount} canceled orders older than ${cutoff} would have matched the old rule.`
+    );
 
     return new Response(
-      JSON.stringify({ success: true, deletedCount, cutoff }),
+      JSON.stringify({ success: true, disabled: true, deletedCount: 0, matchedCount, cutoff }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
