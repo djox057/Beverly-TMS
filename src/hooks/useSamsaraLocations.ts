@@ -11,7 +11,7 @@ interface TruckLocation {
   samsaraAccount?: string | null;
 }
 
-export const useSamsaraLocations = () => {
+export const useSamsaraLocations = (enabled = true) => {
   return useQuery({
     queryKey: ['samsara-locations'],
     queryFn: async () => {
