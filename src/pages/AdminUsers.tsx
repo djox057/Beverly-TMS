@@ -1410,6 +1410,27 @@ const AdminUsers = () => {
               </div>
             )}
 
+            {editRole === 'dispatch' && (
+              <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Recovery</p>
+                  <p className="text-xs text-muted-foreground">
+                    Access to Loads at the Yard (assign transfer driver) and yard arrival recovery actions.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="edit-is-recovery" className="text-sm cursor-pointer">
+                    Recovery
+                  </Label>
+                  <Switch
+                    id="edit-is-recovery"
+                    checked={editIsRecovery}
+                    onCheckedChange={setEditIsRecovery}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-4">
               <Button 
                 type="button" 
