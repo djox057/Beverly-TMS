@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Search, Truck, Users, ChevronDown, ChevronRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Truck, Users, ChevronDown, ChevronRight, Building2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Driver {
@@ -43,6 +44,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
 }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [submitting, setSubmitting] = useState(false);
   const [collapsedDispatchers, setCollapsedDispatchers] = useState<Set<string>>(new Set());
 
@@ -52,10 +54,23 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     [allDrivers, alreadyAssignedIds]
   );
 
+  // Company list from available drivers (for the filter dropdown)
+  const companyOptions = useMemo(() => {
+    const names = new Set<string>();
+    availableDrivers.forEach((d) => {
+      if (d.company_name) names.add(d.company_name);
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [availableDrivers]);
+
   // Group by office > dispatcher
   const officeGroups = useMemo(() => {
+    const companyFiltered = companyFilter === "all"
+      ? availableDrivers
+      : availableDrivers.filter((d) => d.company_name === companyFilter);
+
     const filtered = search
-      ? availableDrivers.filter((d) => {
+      ? companyFiltered.filter((d) => {
           const s = search.toLowerCase();
           return (
             d.name?.toLowerCase().includes(s) ||
@@ -64,7 +79,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
             d.company_name?.toLowerCase().includes(s)
           );
         })
-      : availableDrivers;
+      : companyFiltered;
 
     // Build dispatcher map
     const dispMap = new Map<string, { id: string; name: string; office: string; drivers: Driver[] }>();
@@ -98,7 +113,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     });
 
     return Array.from(groups.values()).sort((a, b) => a.office.localeCompare(b.office));
-  }, [availableDrivers, search]);
+  }, [availableDrivers, companyFilter, search]);
 
   const toggleDriver = (id: string) => {
     setSelectedIds((prev) => {
@@ -149,6 +164,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     if (!val) {
       setSelectedIds(new Set());
       setSearch("");
+      setCompanyFilter("all");
     }
     onOpenChange(val);
   };
@@ -160,14 +176,32 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
           <DialogTitle>Add Drivers</DialogTitle>
         </DialogHeader>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search drivers, trucks, dispatchers..."
-            className="pl-10"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search drivers, trucks, dispatchers..."
+              className="pl-10"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Select value={companyFilter} onValueChange={setCompanyFilter}>
+            <SelectTrigger className="w-[130px] shrink-0 h-9">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <SelectValue placeholder="Company" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All companies</SelectItem>
+              {companyOptions.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto border rounded-md">
