@@ -4368,6 +4368,7 @@ export type Database = {
           id: string
           individual_mode: boolean | null
           is_eld: boolean
+          is_recovery: boolean
           office: Database["public"]["Enums"]["office_location"] | null
           phone_number: string | null
           suggestions_enabled: boolean
@@ -4386,6 +4387,7 @@ export type Database = {
           id?: string
           individual_mode?: boolean | null
           is_eld?: boolean
+          is_recovery?: boolean
           office?: Database["public"]["Enums"]["office_location"] | null
           phone_number?: string | null
           suggestions_enabled?: boolean
@@ -4404,6 +4406,7 @@ export type Database = {
           id?: string
           individual_mode?: boolean | null
           is_eld?: boolean
+          is_recovery?: boolean
           office?: Database["public"]["Enums"]["office_location"] | null
           phone_number?: string | null
           suggestions_enabled?: boolean
