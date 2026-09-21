@@ -104,16 +104,18 @@ function BolLocationCell({ orderId, value }: { orderId: string; value: string | 
 
 export default function YardLoads() {
   const navigate = useNavigate();
-  const { hasRole } = useAuthContext();
+  const { hasRole, profile } = useAuthContext();
   
   const isYardRole = hasRole('yard');
+  // Dispatchers flagged as "Recovery" get access to this page too.
+  const isRecoveryDispatch = !!profile?.is_recovery && hasRole('dispatch');
   
   // Check if user has required roles
   useEffect(() => {
-    if (!hasRole('manager') && !hasRole('admin') && !hasRole('yard') && !hasRole('afterhours')) {
+    if (!hasRole('manager') && !hasRole('admin') && !hasRole('yard') && !hasRole('afterhours') && !isRecoveryDispatch) {
       navigate('/');
     }
-  }, [hasRole, navigate]);
+  }, [hasRole, navigate, isRecoveryDispatch]);
   
   const canCancelOrders = hasRole('dispatch') || hasRole('afterhours');
   const canEditOrders = !isYardRole; // Yard role cannot edit

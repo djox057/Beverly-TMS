@@ -73,6 +73,7 @@ const AdminUsers = () => {
   const [editDailyEdit, setEditDailyEdit] = useState(false);
   const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
   const [editIsEld, setEditIsEld] = useState(false);
+  const [editIsRecovery, setEditIsRecovery] = useState(false);
   const [editGrossPercent, setEditGrossPercent] = useState<string>('');
   const [editCutPercent, setEditCutPercent] = useState<string>('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
@@ -454,6 +455,7 @@ const AdminUsers = () => {
     setEditDailyEdit(user.daily_report_can_edit);
     setEditSuggestionsEnabled(user.suggestions_enabled);
     setEditIsEld(!!(user as any).is_eld);
+    setEditIsRecovery(!!(user as any).is_recovery);
     setEditGrossPercent(user.gross_percent != null ? String(user.gross_percent) : (user.roles.includes('dispatch') ? '1' : ''));
     setEditCutPercent(user.cut_percent != null ? String(user.cut_percent) : (user.roles.includes('dispatch') ? '5' : ''));
     setIsEditDialogOpen(true);
@@ -525,6 +527,7 @@ const AdminUsers = () => {
           .update({
             suggestions_enabled: editSuggestionsEnabled,
             is_eld: editRole === 'maintenance' ? editIsEld : false,
+            is_recovery: editRole === 'dispatch' ? editIsRecovery : false,
           })
           .eq('user_id', userToEdit.user_id);
         if (sugError) {
@@ -1402,6 +1405,27 @@ const AdminUsers = () => {
                     id="edit-is-eld"
                     checked={editIsEld}
                     onCheckedChange={setEditIsEld}
+                  />
+                </div>
+              </div>
+            )}
+
+            {editRole === 'dispatch' && (
+              <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Recovery</p>
+                  <p className="text-xs text-muted-foreground">
+                    Access to Loads at the Yard (assign transfer driver) and yard arrival recovery actions.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="edit-is-recovery" className="text-sm cursor-pointer">
+                    Recovery
+                  </Label>
+                  <Switch
+                    id="edit-is-recovery"
+                    checked={editIsRecovery}
+                    onCheckedChange={setEditIsRecovery}
                   />
                 </div>
               </div>

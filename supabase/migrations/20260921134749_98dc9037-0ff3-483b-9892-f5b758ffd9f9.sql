@@ -1,0 +1,2 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_recovery boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.profiles.is_recovery IS 'Dispatch-only flag: grants recovery access (Loads at the Yard, transfer driver assignment, yard arrival recovery actions).';

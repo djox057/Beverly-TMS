@@ -140,9 +140,11 @@ interface TwoWeekNoticeDriver {
 export default function YardArrivals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { hasRole } = useAuthContext();
+  const { hasRole, profile } = useAuthContext();
+  // Dispatchers flagged as "Recovery" can work yard arrivals (check / delete / recovery driver).
+  const isRecoveryDispatch = !!profile?.is_recovery && hasRole('dispatch');
   const canEditDriver = hasRole('admin') || hasRole('manager');
-  const canRemoveYardArrival = hasRole('admin') || hasRole('manager');
+  const canRemoveYardArrival = hasRole('admin') || hasRole('manager') || isRecoveryDispatch;
   const isYardRole = hasRole('yard');
   
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);

@@ -4368,6 +4368,7 @@ export type Database = {
           id: string
           individual_mode: boolean | null
           is_eld: boolean
+          is_recovery: boolean
           office: Database["public"]["Enums"]["office_location"] | null
           phone_number: string | null
           suggestions_enabled: boolean
@@ -4386,6 +4387,7 @@ export type Database = {
           id?: string
           individual_mode?: boolean | null
           is_eld?: boolean
+          is_recovery?: boolean
           office?: Database["public"]["Enums"]["office_location"] | null
           phone_number?: string | null
           suggestions_enabled?: boolean
@@ -4404,6 +4406,7 @@ export type Database = {
           id?: string
           individual_mode?: boolean | null
           is_eld?: boolean
+          is_recovery?: boolean
           office?: Database["public"]["Enums"]["office_location"] | null
           phone_number?: string | null
           suggestions_enabled?: boolean
@@ -6993,6 +6996,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_recovery_dispatcher: { Args: never; Returns: boolean }
       is_schedule_manager: { Args: { _user_id: string }; Returns: boolean }
       log_pii_view: {
         Args: {
