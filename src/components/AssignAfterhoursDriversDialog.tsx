@@ -187,13 +187,13 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
             />
           </div>
           <Select value={companyFilter} onValueChange={setCompanyFilter}>
-            <SelectTrigger className="w-[130px] shrink-0 h-9">
-              <div className="flex items-center gap-1.5 min-w-0">
+            <SelectTrigger className="w-[170px] shrink-0 h-9">
+              <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                 <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <SelectValue placeholder="Company" />
+                <SelectValue placeholder="Company" className="truncate whitespace-nowrap" />
               </div>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="min-w-[220px]">
               <SelectItem value="all">All companies</SelectItem>
               {companyOptions.map((name) => (
                 <SelectItem key={name} value={name}>
