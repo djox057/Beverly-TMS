@@ -1216,19 +1216,30 @@ const Reports = () => {
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     };
     const matched = new Map<string, number>();
-    // Match against the accumulated per-truck last-delivery map so trucks
-    // remain matched even when the visible date window shifts away from the
-    // order that produced the coordinates.
-    for (const [truckId, entry] of truckLastDeliveryRef.current.entries()) {
-      const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, entry.lat, entry.lon);
-      const roadMiles = Math.round(straightLine * 1.3);
-      if (roadMiles <= 150) {
-        matched.set(truckId, roadMiles);
+    if (proximityLiveMode) {
+      // Match against current GPS locations (Samsara).
+      for (const loc of samsaraLocations || []) {
+        const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, loc.latitude, loc.longitude);
+        const roadMiles = Math.round(straightLine * 1.3);
+        if (roadMiles <= 150) {
+          matched.set(loc.truck_id, roadMiles);
+        }
+      }
+    } else {
+      // Match against the accumulated per-truck last-delivery map so trucks
+      // remain matched even when the visible date window shifts away from the
+      // order that produced the coordinates.
+      for (const [truckId, entry] of truckLastDeliveryRef.current.entries()) {
+        const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, entry.lat, entry.lon);
+        const roadMiles = Math.round(straightLine * 1.3);
+        if (roadMiles <= 150) {
+          matched.set(truckId, roadMiles);
+        }
       }
     }
     setProximityMatchedTrucks(matched);
     setProximitySearching(false);
-  }, [proximityCoords, proximityAddress, truckLastDeliveryVersion]);
+  }, [proximityCoords, proximityAddress, truckLastDeliveryVersion, proximityLiveMode, samsaraLocations]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
   const [cancelRecoverInstead, setCancelRecoverInstead] = useState(false);
