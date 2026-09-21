@@ -23,6 +23,8 @@ export interface ShiftFleetUser {
   email: string;
   office: string | null;
   isManager: boolean;
+  /** ELD / maintenance people never receive trucks. */
+  isEld?: boolean;
 }
 
 export interface ShiftFleet {
@@ -98,13 +100,15 @@ export const useAfterhoursShiftAssignments = () => {
 
       const userIds = [...new Set((scheduleRows || []).map((s: any) => s.user_id as string).filter(Boolean))];
 
-      const [profilesRes, rolesRes] = await Promise.all([
-        supabase.from('profiles').select('user_id, full_name, email, office').in('user_id', userIds),
+      const [profilesRes, rolesRes, maintenanceRes] = await Promise.all([
+        supabase.from('profiles').select('user_id, full_name, email, office, is_eld').in('user_id', userIds),
         supabase.from('user_roles').select('user_id').eq('role', 'manager').in('user_id', userIds),
+        supabase.from('user_roles').select('user_id').eq('role', 'maintenance').in('user_id', userIds),
       ]);
       if (profilesRes.error) throw profilesRes.error;
 
       const managerIds = new Set((rolesRes.data || []).map((r: any) => r.user_id));
+      const maintenanceIds = new Set((maintenanceRes.data || []).map((r: any) => r.user_id));
       const userMap = new Map<string, ShiftFleetUser>();
       (profilesRes.data || []).forEach((p: any) => {
         userMap.set(p.user_id, {
@@ -113,6 +117,8 @@ export const useAfterhoursShiftAssignments = () => {
           email: p.email,
           office: p.office,
           isManager: managerIds.has(p.user_id),
+          // Maintenance bucket (role, or no office) and ELD never cover trucks.
+          isEld: !!(p as any).is_eld || maintenanceIds.has(p.user_id) || !p.office,
         });
       });
 
@@ -272,6 +278,7 @@ export const useAfterhoursShiftAssignments = () => {
           const allocUsers: AllocUser[] = group.fleets.map((f) => ({
             id: f.user.id,
             office: groupKey(f.user.office),
+            isEld: !!f.user.isEld,
           }));
           if (allocUsers.length === 0) continue;
           const allocation = allocateAfterhoursDrivers(allocUsers, allocDrivers);
