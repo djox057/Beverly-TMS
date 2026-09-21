@@ -148,7 +148,9 @@ export const useAfterhoursAssignments = () => {
             full_name: p.full_name,
             email: p.email,
             office: p.office,
-            isMaintenance: maintenanceUserIds.has(p.user_id) && !!(p as any).is_eld,
+            // Maintenance bucket: maintenance role, or no office on the profile
+            // (matches the Weekend Schedule dialog's Maintenance group).
+            isMaintenance: maintenanceUserIds.has(p.user_id) || !p.office,
             isEld: !!(p as any).is_eld,
 
             scheduledDays: [...(userDaysMap.get(p.user_id) || [])],
@@ -348,7 +350,8 @@ export const useAfterhoursAssignments = () => {
         const allocUsers: AllocUser[] = dayFleets.map((f) => ({
           id: f.user.id,
           office: groupKey(f.user.office),
-          isEld: !!f.user.isEld,
+          // Maintenance users (like ELD) are on duty but never cover trucks.
+          isEld: !!f.user.isEld || !!f.user.isMaintenance,
         }));
 
         const allocation = allocateAfterhoursDrivers(allocUsers, allocDrivers, { bucketByOffice: true });
