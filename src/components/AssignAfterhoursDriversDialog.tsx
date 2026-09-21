@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Search, Truck, Users, ChevronDown, ChevronRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Truck, Users, ChevronDown, ChevronRight, Building2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Driver {
@@ -43,6 +44,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
 }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [submitting, setSubmitting] = useState(false);
   const [collapsedDispatchers, setCollapsedDispatchers] = useState<Set<string>>(new Set());
 
@@ -51,6 +53,15 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     () => allDrivers.filter((d) => !alreadyAssignedIds.has(d.id)),
     [allDrivers, alreadyAssignedIds]
   );
+
+  // Company list from available drivers (for the filter dropdown)
+  const companyOptions = useMemo(() => {
+    const names = new Set<string>();
+    availableDrivers.forEach((d) => {
+      if (d.company_name) names.add(d.company_name);
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [availableDrivers]);
 
   // Group by office > dispatcher
   const officeGroups = useMemo(() => {
