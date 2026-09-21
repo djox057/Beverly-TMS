@@ -4775,6 +4775,29 @@ const Reports = () => {
                     </span>
                   )}
                 </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={proximityLiveMode ? "default" : "ghost"}
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setProximityLiveMode((v) => !v)}
+                    >
+                      {proximityLiveMode ? (
+                        <Navigation className="h-4 w-4" />
+                      ) : (
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      {proximityLiveMode
+                        ? "Searching by current truck location (GPS) — click to use last delivery location"
+                        : "Searching by last delivery location — click to use current truck location (GPS)"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
                 <Button variant="outline" size="sm" onClick={() => setLegendDialogOpen(true)} className="gap-2">
                   <HelpCircle className="h-4 w-4" />
                   Legend
