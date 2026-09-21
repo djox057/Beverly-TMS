@@ -180,6 +180,7 @@ export const useAfterhoursAssignments = () => {
       });
 
       // Build enriched drivers list
+      const companyMap = new Map((companiesRes.data || []).map((c: any) => [c.id, c.name]));
       const enrichedDrivers = (driversRes.data || []).map(d => {
         const dispInfo = d.dispatcher_id ? dispatcherMap.get(d.dispatcher_id) : null;
         return {
@@ -187,6 +188,7 @@ export const useAfterhoursAssignments = () => {
           truck: truckByDriver.get(d.id) || null,
           dispatcher_name: dispInfo?.name || null,
           dispatcher_office: dispInfo?.office || null,
+          company_name: d.company_id ? companyMap.get(d.company_id) || null : null,
         };
       });
 

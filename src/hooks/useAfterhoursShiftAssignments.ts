@@ -146,11 +146,13 @@ export const useAfterhoursShiftAssignments = () => {
         if (t.driver2_id) truckByDriver.set(t.driver2_id, t);
       });
 
+      const companyMap = new Map((companiesRes.data || []).map((c: any) => [c.id, c.name]));
       const enrichedDrivers = (driversRes.data || []).map((d: any) => ({
         ...d,
         truck: truckByDriver.get(d.id) || null,
         dispatcher_name: d.dispatcher_id ? dispatcherMap.get(d.dispatcher_id) || null : null,
         dispatcher_office: d.dispatcher_id ? dispatcherOfficeMap.get(d.dispatcher_id) ?? null : null,
+        company_name: d.company_id ? companyMap.get(d.company_id) || null : null,
       }));
       setAllDriversWithTrucks(enrichedDrivers);
 
