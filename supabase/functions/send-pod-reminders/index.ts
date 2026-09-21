@@ -112,9 +112,11 @@ const handler = async (req: Request): Promise<Response> => {
     if (bookerNames.length) {
       const { data: profs } = await supabase
         .from("profiles")
-        .select("full_name, email, office")
+        .select("full_name, email, office, is_recovery")
         .in("full_name", bookerNames);
       for (const p of profs || []) {
+        // Recovery-tagged dispatchers are excluded from all reminder emails.
+        if ((p as any).is_recovery) continue;
         bookerMap.set((p as any).full_name, {
           full_name: (p as any).full_name,
           email: (p as any).email,

@@ -102,12 +102,13 @@ serve(async (req: Request): Promise<Response> => {
           if (dispatcherId) {
             const { data: profile } = await admin
               .from("profiles")
-              .select("full_name, email")
+              .select("full_name, email, is_recovery")
               .eq("user_id", dispatcherId)
               .maybeSingle();
             if (profile) {
               dispatcherName = profile.full_name;
-              dispatcherEmail = profile.email;
+              // Recovery-tagged dispatchers never receive reminder emails.
+              dispatcherEmail = (profile as any).is_recovery ? null : profile.email;
             }
           }
           continue;
