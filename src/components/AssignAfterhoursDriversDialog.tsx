@@ -14,6 +14,7 @@ interface Driver {
   dispatcher_id: string | null;
   dispatcher_name: string | null;
   dispatcher_office: string | null;
+  company_name?: string | null;
 }
 
 interface AssignAfterhoursDriversDialogProps {
@@ -229,6 +230,11 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
                               {driver.truck && (
                                 <div className="text-xs text-muted-foreground">
                                   Truck {driver.truck.truck_number}
+                                </div>
+                              )}
+                              {driver.company_name && (
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {driver.company_name}
                                 </div>
                               )}
                             </div>
