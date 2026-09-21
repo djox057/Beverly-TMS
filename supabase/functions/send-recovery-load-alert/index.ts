@@ -382,9 +382,12 @@ serve(async (req) => {
 
     const { data: profiles } = await db
       .from("profiles")
-      .select("user_id, email, full_name")
+      .select("user_id, email, full_name, is_recovery")
       .in("user_id", [...groups.keys()]);
-    const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+    // Recovery-tagged dispatchers are excluded from all reminder/alert emails.
+    const profileMap = new Map(
+      (profiles || []).filter((p: any) => !p.is_recovery).map((p: any) => [p.user_id, p]),
+    );
 
     const loadNumber = order.internal_load_number || "—";
     const brokerLoad = order.broker_load_number || "—";

@@ -106,9 +106,11 @@ serve(async (req: Request): Promise<Response> => {
     if (dispatcherIds.length > 0) {
       const { data: profiles } = await admin
         .from("profiles")
-        .select("user_id, email, full_name")
+        .select("user_id, email, full_name, is_recovery")
         .in("user_id", dispatcherIds);
+      // Recovery-tagged dispatchers are excluded from all reminder emails.
       for (const p of profiles ?? []) {
+        if ((p as any).is_recovery) continue;
         profileMap.set(p.user_id, { email: p.email, full_name: p.full_name });
       }
     }
