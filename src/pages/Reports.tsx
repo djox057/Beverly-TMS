@@ -76,6 +76,7 @@ import {
   MessageSquareWarning,
   Share2,
   Plus,
+  Navigation,
 } from "lucide-react";
 import { Calculator } from "lucide-react";
 import { RefreshCw } from "lucide-react";
@@ -1118,6 +1119,9 @@ const Reports = () => {
   const [proximityMatchedTrucks, setProximityMatchedTrucks] = useState<Map<string, number> | null>(null);
   const [proximityCoords, setProximityCoords] = useState<{ lat: number; lon: number } | null>(null);
   const proximityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // When true, proximity search matches trucks by their current GPS location
+  // instead of their last delivery location.
+  const [proximityLiveMode, setProximityLiveMode] = useState(false);
   const groupedReportsRef = useRef(groupedReports);
   useEffect(() => {
     groupedReportsRef.current = groupedReports;
@@ -1210,19 +1214,30 @@ const Reports = () => {
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     };
     const matched = new Map<string, number>();
-    // Match against the accumulated per-truck last-delivery map so trucks
-    // remain matched even when the visible date window shifts away from the
-    // order that produced the coordinates.
-    for (const [truckId, entry] of truckLastDeliveryRef.current.entries()) {
-      const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, entry.lat, entry.lon);
-      const roadMiles = Math.round(straightLine * 1.3);
-      if (roadMiles <= 150) {
-        matched.set(truckId, roadMiles);
+    if (proximityLiveMode) {
+      // Match against current GPS locations (Samsara).
+      for (const loc of samsaraLocations || []) {
+        const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, loc.latitude, loc.longitude);
+        const roadMiles = Math.round(straightLine * 1.3);
+        if (roadMiles <= 150) {
+          matched.set(loc.truck_id, roadMiles);
+        }
+      }
+    } else {
+      // Match against the accumulated per-truck last-delivery map so trucks
+      // remain matched even when the visible date window shifts away from the
+      // order that produced the coordinates.
+      for (const [truckId, entry] of truckLastDeliveryRef.current.entries()) {
+        const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, entry.lat, entry.lon);
+        const roadMiles = Math.round(straightLine * 1.3);
+        if (roadMiles <= 150) {
+          matched.set(truckId, roadMiles);
+        }
       }
     }
     setProximityMatchedTrucks(matched);
     setProximitySearching(false);
-  }, [proximityCoords, proximityAddress, truckLastDeliveryVersion]);
+  }, [proximityCoords, proximityAddress, truckLastDeliveryVersion, proximityLiveMode, samsaraLocations]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
   const [cancelRecoverInstead, setCancelRecoverInstead] = useState(false);
@@ -4758,6 +4773,29 @@ const Reports = () => {
                     </span>
                   )}
                 </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={proximityLiveMode ? "default" : "ghost"}
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setProximityLiveMode((v) => !v)}
+                    >
+                      {proximityLiveMode ? (
+                        <Navigation className="h-4 w-4" />
+                      ) : (
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      {proximityLiveMode
+                        ? "Searching by current truck location (GPS) — click to use last delivery location"
+                        : "Searching by last delivery location — click to use current truck location (GPS)"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
                 <Button variant="outline" size="sm" onClick={() => setLegendDialogOpen(true)} className="gap-2">
                   <HelpCircle className="h-4 w-4" />
                   Legend
