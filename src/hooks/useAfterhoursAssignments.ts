@@ -85,7 +85,7 @@ export const useAfterhoursAssignments = () => {
       // Parallel: scheduled users for upcoming weekend, assignments, active drivers, trucks.
       // Assignments/drivers/trucks are paged: several hundred rows per date blows
       // past PostgREST's implicit 1000-row cap and would silently drop fleets.
-      const [scheduleRes, assignmentRows, driverRows, truckRows] = await Promise.all([
+      const [scheduleRes, assignmentRows, driverRows, truckRows, companiesRes] = await Promise.all([
         supabase.from('afterhours_schedule').select('*').in('scheduled_date', dates),
         fetchAllRows<any>((from, to) =>
           supabase.from('afterhours_assignments').select('*').in('scheduled_date', dates).range(from, to)),
@@ -93,6 +93,7 @@ export const useAfterhoursAssignments = () => {
           supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true).range(from, to)),
         fetchAllRows<any>((from, to) =>
           supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id, trailer_id').range(from, to)),
+        supabase.from('companies').select('id, name'),
       ]);
 
       if (scheduleRes.error) throw scheduleRes.error;

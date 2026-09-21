@@ -82,7 +82,7 @@ export const useAfterhoursShiftAssignments = () => {
 
       // Paged: hundreds of rows per date otherwise hit the 1000-row cap and
       // whole fleets would show up empty.
-      const [assignmentRows, driverRows, truckRows] = await Promise.all([
+      const [assignmentRows, driverRows, truckRows, companiesRes] = await Promise.all([
         fetchAllRows<any>((from, to) =>
           supabase
             .from('afterhours_shift_assignments')
@@ -93,6 +93,7 @@ export const useAfterhoursShiftAssignments = () => {
           supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true).range(from, to)),
         fetchAllRows<any>((from, to) =>
           supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id').range(from, to)),
+        supabase.from('companies').select('id, name'),
       ]);
       const assignmentsRes = { data: assignmentRows };
       const driversRes = { data: driverRows };
