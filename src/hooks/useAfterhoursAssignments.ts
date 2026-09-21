@@ -85,7 +85,7 @@ export const useAfterhoursAssignments = () => {
       // Parallel: scheduled users for upcoming weekend, assignments, active drivers, trucks.
       // Assignments/drivers/trucks are paged: several hundred rows per date blows
       // past PostgREST's implicit 1000-row cap and would silently drop fleets.
-      const [scheduleRes, assignmentRows, driverRows, truckRows] = await Promise.all([
+      const [scheduleRes, assignmentRows, driverRows, truckRows, companiesRes] = await Promise.all([
         supabase.from('afterhours_schedule').select('*').in('scheduled_date', dates),
         fetchAllRows<any>((from, to) =>
           supabase.from('afterhours_assignments').select('*').in('scheduled_date', dates).range(from, to)),
@@ -93,6 +93,7 @@ export const useAfterhoursAssignments = () => {
           supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true).range(from, to)),
         fetchAllRows<any>((from, to) =>
           supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id, trailer_id').range(from, to)),
+        supabase.from('companies').select('id, name'),
       ]);
 
       if (scheduleRes.error) throw scheduleRes.error;
@@ -179,6 +180,7 @@ export const useAfterhoursAssignments = () => {
       });
 
       // Build enriched drivers list
+      const companyMap = new Map((companiesRes.data || []).map((c: any) => [c.id, c.name]));
       const enrichedDrivers = (driversRes.data || []).map(d => {
         const dispInfo = d.dispatcher_id ? dispatcherMap.get(d.dispatcher_id) : null;
         return {
@@ -186,6 +188,7 @@ export const useAfterhoursAssignments = () => {
           truck: truckByDriver.get(d.id) || null,
           dispatcher_name: dispInfo?.name || null,
           dispatcher_office: dispInfo?.office || null,
+          company_name: d.company_id ? companyMap.get(d.company_id) || null : null,
         };
       });
 

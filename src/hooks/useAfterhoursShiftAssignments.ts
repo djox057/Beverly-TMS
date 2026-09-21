@@ -82,7 +82,7 @@ export const useAfterhoursShiftAssignments = () => {
 
       // Paged: hundreds of rows per date otherwise hit the 1000-row cap and
       // whole fleets would show up empty.
-      const [assignmentRows, driverRows, truckRows] = await Promise.all([
+      const [assignmentRows, driverRows, truckRows, companiesRes] = await Promise.all([
         fetchAllRows<any>((from, to) =>
           supabase
             .from('afterhours_shift_assignments')
@@ -93,6 +93,7 @@ export const useAfterhoursShiftAssignments = () => {
           supabase.from('drivers').select('id, name, dispatcher_id, company_id, is_active').eq('is_active', true).range(from, to)),
         fetchAllRows<any>((from, to) =>
           supabase.from('trucks').select('id, truck_number, driver1_id, driver2_id').range(from, to)),
+        supabase.from('companies').select('id, name'),
       ]);
       const assignmentsRes = { data: assignmentRows };
       const driversRes = { data: driverRows };
@@ -145,11 +146,13 @@ export const useAfterhoursShiftAssignments = () => {
         if (t.driver2_id) truckByDriver.set(t.driver2_id, t);
       });
 
+      const companyMap = new Map((companiesRes.data || []).map((c: any) => [c.id, c.name]));
       const enrichedDrivers = (driversRes.data || []).map((d: any) => ({
         ...d,
         truck: truckByDriver.get(d.id) || null,
         dispatcher_name: d.dispatcher_id ? dispatcherMap.get(d.dispatcher_id) || null : null,
         dispatcher_office: d.dispatcher_id ? dispatcherOfficeMap.get(d.dispatcher_id) ?? null : null,
+        company_name: d.company_id ? companyMap.get(d.company_id) || null : null,
       }));
       setAllDriversWithTrucks(enrichedDrivers);
 
