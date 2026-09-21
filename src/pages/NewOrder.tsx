@@ -2489,8 +2489,14 @@ const NewOrder = () => {
         if (pickupDropError) {
           console.error("❌ Pickup/drop insert error:", pickupDropError);
           console.error("Failed data:", validPickupDropData);
-          // Try to delete the orphaned order since pickup_drops failed
-          await supabase.from("orders").delete().eq("id", orderId);
+          // Loads are never deleted. Mark the half-created order canceled instead.
+          await supabase
+            .from("orders")
+            .update({
+              canceled: true,
+              notes: "Load creation failed (stops could not be saved) — canceled automatically.",
+            })
+            .eq("id", orderId);
           throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
         }
         console.log(`✅ Successfully inserted ${validPickupDropData.length} pickup/drop locations`);
