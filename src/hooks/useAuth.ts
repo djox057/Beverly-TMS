@@ -12,6 +12,8 @@ export interface UserProfile {
   office: string | null;
   individual_mode?: boolean;
   suggestions_enabled?: boolean;
+  /** Dispatch-only: grants recovery access (yard loads + yard arrival recovery actions). */
+  is_recovery?: boolean;
   suggestions_mode?: boolean;
 }
 
