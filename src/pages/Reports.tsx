@@ -76,6 +76,7 @@ import {
   MessageSquareWarning,
   Share2,
   Plus,
+  Navigation,
 } from "lucide-react";
 import { Calculator } from "lucide-react";
 import { RefreshCw } from "lucide-react";
