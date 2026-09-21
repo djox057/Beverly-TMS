@@ -65,8 +65,12 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
 
   // Group by office > dispatcher
   const officeGroups = useMemo(() => {
+    const companyFiltered = companyFilter === "all"
+      ? availableDrivers
+      : availableDrivers.filter((d) => d.company_name === companyFilter);
+
     const filtered = search
-      ? availableDrivers.filter((d) => {
+      ? companyFiltered.filter((d) => {
           const s = search.toLowerCase();
           return (
             d.name?.toLowerCase().includes(s) ||
