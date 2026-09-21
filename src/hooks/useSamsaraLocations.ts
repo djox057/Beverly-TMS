@@ -24,7 +24,7 @@ export const useSamsaraLocations = (enabled = true) => {
       
       return data.locations as TruckLocation[];
     },
-    enabled: true,
+    enabled,
     refetchInterval: 20 * 60 * 1000, // Refresh every 20 minutes (server cache ensures 5-min freshness)
     staleTime: 19 * 60 * 1000, // Consider data fresh for 19 minutes
     gcTime: 45 * 60 * 1000, // Keep in cache for 45 minutes
