@@ -60,7 +60,8 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
           return (
             d.name?.toLowerCase().includes(s) ||
             d.truck?.truck_number?.toString().toLowerCase().includes(s) ||
-            d.dispatcher_name?.toLowerCase().includes(s)
+            d.dispatcher_name?.toLowerCase().includes(s) ||
+            d.company_name?.toLowerCase().includes(s)
           );
         })
       : availableDrivers;
