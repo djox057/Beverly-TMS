@@ -348,7 +348,8 @@ export const useAfterhoursAssignments = () => {
         const allocUsers: AllocUser[] = dayFleets.map((f) => ({
           id: f.user.id,
           office: groupKey(f.user.office),
-          isEld: !!f.user.isEld,
+          // Maintenance users (like ELD) are on duty but never cover trucks.
+          isEld: !!f.user.isEld || !!f.user.isMaintenance,
         }));
 
         const allocation = allocateAfterhoursDrivers(allocUsers, allocDrivers, { bucketByOffice: true });
