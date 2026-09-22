@@ -104,22 +104,27 @@ function BolLocationCell({ orderId, value }: { orderId: string; value: string | 
 
 export default function YardLoads() {
   const navigate = useNavigate();
-  const { hasRole, profile } = useAuthContext();
+  const { hasRole, profile, getPrimaryRole } = useAuthContext();
   
   const isYardRole = hasRole('yard');
+  const primaryRole = getPrimaryRole();
   // Dispatchers flagged as "Recovery" get access to this page too.
   const isRecoveryDispatch = !!profile?.is_recovery && hasRole('dispatch');
-  
+  // Plain dispatchers (no Recovery flag) get read-only access: all columns except Actions.
+  const isViewOnlyDispatch = primaryRole === 'dispatch' && !isRecoveryDispatch;
+
   // Check if user has required roles
   useEffect(() => {
-    if (!hasRole('manager') && !hasRole('admin') && !hasRole('yard') && !hasRole('afterhours') && !isRecoveryDispatch) {
+    if (!hasRole('manager') && !hasRole('admin') && !hasRole('yard') && !hasRole('afterhours') && !isRecoveryDispatch && !isViewOnlyDispatch) {
       navigate('/');
     }
-  }, [hasRole, navigate, isRecoveryDispatch]);
+  }, [hasRole, navigate, isRecoveryDispatch, isViewOnlyDispatch]);
   
-  const canCancelOrders = hasRole('dispatch') || hasRole('afterhours');
-  const canEditOrders = !isYardRole; // Yard role cannot edit
-  const canCreateOrders = !isYardRole; // Yard role cannot create
+  const canCancelOrders = (hasRole('dispatch') || hasRole('afterhours')) && !isViewOnlyDispatch;
+  const canEditOrders = !isYardRole && !isViewOnlyDispatch; // Yard role cannot edit
+  const canCreateOrders = !isYardRole && !isViewOnlyDispatch; // Yard role cannot create
+  const showActionsColumn = !isViewOnlyDispatch;
+  const columnCount = showActionsColumn ? 15 : 14;
   
   // Fetch yard loads directly from orders table (where driver1_id IS NULL and truck_id IS NULL)
   const { data: yardLoadsData = [], isLoading } = useYardLoadsFromOrders();
@@ -700,19 +705,19 @@ export default function YardLoads() {
                   <TableHead className="w-28">Booked By</TableHead>
                   <TableHead className="w-24">BOL</TableHead>
                   <TableHead className="w-28">BOL Location</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  {showActionsColumn && <TableHead className="w-24">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                     <TableCell colSpan={15} className="text-center py-8">
+                     <TableCell colSpan={columnCount} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : paginatedOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center py-8">
+                    <TableCell colSpan={columnCount} className="text-center py-8">
                       No loads found
                     </TableCell>
                   </TableRow>
@@ -794,6 +799,7 @@ export default function YardLoads() {
                           )}
                         </TableCell>
                         <BolLocationCell orderId={order.id} value={order.bolLocation} />
+                        {showActionsColumn && (
                         <TableCell>
                           <div className="flex gap-1">
                             {order.isRecovery && (
@@ -825,6 +831,7 @@ export default function YardLoads() {
                             )}
                           </div>
                         </TableCell>
+                        )}
                       </TableRow>
                     );
                   })
