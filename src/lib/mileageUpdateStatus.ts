@@ -2,6 +2,7 @@
 //
 // Dispatchers must refresh a truck's odometer twice a month: on the 1st and on
 // the 15th. They get a grace period until the 5th and the 20th respectively.
+// An update made up to 3 days EARLY still counts for the upcoming cycle.
 // - yellow: the current cycle's deadline passed without an update
 // - red:    no update in more than 30 days
 // Evaluated in Chicago wall time.
@@ -37,7 +38,8 @@ export const getMileageUpdateStatus = (
 
   const month = `${ty}-${String(tm).padStart(2, "0")}`;
   const cycleStart = td >= 20 ? `${month}-15` : td >= 5 ? `${month}-01` : null;
-  if (cycleStart && toDays(updated) < toDays(cycleStart)) return "yellow";
+  // An update up to 3 days before the cycle start still counts for that cycle.
+  if (cycleStart && toDays(updated) < toDays(cycleStart) - 3) return "yellow";
 
   return "none";
 };
