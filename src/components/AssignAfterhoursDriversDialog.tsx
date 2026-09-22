@@ -191,8 +191,8 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
           <DialogTitle>Add Drivers</DialogTitle>
         </DialogHeader>
 
-        <div className="flex gap-2">
-          <div className="relative flex-1">
+        <div className="flex flex-wrap gap-2">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search drivers, trucks, dispatchers..."
@@ -213,6 +213,22 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
               {companyOptions.map((name) => (
                 <SelectItem key={name} value={name}>
                   {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={officeFilter} onValueChange={setOfficeFilter}>
+            <SelectTrigger className="w-[150px] shrink-0 h-9">
+              <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <SelectValue placeholder="Office" className="truncate whitespace-nowrap" />
+              </div>
+            </SelectTrigger>
+            <SelectContent className="min-w-[180px]">
+              <SelectItem value="all">All offices</SelectItem>
+              {officeOptions.map((office) => (
+                <SelectItem key={office} value={office}>
+                  {office}
                 </SelectItem>
               ))}
             </SelectContent>
