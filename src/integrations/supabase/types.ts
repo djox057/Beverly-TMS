@@ -6781,6 +6781,7 @@ export type Database = {
           office: string
         }[]
       }
+      clear_truck_notes_scheduled: { Args: never; Returns: number }
       create_order_with_unique_load_number: {
         Args: { order_data: Json }
         Returns: Json
