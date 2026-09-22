@@ -1434,6 +1434,29 @@ const AdminUsers = () => {
               </div>
             )}
 
+            {editRole === 'afterhours' && (
+              <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Afterhours Manager</p>
+                  <p className="text-xs text-muted-foreground">
+                    Can add/remove users in the Afterhours Shift Schedule and add/remove drivers in Afterhours Assignment.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="edit-is-afterhours-manager" className="text-sm cursor-pointer">
+                    Afterhours
+                  </Label>
+                  <Switch
+                    id="edit-is-afterhours-manager"
+                    checked={editIsAfterhoursManager}
+                    onCheckedChange={setEditIsAfterhoursManager}
+                  />
+                </div>
+              </div>
+            )}
+
+
+
             <div className="flex justify-end gap-2 pt-4">
               <Button 
                 type="button" 
