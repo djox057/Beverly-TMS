@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Truck, Users, ChevronDown, ChevronRight, Building2 } from "lucide-react";
+import { Search, Truck, Users, ChevronDown, ChevronRight, Building2, MapPin } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Driver {
