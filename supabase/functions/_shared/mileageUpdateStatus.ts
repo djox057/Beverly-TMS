@@ -1,6 +1,7 @@
 // Mirror of src/lib/mileageUpdateStatus.ts for the Deno runtime.
 // Mileage must be refreshed on the 1st and the 15th, with grace until the 5th
-// and the 20th. Yellow = missed the current cycle, red = >30 days stale.
+// and the 20th. An update made up to 3 days EARLY still counts for the
+// upcoming cycle. Yellow = missed the current cycle, red = >30 days stale.
 
 export type MileageUpdateStatus = "none" | "yellow" | "red";
 

@@ -2,6 +2,7 @@
 //
 // Dispatchers must refresh a truck's odometer twice a month: on the 1st and on
 // the 15th. They get a grace period until the 5th and the 20th respectively.
+// An update made up to 3 days EARLY still counts for the upcoming cycle.
 // - yellow: the current cycle's deadline passed without an update
 // - red:    no update in more than 30 days
 // Evaluated in Chicago wall time.
