@@ -104,7 +104,7 @@ function BolLocationCell({ orderId, value }: { orderId: string; value: string | 
 
 export default function YardLoads() {
   const navigate = useNavigate();
-  const { hasRole, profile } = useAuthContext();
+  const { hasRole, profile, getPrimaryRole } = useAuthContext();
   
   const isYardRole = hasRole('yard');
   const primaryRole = getPrimaryRole();
@@ -705,19 +705,19 @@ export default function YardLoads() {
                   <TableHead className="w-28">Booked By</TableHead>
                   <TableHead className="w-24">BOL</TableHead>
                   <TableHead className="w-28">BOL Location</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  {showActionsColumn && <TableHead className="w-24">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                     <TableCell colSpan={15} className="text-center py-8">
+                     <TableCell colSpan={columnCount} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : paginatedOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center py-8">
+                    <TableCell colSpan={columnCount} className="text-center py-8">
                       No loads found
                     </TableCell>
                   </TableRow>
