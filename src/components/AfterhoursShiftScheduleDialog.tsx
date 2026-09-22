@@ -43,8 +43,12 @@ const SCHEDULE_MANAGER_EMAILS = ["tommyj@bfprime.net", "acccoc225@gmail.com"];
 
 export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => {
   const { hasRole, profile } = useAuthContext();
+  const isAfterhoursManager = hasRole("afterhours") && !!profile?.is_afterhours_manager;
   const canManageSchedules =
-    hasRole("admin") || hasRole("manager") || SCHEDULE_MANAGER_EMAILS.includes(profile?.email?.toLowerCase() || "");
+    hasRole("admin") ||
+    hasRole("manager") ||
+    isAfterhoursManager ||
+    SCHEDULE_MANAGER_EMAILS.includes(profile?.email?.toLowerCase() || "");
 
   const [users, setUsers] = useState<ShiftUser[]>([]);
   const [entries, setEntries] = useState<ShiftEntry[]>([]);
