@@ -45,6 +45,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [submitting, setSubmitting] = useState(false);
   const [collapsedDispatchers, setCollapsedDispatchers] = useState<Set<string>>(new Set());
 
@@ -63,11 +64,24 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [availableDrivers]);
 
+  // Office list from available drivers (for the filter dropdown)
+  const officeOptions = useMemo(() => {
+    const offices = new Set<string>();
+    availableDrivers.forEach((d) => {
+      offices.add(d.dispatcher_office || "Other");
+    });
+    return Array.from(offices).sort((a, b) => a.localeCompare(b));
+  }, [availableDrivers]);
+
   // Group by office > dispatcher
   const officeGroups = useMemo(() => {
-    const companyFiltered = companyFilter === "all"
+    const officeFiltered = officeFilter === "all"
       ? availableDrivers
-      : availableDrivers.filter((d) => d.company_name === companyFilter);
+      : availableDrivers.filter((d) => (d.dispatcher_office || "Other") === officeFilter);
+
+    const companyFiltered = companyFilter === "all"
+      ? officeFiltered
+      : officeFiltered.filter((d) => d.company_name === companyFilter);
 
     const filtered = search
       ? companyFiltered.filter((d) => {
@@ -113,7 +127,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     });
 
     return Array.from(groups.values()).sort((a, b) => a.office.localeCompare(b.office));
-  }, [availableDrivers, companyFilter, search]);
+  }, [availableDrivers, companyFilter, officeFilter, search]);
 
   const toggleDriver = (id: string) => {
     setSelectedIds((prev) => {
@@ -165,6 +179,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
       setSelectedIds(new Set());
       setSearch("");
       setCompanyFilter("all");
+      setOfficeFilter("all");
     }
     onOpenChange(val);
   };
