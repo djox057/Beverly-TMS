@@ -67,7 +67,11 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
   const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
   const [allCollapsed, setAllCollapsed] = useState(false);
 
-  const canManage = hasRole("admin") || hasRole("manager");
+  const { profile } = useAuthContext();
+  const canManage =
+    hasRole("admin") ||
+    hasRole("manager") ||
+    (hasRole("afterhours") && !!profile?.is_afterhours_manager);
 
   const filterFleets = (fleets: ShiftFleet[]) =>
     fleets.filter((fleet) => {
