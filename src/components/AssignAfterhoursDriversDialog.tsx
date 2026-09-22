@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Truck, Users, ChevronDown, ChevronRight, Building2 } from "lucide-react";
+import { Search, Truck, Users, ChevronDown, ChevronRight, Building2, MapPin } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Driver {
@@ -45,6 +45,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [submitting, setSubmitting] = useState(false);
   const [collapsedDispatchers, setCollapsedDispatchers] = useState<Set<string>>(new Set());
 
@@ -63,11 +64,24 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [availableDrivers]);
 
+  // Office list from available drivers (for the filter dropdown)
+  const officeOptions = useMemo(() => {
+    const offices = new Set<string>();
+    availableDrivers.forEach((d) => {
+      offices.add(d.dispatcher_office || "Other");
+    });
+    return Array.from(offices).sort((a, b) => a.localeCompare(b));
+  }, [availableDrivers]);
+
   // Group by office > dispatcher
   const officeGroups = useMemo(() => {
-    const companyFiltered = companyFilter === "all"
+    const officeFiltered = officeFilter === "all"
       ? availableDrivers
-      : availableDrivers.filter((d) => d.company_name === companyFilter);
+      : availableDrivers.filter((d) => (d.dispatcher_office || "Other") === officeFilter);
+
+    const companyFiltered = companyFilter === "all"
+      ? officeFiltered
+      : officeFiltered.filter((d) => d.company_name === companyFilter);
 
     const filtered = search
       ? companyFiltered.filter((d) => {
@@ -113,7 +127,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     });
 
     return Array.from(groups.values()).sort((a, b) => a.office.localeCompare(b.office));
-  }, [availableDrivers, companyFilter, search]);
+  }, [availableDrivers, companyFilter, officeFilter, search]);
 
   const toggleDriver = (id: string) => {
     setSelectedIds((prev) => {
@@ -165,6 +179,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
       setSelectedIds(new Set());
       setSearch("");
       setCompanyFilter("all");
+      setOfficeFilter("all");
     }
     onOpenChange(val);
   };
@@ -176,8 +191,8 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
           <DialogTitle>Add Drivers</DialogTitle>
         </DialogHeader>
 
-        <div className="flex gap-2">
-          <div className="relative flex-1">
+        <div className="flex flex-wrap gap-2">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search drivers, trucks, dispatchers..."
@@ -198,6 +213,22 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
               {companyOptions.map((name) => (
                 <SelectItem key={name} value={name}>
                   {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={officeFilter} onValueChange={setOfficeFilter}>
+            <SelectTrigger className="w-[150px] shrink-0 h-9">
+              <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <SelectValue placeholder="Office" className="truncate whitespace-nowrap" />
+              </div>
+            </SelectTrigger>
+            <SelectContent className="min-w-[180px]">
+              <SelectItem value="all">All offices</SelectItem>
+              {officeOptions.map((office) => (
+                <SelectItem key={office} value={office}>
+                  {office}
                 </SelectItem>
               ))}
             </SelectContent>
