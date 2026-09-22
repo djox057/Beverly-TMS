@@ -799,6 +799,7 @@ export default function YardLoads() {
                           )}
                         </TableCell>
                         <BolLocationCell orderId={order.id} value={order.bolLocation} />
+                        {showActionsColumn && (
                         <TableCell>
                           <div className="flex gap-1">
                             {order.isRecovery && (
@@ -830,6 +831,7 @@ export default function YardLoads() {
                             )}
                           </div>
                         </TableCell>
+                        )}
                       </TableRow>
                     );
                   })

@@ -276,12 +276,12 @@ export const Sidebar = () => {
   const getFilteredNavigation = () => {
     const primaryRole = getPrimaryRole();
 
-    // Dispatchers flagged as "Recovery" also get Loads at the Yard.
-    const isRecoveryDispatch = !!profile?.is_recovery && primaryRole === "dispatch";
+    // Dispatchers get Loads at the Yard (read-only unless flagged as "Recovery").
+    const isDispatchRole = primaryRole === "dispatch";
 
     // Filter out items based on role restrictions
     const filteredNav = navigation.filter((item) => {
-      if (item.href === "/yard-loads" && isRecoveryDispatch) return true;
+      if (item.href === "/yard-loads" && isDispatchRole) return true;
       // Strict items must match the user's primary role directly (bypasses hasRole inheritance)
       if ((item as any).strict) {
         // Per-user exception: view-only access to Drivers Complaints
