@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import AssignAfterhoursDriversDialog from "@/components/AssignAfterhoursDriversDialog";
 import { useAfterhoursShiftAssignments, ShiftFleet, ShiftKey } from "@/hooks/useAfterhoursShiftAssignments";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 interface Props {
   hasRole: (role: string) => boolean;
