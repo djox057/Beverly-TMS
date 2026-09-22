@@ -457,6 +457,7 @@ const AdminUsers = () => {
     setEditSuggestionsEnabled(user.suggestions_enabled);
     setEditIsEld(!!(user as any).is_eld);
     setEditIsRecovery(!!(user as any).is_recovery);
+    setEditIsAfterhoursManager(!!(user as any).is_afterhours_manager);
     setEditGrossPercent(user.gross_percent != null ? String(user.gross_percent) : (user.roles.includes('dispatch') ? '1' : ''));
     setEditCutPercent(user.cut_percent != null ? String(user.cut_percent) : (user.roles.includes('dispatch') ? '5' : ''));
     setIsEditDialogOpen(true);
