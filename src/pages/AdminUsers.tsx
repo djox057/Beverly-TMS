@@ -530,6 +530,7 @@ const AdminUsers = () => {
             suggestions_enabled: editSuggestionsEnabled,
             is_eld: editRole === 'maintenance' ? editIsEld : false,
             is_recovery: editRole === 'dispatch' ? editIsRecovery : false,
+            is_afterhours_manager: editRole === 'afterhours' ? editIsAfterhoursManager : false,
           })
           .eq('user_id', userToEdit.user_id);
         if (sugError) {
