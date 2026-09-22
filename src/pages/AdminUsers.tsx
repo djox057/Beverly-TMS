@@ -74,6 +74,7 @@ const AdminUsers = () => {
   const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
   const [editIsEld, setEditIsEld] = useState(false);
   const [editIsRecovery, setEditIsRecovery] = useState(false);
+  const [editIsAfterhoursManager, setEditIsAfterhoursManager] = useState(false);
   const [editGrossPercent, setEditGrossPercent] = useState<string>('');
   const [editCutPercent, setEditCutPercent] = useState<string>('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
@@ -456,6 +457,7 @@ const AdminUsers = () => {
     setEditSuggestionsEnabled(user.suggestions_enabled);
     setEditIsEld(!!(user as any).is_eld);
     setEditIsRecovery(!!(user as any).is_recovery);
+    setEditIsAfterhoursManager(!!(user as any).is_afterhours_manager);
     setEditGrossPercent(user.gross_percent != null ? String(user.gross_percent) : (user.roles.includes('dispatch') ? '1' : ''));
     setEditCutPercent(user.cut_percent != null ? String(user.cut_percent) : (user.roles.includes('dispatch') ? '5' : ''));
     setIsEditDialogOpen(true);
@@ -528,6 +530,7 @@ const AdminUsers = () => {
             suggestions_enabled: editSuggestionsEnabled,
             is_eld: editRole === 'maintenance' ? editIsEld : false,
             is_recovery: editRole === 'dispatch' ? editIsRecovery : false,
+            is_afterhours_manager: editRole === 'afterhours' ? editIsAfterhoursManager : false,
           })
           .eq('user_id', userToEdit.user_id);
         if (sugError) {
@@ -1430,6 +1433,29 @@ const AdminUsers = () => {
                 </div>
               </div>
             )}
+
+            {editRole === 'afterhours' && (
+              <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Afterhours Manager</p>
+                  <p className="text-xs text-muted-foreground">
+                    Can add/remove users in the Afterhours Shift Schedule and add/remove drivers in Afterhours Assignment.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="edit-is-afterhours-manager" className="text-sm cursor-pointer">
+                    Afterhours
+                  </Label>
+                  <Switch
+                    id="edit-is-afterhours-manager"
+                    checked={editIsAfterhoursManager}
+                    onCheckedChange={setEditIsAfterhoursManager}
+                  />
+                </div>
+              </div>
+            )}
+
+
 
             <div className="flex justify-end gap-2 pt-4">
               <Button 

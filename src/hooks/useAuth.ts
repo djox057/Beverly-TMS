@@ -14,6 +14,8 @@ export interface UserProfile {
   suggestions_enabled?: boolean;
   /** Dispatch-only: grants recovery access (yard loads + yard arrival recovery actions). */
   is_recovery?: boolean;
+  /** Afterhours-only: allows managing afterhours shift schedule and assignments. */
+  is_afterhours_manager?: boolean;
   suggestions_mode?: boolean;
 }
 

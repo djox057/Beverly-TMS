@@ -4367,6 +4367,7 @@ export type Database = {
           gross_percent: number | null
           id: string
           individual_mode: boolean | null
+          is_afterhours_manager: boolean
           is_eld: boolean
           is_recovery: boolean
           office: Database["public"]["Enums"]["office_location"] | null
@@ -4386,6 +4387,7 @@ export type Database = {
           gross_percent?: number | null
           id?: string
           individual_mode?: boolean | null
+          is_afterhours_manager?: boolean
           is_eld?: boolean
           is_recovery?: boolean
           office?: Database["public"]["Enums"]["office_location"] | null
@@ -4405,6 +4407,7 @@ export type Database = {
           gross_percent?: number | null
           id?: string
           individual_mode?: boolean | null
+          is_afterhours_manager?: boolean
           is_eld?: boolean
           is_recovery?: boolean
           office?: Database["public"]["Enums"]["office_location"] | null
@@ -6996,6 +6999,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_afterhours_manager: { Args: { _user_id: string }; Returns: boolean }
       is_recovery_dispatcher: { Args: never; Returns: boolean }
       is_schedule_manager: { Args: { _user_id: string }; Returns: boolean }
       log_pii_view: {
