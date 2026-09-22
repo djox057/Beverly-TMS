@@ -33,7 +33,8 @@ export const getMileageUpdateStatus = (
 
   const month = `${ty}-${String(tm).padStart(2, "0")}`;
   const cycleStart = td >= 20 ? `${month}-15` : td >= 5 ? `${month}-01` : null;
-  if (cycleStart && toDays(updated) < toDays(cycleStart)) return "yellow";
+  // An update up to 3 days before the cycle start still counts for that cycle.
+  if (cycleStart && toDays(updated) < toDays(cycleStart) - 3) return "yellow";
 
   return "none";
 };
