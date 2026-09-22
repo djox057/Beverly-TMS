@@ -74,6 +74,7 @@ const AdminUsers = () => {
   const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
   const [editIsEld, setEditIsEld] = useState(false);
   const [editIsRecovery, setEditIsRecovery] = useState(false);
+  const [editIsAfterhoursManager, setEditIsAfterhoursManager] = useState(false);
   const [editGrossPercent, setEditGrossPercent] = useState<string>('');
   const [editCutPercent, setEditCutPercent] = useState<string>('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
