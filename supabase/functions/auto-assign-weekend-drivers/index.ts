@@ -242,20 +242,29 @@ Deno.serve(async (req) => {
      */
     const allocate = (
       userIds: string[],
-      officeDrivers: EnrichedDriver[],
+      officeDriversRaw: EnrichedDriver[],
+      carry: Map<string, number>,
+      taken: Set<string>,
     ): Map<string, string[]> => {
       const assigned = new Map<string, string[]>();
       const load = new Map<string, number>();
       userIds.forEach((id) => {
         assigned.set(id, []);
-        load.set(id, 0);
+        load.set(id, carry.get(id) || 0);
       });
+      const officeDrivers = officeDriversRaw.filter((d) => !taken.has(d.id));
       if (userIds.length === 0 || officeDrivers.length === 0) return assigned;
+      const baseline = userIds.reduce((s, uid) => s + (load.get(uid) || 0), 0);
 
       const give = (userId: string, ids: string[]) => {
-        assigned.get(userId)!.push(...ids);
-        load.set(userId, (load.get(userId) || 0) + ids.length);
+        const fresh = ids.filter((id) => !taken.has(id));
+        fresh.forEach((id) => taken.add(id));
+        if (fresh.length === 0) return;
+        assigned.get(userId)!.push(...fresh);
+        load.set(userId, (load.get(userId) || 0) + fresh.length);
+        carry.set(userId, (carry.get(userId) || 0) + fresh.length);
       };
+
 
       const own = new Map<string, EnrichedDriver[]>();
       const rest: EnrichedDriver[] = [];
