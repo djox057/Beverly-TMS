@@ -188,8 +188,14 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Add Drivers</DialogTitle>
+          <DialogTitle>
+            Add Drivers
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {availableDrivers.length} available
+            </span>
+          </DialogTitle>
         </DialogHeader>
+
 
         <div className="flex flex-wrap gap-2">
           <div className="relative flex-1 min-w-[180px]">
