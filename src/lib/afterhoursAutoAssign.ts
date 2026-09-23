@@ -118,8 +118,10 @@ export function allocateAfterhoursDrivers(
       byCompany.get(key)!.push(d);
     });
 
-    // Water-filling quotas: everyone should end at roughly the same total.
-    const total = officeDrivers.length;
+    // Water-filling quotas: everyone should end at roughly the same total,
+    // counting whatever they already received in an earlier bucket pass.
+    const total = baseline + officeDrivers.length;
+
     const quota = new Map<string, number>();
     officeUsers.forEach((u) => quota.set(u.id, load.get(u.id) || 0));
     let placed = officeUsers.reduce((s, u) => s + (load.get(u.id) || 0), 0);
