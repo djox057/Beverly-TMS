@@ -136,13 +136,17 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
     );
   }
 
-  const assignFleet = assignTarget
+  const assignGroup = assignTarget
     ? shiftFleetsByDay
         .find((d) => d.date === assignTarget.date)
         ?.groups.find((g) => g.shift === assignTarget.shift)
-        ?.fleets.find((f) => f.user.id === assignTarget.userId)
     : null;
-  const assignedIdsForDialog = new Set(assignFleet?.drivers.map((d: any) => d.id) || []);
+  // Anyone already covered in this shift is unavailable, so a driver can never
+  // be handed to two people for the same shift.
+  const assignedIdsForDialog = new Set<string>(
+    (assignGroup?.fleets || []).flatMap((f: any) => f.drivers.map((d: any) => d.id))
+  );
+
 
   const hasAnyFleets = shiftFleetsByDay.some((d) => d.groups.some((g) => g.fleets.length > 0));
 
