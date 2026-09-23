@@ -342,15 +342,15 @@ const EditableNoteField = ({
           {hasContent ? localValue : <span className="text-muted-foreground">Add note...</span>}
         </div>
       )}
-      {hasContent && (
-        <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <History
-            className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground"
-            onClick={(e) => {
-              e.stopPropagation();
-              onHistoryClick(driverId);
-            }}
-          />
+      <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <History
+          className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            onHistoryClick(driverId);
+          }}
+        />
+        {hasContent && (
           <Maximize2
             className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground"
             onClick={(e) => {
@@ -359,8 +359,8 @@ const EditableNoteField = ({
               setNoteDialogOpen({ truckId, driverId });
             }}
           />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
