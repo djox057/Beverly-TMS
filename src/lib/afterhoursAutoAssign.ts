@@ -50,18 +50,30 @@ export function allocateAfterhoursDrivers(
   const eligible = users.filter((u) => !u.isEld);
   if (eligible.length === 0 || drivers.length === 0) return result;
 
+  // A driver may never end up with two covering users.
+  const takenDrivers = new Set<string>();
+  // Totals carried across bucket passes, so the "uncovered offices" pass does
+  // not hand a second full share to people who already got an office share.
+  const globalLoad = new Map<string, number>();
+  eligible.forEach((u) => globalLoad.set(u.id, 0));
 
-
-  const allocateBucket = (officeUsers: AllocUser[], officeDrivers: AllocDriver[]) => {
+  const allocateBucket = (officeUsers: AllocUser[], officeDriversRaw: AllocDriver[]) => {
+    const officeDrivers = officeDriversRaw.filter((d) => !takenDrivers.has(d.id));
     if (officeUsers.length === 0 || officeDrivers.length === 0) return;
 
     const load = new Map<string, number>();
-    officeUsers.forEach((u) => load.set(u.id, 0));
+    officeUsers.forEach((u) => load.set(u.id, globalLoad.get(u.id) || 0));
+    const baseline = officeUsers.reduce((s, u) => s + (load.get(u.id) || 0), 0);
 
     const assign = (userId: string, ids: string[]) => {
-      result.get(userId)!.push(...ids);
-      load.set(userId, (load.get(userId) || 0) + ids.length);
+      const fresh = ids.filter((id) => !takenDrivers.has(id));
+      fresh.forEach((id) => takenDrivers.add(id));
+      if (fresh.length === 0) return;
+      result.get(userId)!.push(...fresh);
+      load.set(userId, (load.get(userId) || 0) + fresh.length);
+      globalLoad.set(userId, (globalLoad.get(userId) || 0) + fresh.length);
     };
+
 
     // 1) Own weekday drivers first.
     const remaining: AllocDriver[] = [];
@@ -106,8 +118,10 @@ export function allocateAfterhoursDrivers(
       byCompany.get(key)!.push(d);
     });
 
-    // Water-filling quotas: everyone should end at roughly the same total.
-    const total = officeDrivers.length;
+    // Water-filling quotas: everyone should end at roughly the same total,
+    // counting whatever they already received in an earlier bucket pass.
+    const total = baseline + officeDrivers.length;
+
     const quota = new Map<string, number>();
     officeUsers.forEach((u) => quota.set(u.id, load.get(u.id) || 0));
     let placed = officeUsers.reduce((s, u) => s + (load.get(u.id) || 0), 0);

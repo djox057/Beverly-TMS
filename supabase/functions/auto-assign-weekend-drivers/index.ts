@@ -242,20 +242,29 @@ Deno.serve(async (req) => {
      */
     const allocate = (
       userIds: string[],
-      officeDrivers: EnrichedDriver[],
+      officeDriversRaw: EnrichedDriver[],
+      carry: Map<string, number>,
+      taken: Set<string>,
     ): Map<string, string[]> => {
       const assigned = new Map<string, string[]>();
       const load = new Map<string, number>();
       userIds.forEach((id) => {
         assigned.set(id, []);
-        load.set(id, 0);
+        load.set(id, carry.get(id) || 0);
       });
+      const officeDrivers = officeDriversRaw.filter((d) => !taken.has(d.id));
       if (userIds.length === 0 || officeDrivers.length === 0) return assigned;
+      const baseline = userIds.reduce((s, uid) => s + (load.get(uid) || 0), 0);
 
       const give = (userId: string, ids: string[]) => {
-        assigned.get(userId)!.push(...ids);
-        load.set(userId, (load.get(userId) || 0) + ids.length);
+        const fresh = ids.filter((id) => !taken.has(id));
+        fresh.forEach((id) => taken.add(id));
+        if (fresh.length === 0) return;
+        assigned.get(userId)!.push(...fresh);
+        load.set(userId, (load.get(userId) || 0) + fresh.length);
+        carry.set(userId, (carry.get(userId) || 0) + fresh.length);
       };
+
 
       const own = new Map<string, EnrichedDriver[]>();
       const rest: EnrichedDriver[] = [];
@@ -291,8 +300,9 @@ Deno.serve(async (req) => {
         byCompany.get(key)!.push(d);
       });
 
-      // Water-filling quotas so totals stay close together.
-      const total = officeDrivers.length;
+      // Water-filling quotas so totals stay close together, counting what the
+      // user already received in an earlier bucket pass this day.
+      const total = baseline + officeDrivers.length;
       const quota = new Map<string, number>();
       userIds.forEach((uid) => quota.set(uid, load.get(uid) || 0));
       let placed = userIds.reduce((s, uid) => s + (load.get(uid) || 0), 0);
@@ -336,6 +346,13 @@ Deno.serve(async (req) => {
       const userIdsForDay = [...(dateUsersMap.get(date) ?? new Set<string>())]
         .filter((uid) => userOfficeMap.has(uid));
       if (userIdsForDay.length === 0) continue;
+
+      // Per-day carry-over: totals and already-taken drivers shared across the
+      // office pass and the uncovered pass, so nobody gets a second full share
+      // and no driver lands with two people.
+      const dayLoad = new Map<string, number>();
+      userIdsForDay.forEach((uid) => dayLoad.set(uid, 0));
+      const dayTaken = new Set<string>();
 
       const push = (allocation: Map<string, string[]>) => {
         for (const [uid, driverIds] of allocation) {
@@ -383,12 +400,12 @@ Deno.serve(async (req) => {
       for (const [office, officeDrivers] of driversByOffice) {
         const officeUsers = usersByOffice.get(office);
         if (officeUsers && officeUsers.length > 0) {
-          push(allocate(officeUsers, officeDrivers));
+          push(allocate(officeUsers, officeDrivers, dayLoad, dayTaken));
         } else {
           uncovered.push(...officeDrivers);
         }
       }
-      if (uncovered.length > 0) push(allocate(userIdsForDay, uncovered));
+      if (uncovered.length > 0) push(allocate(userIdsForDay, uncovered, dayLoad, dayTaken));
     }
 
     // --- Bulk insert ---

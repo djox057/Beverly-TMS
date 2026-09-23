@@ -773,11 +773,14 @@ const Reports = () => {
     dispatchNameFilter: debouncedDispatchNameFilter,
     loadNumberFilter: debouncedLoadNumberFilter,
     activeTab: autoSwitchActiveTab,
-    setActiveTab,
+    // While covering (Individual Mode), searching must only filter the covered
+    // trucks — never jump to another office and drop out of the coverage view.
+    setActiveTab: inCoverageView ? () => {} : setActiveTab,
     offices,
     groupedReports,
     setSpotlightDriverId,
   });
+
 
   // Once the spotlighted driver appears in any loaded group, drop the
   // spotlight so future tab interactions aren't gated by it. The hook also

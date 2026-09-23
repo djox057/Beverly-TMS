@@ -47,32 +47,31 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       // Work in Chicago time so the day boundary matches the schedules.
       const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
-      const dow = today.getDay(); // 0=Sun .. 6=Sat
-      const daysUntilSat = dow === 6 ? 0 : dow === 0 ? -1 : (6 - dow);
-      const sat = new Date(today);
-      sat.setDate(today.getDate() + daysUntilSat);
-      const sun = new Date(sat);
-      sun.setDate(sat.getDate() + 1);
-      const dates = Array.from(new Set([fmt(today), fmt(sat), fmt(sun)]));
-
-      // Shift assignments: yesterday (night shift crossing midnight) + today
+      const hour = today.getHours();
+      const todayStr = fmt(today);
       const yesterday = new Date(today);
       yesterday.setDate(today.getDate() - 1);
-      const shiftDates = Array.from(new Set([fmt(yesterday), fmt(today)]));
+      const yesterdayStr = fmt(yesterday);
+
+      // Only coverage that is live right now counts — never a future weekend or
+      // an expired shift, otherwise removed drivers appear to stick around.
+      const inShiftWindow = hour >= 16 || hour < 7;
 
       const [weekendRes, shiftRes] = await Promise.all([
         supabase
           .from('afterhours_assignments')
           .select('driver_id, scheduled_date')
           .eq('afterhours_user_id', profile.user_id)
-          .in('scheduled_date', dates)
+          .eq('scheduled_date', todayStr)
           .range(0, 4999),
-        supabase
-          .from('afterhours_shift_assignments')
-          .select('driver_id, scheduled_date, shift')
-          .eq('afterhours_user_id', profile.user_id)
-          .in('scheduled_date', shiftDates)
-          .range(0, 4999),
+        inShiftWindow
+          ? supabase
+              .from('afterhours_shift_assignments')
+              .select('driver_id, scheduled_date, shift')
+              .eq('afterhours_user_id', profile.user_id)
+              .in('scheduled_date', [yesterdayStr, todayStr])
+              .range(0, 4999)
+          : Promise.resolve({ data: [], error: null } as any),
       ]);
 
 
@@ -83,15 +82,24 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
           weekendRes.error || shiftRes.error
         );
       }
+      const shiftRows = ((shiftRes.data || []) as any[]).filter((r) => {
+        if (hour >= 16) return r.scheduled_date === todayStr;
+        // early morning: last night's night shift + this morning's shift
+        return (
+          (r.scheduled_date === yesterdayStr && r.shift === 'night') ||
+          (r.scheduled_date === todayStr && r.shift === 'morning')
+        );
+      });
       const ids = Array.from(
         new Set(
-          [...(weekendRes.data || []), ...(shiftRes.data || [])]
+          [...(weekendRes.data || []), ...shiftRows]
             .map((r: any) => r.driver_id)
             .filter(Boolean)
         )
       );
       setAfterhoursDriverIds(ids);
     };
+
     load();
     return () => { cancelled = true; };
   }, [isAfterhours, profile?.user_id]);

@@ -154,13 +154,15 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
     );
   }
 
-  // For assign dialog: find fleet and its already-assigned drivers for that day
-  const assignDialogFleet = assignDialogUserId && assignDialogDate
-    ? afterhoursFleetsByDay
-        .find(d => d.date === assignDialogDate)
-        ?.fleets.find(f => f.user.id === assignDialogUserId)
+  // For assign dialog: a driver already covered by ANYONE that day is not
+  // available any more, so nobody can be assigned twice.
+  const assignDialogDay = assignDialogDate
+    ? afterhoursFleetsByDay.find(d => d.date === assignDialogDate)
     : null;
-  const assignedIdsForDialog = new Set(assignDialogFleet?.drivers.map((d: any) => d.id) || []);
+  const assignedIdsForDialog = new Set<string>(
+    (assignDialogDay?.fleets || []).flatMap((f: any) => f.drivers.map((d: any) => d.id))
+  );
+
 
   const hasAnyFleets = afterhoursFleetsByDay.some(d => d.fleets.length > 0);
 
