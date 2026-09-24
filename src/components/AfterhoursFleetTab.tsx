@@ -231,6 +231,8 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
         const filteredFleets = filterFleets(dayData.fleets);
         if (filteredFleets.length === 0) return null;
 
+        const dayLocked = isAfterhoursDateLocked(dayData.date);
+        const canEditDay = canManage && !dayLocked;
         return (
           <div key={dayData.date} className="space-y-3">
             <div className="flex items-center gap-2">
@@ -238,6 +240,9 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                 <CalendarDays className="h-4 w-4" />
                 {dayData.dayName} — {new Date(dayData.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </h3>
+              {dayLocked && (
+                <Badge variant="outline" className="text-[10px]">Locked since 7:00 AM</Badge>
+              )}
             </div>
 
             {filteredFleets.map((fleet) => {
@@ -278,7 +283,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                         </Badge>
                       </div>
 
-                      {canManage && (
+                      {canEditDay && (
                         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                           {selectedCount > 0 && (
                             <Button
@@ -310,7 +315,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                       </p>
                     ) : (
                       <div className="grid gap-2">
-                        {canManage && filteredDrivers.length > 1 && (
+                        {canEditDay && filteredDrivers.length > 1 && (
                           <label className="flex items-center gap-2 px-2 py-1 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors">
                             <Checkbox
                               checked={allFilteredSelected}
@@ -325,7 +330,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                             className="flex items-center justify-between p-2 sm:p-3 border rounded-lg"
                           >
                             <div className="flex items-center gap-2 sm:gap-3">
-                              {canManage && (
+                              {canEditDay && (
                                 <Checkbox
                                   checked={selected.has(driver.id)}
                                   onCheckedChange={() => toggleDriverSelection(fleetKey, driver.id)}
