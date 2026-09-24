@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CalendarDays, Plus, Truck, Trash2, Wand2, ChevronsDownUp, ChevronsUpDown, UserX, ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
-import { useAfterhoursAssignments, AfterhoursFleet } from "@/hooks/useAfterhoursAssignments";
+import { useAfterhoursAssignments, AfterhoursFleet, isAfterhoursDateLocked } from "@/hooks/useAfterhoursAssignments";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import AssignAfterhoursDriversDialog from "@/components/AssignAfterhoursDriversDialog";
 import { supabase } from "@/integrations/supabase/client";
