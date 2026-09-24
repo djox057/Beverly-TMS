@@ -800,6 +800,8 @@ export default function YardArrivals() {
         left_by_driver_id: statusDialogData.driverId,
       };
       if (recoveryDriverId) {
+        const ok = await syncRecoveryDriverCompany(statusDialogData.truckId, statusDialogData.driverId, recoveryDriverId);
+        if (!ok) return;
         // Assign recovery driver as the new driver1_id
         updateData.driver1_id = recoveryDriverId;
       }
@@ -810,11 +812,36 @@ export default function YardArrivals() {
     queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
     queryClient.invalidateQueries({ queryKey: ["recovery-trucks"] });
     queryClient.invalidateQueries({ queryKey: ["reports"] });
+    queryClient.invalidateQueries({ queryKey: ["drivers"] });
+  };
+
+  // Set recovery driver's company to original driver's company (fallback: truck's company)
+  const syncRecoveryDriverCompany = async (truckId: string, originalDriverId: string | null | undefined, recoveryDriverId: string): Promise<boolean> => {
+    const { data: truck } = await supabase.from("trucks").select("company_id, left_by_driver_id").eq("id", truckId).maybeSingle();
+    const origId = truck?.left_by_driver_id || originalDriverId;
+    let companyId: string | null = null;
+    if (origId && origId !== recoveryDriverId) {
+      const { data: orig } = await supabase.from("drivers").select("company_id").eq("id", origId).maybeSingle();
+      companyId = orig?.company_id ?? null;
+    }
+    if (!companyId) companyId = truck?.company_id ?? null;
+    if (!companyId) return true;
+    const { data: rec } = await supabase.from("drivers").select("company_id").eq("id", recoveryDriverId).maybeSingle();
+    if (rec?.company_id === companyId) return true;
+    const { error } = await supabase.from("drivers").update({ company_id: companyId }).eq("id", recoveryDriverId);
+    if (error) {
+      toast({ title: "Could not change recovery driver's company", description: error.message, variant: "destructive" });
+      return false;
+    }
+    return true;
   };
 
   // Handler to assign recovery driver only
   const handleAssignRecoveryDriver = async (recoveryDriverId: string) => {
     if (!statusDialogData?.truckId) return;
+
+    const ok = await syncRecoveryDriverCompany(statusDialogData.truckId, statusDialogData.driverId, recoveryDriverId);
+    if (!ok) return;
 
     // Assign recovery driver as driver1_id
     await supabase.from("trucks").update({ driver1_id: recoveryDriverId }).eq("id", statusDialogData.truckId);
