@@ -87,7 +87,9 @@ serve(async (req: Request): Promise<Response> => {
           .maybeSingle();
         if (truck) {
           truckNumber = truck.truck_number;
-          let dispatcherId: string | null = truck.dispatcher_id ?? null;
+          // Only the dispatcher of the driver currently on the truck gets the email;
+            // trucks without a driver never email anyone.
+            let dispatcherId: string | null = null;
           if (truck.driver1_id) {
             const { data: driver } = await admin
               .from("drivers")
@@ -96,7 +98,7 @@ serve(async (req: Request): Promise<Response> => {
               .maybeSingle();
             if (driver) {
               driverName = driver.name;
-              dispatcherId = driver.dispatcher_id ?? dispatcherId;
+              dispatcherId = driver.dispatcher_id ?? null;
             }
           }
           if (dispatcherId) {
