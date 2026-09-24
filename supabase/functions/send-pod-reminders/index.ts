@@ -99,6 +99,9 @@ const handler = async (req: Request): Promise<Response> => {
     // Filter out orders with POD or pod_force_complete
     const missing = (orders || []).filter((o: any) => {
       if (o.pod_force_complete) return false;
+      // Only loads actually marked delivered. A load still pending/in transit
+      // was rescheduled (or not delivered yet) — no POD reminder.
+      if (String(o.status || "").toLowerCase() !== "delivered") return false;
       // Skip yard/unassigned loads (no driver + no truck assigned) — these
       // are recovery loads waiting for a driver, no one to remind for POD.
       if (!o.driver1_id && !o.truck_id) return false;
