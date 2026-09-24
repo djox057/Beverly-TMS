@@ -800,7 +800,7 @@ export default function YardArrivals() {
         left_by_driver_id: statusDialogData.driverId,
       };
       if (recoveryDriverId) {
-        const ok = await syncRecoveryDriverCompany(statusDialogData.truckId, statusDialogData.driverId, recoveryDriverId);
+        const ok = await syncRecoveryDriverCompany(statusDialogData.truckId, statusDialogData.driverId, recoveryDriverId, true);
         if (!ok) return;
         // Assign recovery driver as the new driver1_id
         updateData.driver1_id = recoveryDriverId;
@@ -816,9 +816,9 @@ export default function YardArrivals() {
   };
 
   // Set recovery driver's company to original driver's company (fallback: truck's company)
-  const syncRecoveryDriverCompany = async (truckId: string, originalDriverId: string | null | undefined, recoveryDriverId: string): Promise<boolean> => {
+  const syncRecoveryDriverCompany = async (truckId: string, originalDriverId: string | null | undefined, recoveryDriverId: string, preferPassed = false): Promise<boolean> => {
     const { data: truck } = await supabase.from("trucks").select("company_id, left_by_driver_id").eq("id", truckId).maybeSingle();
-    const origId = truck?.left_by_driver_id || originalDriverId;
+    const origId = preferPassed ? (originalDriverId || truck?.left_by_driver_id) : (truck?.left_by_driver_id || originalDriverId);
     let companyId: string | null = null;
     if (origId && origId !== recoveryDriverId) {
       const { data: orig } = await supabase.from("drivers").select("company_id").eq("id", origId).maybeSingle();
