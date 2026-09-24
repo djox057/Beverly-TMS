@@ -17,6 +17,13 @@ const groupKey = (office: string | null | undefined): string => {
   return s;
 };
 
+/** Assignments for a date are locked from 7:00 AM Chicago on that day onward. */
+export const isAfterhoursDateLocked = (date: string): boolean => {
+  const chi = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+  const today = `${chi.getFullYear()}-${String(chi.getMonth() + 1).padStart(2, '0')}-${String(chi.getDate()).padStart(2, '0')}`;
+  return date < today || (date === today && chi.getHours() >= 7);
+};
+
 interface AfterhoursUser {
   id: string;
   full_name: string | null;
@@ -324,12 +331,17 @@ export const useAfterhoursAssignments = () => {
   const autoAssignDrivers = async () => {
     try {
       setLoading(true);
+      const openDates = weekendDates.filter((d) => !isAfterhoursDateLocked(d));
+      if (openDates.length === 0) {
+        toast({ title: "Locked", description: "All shown days are locked (after 7:00 AM Chicago)." });
+        return;
+      }
 
-      // Clear all existing assignments for these weekend dates
+      // Clear existing assignments for unlocked dates only
       const { error: deleteError } = await supabase
         .from('afterhours_assignments')
         .delete()
-        .in('scheduled_date', weekendDates);
+        .in('scheduled_date', openDates);
       if (deleteError) throw deleteError;
 
       // Also clear legacy assignments without date
@@ -350,6 +362,7 @@ export const useAfterhoursAssignments = () => {
       // For each day, run distribution independently
       for (const dayData of afterhoursFleetsByDay) {
         const { date, fleets: dayFleets } = dayData;
+        if (!openDates.includes(date)) continue;
         const allocUsers: AllocUser[] = dayFleets.map((f) => ({
           id: f.user.id,
           office: groupKey(f.user.office),
@@ -374,7 +387,7 @@ export const useAfterhoursAssignments = () => {
         }
       }
 
-      toast({ title: "Success", description: `Auto-assigned ${allRows.length} driver-day assignments across ${weekendDates.length} days` });
+      toast({ title: "Success", description: `Auto-assigned ${allRows.length} driver-day assignments across ${openDates.length} days` });
       fetchData();
     } catch (error: any) {
       console.error('Error auto-assigning drivers:', error);
@@ -387,11 +400,16 @@ export const useAfterhoursAssignments = () => {
   const unassignAll = async () => {
     try {
       setLoading(true);
-      // Delete assignments for current weekend dates
+      const openDates = weekendDates.filter((d) => !isAfterhoursDateLocked(d));
+      if (openDates.length === 0) {
+        toast({ title: "Locked", description: "All shown days are locked (after 7:00 AM Chicago)." });
+        return;
+      }
+      // Delete assignments for unlocked dates only
       const { error: e1 } = await supabase
         .from('afterhours_assignments')
         .delete()
-        .in('scheduled_date', weekendDates);
+        .in('scheduled_date', openDates);
       if (e1) throw e1;
       // Also clear legacy null-date assignments
       await supabase
