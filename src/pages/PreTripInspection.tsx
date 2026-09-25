@@ -295,15 +295,9 @@ const PreTripInspection = () => {
       if (companyFilter !== "all" && t.company_id !== companyFilter) return false;
       if (dispatcherFilter !== "all" && t.dispatcher_id !== dispatcherFilter) return false;
       if (officeFilter !== "all" && t.dispatcher_office !== officeFilter) return false;
-      if (statusFilter !== "all") {
-        const d = daysSince(t);
-        if (statusFilter === "none" && d !== null) return false;
-        if (statusFilter === "today" && d !== 0) return false;
-        if (statusFilter === "over1" && !(d != null && d >= 1)) return false;
-      }
       return true;
     });
-  }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter, statusFilter]);
+  }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter]);
 
   return (
     <div className="py-6 px-2 space-y-6">
@@ -344,15 +338,6 @@ const PreTripInspection = () => {
                 {officeOptions.map(o => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="today">Inspected today</SelectItem>
-                <SelectItem value="over1">1+ days ago</SelectItem>
-                <SelectItem value="none">No inspection recorded</SelectItem>
-              </SelectContent>
-            </Select>
             <div className="relative w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -380,13 +365,13 @@ const PreTripInspection = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No trucks found
                   </TableCell>
                 </TableRow>
