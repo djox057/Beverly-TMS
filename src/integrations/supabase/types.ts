@@ -4356,6 +4356,41 @@ export type Database = {
           },
         ]
       }
+      pretrip_photos: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_path: string
+          id: string
+          truck_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_path: string
+          id?: string
+          truck_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_path?: string
+          id?: string
+          truck_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pretrip_photos_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -6181,6 +6216,7 @@ export type Database = {
           oos: boolean
           plate: string | null
           plate_expiration_date: string | null
+          pretrip_checked: boolean
           pretrip_date: string | null
           pretrip_note: string | null
           registration_expiration_date: string | null
@@ -6234,6 +6270,7 @@ export type Database = {
           oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
+          pretrip_checked?: boolean
           pretrip_date?: string | null
           pretrip_note?: string | null
           registration_expiration_date?: string | null
@@ -6287,6 +6324,7 @@ export type Database = {
           oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
+          pretrip_checked?: boolean
           pretrip_date?: string | null
           pretrip_note?: string | null
           registration_expiration_date?: string | null
@@ -7074,6 +7112,10 @@ export type Database = {
           p_term: string
         }
         Returns: Json
+      }
+      set_truck_pretrip_checked: {
+        Args: { _checked: boolean; _truck_id: string }
+        Returns: undefined
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
