@@ -32,6 +32,7 @@ import {
   Droplet,
   Info as InfoIcon,
   MessageSquareWarning,
+  ClipboardCheck,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
