@@ -6804,6 +6804,14 @@ export type Database = {
         Args: { _oos: boolean; _truck_id: string }
         Returns: undefined
       }
+      dispatcher_update_truck_pretrip: {
+        Args: {
+          _pretrip_date: string
+          _pretrip_note: string
+          _truck_id: string
+        }
+        Returns: undefined
+      }
       estimate_locked_orders_count: {
         Args: {
           p_booked_by?: string
