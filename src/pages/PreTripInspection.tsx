@@ -232,6 +232,25 @@ const PreTripInspection = () => {
     },
   });
 
+  const checkerIds = useMemo(
+    () => Array.from(new Set(trucks.map((t) => t.pretrip_checked_by).filter(Boolean))) as string[],
+    [trucks],
+  );
+  const { data: checkerNames = {} as Record<string, string> } = useQuery({
+    queryKey: ["pretrip-checker-names", checkerIds],
+    enabled: checkerIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .in("user_id", checkerIds);
+      if (error) throw error;
+      const m: Record<string, string> = {};
+      (data ?? []).forEach((p: any) => { m[p.user_id] = p.full_name || p.email || "Unknown"; });
+      return m;
+    },
+  });
+
   const updateTruck = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<TruckRow> }) => {
       if (isDispatcher) {
@@ -463,8 +482,22 @@ const PreTripInspection = () => {
                         />
                       </TableCell>
                       <TableCell className="text-center">
-                        <Checkbox checked={!!t.pretrip_checked} disabled={!canCheck}
-                          onCheckedChange={(v) => toggleChecked(t.id, !!v)} />
+                        <div className="flex flex-col items-center gap-0.5">
+                          <Checkbox checked={!!t.pretrip_checked} disabled={!canCheck}
+                            onCheckedChange={(v) => toggleChecked(t.id, !!v)} />
+                          {t.pretrip_checked && t.pretrip_checked_by && (
+                            <div className="text-[10px] leading-tight text-muted-foreground">
+                              <div className="font-medium text-foreground/80">
+                                {checkerNames[t.pretrip_checked_by] ?? ""}
+                              </div>
+                              {t.pretrip_checked_at && (
+                                <div>
+                                  {format(parseISO(t.pretrip_checked_at), "MM/dd/yyyy hh:mm a")}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
