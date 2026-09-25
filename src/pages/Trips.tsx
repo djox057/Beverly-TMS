@@ -1756,7 +1756,7 @@ const Trips = () => {
       }
     } catch (error) {
       console.error("Error exporting to Excel:", error);
-      toast.error("Failed to export to Excel");
+      throw error;
     }
   };
 
@@ -4506,9 +4506,10 @@ const Trips = () => {
       // B13: Pay period
       worksheet.getCell("B13").value = `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
 
-      // Clear trip rows 15-20
+      // Clear trip rows 15-20, including J's shared formulas. Writing pay to only
+      // some rows would otherwise leave formulas pointing to overwritten cells.
       for (let row = 15; row <= 20; row++) {
-        for (const col of ["A", "B", "C", "D", "E", "F", "G", "H", "I"]) {
+        for (const col of ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]) {
           worksheet.getCell(`${col}${row}`).value = null;
         }
       }
@@ -4710,7 +4711,7 @@ const Trips = () => {
       toast.success(`Exported ${week.orders.length} trips to Excel`);
     } catch (error) {
       console.error("Error exporting Jones Freight template:", error);
-      toast.error("Failed to export statement");
+      throw error;
     }
   };
 
