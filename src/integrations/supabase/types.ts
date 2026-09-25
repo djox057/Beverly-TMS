@@ -6181,6 +6181,8 @@ export type Database = {
           oos: boolean
           plate: string | null
           plate_expiration_date: string | null
+          pretrip_date: string | null
+          pretrip_note: string | null
           registration_expiration_date: string | null
           samsara_account: string | null
           samsara_insured: boolean | null
@@ -6232,6 +6234,8 @@ export type Database = {
           oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
+          pretrip_date?: string | null
+          pretrip_note?: string | null
           registration_expiration_date?: string | null
           samsara_account?: string | null
           samsara_insured?: boolean | null
@@ -6283,6 +6287,8 @@ export type Database = {
           oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
+          pretrip_date?: string | null
+          pretrip_note?: string | null
           registration_expiration_date?: string | null
           samsara_account?: string | null
           samsara_insured?: boolean | null
@@ -6796,6 +6802,14 @@ export type Database = {
       }
       dispatcher_update_truck_oos: {
         Args: { _oos: boolean; _truck_id: string }
+        Returns: undefined
+      }
+      dispatcher_update_truck_pretrip: {
+        Args: {
+          _pretrip_date: string
+          _pretrip_note: string
+          _truck_id: string
+        }
         Returns: undefined
       }
       estimate_locked_orders_count: {

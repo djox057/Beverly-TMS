@@ -1,0 +1,1 @@
+ALTER TABLE public.trucks ADD COLUMN IF NOT EXISTS pretrip_date date, ADD COLUMN IF NOT EXISTS pretrip_note text;
