@@ -176,7 +176,7 @@ const PreTripInspection = () => {
   const [search, setSearch] = useState("");
   const [photoDate, setPhotoDate] = useState<string>(() => pretripDueDate());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const { data: photosByTruck = {} } = usePretripPhotos(photoDate);
+  const { data: photosByTruck = {}, isPending: photosLoading } = usePretripPhotos(photoDate);
   const { data: checksByTruck = {} as Record<string, { checked_by: string | null; checked_at: string }>, isPending: checksLoading, isError: checksError } = useQuery({
     queryKey: ["pretrip-checks", photoDate],
     queryFn: async () => {
@@ -304,6 +304,7 @@ const PreTripInspection = () => {
   const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [problemsFilter, setProblemsFilter] = useState<string>("all");
+  const [picturesFilter, setPicturesFilter] = useState<string>("all");
 
   const enrichedTrucks = useMemo(() => {
     const dispatcherMap = new Map(allDispatchers.map((d: any) => [d.id, d]));
@@ -367,9 +368,12 @@ const PreTripInspection = () => {
       const problems = (problemsByTruck as Record<string, string>)[t.id]?.trim() ?? "";
       if (problemsFilter === "with" && problems === "") return false;
       if (problemsFilter === "without" && problems !== "") return false;
+      const hasPictures = (photosByTruck[t.id]?.length ?? 0) > 0;
+      if (picturesFilter === "with" && !hasPictures) return false;
+      if (picturesFilter === "without" && hasPictures) return false;
       return true;
     });
-  }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter, problemsFilter, problemsByTruck]);
+  }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter, problemsFilter, problemsByTruck, picturesFilter, photosByTruck]);
 
   return (
     <div className="py-6 px-2 space-y-6">
@@ -418,6 +422,14 @@ const PreTripInspection = () => {
                 <SelectItem value="without">Without problems</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={picturesFilter} onValueChange={setPicturesFilter}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="Pictures" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All pictures</SelectItem>
+                <SelectItem value="with">With pictures</SelectItem>
+                <SelectItem value="without">Without pictures</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="relative w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -430,15 +442,15 @@ const PreTripInspection = () => {
           </div>
         </CardHeader>
         <CardContent className="px-2">
-          <div className="flex items-center justify-center gap-3 mb-3">
+          <div className="mx-auto mb-3 grid w-[390px] max-w-full grid-cols-[32px_minmax(0,1fr)_96px_32px] items-center gap-2">
             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPhotoDate(stepPretripDate(photoDate, -1))} title="Previous inspection day">
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2">
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  {format(parseISO(photoDate), "EEE, MMM d, yyyy")}
+                <Button variant="ghost" size="sm" className="w-full min-w-0 gap-2 px-1">
+                  <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{format(parseISO(photoDate), "EEE, MMM d, yyyy")}</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="center">
@@ -453,24 +465,24 @@ const PreTripInspection = () => {
               </PopoverContent>
             </Popover>
             {photoDate === pretripDueDate() ? (
-              <span className="text-xs text-muted-foreground">(current)</span>
+              <span className="text-center text-xs text-muted-foreground">(current)</span>
             ) : (
-              <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setPhotoDate(pretripDueDate())}>Back to current</Button>
+              <Button variant="link" size="sm" className="h-auto w-full p-0 text-xs" onClick={() => setPhotoDate(pretripDueDate())}>Back to current</Button>
             )}
             <Button variant="outline" size="icon" className="h-8 w-8" disabled={photoDate >= pretripDueDate()} onClick={() => setPhotoDate(stepPretripDate(photoDate, 1))} title="Next inspection day">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
           <div className="overflow-x-auto">
-          <Table className="w-[1070px] min-w-[1070px] table-fixed">
+          <Table className="w-full min-w-[1070px] table-fixed">
             <colgroup>
-              <col className="w-[80px]" />
-              <col className="w-[150px]" />
-              <col className="w-[140px]" />
-              <col className="w-[150px]" />
-              <col className="w-[190px]" />
-              <col className="w-[230px]" />
-              <col className="w-[130px]" />
+              <col className="w-[8%]" />
+              <col className="w-[14%]" />
+              <col className="w-[13%]" />
+              <col className="w-[14%]" />
+              <col className="w-[18%]" />
+              <col className="w-[21%]" />
+              <col className="w-[12%]" />
             </colgroup>
             <TableHeader className="sticky top-0 z-20 bg-background">
               <TableRow>
@@ -484,7 +496,7 @@ const PreTripInspection = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isLoading || (picturesFilter !== "all" && photosLoading) ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     Loading...
