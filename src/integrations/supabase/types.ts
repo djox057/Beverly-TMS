@@ -6181,6 +6181,8 @@ export type Database = {
           oos: boolean
           plate: string | null
           plate_expiration_date: string | null
+          pretrip_date: string | null
+          pretrip_note: string | null
           registration_expiration_date: string | null
           samsara_account: string | null
           samsara_insured: boolean | null
@@ -6232,6 +6234,8 @@ export type Database = {
           oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
+          pretrip_date?: string | null
+          pretrip_note?: string | null
           registration_expiration_date?: string | null
           samsara_account?: string | null
           samsara_insured?: boolean | null
@@ -6283,6 +6287,8 @@ export type Database = {
           oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
+          pretrip_date?: string | null
+          pretrip_note?: string | null
           registration_expiration_date?: string | null
           samsara_account?: string | null
           samsara_insured?: boolean | null
