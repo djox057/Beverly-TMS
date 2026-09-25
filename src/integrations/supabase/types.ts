@@ -4394,6 +4394,44 @@ export type Database = {
           },
         ]
       }
+      pretrip_problems: {
+        Row: {
+          created_at: string
+          id: string
+          inspection_date: string
+          problems: string | null
+          truck_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inspection_date: string
+          problems?: string | null
+          truck_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inspection_date?: string
+          problems?: string | null
+          truck_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pretrip_problems_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
