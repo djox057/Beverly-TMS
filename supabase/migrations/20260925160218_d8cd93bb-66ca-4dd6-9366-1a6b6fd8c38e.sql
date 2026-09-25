@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.dispatcher_update_truck_pretrip(uuid, date, text) FROM anon, public;
