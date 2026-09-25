@@ -177,6 +177,25 @@ const PreTripInspection = () => {
   const [photoDate, setPhotoDate] = useState<string>(() => pretripDueDate());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { data: photosByTruck = {} } = usePretripPhotos(photoDate);
+  const { data: problemsByTruck = {} as Record<string, string> } = useQuery({
+    queryKey: ["pretrip-problems", photoDate],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("pretrip_problems").select("truck_id, problems").eq("inspection_date", photoDate);
+      if (error) throw error;
+      const m: Record<string, string> = {};
+      (data ?? []).forEach((r: { truck_id: string; problems: string | null }) => { if (r.problems) m[r.truck_id] = r.problems; });
+      return m;
+    },
+  });
+  const saveProblems = async (truckId: string, problems: string | null) => {
+    const { error } = await (supabase as any).from("pretrip_problems").upsert(
+      { truck_id: truckId, inspection_date: photoDate, problems, updated_by: profile?.user_id, updated_at: new Date().toISOString() },
+      { onConflict: "truck_id,inspection_date" },
+    );
+    if (error) return toast({ title: "Failed to save", description: error.message, variant: "destructive" });
+    queryClient.invalidateQueries({ queryKey: ["pretrip-problems", photoDate] });
+  };
   const { roles: _roles } = useAuthContext() as any;
   const canCheck = ["admin", "maintenance", "manager"].some((r) => (_roles ?? []).includes(r) || primaryRole === r);
   const toggleChecked = async (id: string, v: boolean) => {
@@ -393,7 +412,7 @@ const PreTripInspection = () => {
                 <TableHead className="sticky top-0 z-20 w-[140px] bg-background">Dispatcher</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[150px] bg-background">Company</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Pictures</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[220px] bg-background">Note</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[220px] bg-background">Problems</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[80px] bg-background text-center">Checked</TableHead>
               </TableRow>
             </TableHeader>
@@ -424,14 +443,14 @@ const PreTripInspection = () => {
                       </TableCell>
                       <TableCell>
                         <Input
-                          key={t.pretrip_note ?? "empty"}
-                          defaultValue={t.pretrip_note ?? ""}
-                          placeholder="Add note..."
+                          key={`${photoDate}-${problemsByTruck[t.id] ?? ""}`}
+                          defaultValue={problemsByTruck[t.id] ?? ""}
+                          placeholder="Add problems..."
                           onBlur={(e) => {
                             const v = e.target.value.trim();
                             const next = v === "" ? null : v;
-                            if (next !== (t.pretrip_note ?? null)) {
-                              updateTruck.mutate({ id: t.id, patch: { pretrip_note: next } });
+                            if (next !== (problemsByTruck[t.id] ?? null)) {
+                              saveProblems(t.id, next);
                             }
                           }}
                           className={cn(bareInput, "w-full")}
