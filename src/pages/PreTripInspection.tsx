@@ -31,6 +31,8 @@ type TruckRow = {
   pretrip_date: string | null;
   pretrip_note: string | null;
   pretrip_checked?: boolean;
+  pretrip_checked_by?: string | null;
+  pretrip_checked_at?: string | null;
   is_active: boolean;
   driver1_id: string | null;
   driver_name?: string | null;
@@ -210,7 +212,7 @@ const PreTripInspection = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, pretrip_date, pretrip_note, pretrip_checked, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
+        .select("id, truck_number, source, pretrip_date, pretrip_note, pretrip_checked, pretrip_checked_by, pretrip_checked_at, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
