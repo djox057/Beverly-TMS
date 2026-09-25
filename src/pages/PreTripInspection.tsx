@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { pretripDueDate, stepPretripDate } from "@/lib/pretripDates";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PretripPhotosCell, usePretripPhotos } from "@/components/PretripPhotosCell";
+import { PretripProblemsCell } from "@/components/PretripProblemsCell";
 
 type TruckRow = {
   id: string;
@@ -258,6 +259,7 @@ const PreTripInspection = () => {
   const [dispatcherFilter, setDispatcherFilter] = useState<string>("all");
   const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [problemsFilter, setProblemsFilter] = useState<string>("all");
 
   const enrichedTrucks = useMemo(() => {
     const dispatcherMap = new Map(allDispatchers.map((d: any) => [d.id, d]));
@@ -318,9 +320,12 @@ const PreTripInspection = () => {
       if (companyFilter !== "all" && t.company_id !== companyFilter) return false;
       if (dispatcherFilter !== "all" && t.dispatcher_id !== dispatcherFilter) return false;
       if (officeFilter !== "all" && t.dispatcher_office !== officeFilter) return false;
+      const problems = (problemsByTruck as Record<string, string>)[t.id]?.trim() ?? "";
+      if (problemsFilter === "with" && problems === "") return false;
+      if (problemsFilter === "without" && problems !== "") return false;
       return true;
     });
-  }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter]);
+  }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter, problemsFilter, problemsByTruck]);
 
   return (
     <div className="py-6 px-2 space-y-6">
@@ -359,6 +364,14 @@ const PreTripInspection = () => {
               <SelectContent>
                 <SelectItem value="all">All offices</SelectItem>
                 {officeOptions.map(o => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <Select value={problemsFilter} onValueChange={setProblemsFilter}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="Problems" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All trucks</SelectItem>
+                <SelectItem value="with">With problems only</SelectItem>
+                <SelectItem value="without">Without problems</SelectItem>
               </SelectContent>
             </Select>
             <div className="relative w-64">
@@ -441,19 +454,10 @@ const PreTripInspection = () => {
                       <TableCell>
                         <PretripPhotosCell truckId={t.id} photos={(photosByTruck as any)[t.id] ?? []} userId={profile?.user_id} date={photoDate} />
                       </TableCell>
-                      <TableCell>
-                        <Input
-                          key={`${photoDate}-${problemsByTruck[t.id] ?? ""}`}
-                          defaultValue={problemsByTruck[t.id] ?? ""}
-                          placeholder="Add problems..."
-                          onBlur={(e) => {
-                            const v = e.target.value.trim();
-                            const next = v === "" ? null : v;
-                            if (next !== (problemsByTruck[t.id] ?? null)) {
-                              saveProblems(t.id, next);
-                            }
-                          }}
-                          className={cn(bareInput, "w-full")}
+                      <TableCell className="p-0">
+                        <PretripProblemsCell
+                          value={problemsByTruck[t.id] ?? null}
+                          onSave={(v) => saveProblems(t.id, v)}
                         />
                       </TableCell>
                       <TableCell className="text-center">
