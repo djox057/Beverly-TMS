@@ -149,7 +149,8 @@ const navigation = [
     name: "Pre Trip Inspection",
     href: "/pretrip-inspection",
     icon: ClipboardCheck,
-    roles: ["admin", "maintenance", "manager", "supervisor", "dispatch"],
+    // Dispatchers are temporarily hidden from this page in the menu.
+    roles: ["admin", "maintenance", "manager", "supervisor"],
     strict: true,
   },
   {
@@ -409,6 +410,7 @@ export const Sidebar = () => {
         "/transfer-list",
         "/roadside-inspection",
         "/live-oil-change",
+        "/pretrip-inspection",
       ];
       return [
         ...filteredNav.filter((item) => maintenancePages.includes(item.href)),
