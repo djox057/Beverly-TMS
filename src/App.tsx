@@ -312,6 +312,11 @@ const AppContent = () => {
             <Layout><LiveOilChange /></Layout>
           </ProtectedRoute>
         } />
+        <Route path="/pretrip-inspection" element={
+          <ProtectedRoute strictAllowedRoles={['admin', 'maintenance', 'manager', 'supervisor', 'dispatch']}>
+            <Layout><PreTripInspection /></Layout>
+          </ProtectedRoute>
+        } />
         <Route path="/truck-sales" element={
           <ProtectedRoute allowedRoles={['manager', 'admin', 'recruiting', 'chicago_management']}>
             <Layout><TruckSales /></Layout>

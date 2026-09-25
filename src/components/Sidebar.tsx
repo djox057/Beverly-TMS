@@ -144,6 +144,13 @@ const navigation = [
   { name: "Roadside Inspection", href: "/roadside-inspection", icon: AlertTriangle },
   { name: "Live Oil Change", href: "/live-oil-change", icon: Droplet },
   {
+    name: "Pre Trip Inspection",
+    href: "/pretrip-inspection",
+    icon: ClipboardCheck,
+    roles: ["admin", "maintenance", "manager", "supervisor", "dispatch"],
+    strict: true,
+  },
+  {
     name: "Beverly Heatmap",
     href: "/beverly-heatmap",
     icon: MapPin,
