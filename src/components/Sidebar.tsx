@@ -410,6 +410,7 @@ export const Sidebar = () => {
         "/transfer-list",
         "/roadside-inspection",
         "/live-oil-change",
+        "/pretrip-inspection",
       ];
       return [
         ...filteredNav.filter((item) => maintenancePages.includes(item.href)),
