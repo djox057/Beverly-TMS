@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid, differenceInCalendarDays } from "date-fns";
-import { ClipboardCheck, Search, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardCheck, Search, Calendar as CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { busChannel } from "@/hooks/realtimeBus";
+import { Button } from "@/components/ui/button";
+import { pretripDueDate, stepPretripDate } from "@/lib/pretripDates";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PretripPhotosCell, usePretripPhotos } from "@/components/PretripPhotosCell";
 
@@ -172,7 +174,9 @@ const PreTripInspection = () => {
   const isDispatcher = primaryRole === 'dispatch';
   const { allDispatchers } = useFleetManagement();
   const [search, setSearch] = useState("");
-  const { data: photosByTruck = {} } = usePretripPhotos();
+  const [photoDate, setPhotoDate] = useState<string>(() => pretripDueDate());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const { data: photosByTruck = {} } = usePretripPhotos(photoDate);
   const { roles: _roles } = useAuthContext() as any;
   const canCheck = ["admin", "maintenance", "manager"].some((r) => (_roles ?? []).includes(r) || primaryRole === r);
   const toggleChecked = async (id: string, v: boolean) => {
@@ -350,6 +354,37 @@ const PreTripInspection = () => {
           </div>
         </CardHeader>
         <CardContent className="px-2">
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPhotoDate(stepPretripDate(photoDate, -1))} title="Previous inspection day">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                  {format(parseISO(photoDate), "EEE, MMM d, yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="center">
+                <Calendar
+                  mode="single"
+                  selected={parseISO(photoDate)}
+                  disabled={(d) => d.getDay() !== 1 && d.getDay() !== 5}
+                  onSelect={(d) => { if (d) { setPhotoDate(format(d, "yyyy-MM-dd")); setDatePickerOpen(false); } }}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+            {photoDate === pretripDueDate() ? (
+              <span className="text-xs text-muted-foreground">(current)</span>
+            ) : (
+              <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setPhotoDate(pretripDueDate())}>Back to current</Button>
+            )}
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={photoDate >= pretripDueDate()} onClick={() => setPhotoDate(stepPretripDate(photoDate, 1))} title="Next inspection day">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
           <Table className="table-fixed">
             <TableHeader className="sticky top-0 z-20 bg-background">
               <TableRow>
@@ -385,7 +420,7 @@ const PreTripInspection = () => {
                       <TableCell className="truncate">{t.dispatcher_name ?? ""}</TableCell>
                       <TableCell className="truncate">{t.company_name ?? ""}</TableCell>
                       <TableCell>
-                        <PretripPhotosCell truckId={t.id} photos={(photosByTruck as any)[t.id] ?? []} userId={profile?.user_id} />
+                        <PretripPhotosCell truckId={t.id} photos={(photosByTruck as any)[t.id] ?? []} userId={profile?.user_id} date={photoDate} />
                       </TableCell>
                       <TableCell>
                         <Input

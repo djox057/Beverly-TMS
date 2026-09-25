@@ -4362,6 +4362,7 @@ export type Database = {
           file_name: string | null
           file_path: string
           id: string
+          inspection_date: string
           truck_id: string
           uploaded_by: string | null
         }
@@ -4370,6 +4371,7 @@ export type Database = {
           file_name?: string | null
           file_path: string
           id?: string
+          inspection_date?: string
           truck_id: string
           uploaded_by?: string | null
         }
@@ -4378,6 +4380,7 @@ export type Database = {
           file_name?: string | null
           file_path?: string
           id?: string
+          inspection_date?: string
           truck_id?: string
           uploaded_by?: string | null
         }
@@ -6998,6 +7001,7 @@ export type Database = {
         }[]
       }
       get_orders_summary: { Args: { p_filters?: Json }; Returns: Json }
+      get_pretrip_missing_count: { Args: never; Returns: number }
       get_recovery_loads_badge: {
         Args: never
         Returns: {
@@ -7074,6 +7078,7 @@ export type Database = {
           pickup_datetime: string
         }[]
       }
+      pretrip_due_date: { Args: never; Returns: string }
       refresh_driver_last_order: {
         Args: { _driver: string }
         Returns: undefined
