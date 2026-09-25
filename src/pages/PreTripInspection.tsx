@@ -305,6 +305,7 @@ const PreTripInspection = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [problemsFilter, setProblemsFilter] = useState<string>("all");
   const [picturesFilter, setPicturesFilter] = useState<string>("all");
+  const [checkedFilter, setCheckedFilter] = useState<string>("all");
 
   const enrichedTrucks = useMemo(() => {
     const dispatcherMap = new Map(allDispatchers.map((d: any) => [d.id, d]));
@@ -371,17 +372,31 @@ const PreTripInspection = () => {
       const hasPictures = (photosByTruck[t.id]?.length ?? 0) > 0;
       if (picturesFilter === "with" && !hasPictures) return false;
       if (picturesFilter === "without" && hasPictures) return false;
+      const isChecked = !!checksByTruck[t.id];
+      if (checkedFilter === "checked" && !isChecked) return false;
+      if (checkedFilter === "not-checked" && isChecked) return false;
       return true;
     });
-  }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter, problemsFilter, problemsByTruck, picturesFilter, photosByTruck]);
+  }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter, problemsFilter, problemsByTruck, picturesFilter, photosByTruck, checkedFilter, checksByTruck]);
 
   return (
     <div className="py-6 px-2 space-y-6">
-      <div className="flex items-center gap-3 px-2">
-        <ClipboardCheck className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Pre Trip Inspection</h1>
-          <p className="text-muted-foreground mt-1">Daily pre-trip inspection status per truck</p>
+      <div className="flex flex-wrap items-center justify-between gap-4 px-2">
+        <div className="flex items-center gap-3">
+          <ClipboardCheck className="h-8 w-8 shrink-0 text-primary" />
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Pre Trip Inspection</h1>
+            <p className="mt-1 text-muted-foreground">Daily pre-trip inspection status per truck</p>
+          </div>
+        </div>
+        <div className="relative ml-auto w-72 max-w-full">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search unit or driver..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
       </div>
 
@@ -430,15 +445,14 @@ const PreTripInspection = () => {
                 <SelectItem value="without">Without pictures</SelectItem>
               </SelectContent>
             </Select>
-            <div className="relative w-64">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search unit or driver..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8"
-              />
-            </div>
+            <Select value={checkedFilter} onValueChange={setCheckedFilter}>
+              <SelectTrigger className="w-40" aria-label="Filter by checked status"><SelectValue placeholder="Checked" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All checks</SelectItem>
+                <SelectItem value="not-checked">Not checked</SelectItem>
+                <SelectItem value="checked">Checked</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent className="px-2">
@@ -496,10 +510,16 @@ const PreTripInspection = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading || (picturesFilter !== "all" && photosLoading) ? (
+              {isLoading || (picturesFilter !== "all" && photosLoading) || (checkedFilter !== "all" && checksLoading) ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     Loading...
+                  </TableCell>
+                </TableRow>
+              ) : checkedFilter !== "all" && checksError ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-destructive py-8">
+                    Failed to load checked status
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
