@@ -30,9 +30,6 @@ type TruckRow = {
   source: string | null;
   pretrip_date: string | null;
   pretrip_note: string | null;
-  pretrip_checked?: boolean;
-  pretrip_checked_by?: string | null;
-  pretrip_checked_at?: string | null;
   is_active: boolean;
   driver1_id: string | null;
   driver_name?: string | null;
@@ -180,6 +177,21 @@ const PreTripInspection = () => {
   const [photoDate, setPhotoDate] = useState<string>(() => pretripDueDate());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { data: photosByTruck = {} } = usePretripPhotos(photoDate);
+  const { data: checksByTruck = {} as Record<string, { checked_by: string | null; checked_at: string }>, isPending: checksLoading, isError: checksError } = useQuery({
+    queryKey: ["pretrip-checks", photoDate],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("pretrip_checks")
+        .select("truck_id, checked_by, checked_at")
+        .eq("inspection_date", photoDate);
+      if (error) throw error;
+      const checks: Record<string, { checked_by: string | null; checked_at: string }> = {};
+      (data ?? []).forEach((row: { truck_id: string; checked_by: string | null; checked_at: string }) => {
+        checks[row.truck_id] = { checked_by: row.checked_by, checked_at: row.checked_at };
+      });
+      return checks;
+    },
+  });
   const { data: problemsByTruck = {} as Record<string, string> } = useQuery({
     queryKey: ["pretrip-problems", photoDate],
     queryFn: async () => {
@@ -201,10 +213,21 @@ const PreTripInspection = () => {
   };
   const { roles: _roles } = useAuthContext() as any;
   const canCheck = ["admin", "maintenance", "manager"].some((r) => (_roles ?? []).includes(r) || primaryRole === r);
+  const [savingCheck, setSavingCheck] = useState<string | null>(null);
   const toggleChecked = async (id: string, v: boolean) => {
-    const { error } = await (supabase as any).rpc("set_truck_pretrip_checked", { _truck_id: id, _checked: v });
-    if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
-    queryClient.invalidateQueries({ queryKey: ["pretrip-trucks"] });
+    const inspectionDate = photoDate;
+    setSavingCheck(id);
+    try {
+      const { error } = await (supabase as any).rpc("set_pretrip_checked", {
+        _truck_id: id, _inspection_date: inspectionDate, _checked: v,
+      });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["pretrip-checks", inspectionDate] });
+    } catch (error: any) {
+      toast({ title: "Failed to save check", description: error.message, variant: "destructive" });
+    } finally {
+      setSavingCheck(null);
+    }
   };
 
   const { data: trucks = [], isLoading } = useQuery({
@@ -212,7 +235,7 @@ const PreTripInspection = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, pretrip_date, pretrip_note, pretrip_checked, pretrip_checked_by, pretrip_checked_at, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
+        .select("id, truck_number, source, pretrip_date, pretrip_note, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
@@ -233,8 +256,8 @@ const PreTripInspection = () => {
   });
 
   const checkerIds = useMemo(
-    () => Array.from(new Set(trucks.map((t) => t.pretrip_checked_by).filter(Boolean))) as string[],
-    [trucks],
+    () => Array.from(new Set(Object.values(checksByTruck).map((c) => c.checked_by).filter(Boolean))) as string[],
+    [checksByTruck],
   );
   const { data: checkerNames = {} as Record<string, string> } = useQuery({
     queryKey: ["pretrip-checker-names", checkerIds],
@@ -438,16 +461,26 @@ const PreTripInspection = () => {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <Table className="table-fixed">
+          <div className="overflow-x-auto">
+          <Table className="w-[1070px] min-w-[1070px] table-fixed">
+            <colgroup>
+              <col className="w-[80px]" />
+              <col className="w-[150px]" />
+              <col className="w-[140px]" />
+              <col className="w-[150px]" />
+              <col className="w-[190px]" />
+              <col className="w-[230px]" />
+              <col className="w-[130px]" />
+            </colgroup>
             <TableHeader className="sticky top-0 z-20 bg-background">
               <TableRow>
-                <TableHead className="sticky top-0 z-20 w-[80px] bg-background">Unit</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[160px] bg-background">Driver</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[140px] bg-background">Dispatcher</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[150px] bg-background">Company</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Pictures</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[220px] bg-background">Problems</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[80px] bg-background text-center">Checked</TableHead>
+                <TableHead className="sticky top-0 z-20 bg-background px-2">Unit</TableHead>
+                <TableHead className="sticky top-0 z-20 bg-background px-2">Driver</TableHead>
+                <TableHead className="sticky top-0 z-20 bg-background px-2">Dispatcher</TableHead>
+                <TableHead className="sticky top-0 z-20 bg-background px-2">Company</TableHead>
+                <TableHead className="sticky top-0 z-20 bg-background px-2">Pictures</TableHead>
+                <TableHead className="sticky top-0 z-20 bg-background px-2">Problems</TableHead>
+                <TableHead className="sticky top-0 z-20 bg-background px-2 text-center">Checked</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -467,34 +500,41 @@ const PreTripInspection = () => {
                 filtered.map((t) => {
                   const d = daysSince(t);
                   return (
-                    <TableRow key={t.id}>
-                                            <TableCell className="font-medium">{t.truck_number}</TableCell>
-                      <TableCell className="truncate">{t.driver_name ?? ""}</TableCell>
-                      <TableCell className="truncate">{t.dispatcher_name ?? ""}</TableCell>
-                      <TableCell className="truncate">{t.company_name ?? ""}</TableCell>
-                      <TableCell>
+                    <TableRow key={t.id} className="h-[64px]">
+                      <TableCell className="h-[64px] px-2 py-1 font-medium">
+                        <div className="truncate" title={t.truck_number}>{t.truck_number}</div>
+                      </TableCell>
+                      <TableCell className="h-[64px] px-2 py-1">
+                        <div className="truncate" title={t.driver_name ?? ""}>{t.driver_name ?? ""}</div>
+                      </TableCell>
+                      <TableCell className="h-[64px] px-2 py-1">
+                        <div className="truncate" title={t.dispatcher_name ?? ""}>{t.dispatcher_name ?? ""}</div>
+                      </TableCell>
+                      <TableCell className="h-[64px] px-2 py-1">
+                        <div className="truncate" title={t.company_name ?? ""}>{t.company_name ?? ""}</div>
+                      </TableCell>
+                      <TableCell className="h-[64px] px-2 py-1">
                         <PretripPhotosCell truckId={t.id} photos={(photosByTruck as any)[t.id] ?? []} userId={profile?.user_id} date={photoDate} />
                       </TableCell>
-                      <TableCell className="p-0">
+                      <TableCell className="h-[64px] p-1">
                         <PretripProblemsCell
+                          key={photoDate}
                           value={problemsByTruck[t.id] ?? null}
                           onSave={(v) => saveProblems(t.id, v)}
                         />
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="h-[64px] px-2 py-1 text-center">
                         <div className="flex flex-col items-center gap-0.5">
-                          <Checkbox checked={!!t.pretrip_checked} disabled={!canCheck}
+                          <Checkbox checked={!!checksByTruck[t.id]} disabled={!canCheck || checksLoading || checksError || savingCheck !== null}
                             onCheckedChange={(v) => toggleChecked(t.id, !!v)} />
-                          {t.pretrip_checked && t.pretrip_checked_by && (
-                            <div className="text-[10px] leading-tight text-muted-foreground">
-                              <div className="font-medium text-foreground/80">
-                                {checkerNames[t.pretrip_checked_by] ?? ""}
+                          {checksByTruck[t.id] && (
+                            <div className="w-full text-[10px] leading-tight text-muted-foreground">
+                              <div className="truncate font-medium text-foreground/80" title={checkerNames[checksByTruck[t.id].checked_by ?? ""] ?? ""}>
+                                {checkerNames[checksByTruck[t.id].checked_by ?? ""] ?? ""}
                               </div>
-                              {t.pretrip_checked_at && (
-                                <div>
-                                  {format(parseISO(t.pretrip_checked_at), "MM/dd/yyyy hh:mm a")}
-                                </div>
-                              )}
+                              <div className="whitespace-nowrap">
+                                {format(parseISO(checksByTruck[t.id].checked_at), "MM/dd/yyyy hh:mm a")}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -505,6 +545,7 @@ const PreTripInspection = () => {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
