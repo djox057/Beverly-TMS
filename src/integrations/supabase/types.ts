@@ -6258,6 +6258,8 @@ export type Database = {
           plate: string | null
           plate_expiration_date: string | null
           pretrip_checked: boolean
+          pretrip_checked_at: string | null
+          pretrip_checked_by: string | null
           pretrip_date: string | null
           pretrip_note: string | null
           registration_expiration_date: string | null
@@ -6312,6 +6314,8 @@ export type Database = {
           plate?: string | null
           plate_expiration_date?: string | null
           pretrip_checked?: boolean
+          pretrip_checked_at?: string | null
+          pretrip_checked_by?: string | null
           pretrip_date?: string | null
           pretrip_note?: string | null
           registration_expiration_date?: string | null
@@ -6366,6 +6370,8 @@ export type Database = {
           plate?: string | null
           plate_expiration_date?: string | null
           pretrip_checked?: boolean
+          pretrip_checked_at?: string | null
+          pretrip_checked_by?: string | null
           pretrip_date?: string | null
           pretrip_note?: string | null
           registration_expiration_date?: string | null

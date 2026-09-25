@@ -31,6 +31,8 @@ type TruckRow = {
   pretrip_date: string | null;
   pretrip_note: string | null;
   pretrip_checked?: boolean;
+  pretrip_checked_by?: string | null;
+  pretrip_checked_at?: string | null;
   is_active: boolean;
   driver1_id: string | null;
   driver_name?: string | null;
@@ -210,7 +212,7 @@ const PreTripInspection = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, pretrip_date, pretrip_note, pretrip_checked, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
+        .select("id, truck_number, source, pretrip_date, pretrip_note, pretrip_checked, pretrip_checked_by, pretrip_checked_at, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
@@ -227,6 +229,25 @@ const PreTripInspection = () => {
         return rows.filter((t) => t.dispatcher_id === profile.user_id);
       }
       return rows;
+    },
+  });
+
+  const checkerIds = useMemo(
+    () => Array.from(new Set(trucks.map((t) => t.pretrip_checked_by).filter(Boolean))) as string[],
+    [trucks],
+  );
+  const { data: checkerNames = {} as Record<string, string> } = useQuery({
+    queryKey: ["pretrip-checker-names", checkerIds],
+    enabled: checkerIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email")
+        .in("user_id", checkerIds);
+      if (error) throw error;
+      const m: Record<string, string> = {};
+      (data ?? []).forEach((p: any) => { m[p.user_id] = p.full_name || p.email || "Unknown"; });
+      return m;
     },
   });
 
@@ -461,8 +482,22 @@ const PreTripInspection = () => {
                         />
                       </TableCell>
                       <TableCell className="text-center">
-                        <Checkbox checked={!!t.pretrip_checked} disabled={!canCheck}
-                          onCheckedChange={(v) => toggleChecked(t.id, !!v)} />
+                        <div className="flex flex-col items-center gap-0.5">
+                          <Checkbox checked={!!t.pretrip_checked} disabled={!canCheck}
+                            onCheckedChange={(v) => toggleChecked(t.id, !!v)} />
+                          {t.pretrip_checked && t.pretrip_checked_by && (
+                            <div className="text-[10px] leading-tight text-muted-foreground">
+                              <div className="font-medium text-foreground/80">
+                                {checkerNames[t.pretrip_checked_by] ?? ""}
+                              </div>
+                              {t.pretrip_checked_at && (
+                                <div>
+                                  {format(parseISO(t.pretrip_checked_at), "MM/dd/yyyy hh:mm a")}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
