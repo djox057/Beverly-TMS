@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { busChannel } from "@/hooks/realtimeBus";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PretripPhotosCell, usePretripPhotos } from "@/components/PretripPhotosCell";
 
 type TruckRow = {
   id: string;
@@ -25,6 +27,7 @@ type TruckRow = {
   source: string | null;
   pretrip_date: string | null;
   pretrip_note: string | null;
+  pretrip_checked?: boolean;
   is_active: boolean;
   driver1_id: string | null;
   driver_name?: string | null;
@@ -169,13 +172,21 @@ const PreTripInspection = () => {
   const isDispatcher = primaryRole === 'dispatch';
   const { allDispatchers } = useFleetManagement();
   const [search, setSearch] = useState("");
+  const { data: photosByTruck = {} } = usePretripPhotos();
+  const { roles: _roles } = useAuthContext() as any;
+  const canCheck = ["admin", "maintenance", "manager"].some((r) => (_roles ?? []).includes(r) || primaryRole === r);
+  const toggleChecked = async (id: string, v: boolean) => {
+    const { error } = await (supabase as any).rpc("set_truck_pretrip_checked", { _truck_id: id, _checked: v });
+    if (error) return toast({ title: "Failed", description: error.message, variant: "destructive" });
+    queryClient.invalidateQueries({ queryKey: ["pretrip-trucks"] });
+  };
 
   const { data: trucks = [], isLoading } = useQuery({
     queryKey: ["pretrip-trucks", isDispatcher ? profile?.user_id : "all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, pretrip_date, pretrip_note, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
+        .select("id, truck_number, source, pretrip_date, pretrip_note, pretrip_checked, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
@@ -282,7 +293,6 @@ const PreTripInspection = () => {
         if (!matches) return false;
       }
       if (companyFilter !== "all" && t.company_id !== companyFilter) return false;
-      if (sourceFilter !== "all" && (t.source ?? "") !== sourceFilter) return false;
       if (dispatcherFilter !== "all" && t.dispatcher_id !== dispatcherFilter) return false;
       if (officeFilter !== "all" && t.dispatcher_office !== officeFilter) return false;
       if (statusFilter !== "all") {
@@ -293,7 +303,7 @@ const PreTripInspection = () => {
       }
       return true;
     });
-  }, [enrichedTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, statusFilter]);
+  }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter, statusFilter]);
 
   return (
     <div className="py-6 px-2 space-y-6">
@@ -316,13 +326,6 @@ const PreTripInspection = () => {
                 {companies.map(([id, name]) => (
                   <SelectItem key={id} value={id}>{name}</SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-            <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="w-40"><SelectValue placeholder="Source" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All sources</SelectItem>
-                {sources.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
               </SelectContent>
             </Select>
             <Select value={dispatcherFilter} onValueChange={setDispatcherFilter}>
@@ -365,14 +368,13 @@ const PreTripInspection = () => {
           <Table className="table-fixed">
             <TableHeader className="sticky top-0 z-20 bg-background">
               <TableRow>
-                <TableHead className="sticky top-0 z-20 w-[120px] bg-background">Source</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[80px] bg-background">Unit</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[160px] bg-background">Driver</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[140px] bg-background">Dispatcher</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[150px] bg-background">Company</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[170px] bg-background">Last pre-trip date</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">Days since</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Pictures</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[220px] bg-background">Note</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[80px] bg-background text-center">Checked</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -393,25 +395,12 @@ const PreTripInspection = () => {
                   const d = daysSince(t);
                   return (
                     <TableRow key={t.id}>
-                      <TableCell className="truncate">{t.source ?? ""}</TableCell>
-                      <TableCell className="font-medium">{t.truck_number}</TableCell>
+                                            <TableCell className="font-medium">{t.truck_number}</TableCell>
                       <TableCell className="truncate">{t.driver_name ?? ""}</TableCell>
                       <TableCell className="truncate">{t.dispatcher_name ?? ""}</TableCell>
                       <TableCell className="truncate">{t.company_name ?? ""}</TableCell>
                       <TableCell>
-                        <DateCell
-                          value={t.pretrip_date}
-                          onChange={(iso) => updateTruck.mutate({ id: t.id, patch: { pretrip_date: iso } })}
-                        />
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          d == null && "text-muted-foreground",
-                          d === 0 && "text-green-600 font-medium",
-                          d != null && d >= 1 && "text-red-600 font-medium",
-                        )}
-                      >
-                        {d == null ? "—" : d === 0 ? "Today" : d}
+                        <PretripPhotosCell truckId={t.id} photos={(photosByTruck as any)[t.id] ?? []} userId={profile?.user_id} />
                       </TableCell>
                       <TableCell>
                         <Input
@@ -427,6 +416,10 @@ const PreTripInspection = () => {
                           }}
                           className={cn(bareInput, "w-full")}
                         />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Checkbox checked={!!t.pretrip_checked} disabled={!canCheck}
+                          onCheckedChange={(v) => toggleChecked(t.id, !!v)} />
                       </TableCell>
                     </TableRow>
                   );
