@@ -9,13 +9,14 @@ import { cn } from "@/lib/utils";
 
 type Photo = { id: string; truck_id: string; file_path: string; file_name: string | null };
 
-export const usePretripPhotos = () =>
+export const usePretripPhotos = (date: string) =>
   useQuery({
-    queryKey: ["pretrip-photos"],
+    queryKey: ["pretrip-photos", date],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("pretrip_photos")
         .select("id, truck_id, file_path, file_name")
+        .eq("inspection_date", date)
         .order("created_at");
       if (error) throw error;
       const map: Record<string, Photo[]> = {};
@@ -24,7 +25,7 @@ export const usePretripPhotos = () =>
     },
   });
 
-export const PretripPhotosCell = ({ truckId, photos, userId }: { truckId: string; photos: Photo[]; userId?: string }) => {
+export const PretripPhotosCell = ({ truckId, photos, userId, date }: { truckId: string; photos: Photo[]; userId?: string; date: string }) => {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -49,15 +50,16 @@ export const PretripPhotosCell = ({ truckId, photos, userId }: { truckId: string
     try {
       for (const f of Array.from(files)) {
         const safe = f.name.replace(/[\s-]+/g, "_");
-        const path = `${truckId}/${Date.now()}_${safe}`;
+        const path = `${truckId}/${date}/${Date.now()}_${safe}`;
         const { error } = await supabase.storage.from("pretrip-photos").upload(path, f);
         if (error) throw error;
         const { error: e2 } = await (supabase as any)
           .from("pretrip_photos")
-          .insert({ truck_id: truckId, file_path: path, file_name: f.name, uploaded_by: userId });
+          .insert({ truck_id: truckId, file_path: path, file_name: f.name, uploaded_by: userId, inspection_date: date });
         if (e2) throw e2;
       }
       qc.invalidateQueries({ queryKey: ["pretrip-photos"] });
+      qc.invalidateQueries({ queryKey: ["pretrip-missing-count"] });
       toast({ title: "Pictures uploaded" });
     } catch (e: any) {
       toast({ title: "Upload failed", description: e.message, variant: "destructive" });
@@ -76,6 +78,7 @@ export const PretripPhotosCell = ({ truckId, photos, userId }: { truckId: string
     if (error) return toast({ title: "Delete failed", description: error.message, variant: "destructive" });
     await supabase.storage.from("pretrip-photos").remove([current.file_path]);
     qc.invalidateQueries({ queryKey: ["pretrip-photos"] });
+      qc.invalidateQueries({ queryKey: ["pretrip-missing-count"] });
     if (photos.length <= 1) setOpen(false);
     setIdx((i) => Math.max(0, i - 1));
   };
