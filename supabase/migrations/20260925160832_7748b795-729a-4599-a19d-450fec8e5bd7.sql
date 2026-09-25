@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.set_truck_pretrip_checked(uuid, boolean) FROM PUBLIC, anon;
