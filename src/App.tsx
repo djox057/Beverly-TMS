@@ -56,6 +56,7 @@ import TransferList from "./pages/TransferList";
 import TurnoverList from "./pages/TurnoverList";
 import RoadsideInspection from "./pages/RoadsideInspection";
 import LiveOilChange from "./pages/LiveOilChange";
+import PreTripInspection from "./pages/PreTripInspection";
 import TruckSales from "./pages/TruckSales";
 import Info from "./pages/Info";
 import OAuthConsent from "./pages/OAuthConsent";
