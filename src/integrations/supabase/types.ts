@@ -4356,6 +4356,35 @@ export type Database = {
           },
         ]
       }
+      pretrip_checks: {
+        Row: {
+          checked_at: string
+          checked_by: string | null
+          inspection_date: string
+          truck_id: string
+        }
+        Insert: {
+          checked_at?: string
+          checked_by?: string | null
+          inspection_date: string
+          truck_id: string
+        }
+        Update: {
+          checked_at?: string
+          checked_by?: string | null
+          inspection_date?: string
+          truck_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pretrip_checks_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pretrip_photos: {
         Row: {
           created_at: string
@@ -7161,6 +7190,10 @@ export type Database = {
           p_term: string
         }
         Returns: Json
+      }
+      set_pretrip_checked: {
+        Args: { _checked: boolean; _inspection_date: string; _truck_id: string }
+        Returns: undefined
       }
       set_truck_pretrip_checked: {
         Args: { _checked: boolean; _truck_id: string }
