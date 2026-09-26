@@ -1,0 +1,1 @@
+ALTER TABLE public.afterhours_assignments ENABLE TRIGGER trg_lock_afterhours_assignments;

@@ -57,8 +57,6 @@ Deno.serve(async (req) => {
     authMethod = "cron-secret-bearer";
   } else if (anonKey && authHeader === `Bearer ${anonKey}`) {
     authMethod = "anon-bearer";
-  } else if (authHeader === "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM") {
-    authMethod = "legacy-anon-bearer";
   } else if (serviceRoleKey && authHeader?.includes(serviceRoleKey)) {
     authMethod = "service-role";
   }
