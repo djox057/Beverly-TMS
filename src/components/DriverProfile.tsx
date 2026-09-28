@@ -3,7 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Upload, User, Trash2, Edit2, Image, TrendingDown, BarChart3, FileSpreadsheet, Filter } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Upload,
+  User,
+  Trash2,
+  Edit2,
+  Image,
+  TrendingDown,
+  BarChart3,
+  FileSpreadsheet,
+  Filter,
+} from "lucide-react";
 import { useDriverExpenses, DriverExpense, NewDriverExpense } from "@/hooks/useDriverExpenses";
 import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
 import { AddDriverExpenseDialog } from "./AddDriverExpenseDialog";
@@ -12,7 +24,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuthContext } from "@/contexts/AuthContext";
 import {
@@ -69,7 +89,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const isManager = roles.includes("manager");
   const isAccounting = roles.includes("accounting");
   const canDeleteFixedOrYearly = isAdmin || isManager || isAccounting;
-  
+
   const [showAddExpenseDialog, setShowAddExpenseDialog] = useState(false);
   const [showImportExcelDialog, setShowImportExcelDialog] = useState(false);
   const [cdlImageUrl, setCdlImageUrl] = useState<string | null>(null);
@@ -79,7 +99,16 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
   const [deleteConfirmExpense, setDeleteConfirmExpense] = useState<DriverExpense | null>(null);
 
-  const { expenses, isLoading, addExpense, updateExpense, deleteExpense, initializeDefaultExpenses, isAdding, isUpdating } = useDriverExpenses(driver.id);
+  const {
+    expenses,
+    isLoading,
+    addExpense,
+    updateExpense,
+    deleteExpense,
+    initializeDefaultExpenses,
+    isAdding,
+    isUpdating,
+  } = useDriverExpenses(driver.id);
   const { data: cashAdvanceData } = useDriverCashAdvance(driver.id);
 
   // Calculate debt from unpaid expenses (now includes cash advances as expenses)
@@ -87,19 +116,19 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   // currentDebt excludes yearly expenses, totalDebt includes everything
   const { currentDebt, totalDebt, debtHistory } = useMemo(() => {
     // Calculate unpaid expense debt (includes cash advances since they're now expenses)
-    const unpaidExpenses = expenses.filter(e => e.status !== 'paid');
+    const unpaidExpenses = expenses.filter((e) => e.status !== "paid");
     let current = 0; // Excludes yearly
-    let total = 0;   // Includes everything
-    
-    unpaidExpenses.forEach(e => {
+    let total = 0; // Includes everything
+
+    unpaidExpenses.forEach((e) => {
       const remaining = e.amount - (e.paid_amount || 0);
-      if (e.expense_type === 'company_expense') {
+      if (e.expense_type === "company_expense") {
         // Company expenses don't count toward any debt
         return;
-      } else if (e.expense_type === 'credit') {
+      } else if (e.expense_type === "credit") {
         current -= remaining; // Credits subtract from both
         total -= remaining;
-      } else if (e.expense_type === 'yearly') {
+      } else if (e.expense_type === "yearly") {
         total += remaining; // Yearly only adds to total
       } else {
         current += remaining; // Regular expenses add to both
@@ -110,14 +139,14 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
     // Build weekly debt history (mock data based on weeks_count for now)
     const weeksCount = driver.weeks_count || 0;
     const history: { week: string; debt: number }[] = [];
-    
+
     // Generate last 12 weeks of history
     for (let i = Math.max(0, weeksCount - 11); i <= weeksCount; i++) {
       // Simulate debt decreasing over time as payments are made
       const weekDebt = Math.max(0, total + (weeksCount - i) * 100);
       history.push({
         week: `W${i}`,
-        debt: weekDebt
+        debt: weekDebt,
       });
     }
 
@@ -142,9 +171,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
         .limit(1);
 
       if (data && data.length > 0) {
-        const { data: urlData } = supabase.storage
-          .from("driver-files")
-          .getPublicUrl(data[0].file_path);
+        const { data: urlData } = supabase.storage.from("driver-files").getPublicUrl(data[0].file_path);
         setCdlImageUrl(urlData?.publicUrl || null);
       }
     };
@@ -168,17 +195,18 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
       if (uploadError) throw uploadError;
 
       // Save to driver_files table
-      await supabase.from("driver_files").upsert({
-        driver_id: driver.id,
-        file_name: `CDL_${driver.name || "Driver"}.${fileExt}`,
-        file_path: filePath,
-        content_type: file.type,
-        file_size: file.size,
-      }, { onConflict: 'driver_id,file_name' });
+      await supabase.from("driver_files").upsert(
+        {
+          driver_id: driver.id,
+          file_name: `CDL_${driver.name || "Driver"}.${fileExt}`,
+          file_path: filePath,
+          content_type: file.type,
+          file_size: file.size,
+        },
+        { onConflict: "driver_id,file_name" },
+      );
 
-      const { data: urlData } = supabase.storage
-        .from("driver-files")
-        .getPublicUrl(filePath);
+      const { data: urlData } = supabase.storage.from("driver-files").getPublicUrl(filePath);
 
       setCdlImageUrl(urlData?.publicUrl || null);
       toast.success("CDL image uploaded successfully");
@@ -221,7 +249,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
 
     // Apply unpaid filter if enabled
     if (showUnpaidOnly) {
-      items = items.filter(item => item.status === 'pending' || item.status === 'partial');
+      items = items.filter((item) => item.status === "pending" || item.status === "partial");
     }
 
     // Sort: fixed expenses first, then by created_at
@@ -250,11 +278,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
             <div className="flex-shrink-0">
               <div className="w-40 h-28 border-2 border-dashed border-muted rounded-lg overflow-hidden relative flex items-center justify-center bg-muted/50">
                 {cdlImageUrl ? (
-                  <img
-                    src={cdlImageUrl}
-                    alt="CDL"
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={cdlImageUrl} alt="CDL" className="w-full h-full object-cover" />
                 ) : (
                   <div className="text-center text-muted-foreground">
                     <Image className="h-8 w-8 mx-auto mb-1" />
@@ -302,15 +326,11 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Hire Date</label>
-                <p className="font-medium">
-                  {driver.hire_date ? formatDateNoTimezone(driver.hire_date) : "-"}
-                </p>
+                <p className="font-medium">{driver.hire_date ? formatDateNoTimezone(driver.hire_date) : "-"}</p>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Birth Date</label>
-                <p className="font-medium">
-                  {driver.birth_date ? formatDateNoTimezone(driver.birth_date) : "-"}
-                </p>
+                <label className="text-xs text-muted-foreground">Date of birth</label>
+                <p className="font-medium">{driver.birth_date ? formatDateNoTimezone(driver.birth_date) : "-"}</p>
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Dispatcher</label>
@@ -331,11 +351,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                 {driver.name || `${driver.first_name} ${driver.last_name}`}
               </Badge>
             </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowDebtGraph(!showDebtGraph)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setShowDebtGraph(!showDebtGraph)}>
               <BarChart3 className="h-4 w-4 mr-1" />
               {showDebtGraph ? "Hide Graph" : "Show Graph"}
             </Button>
@@ -370,33 +386,45 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                   </TableRow>
                 ))}
                 {/* Truck Payment - driver specific */}
-                {driver.weekly_payment && driver.weekly_payment > 0 && (() => {
-                  // Calculate payments made from agreement start date
-                  const paymentsMade = driver.agreement_start_date 
-                    ? Math.max(0, Math.floor((Date.now() - new Date(driver.agreement_start_date + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000)))
-                    : 0;
-                  const totalPayments = driver.weeks_count || 156;
-                  
-                  return (
-                    <TableRow>
-                      <TableCell className="font-medium">
-                        Truck Payment
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          ({paymentsMade}/{totalPayments} Payments Made)
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(driver.weekly_payment)}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">Weekly</Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {driver.agreement_start_date 
-                          ? new Date(driver.agreement_start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
-                          : '-'}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })()}
+                {driver.weekly_payment &&
+                  driver.weekly_payment > 0 &&
+                  (() => {
+                    // Calculate payments made from agreement start date
+                    const paymentsMade = driver.agreement_start_date
+                      ? Math.max(
+                          0,
+                          Math.floor(
+                            (Date.now() - new Date(driver.agreement_start_date + "T00:00:00").getTime()) /
+                              (7 * 24 * 60 * 60 * 1000),
+                          ),
+                        )
+                      : 0;
+                    const totalPayments = driver.weeks_count || 156;
+
+                    return (
+                      <TableRow>
+                        <TableCell className="font-medium">
+                          Truck Payment
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            ({paymentsMade}/{totalPayments} Payments Made)
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">{formatCurrency(driver.weekly_payment)}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">Weekly</Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {driver.agreement_start_date
+                            ? new Date(driver.agreement_start_date + "T00:00:00").toLocaleDateString("en-US", {
+                                month: "numeric",
+                                day: "numeric",
+                                year: "numeric",
+                              })
+                            : "-"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })()}
                 {/* Fuel Discount */}
                 <TableRow>
                   <TableCell className="font-medium">Fuel Discount</TableCell>
@@ -413,22 +441,33 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
           {/* Debt Summary */}
           {(() => {
             // Calculate payments made from agreement start date
-            const paymentsMade = driver.agreement_start_date 
-              ? Math.max(0, Math.floor((Date.now() - new Date(driver.agreement_start_date + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000)))
+            const paymentsMade = driver.agreement_start_date
+              ? Math.max(
+                  0,
+                  Math.floor(
+                    (Date.now() - new Date(driver.agreement_start_date + "T00:00:00").getTime()) /
+                      (7 * 24 * 60 * 60 * 1000),
+                  ),
+                )
               : 0;
             const totalPayments = driver.weeks_count || 156;
-            
+
             // Calculate days in company from hire date
             const daysInCompany = driver.hire_date
-              ? Math.max(0, Math.floor((Date.now() - new Date(driver.hire_date + 'T00:00:00').getTime()) / (24 * 60 * 60 * 1000)))
+              ? Math.max(
+                  0,
+                  Math.floor((Date.now() - new Date(driver.hire_date + "T00:00:00").getTime()) / (24 * 60 * 60 * 1000)),
+                )
               : 0;
-            
+
             return (
               <div className="grid grid-cols-5 gap-4">
                 <Card className="bg-muted/30">
                   <CardContent className="p-4">
                     <p className="text-xs text-muted-foreground">Weekly Fixed</p>
-                    <p className="text-lg font-bold">{formatCurrency(TOTAL_FIXED_WEEKLY + (driver.weekly_payment || 0))}</p>
+                    <p className="text-lg font-bold">
+                      {formatCurrency(TOTAL_FIXED_WEEKLY + (driver.weekly_payment || 0))}
+                    </p>
                   </CardContent>
                 </Card>
                 <Card className="bg-muted/30">
@@ -440,18 +479,22 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                 <Card className="bg-muted/30">
                   <CardContent className="p-4">
                     <p className="text-xs text-muted-foreground">Payments Made</p>
-                    <p className="text-lg font-bold">{paymentsMade} / {totalPayments}</p>
+                    <p className="text-lg font-bold">
+                      {paymentsMade} / {totalPayments}
+                    </p>
                   </CardContent>
                 </Card>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Card className={`cursor-pointer ${currentDebt > 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                    <Card
+                      className={`cursor-pointer ${currentDebt > 0 ? "bg-destructive/10 border-destructive/30" : "bg-green-500/10 border-green-500/30"}`}
+                    >
                       <CardContent className="p-4">
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
                           <TrendingDown className="h-3 w-3" />
                           Current Debt
                         </p>
-                        <p className={`text-lg font-bold ${currentDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                        <p className={`text-lg font-bold ${currentDebt > 0 ? "text-destructive" : "text-green-600"}`}>
                           {formatCurrency(currentDebt)}
                         </p>
                       </CardContent>
@@ -463,13 +506,15 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                 </Popover>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Card className={`cursor-pointer ${totalDebt > 0 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                    <Card
+                      className={`cursor-pointer ${totalDebt > 0 ? "bg-amber-500/10 border-amber-500/30" : "bg-green-500/10 border-green-500/30"}`}
+                    >
                       <CardContent className="p-4">
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
                           <TrendingDown className="h-3 w-3" />
                           Total Debt
                         </p>
-                        <p className={`text-lg font-bold ${totalDebt > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                        <p className={`text-lg font-bold ${totalDebt > 0 ? "text-amber-600" : "text-green-600"}`}>
                           {formatCurrency(totalDebt)}
                         </p>
                       </CardContent>
@@ -489,18 +534,22 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={debtHistory}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="week" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                  <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => `$${v}`} />
-                  <RechartsTooltip 
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
-                    formatter={(value: number) => [formatCurrency(value), 'Debt']}
+                  <XAxis dataKey="week" className="text-xs" tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis
+                    className="text-xs"
+                    tick={{ fill: "hsl(var(--muted-foreground))" }}
+                    tickFormatter={(v) => `$${v}`}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="debt" 
-                    stroke="hsl(var(--destructive))" 
+                  <RechartsTooltip
+                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}
+                    formatter={(value: number) => [formatCurrency(value), "Debt"]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="debt"
+                    stroke="hsl(var(--destructive))"
                     strokeWidth={2}
-                    dot={{ fill: 'hsl(var(--destructive))' }}
+                    dot={{ fill: "hsl(var(--destructive))" }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -514,9 +563,9 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-lg">Expenses & Cash Advances</CardTitle>
           <div className="flex gap-2">
-            <Button 
-              variant={showUnpaidOnly ? "default" : "outline"} 
-              size="sm" 
+            <Button
+              variant={showUnpaidOnly ? "default" : "outline"}
+              size="sm"
               onClick={() => setShowUnpaidOnly(!showUnpaidOnly)}
             >
               <Filter className="h-4 w-4 mr-1" />
@@ -566,18 +615,19 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
               ) : (
                 allItems.map((item) => {
                   const isCashAdvance = !!item.cash_advance_id;
-                  const expenseType = item.expense_type || 'expense';
+                  const expenseType = item.expense_type || "expense";
                   const typeColors: Record<string, string> = {
-                    expense: 'bg-muted text-muted-foreground',
-                    yearly: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-                    credit: 'bg-green-500/10 text-green-600 border-green-500/20',
-                    company_expense: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
+                    expense: "bg-muted text-muted-foreground",
+                    yearly: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+                    credit: "bg-green-500/10 text-green-600 border-green-500/20",
+                    company_expense: "bg-purple-500/10 text-purple-600 border-purple-500/20",
                   };
                   // For company_expense type, override status display
-                  const displayStatus = expenseType === 'company_expense' ? 'Company Expense' : item.status;
-                  const statusColorClass = expenseType === 'company_expense' 
-                    ? 'bg-purple-500/10 text-purple-600 border-purple-500/20' 
-                    : getStatusColor(item.status);
+                  const displayStatus = expenseType === "company_expense" ? "Company Expense" : item.status;
+                  const statusColorClass =
+                    expenseType === "company_expense"
+                      ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
+                      : getStatusColor(item.status);
                   return (
                     <TableRow key={item.id}>
                       <TableCell className="font-mono text-xs">
@@ -590,20 +640,14 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                       </TableCell>
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>{item.explanation}</TableCell>
-                      <TableCell>
-                        {item.expense_date ? formatDateNoTimezone(item.expense_date) : "-"}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(item.amount)}
-                      </TableCell>
+                      <TableCell>{item.expense_date ? formatDateNoTimezone(item.expense_date) : "-"}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(item.amount)}</TableCell>
                       <TableCell>
                         <Badge className={statusColorClass} variant="outline">
                           {displayStatus}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        {item.paid_date ? formatDateNoTimezone(item.paid_date) : "-"}
-                      </TableCell>
+                      <TableCell>{item.paid_date ? formatDateNoTimezone(item.paid_date) : "-"}</TableCell>
                       <TableCell className="text-right">
                         {item.paid_amount ? formatCurrency(item.paid_amount) : "-"}
                       </TableCell>

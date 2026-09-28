@@ -1870,7 +1870,7 @@ const Drivers = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="birth_date">Birth Date</Label>
+                        <Label htmlFor="birth_date">Date of birth</Label>
                         <Input
                           id="birth_date"
                           type="date"
@@ -2958,7 +2958,7 @@ const Drivers = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="edit_birth_date">Birth Date</Label>
+                    <Label htmlFor="edit_birth_date">Date of birth</Label>
                     <Input
                       id="edit_birth_date"
                       type="date"
@@ -3217,7 +3217,6 @@ const Drivers = () => {
                   onApplyDriverFields={(fields) => setFormData((prev) => ({ ...prev, ...fields }))}
                 />
               )}
-
             </TabsContent>
           </Tabs>
 

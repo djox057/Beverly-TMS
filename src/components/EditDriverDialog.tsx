@@ -194,9 +194,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
   // Get available trucks (excluding ones assigned to other drivers)
   const editingDriverTruckId = useMemo(() => {
-    return editingDriver
-      ? allTrucks?.find((truck) => truck.driver1_id === editingDriver.id)?.id
-      : null;
+    return editingDriver ? allTrucks?.find((truck) => truck.driver1_id === editingDriver.id)?.id : null;
   }, [allTrucks, editingDriver]);
 
   const availableTrucks = useMemo(() => {
@@ -1007,9 +1005,9 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                         setFormData({ ...formData, truck_id: v, trailer_id: selectedTruck?.trailer_id || "" });
                         setSelectedTruckId(v);
                       }}
-                       placeholder={canChangeAssignment ? "Select truck..." : "No permission to change"}
-                       emptyText="No available trucks"
-                       disabled={!canChangeAssignment}
+                      placeholder={canChangeAssignment ? "Select truck..." : "No permission to change"}
+                      emptyText="No available trucks"
+                      disabled={!canChangeAssignment}
                     />
                   </div>
                   <div className="space-y-2 col-span-5">
@@ -1018,16 +1016,16 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       options={(availableTrailers || []).map((t) => ({ value: t.id, label: t.trailer_number }))}
                       value={formData.trailer_id}
                       onValueChange={(v) => setFormData({ ...formData, trailer_id: v })}
-                       placeholder={
-                         !canChangeAssignment
-                           ? "No permission to change"
-                           : formData.truck_id
+                      placeholder={
+                        !canChangeAssignment
+                          ? "No permission to change"
+                          : formData.truck_id
                             ? "Select trailer..."
                             : "Select truck first"
-                       }
-                       emptyText="No available trailers"
-                       disabled={!canChangeAssignment}
-                     />
+                      }
+                      emptyText="No available trailers"
+                      disabled={!canChangeAssignment}
+                    />
                   </div>
                   <div className="col-span-2">
                     <Button
@@ -1168,7 +1166,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Birth Date</Label>
+                    <Label>Date of birth</Label>
                     <Input
                       type="date"
                       max={new Date().toISOString().split("T")[0]}
@@ -1368,12 +1366,9 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                 <DriverFilesManager
                   driverId={editingDriver.id}
                   driverName={editingDriver.name}
-                  onApplyDriverFields={(fields) =>
-                    setFormData((prev) => ({ ...prev, ...fields }))
-                  }
+                  onApplyDriverFields={(fields) => setFormData((prev) => ({ ...prev, ...fields }))}
                 />
               )}
-
             </TabsContent>
           </Tabs>
 
