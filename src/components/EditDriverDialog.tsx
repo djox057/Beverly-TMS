@@ -62,6 +62,7 @@ interface DriverFormData {
   agreement_start_date: string;
   cdl_number: string;
   cdl_expiration_date: string;
+  birth_date: string;
   medical_card_expiration_date: string;
   random_drug_test_date: string;
   hire_date: string;
@@ -168,6 +169,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     agreement_start_date: "",
     cdl_number: "",
     cdl_expiration_date: "",
+    birth_date: "",
     medical_card_expiration_date: "",
     random_drug_test_date: "",
     hire_date: "",
@@ -317,6 +319,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       agreement_start_date: driver.agreement_start_date || "",
       cdl_number: driver.cdl_number || "",
       cdl_expiration_date: driver.cdl_expiration_date || "",
+      birth_date: driver.birth_date || "",
       medical_card_expiration_date: driver.medical_card_expiration_date || "",
       random_drug_test_date: driver.random_drug_test_date || "",
       hire_date: driver.hire_date || "",
@@ -551,6 +554,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           home_longitude: homeLng,
           cdl_number: formData.cdl_number || null,
           cdl_expiration_date: formData.cdl_expiration_date || null,
+          birth_date: formData.birth_date || null,
           medical_card_expiration_date: formData.medical_card_expiration_date || null,
           random_drug_test_date: formData.random_drug_test_date || null,
           hire_date: formData.hire_date || null,
@@ -1158,6 +1162,18 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       type="date"
                       value={formData.cdl_expiration_date}
                       onChange={(e) => setFormData({ ...formData, cdl_expiration_date: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Birth Date</Label>
+                    <Input
+                      type="date"
+                      max={new Date().toISOString().split("T")[0]}
+                      value={formData.birth_date}
+                      onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
                     />
                   </div>
                 </div>
