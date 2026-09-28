@@ -117,6 +117,7 @@ interface YardAction {
     year?: number;
   } | null;
   company: string | null;
+  office: string | null;
   creator: {
     full_name: string | null;
   } | null;
@@ -188,6 +189,7 @@ export default function YardArrivals() {
   
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
+  const [officeFilter, setOfficeFilter] = useState<string>("all");
 
   const { data: yardActions, isLoading } = useQuery({
     queryKey: ["yard-arrivals"],
@@ -253,8 +255,16 @@ export default function YardArrivals() {
       const truckDriverIds = (trucksData || []).map(t => t.driver1_id).filter(Boolean) as string[];
       const allDriverIds = [...new Set([...driverIds, ...truckDriverIds])];
       const { data: driverCompanies } = allDriverIds.length > 0
-        ? await supabase.from("drivers").select("id, company_id").in("id", allDriverIds)
+        ? await supabase.from("drivers").select("id, company_id, dispatcher_id").in("id", allDriverIds)
         : { data: [] };
+
+      // Office = driver's CURRENT dispatcher's office
+      const dispatcherIds = [...new Set((driverCompanies || []).map((d: any) => d.dispatcher_id).filter(Boolean))] as string[];
+      const { data: dispatcherProfiles } = dispatcherIds.length > 0
+        ? await supabase.from("profiles").select("user_id, office").in("user_id", dispatcherIds)
+        : { data: [] };
+      const dispatcherOfficeMap = new Map((dispatcherProfiles || []).map((p: any) => [p.user_id, p.office as string | null]));
+      const driverOfficeMap = new Map((driverCompanies || []).map((d: any) => [d.id, d.dispatcher_id ? dispatcherOfficeMap.get(d.dispatcher_id) || null : null]));
 
       const companyIds = [
         ...(driverCompanies || []).map(d => d.company_id),
@@ -283,6 +293,7 @@ export default function YardArrivals() {
             ...truckInfo,
           } : null,
           company: company ? companiesMap.get(company) || null : null,
+          office: driverOfficeMap.get(action.driver_id) || null,
           is_team: action.is_team || false,
           creator: action.created_by ? { full_name: creatorsMap.get(action.created_by) || null } : null,
         };
@@ -383,6 +394,7 @@ export default function YardArrivals() {
 
   // Filter function for search
   const filterBySearch = (action: YardAction) => {
+    if (officeFilter !== "all" && (action.office || "none") !== officeFilter) return false;
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase().trim();
     const truckNumber = action.truck?.truck_number?.toLowerCase() || "";
@@ -390,6 +402,11 @@ export default function YardArrivals() {
       `${action.driver?.first_name || ""} ${action.driver?.last_name || ""}`.toLowerCase();
     return truckNumber.includes(query) || driverName.includes(query);
   };
+
+  const officeOptions = useMemo(
+    () => [...new Set((yardActions || []).map(a => a.office).filter(Boolean))].sort() as string[],
+    [yardActions]
+  );
 
   const filterTwoWeekBySearch = (driver: TwoWeekNoticeDriver) => {
     if (!searchQuery.trim()) return true;
@@ -402,19 +419,19 @@ export default function YardArrivals() {
 
   const maintenanceActions = useMemo(() => 
     (yardActions?.filter((a) => a.action_type === "maintenance") || []).filter(filterBySearch),
-    [yardActions, searchQuery]
+    [yardActions, searchQuery, officeFilter]
   );
   const returnTruckActions = useMemo(() => 
     (yardActions?.filter((a) => a.action_type === "return_truck") || []).filter(filterBySearch),
-    [yardActions, searchQuery]
+    [yardActions, searchQuery, officeFilter]
   );
   const recoveryActions = useMemo(() => 
     (yardActions?.filter((a) => a.action_type === "recovery") || []).filter(filterBySearch),
-    [yardActions, searchQuery]
+    [yardActions, searchQuery, officeFilter]
   );
   const safetyActions = useMemo(() => 
     (yardActions?.filter((a) => a.action_type === "safety") || []).filter(filterBySearch),
-    [yardActions, searchQuery]
+    [yardActions, searchQuery, officeFilter]
   );
 
   // Group actions by date
