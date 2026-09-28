@@ -136,7 +136,7 @@ import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { Calendar } from "@/components/ui/calendar";
 import { startOfWeek, addDays, isSameDay, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
-import { cn } from "@/lib/utils";
+import { cn, formatDateNoTimezone } from "@/lib/utils";
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -6061,6 +6061,11 @@ const Reports = () => {
                                                                 </Button>
                                                               </div>
                                                             )}
+                                                            {(truck as any).driver1IsRecovery && (
+                                                              <p className="text-xs">
+                                                                Birth Date: {formatDateNoTimezone((truck as any).driver1BirthDate) || "—"}
+                                                              </p>
+                                                            )}
                                                             <div className="border-t pt-1 mt-1">
                                                               <div className="flex items-center justify-between gap-2">
                                                                  <p className="font-semibold text-sm">
@@ -6114,6 +6119,11 @@ const Reports = () => {
                                                               )}
                                                               {truck.driver2Email && (
                                                                 <p className="text-xs">✉️ {truck.driver2Email}</p>
+                                                              )}
+                                                              {(truck as any).driver2IsRecovery && (
+                                                                <p className="text-xs">
+                                                                  Birth Date: {formatDateNoTimezone((truck as any).driver2BirthDate) || "—"}
+                                                                </p>
                                                               )}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1">
@@ -6501,6 +6511,11 @@ const Reports = () => {
                                                                   <ClipboardCopy className="h-3 w-3" />
                                                                 </Button>
                                                               </div>
+                                                            )}
+                                                            {(truck as any).driver1IsRecovery && (
+                                                              <p className="text-xs">
+                                                                Birth Date: {formatDateNoTimezone((truck as any).driver1BirthDate) || "—"}
+                                                              </p>
                                                             )}
                                                             {((truck as any).emergencyContactName ||
                                                               (truck as any).emergencyContactPhone) && (
