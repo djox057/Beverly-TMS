@@ -99,6 +99,7 @@ interface DriverFormData {
   agreement_start_date: string;
   cdl_number: string;
   cdl_expiration_date: string;
+  birth_date: string;
   medical_card_expiration_date: string;
   random_drug_test_date: string;
   hire_date: string;
@@ -194,6 +195,7 @@ const Drivers = () => {
     agreement_start_date: "",
     cdl_number: "",
     cdl_expiration_date: "",
+    birth_date: "",
     medical_card_expiration_date: "",
     random_drug_test_date: "",
     hire_date: new Date().toISOString().split("T")[0],
@@ -423,6 +425,7 @@ const Drivers = () => {
       agreement_start_date: "",
       cdl_number: "",
       cdl_expiration_date: "",
+      birth_date: "",
       medical_card_expiration_date: "",
       random_drug_test_date: "",
       hire_date: new Date().toISOString().split("T")[0],
@@ -546,6 +549,7 @@ const Drivers = () => {
           home_longitude: homeLng,
           cdl_number: formData.cdl_number || null,
           cdl_expiration_date: formData.cdl_expiration_date || null,
+          birth_date: formData.birth_date || null,
           medical_card_expiration_date: formData.medical_card_expiration_date || null,
           random_drug_test_date: formData.random_drug_test_date || null,
           hire_date: formData.hire_date || null,
@@ -848,6 +852,7 @@ const Drivers = () => {
           home_longitude: homeLng,
           cdl_number: formData.cdl_number || null,
           cdl_expiration_date: formData.cdl_expiration_date || null,
+          birth_date: formData.birth_date || null,
           medical_card_expiration_date: formData.medical_card_expiration_date || null,
           random_drug_test_date: formData.random_drug_test_date || null,
           hire_date: formData.hire_date || null,
@@ -1429,6 +1434,7 @@ const Drivers = () => {
       agreement_start_date: driver.agreement_start_date || "",
       cdl_number: driver.cdl_number || "",
       cdl_expiration_date: driver.cdl_expiration_date || "",
+      birth_date: driver.birth_date || "",
       medical_card_expiration_date: driver.medical_card_expiration_date || "",
       random_drug_test_date: driver.random_drug_test_date || "",
       hire_date: driver.hire_date || "",
@@ -1858,6 +1864,19 @@ const Drivers = () => {
                               cdl_expiration_date: e.target.value,
                             })
                           }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="birth_date">Birth Date</Label>
+                        <Input
+                          id="birth_date"
+                          type="date"
+                          max={new Date().toISOString().split("T")[0]}
+                          value={formData.birth_date}
+                          onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
                         />
                       </div>
                     </div>
@@ -2933,6 +2952,19 @@ const Drivers = () => {
                           cdl_expiration_date: e.target.value,
                         })
                       }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_birth_date">Birth Date</Label>
+                    <Input
+                      id="edit_birth_date"
+                      type="date"
+                      max={new Date().toISOString().split("T")[0]}
+                      value={formData.birth_date}
+                      onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
                     />
                   </div>
                 </div>

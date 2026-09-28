@@ -2518,6 +2518,7 @@ export type Database = {
       drivers: {
         Row: {
           agreement_start_date: string | null
+          birth_date: string | null
           cdl_expiration_date: string | null
           cdl_number: string | null
           cents_per_mile: number | null
@@ -2578,6 +2579,7 @@ export type Database = {
         }
         Insert: {
           agreement_start_date?: string | null
+          birth_date?: string | null
           cdl_expiration_date?: string | null
           cdl_number?: string | null
           cents_per_mile?: number | null
@@ -2638,6 +2640,7 @@ export type Database = {
         }
         Update: {
           agreement_start_date?: string | null
+          birth_date?: string | null
           cdl_expiration_date?: string | null
           cdl_number?: string | null
           cents_per_mile?: number | null

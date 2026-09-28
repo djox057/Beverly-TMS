@@ -50,6 +50,7 @@ interface Driver {
   company_name?: string | null;
   dispatcher_name?: string | null;
   hire_date?: string | null;
+  birth_date?: string | null;
   cdl_expiration_date?: string | null;
   medical_card_expiration_date?: string | null;
   weekly_payment?: number | null;
@@ -303,6 +304,12 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                 <label className="text-xs text-muted-foreground">Hire Date</label>
                 <p className="font-medium">
                   {driver.hire_date ? formatDateNoTimezone(driver.hire_date) : "-"}
+                </p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Birth Date</label>
+                <p className="font-medium">
+                  {driver.birth_date ? formatDateNoTimezone(driver.birth_date) : "-"}
                 </p>
               </div>
               <div>
