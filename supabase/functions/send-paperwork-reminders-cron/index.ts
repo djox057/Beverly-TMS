@@ -8,7 +8,7 @@ import {
   daysUntil,
   formatDate,
   reminderKey,
-  routeRecipients,
+  routePaperworkRecipients,
 } from "../_shared/reminders.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
@@ -142,7 +142,7 @@ serve(async (req: Request): Promise<Response> => {
       }
 
       const dueDate = formatDate(item.last_day) || item.last_day_text || "ASAP";
-      const recipients = routeRecipients(dispatcherEmail ? [dispatcherEmail] : []);
+      const recipients = routePaperworkRecipients(dispatcherEmail ? [dispatcherEmail] : []);
       if (dryRun) {
         emailsSent++;
         continue;
