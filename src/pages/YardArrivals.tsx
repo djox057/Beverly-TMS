@@ -935,12 +935,18 @@ export default function YardArrivals() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {canRemoveYardArrival && (
-            <Button variant="outline" size="sm" onClick={() => setCleanupDialogOpen(true)}>
-              <XCircle className="h-4 w-4 mr-1" />
-              Clean Up Checked
-            </Button>
-          )}
+          <select
+            value={officeFilter}
+            onChange={(e) => setOfficeFilter(e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            aria-label="Filter by office"
+          >
+            <option value="all">All offices</option>
+            {officeOptions.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+            <option value="none">No office</option>
+          </select>
           <CompletedDriversDialog />
         </div>
       </div>
