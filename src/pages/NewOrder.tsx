@@ -233,11 +233,11 @@ const NewOrder = () => {
       cc: "dispatch@apsilvertrans.net",
     },
     "Lale Transport LLC": {
-      sender: "Lale Transport Dispatch <dispatch@laletransport.com>",
+      sender: "Lale Transport Dispatch <truckload@laletransport.com>",
       cc: "dispatch@laletransport.com",
     },
     "Jones Freight Lines LLC": {
-      sender: "Jones Freight Lines Dispatch <dispatch@jonesfreight.net>",
+      sender: "Jones Freight Lines Dispatch <truckload@jonesfreight.net>",
       cc: "dispatch@jonesfreight.net",
     },
   };
