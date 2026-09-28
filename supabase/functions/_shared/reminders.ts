@@ -103,6 +103,13 @@ export const routeRecipients = (intended: string[]): Recipients => {
   return { to: clean.length ? clean : SAFETY_FALLBACK, cc: undefined, banner: null };
 };
 
+/** CC Safety on paperwork reminders only, while preserving test-mode isolation. */
+export const routePaperworkRecipients = (intended: string[]): Recipients => {
+  const recipients = routeRecipients(intended);
+  if (TEST_MODE) return recipients;
+  return { ...recipients, cc: [...(recipients.cc ?? []), "safety@beverlyfreight.net"] };
+};
+
 export const reminderKey = (
   entityType: string,
   entityId: string | null,
