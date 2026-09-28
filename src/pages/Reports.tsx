@@ -145,7 +145,6 @@ import { useCoiInsuredVins } from "@/hooks/useCoiInsuredVins";
 import { useTruckOosRealtime } from "@/hooks/useTruckOosRealtime";
 import { useTruckOosOverrides } from "@/hooks/useTruckOosOverrides";
 
-
 import { usePrefetchTruckMatches } from "@/hooks/useLoadSuggestions";
 import LoadSuggestionsDialog from "@/components/reports/LoadSuggestionsDialog";
 import RateCalculatorDialog from "@/components/reports/RateCalculatorDialog";
@@ -465,15 +464,17 @@ const Reports = () => {
   const { isInsured: isTruckInsured, insuredCompanyForVin } = useCoiInsuredVins();
   const navigate = useNavigate();
 
-  const insuranceStatusForTruck = useCallback((truck: any) => {
-    const vin = (truck as any).truckVin;
-    const insuredCompany = vin ? insuredCompanyForVin(vin) : null;
-    const truckCompany = truck.companyName || "";
-    if (!insuredCompany) return { insured: false, mismatch: false, company: null };
-    const same = truckCompany.trim().toLowerCase() === insuredCompany.trim().toLowerCase();
-    return { insured: true, mismatch: !same, company: insuredCompany };
-  }, [insuredCompanyForVin]);
-
+  const insuranceStatusForTruck = useCallback(
+    (truck: any) => {
+      const vin = (truck as any).truckVin;
+      const insuredCompany = vin ? insuredCompanyForVin(vin) : null;
+      const truckCompany = truck.companyName || "";
+      if (!insuredCompany) return { insured: false, mismatch: false, company: null };
+      const same = truckCompany.trim().toLowerCase() === insuredCompany.trim().toLowerCase();
+      return { insured: true, mismatch: !same, company: insuredCompany };
+    },
+    [insuredCompanyForVin],
+  );
 
   // Load Suggestions toggle (Reports header). Visible only when the user has
   // suggestions_enabled on their profile AND role is admin or dispatch.
@@ -628,9 +629,7 @@ const Reports = () => {
     individualMode &&
     (profile?.office === "BG 1st floor" || profile?.office === "BG 4th floor");
   const ALL_OFFICES = ["Čačak", "KRAGUJEVAC", "BG 1st floor", "BG 4th floor", "Recovery"];
-  const offices = useCombinedBgTab
-    ? ["Čačak", "KRAGUJEVAC", "BG", "Recovery"]
-    : ALL_OFFICES;
+  const offices = useCombinedBgTab ? ["Čačak", "KRAGUJEVAC", "BG", "Recovery"] : ALL_OFFICES;
 
   // Map virtual tabs to the real underlying office values.
   const expandOffice = useCallback(
@@ -690,9 +689,6 @@ const Reports = () => {
     [hasCoverageScope, individualMode, setIndividualMode],
   );
 
-
-
-
   // Spotlight driver: when load# search resolves to a driver in a different
   // office, this id is set so useReportsDateWindow can publish that one
   // driver first and load the rest of the office in the background.
@@ -711,10 +707,7 @@ const Reports = () => {
   const activeHook = useReportsDateWindowAdapter({
     // When a virtual tab ("BG", "MY DRIVERS") is active, do not constrain by a single
     // office value; the individual-mode driver-id scope already narrows correctly.
-    priorityOffice:
-      (hasCoverageScope && individualMode) || (activeTab === "BG" && useCombinedBgTab)
-        ? null
-        : activeTab,
+    priorityOffice: (hasCoverageScope && individualMode) || (activeTab === "BG" && useCombinedBgTab) ? null : activeTab,
     dispatcherId: profile?.user_id || null,
     dispatcherProfileId: profile?.id || null,
     selectedDate: selectedDateForWindow,
@@ -765,9 +758,7 @@ const Reports = () => {
   // search engine the user's real office so "found in my office" still matches the
   // loaded coverage data instead of forcing a switch out of Individual Mode.
   const autoSwitchActiveTab =
-    inCoverageView && profile?.office && ALL_OFFICES.includes(profile.office)
-      ? profile.office
-      : activeTab;
+    inCoverageView && profile?.office && ALL_OFFICES.includes(profile.office) ? profile.office : activeTab;
   const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
     truckDriverFilter: debouncedTruckDriverFilter,
     dispatchNameFilter: debouncedDispatchNameFilter,
@@ -780,7 +771,6 @@ const Reports = () => {
     groupedReports,
     setSpotlightDriverId,
   });
-
 
   // Once the spotlighted driver appears in any loaded group, drop the
   // spotlight so future tab interactions aren't gated by it. The hook also
@@ -1067,10 +1057,9 @@ const Reports = () => {
     toast({ title: next ? "Marked as Recovery" : "Removed from Recovery" });
     if (next) {
       try {
-        const { data: alertData, error: alertError } = await supabase.functions.invoke(
-          "send-recovery-load-alert",
-          { body: { orderId: zoomedLoad.orderId } }
-        );
+        const { data: alertData, error: alertError } = await supabase.functions.invoke("send-recovery-load-alert", {
+          body: { orderId: zoomedLoad.orderId },
+        });
         if (alertError) throw alertError;
         const sent = (alertData as any)?.sent ?? 0;
         const trucksNearby = (alertData as any)?.trucksNearby ?? 0;
@@ -1275,7 +1264,6 @@ const Reports = () => {
     driverName: string | null;
   } | null>(null);
 
-
   // HOS Request dialog state
   const [hosRequestDialog, setHosRequestDialog] = useState<{
     driverName: string;
@@ -1317,7 +1305,6 @@ const Reports = () => {
   const [editingDriverId, setEditingDriverId] = useState<string | null>(null);
   // Load only the driver being edited (instead of keeping the whole driver list)
   const { data: editingDriver } = useDriverById(editingDriverId);
-
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
@@ -1968,7 +1955,6 @@ const Reports = () => {
   // Cancel order handlers
   const handleCancelOrder = async () => {
     if (!zoomedLoad?.orderId) return;
-
 
     try {
       // Validate inputs
@@ -3076,7 +3062,7 @@ const Reports = () => {
             />
           )}
           {/* Golden outline overlay for load# search match (rendered outside cell, like today's red border) */}
-            <div className="absolute inset-0 flex flex-row">
+          <div className="absolute inset-0 flex flex-row">
             {/* Two Week Notice vertical strip */}
             {isBlockDay && (
               <div
@@ -4559,7 +4545,8 @@ const Reports = () => {
                 <div className="w-full flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-3 py-1.5 rounded-md">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>
-                    You are in <span className="font-semibold">Individual Mode</span>. Search filters will not work — turn it off to search across all offices.
+                    You are in <span className="font-semibold">Individual Mode</span>. Search filters will not work —
+                    turn it off to search across all offices.
                   </span>
                 </div>
               )}
@@ -4837,7 +4824,11 @@ const Reports = () => {
                     <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                     Late trucks
                   </Button>
-                  {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety") || hasRole("dispatch")) && (
+                  {(hasRole("supervisor") ||
+                    hasRole("manager") ||
+                    hasRole("admin") ||
+                    hasRole("safety") ||
+                    hasRole("dispatch")) && (
                     <Button
                       variant={showOosTrucks ? "default" : "outline"}
                       size="sm"
@@ -5381,7 +5372,8 @@ const Reports = () => {
                                           >
                                             <div className="flex flex-col gap-0.5">
                                               <div className="flex items-center gap-1 font-bold text-black">
-                                                {(resolveTruckOos(truck.id, !!(truck as any).truckOos) && truck.companyName?.toLowerCase().includes("ap silver trans")) ? (
+                                                {resolveTruckOos(truck.id, !!(truck as any).truckOos) &&
+                                                truck.companyName?.toLowerCase().includes("ap silver trans") ? (
                                                   <TooltipProvider>
                                                     <Tooltip>
                                                       <TooltipTrigger asChild>
@@ -5631,10 +5623,14 @@ const Reports = () => {
                                                         Driver Complaints
                                                       </p>
                                                       {getComplaintsForDriver(truck.driverId).map((c) => (
-                                                        <div key={c.id} className="border-t pt-1.5 first:border-t-0 first:pt-0">
+                                                        <div
+                                                          key={c.id}
+                                                          className="border-t pt-1.5 first:border-t-0 first:pt-0"
+                                                        >
                                                           <p className="text-[10px] font-semibold uppercase text-muted-foreground">
-                                                            {COMPLAINT_TYPE_LABELS[c.complaint_type as ComplaintTypeKey] ||
-                                                              c.complaint_type}
+                                                            {COMPLAINT_TYPE_LABELS[
+                                                              c.complaint_type as ComplaintTypeKey
+                                                            ] || c.complaint_type}
                                                           </p>
                                                           <p className="text-xs whitespace-pre-wrap">{c.content}</p>
                                                           <p className="text-[10px] text-muted-foreground mt-1">
@@ -6016,9 +6012,9 @@ const Reports = () => {
                                                                   >
                                                                     <Share2 className="h-3 w-3" />
                                                                   </Button>
-                                                                   {(hasRole("manager") ||
-                                                                     hasRole("admin") ||
-                                                                     hasRole("dispatch")) && (
+                                                                  {(hasRole("manager") ||
+                                                                    hasRole("admin") ||
+                                                                    hasRole("dispatch")) && (
                                                                     <Button
                                                                       variant="ghost"
                                                                       size="sm"
@@ -6063,25 +6059,28 @@ const Reports = () => {
                                                             )}
                                                             {(truck as any).driver1IsRecovery && (
                                                               <p className="text-xs">
-                                                                Birth Date: {formatDateNoTimezone((truck as any).driver1BirthDate) || "—"}
+                                                                Date of birth:{" "}
+                                                                {formatDateNoTimezone(
+                                                                  (truck as any).driver1BirthDate,
+                                                                ) || "—"}
                                                               </p>
                                                             )}
                                                             <div className="border-t pt-1 mt-1">
                                                               <div className="flex items-center justify-between gap-2">
-                                                                 <p className="font-semibold text-sm">
-                                                                   Driver 2:{" "}
-                                                                   <span
-                                                                     className="cursor-pointer hover:opacity-70 transition-opacity"
-                                                                     onClick={(e) => {
-                                                                       e.stopPropagation();
-                                                                       if (truck.driver2Id)
-                                                                         setEditingDriverId(truck.driver2Id);
-                                                                     }}
-                                                                   >
-                                                                     {truck.driver2Name}
-                                                                   </span>
-                                                                 </p>
-                                                                 <div className="flex items-center gap-1">
+                                                                <p className="font-semibold text-sm">
+                                                                  Driver 2:{" "}
+                                                                  <span
+                                                                    className="cursor-pointer hover:opacity-70 transition-opacity"
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      if (truck.driver2Id)
+                                                                        setEditingDriverId(truck.driver2Id);
+                                                                    }}
+                                                                  >
+                                                                    {truck.driver2Name}
+                                                                  </span>
+                                                                </p>
+                                                                <div className="flex items-center gap-1">
                                                                   <Button
                                                                     variant="ghost"
                                                                     size="sm"
@@ -6122,7 +6121,10 @@ const Reports = () => {
                                                               )}
                                                               {(truck as any).driver2IsRecovery && (
                                                                 <p className="text-xs">
-                                                                  Birth Date: {formatDateNoTimezone((truck as any).driver2BirthDate) || "—"}
+                                                                  Date of birth:{" "}
+                                                                  {formatDateNoTimezone(
+                                                                    (truck as any).driver2BirthDate,
+                                                                  ) || "—"}
                                                                 </p>
                                                               )}
                                                             </div>
@@ -6142,12 +6144,21 @@ const Reports = () => {
                                                                   </p>
                                                                   <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                   <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
-                                                                  {(hasRole("manager") || hasRole("admin") || hasRole("dispatch")) && truck.id && truck.companyName?.toLowerCase().includes("ap silver trans") && (
-                                                                    <TruckOosCheckbox
-                                                                      truckId={truck.id}
-                                                                      checked={resolveTruckOos(truck.id, !!(truck as any).truckOos)}
-                                                                    />
-                                                                  )}
+                                                                  {(hasRole("manager") ||
+                                                                    hasRole("admin") ||
+                                                                    hasRole("dispatch")) &&
+                                                                    truck.id &&
+                                                                    truck.companyName
+                                                                      ?.toLowerCase()
+                                                                      .includes("ap silver trans") && (
+                                                                      <TruckOosCheckbox
+                                                                        truckId={truck.id}
+                                                                        checked={resolveTruckOos(
+                                                                          truck.id,
+                                                                          !!(truck as any).truckOos,
+                                                                        )}
+                                                                      />
+                                                                    )}
                                                                 </PopoverContent>
                                                               </Popover>
                                                               {truck.trailerNumber && (
@@ -6279,9 +6290,25 @@ const Reports = () => {
                                                               )}
                                                               {(() => {
                                                                 const status = insuranceStatusForTruck(truck);
-                                                                if (!status.insured) return <span title="Not Insured (VIN not on any COI)"><ShieldOff className="h-5 w-5 text-destructive" /></span>;
-                                                                if (status.mismatch) return <span title={`Insured under ${status.company} (mismatched: truck company is ${truck.companyName || "—"})`}><ShieldCheck className="h-5 w-5 text-warning" /></span>;
-                                                                return <span title={`Insured under ${status.company}`}><ShieldCheck className="h-5 w-5 text-success" /></span>;
+                                                                if (!status.insured)
+                                                                  return (
+                                                                    <span title="Not Insured (VIN not on any COI)">
+                                                                      <ShieldOff className="h-5 w-5 text-destructive" />
+                                                                    </span>
+                                                                  );
+                                                                if (status.mismatch)
+                                                                  return (
+                                                                    <span
+                                                                      title={`Insured under ${status.company} (mismatched: truck company is ${truck.companyName || "—"})`}
+                                                                    >
+                                                                      <ShieldCheck className="h-5 w-5 text-warning" />
+                                                                    </span>
+                                                                  );
+                                                                return (
+                                                                  <span title={`Insured under ${status.company}`}>
+                                                                    <ShieldCheck className="h-5 w-5 text-success" />
+                                                                  </span>
+                                                                );
                                                               })()}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
@@ -6464,12 +6491,21 @@ const Reports = () => {
                                                                 </p>
                                                                 <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                 <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
-                                                                {(hasRole("manager") || hasRole("admin") || hasRole("dispatch")) && truck.id && truck.companyName?.toLowerCase().includes("ap silver trans") && (
-                                                                  <TruckOosCheckbox
-                                                                    truckId={truck.id}
-                                                                    checked={resolveTruckOos(truck.id, !!(truck as any).truckOos)}
-                                                                  />
-                                                                )}
+                                                                {(hasRole("manager") ||
+                                                                  hasRole("admin") ||
+                                                                  hasRole("dispatch")) &&
+                                                                  truck.id &&
+                                                                  truck.companyName
+                                                                    ?.toLowerCase()
+                                                                    .includes("ap silver trans") && (
+                                                                    <TruckOosCheckbox
+                                                                      truckId={truck.id}
+                                                                      checked={resolveTruckOos(
+                                                                        truck.id,
+                                                                        !!(truck as any).truckOos,
+                                                                      )}
+                                                                    />
+                                                                  )}
                                                               </PopoverContent>
                                                             </Popover>
                                                             {truck.trailerNumber && (
@@ -6514,7 +6550,10 @@ const Reports = () => {
                                                             )}
                                                             {(truck as any).driver1IsRecovery && (
                                                               <p className="text-xs">
-                                                                Birth Date: {formatDateNoTimezone((truck as any).driver1BirthDate) || "—"}
+                                                                Date of birth:{" "}
+                                                                {formatDateNoTimezone(
+                                                                  (truck as any).driver1BirthDate,
+                                                                ) || "—"}
                                                               </p>
                                                             )}
                                                             {((truck as any).emergencyContactName ||
@@ -6626,9 +6665,25 @@ const Reports = () => {
                                                               )}
                                                               {(() => {
                                                                 const status = insuranceStatusForTruck(truck);
-                                                                if (!status.insured) return <span title="Not Insured (VIN not on any COI)"><ShieldOff className="h-5 w-5 text-destructive" /></span>;
-                                                                if (status.mismatch) return <span title={`Insured under ${status.company} (mismatched: truck company is ${truck.companyName || "—"})`}><ShieldCheck className="h-5 w-5 text-warning" /></span>;
-                                                                return <span title={`Insured under ${status.company}`}><ShieldCheck className="h-5 w-5 text-success" /></span>;
+                                                                if (!status.insured)
+                                                                  return (
+                                                                    <span title="Not Insured (VIN not on any COI)">
+                                                                      <ShieldOff className="h-5 w-5 text-destructive" />
+                                                                    </span>
+                                                                  );
+                                                                if (status.mismatch)
+                                                                  return (
+                                                                    <span
+                                                                      title={`Insured under ${status.company} (mismatched: truck company is ${truck.companyName || "—"})`}
+                                                                    >
+                                                                      <ShieldCheck className="h-5 w-5 text-warning" />
+                                                                    </span>
+                                                                  );
+                                                                return (
+                                                                  <span title={`Insured under ${status.company}`}>
+                                                                    <ShieldCheck className="h-5 w-5 text-success" />
+                                                                  </span>
+                                                                );
                                                               })()}
                                                             </div>
                                                             <div className="border-t pt-1 mt-1 space-y-1">
@@ -6657,7 +6712,7 @@ const Reports = () => {
                                                   </Popover>
                                                 )}
                                               </div>
-                                              {((truck as any).driver1HireDate) && (
+                                              {(truck as any).driver1HireDate && (
                                                 <div className="text-[9px] text-muted-foreground italic mt-0.5 leading-tight">
                                                   {(truck as any).driver1HireDate && (
                                                     <div>
@@ -8263,11 +8318,7 @@ const Reports = () => {
                     );
                   })()}
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openCoiDialog(zoomedLoad?.bookedByCompanyName)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => openCoiDialog(zoomedLoad?.bookedByCompanyName)}>
                     <FileText className="h-4 w-4 mr-2" />
                     COI
                   </Button>
@@ -9020,11 +9071,7 @@ const Reports = () => {
         </DialogContent>
       </Dialog>
 
-      <CoiRequestDialog
-        open={coiDialogOpen}
-        onOpenChange={setCoiDialogOpen}
-        defaultCompanyName={coiDefaultCompany}
-      />
+      <CoiRequestDialog open={coiDialogOpen} onOpenChange={setCoiDialogOpen} defaultCompanyName={coiDefaultCompany} />
 
       {/* Lumper Request Dialog */}
       <Dialog
@@ -9214,7 +9261,6 @@ const Reports = () => {
           if (editingDriverId) queryClient.invalidateQueries({ queryKey: ["driver", editingDriverId] });
           queryClient.invalidateQueries({ queryKey: ["reports"] });
         }}
-
       />
 
       {/* Force Complete Confirmation Dialog */}
@@ -9245,9 +9291,7 @@ const Reports = () => {
       <AlertDialog open={recoveryConfirmOpen} onOpenChange={setRecoveryConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {zoomedRecovery ? "Remove Recovery?" : "Mark as Recovery?"}
-            </AlertDialogTitle>
+            <AlertDialogTitle>{zoomedRecovery ? "Remove Recovery?" : "Mark as Recovery?"}</AlertDialogTitle>
             <AlertDialogDescription>
               {zoomedRecovery
                 ? `Load ${zoomedLoad?.loadNumber ?? ""} will no longer be marked as Recovery.`
@@ -9382,8 +9426,7 @@ const DispatcherExtensionsPopover = ({
     },
   });
 
-  const companyName = (id: string) =>
-    companies.find((c) => c.id === id)?.name || "Unknown company";
+  const companyName = (id: string) => companies.find((c) => c.id === id)?.name || "Unknown company";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
