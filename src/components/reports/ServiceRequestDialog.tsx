@@ -13,6 +13,9 @@ interface Preview {
   driverName: string;
   truckNumber: string;
   trailerNumber: string;
+  suggestedUnderLoad: boolean | null;
+  deliveryTime: string;
+  deliveryLocation: string;
 }
 
 interface Props {
@@ -25,6 +28,8 @@ interface Props {
 }
 
 const acceptedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+// Appointment times are TMS local clock values; do not convert them to the browser timezone.
+const displayAppointment = (value: string) => value.replace("T", " ").slice(0, 16);
 const photoType = (file: File) => file.type || ({
   jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", heif: "image/heif",
 } as Record<string, string>)[file.name.split(".").pop()?.toLowerCase() || ""] || "";
@@ -56,6 +61,7 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [preview, setPreview] = useState<Preview | null>(null);
   const [sending, setSending] = useState(false);
   const [enteredDriverName, setEnteredDriverName] = useState(driverName);
   const [enteredTruckNumber, setEnteredTruckNumber] = useState(truckNumber);
@@ -81,6 +87,12 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
           setEnteredDriverName(data.driverName || driverName);
           setEnteredTruckNumber(data.truckNumber || truckNumber);
           setTrailerNumber(data.trailerNumber || initialTrailer);
+          setPreview(data);
+          setUnderLoad(data.suggestedUnderLoad ?? null);
+          if (data.suggestedUnderLoad === true) {
+            setDeliveryTime(data.deliveryTime ? displayAppointment(data.deliveryTime) : "");
+            setDeliveryLocation(data.deliveryLocation || "");
+          }
         }
       } catch (error) {
         if (!cancelled) setLoadError(await getPreviewErrorMessage(error, null));
@@ -147,10 +159,15 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium">Is the driver under a load?</legend>
             <div className="flex gap-2">
-              <Button type="button" variant={underLoad === true ? "default" : "outline"} aria-pressed={underLoad === true} onClick={() => setUnderLoad(true)}>Yes</Button>
-              <Button type="button" variant={underLoad === false ? "default" : "outline"} aria-pressed={underLoad === false} onClick={() => setUnderLoad(false)}>No</Button>
+              <Button type="button" disabled={loading} variant={underLoad === true ? "default" : "outline"} aria-pressed={underLoad === true} onClick={() => {
+                setDeliveryTime((current) => current || (preview?.deliveryTime ? displayAppointment(preview.deliveryTime) : ""));
+                setDeliveryLocation((current) => current || preview?.deliveryLocation || "");
+                setUnderLoad(true);
+              }}>Yes</Button>
+              <Button type="button" disabled={loading} variant={underLoad === false ? "default" : "outline"} aria-pressed={underLoad === false} onClick={() => setUnderLoad(false)}>No</Button>
             </div>
             <p className="text-xs text-muted-foreground">Under a load means freight has been picked up and has not been fully delivered or handed off.</p>
+            {!loading && !loadError && <p className="text-xs text-muted-foreground">{underLoad === null ? "The TMS records need your confirmation. Choose Yes or No." : "Suggested from TMS load progress. Confirm or change this answer."}</p>}
           </fieldset>
           {loading && <p className="flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Checking driver assignment…</p>}
           {loadError && <p role="alert" className="text-sm text-destructive">{loadError}</p>}
