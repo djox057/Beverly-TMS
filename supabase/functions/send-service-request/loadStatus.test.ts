@@ -6,7 +6,7 @@ const driverId = "driver-1";
 const base = (): Load => ({
   id: "order-1", status: "pending", canceled: false, notes: null,
   driver1_id: driverId, driver2_id: null, original_driver1_id: null, original_driver2_id: null,
-  internal_load_number: "1234", load_number: "1234", delivery_datetime: "2026-10-01 10:00:00",
+  broker_load_number: "BROKER-9876", delivery_datetime: "2026-10-01 10:00:00",
   bol_force_complete: false, pod_force_complete: false, order_files: [], order_transfers: [],
   pickup_drops: [
     { type: "pickup", sequence_number: 1, checked_out_at: null },
@@ -24,7 +24,7 @@ test("picked up freight is under load and fills delivery", () => {
   const load = base();
   load.pickup_drops[0].checked_out_at = "2026-09-29T09:00:00Z";
   assert.deepEqual(getLoadOption(load, driverId), {
-    orderId: "order-1", loadNumber: "1234", underLoad: true,
+    orderId: "order-1", brokerLoadNumber: "BROKER-9876", underLoad: true,
     deliveryTime: "2026-10-01 10:00:00", deliveryLocation: "Chicago, IL",
   });
 });
@@ -55,7 +55,13 @@ test("transfer requires manual confirmation and shows the driver's handoff", () 
   load.order_files = [{ file_category: "BOL" }];
   load.order_transfers = [{ sequence_number: 0, transfer_city: "Gary", transfer_state: "IN", transfer_datetime: "2026-09-30 08:00:00" }];
   assert.deepEqual(getLoadOption(load, driverId), {
-    orderId: "order-1", loadNumber: "1234", underLoad: null,
+    orderId: "order-1", brokerLoadNumber: "BROKER-9876", underLoad: null,
     deliveryTime: "2026-09-30 08:00:00", deliveryLocation: "Gary, IN",
   });
+});
+
+test("missing broker load number remains unset", () => {
+  const load = base();
+  load.broker_load_number = null;
+  assert.equal(getLoadOption(load, driverId)?.brokerLoadNumber, null);
 });

@@ -28,8 +28,7 @@ export interface Load {
   driver2_id: string | null;
   original_driver1_id: string | null;
   original_driver2_id: string | null;
-  internal_load_number: string | null;
-  load_number: string | null;
+  broker_load_number: string | null;
   delivery_datetime: string | null;
   bol_force_complete: boolean;
   pod_force_complete: boolean;
@@ -40,7 +39,7 @@ export interface Load {
 
 export interface LoadOption {
   orderId: string;
-  loadNumber: string;
+  brokerLoadNumber: string | null;
   underLoad: boolean | null;
   deliveryTime: string;
   deliveryLocation: string;
@@ -94,7 +93,7 @@ export function getLoadOption(order: Load, driverId: string): LoadOption | null 
   const underLoad = ownTransfer && !original ? null : transfers.length ? null : pickedUp;
   return {
     orderId: order.id,
-    loadNumber: order.internal_load_number || order.load_number || order.id,
+    brokerLoadNumber: order.broker_load_number?.trim() || null,
     underLoad,
     deliveryTime: datetime,
     deliveryLocation: destination ? location(destination) : "",

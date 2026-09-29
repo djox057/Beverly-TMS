@@ -61,7 +61,7 @@ serve(async (req) => {
       admin.from("order_transfers").select("order_id")
         .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`).limit(100),
       admin.from("orders")
-        .select("id, status, canceled, notes, driver1_id, driver2_id, original_driver1_id, original_driver2_id, internal_load_number, load_number, delivery_datetime, bol_force_complete, pod_force_complete, pickup_drops(type, sequence_number, checked_out_at, datetime, address, city, state, zip_code), order_files(file_category), order_transfers(driver1_id, driver2_id, sequence_number, transfer_datetime, transfer_address, transfer_city, transfer_state)")
+        .select("id, status, canceled, notes, driver1_id, driver2_id, original_driver1_id, original_driver2_id, broker_load_number, delivery_datetime, bol_force_complete, pod_force_complete, pickup_drops(type, sequence_number, checked_out_at, datetime, address, city, state, zip_code), order_files(file_category), order_transfers(driver1_id, driver2_id, sequence_number, transfer_datetime, transfer_address, transfer_city, transfer_state)")
         .in("status", ["pending", "in_transit"])
         .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id},original_driver1_id.eq.${driver.id},original_driver2_id.eq.${driver.id}`)
         .order("created_at", { ascending: false }).limit(100),
@@ -74,7 +74,7 @@ serve(async (req) => {
     const missingIds = transferOrderIds.filter((id) => !orders.some((o) => o.id === id));
     if (missingIds.length) {
       const { data, error } = await admin.from("orders")
-        .select("id, status, canceled, notes, driver1_id, driver2_id, original_driver1_id, original_driver2_id, internal_load_number, load_number, delivery_datetime, bol_force_complete, pod_force_complete, pickup_drops(type, sequence_number, checked_out_at, datetime, address, city, state, zip_code), order_files(file_category), order_transfers(driver1_id, driver2_id, sequence_number, transfer_datetime, transfer_address, transfer_city, transfer_state)")
+        .select("id, status, canceled, notes, driver1_id, driver2_id, original_driver1_id, original_driver2_id, broker_load_number, delivery_datetime, bol_force_complete, pod_force_complete, pickup_drops(type, sequence_number, checked_out_at, datetime, address, city, state, zip_code), order_files(file_category), order_transfers(driver1_id, driver2_id, sequence_number, transfer_datetime, transfer_address, transfer_city, transfer_state)")
         .in("id", missingIds).in("status", ["pending", "in_transit"]);
       if (error) throw error;
       orders = [...orders, ...(data || [])];
@@ -128,7 +128,7 @@ serve(async (req) => {
       `Repair info: ${repairInfo}`,
       `Is driver under a load: ${body.underLoad ? "Yes" : "No"}`,
       ...(body.underLoad ? [
-        `Load: ${selectedLoad?.loadNumber || "Not linked to an order"}`,
+        `Broker load number: ${selectedLoad ? selectedLoad.brokerLoadNumber || "Not set" : "Not linked to an order"}`,
         `Delivery time (TMS local appointment): ${deliveryTime}`,
         `Delivery location: ${deliveryLocation}`,
       ] : []),
