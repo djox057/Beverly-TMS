@@ -89,7 +89,15 @@ const getStatusBadge = (status: string) => {
       return <Badge variant="secondary">{status}</Badge>;
   }
 };
-const BgLoads = () => {
+interface CompanyLoadsProps {
+  companyId: string;
+  companyName: string;
+  title: string;
+  storagePrefix: string;
+}
+
+export const CompanyLoads = ({ companyId, companyName, title, storagePrefix }: CompanyLoadsProps) => {
+  const returnFlag = `returnTo${storagePrefix.charAt(0).toUpperCase()}${storagePrefix.slice(1)}`;
   useDragPan();
   const navigate = useNavigate();
   const { hasRole, getPrimaryRole, profile, roles } = useAuthContext();
@@ -161,8 +169,8 @@ const BgLoads = () => {
         : undefined,
       currentPage,
     };
-    localStorage.setItem("bgLoadsFilterState", JSON.stringify(filterState));
-    localStorage.setItem("returnToBgLoads", "true");
+    localStorage.setItem(`${storagePrefix}FilterState`, JSON.stringify(filterState));
+    localStorage.setItem(returnFlag, "true");
     const targetUrl = `/edit-order/${orderId}`;
     console.log("Target URL:", targetUrl);
 
@@ -195,21 +203,20 @@ const BgLoads = () => {
   // This includes orders they booked AND orders for drivers assigned to them
   // Use null instead of undefined to prevent double fetch when profile loads
   const shouldFilterByUser = individualMode || isDispatchOnly;
-  const BG_PRIME_COMPANY_ID = "238a7acf-cbb5-4718-be7a-130d8d971a90";
   const orderFilterOptions = useMemo(
     () =>
       shouldFilterByUser
         ? {
             bookedBy: profile?.full_name || null,
             dispatcherUserId: profile?.user_id || null,
-            bookedByCompanyId: BG_PRIME_COMPANY_ID,
+            bookedByCompanyId: companyId,
           }
         : {
             bookedBy: null,
             dispatcherUserId: null,
-            bookedByCompanyId: BG_PRIME_COMPANY_ID,
+            bookedByCompanyId: companyId,
           },
-    [shouldFilterByUser, profile?.full_name, profile?.user_id],
+    [shouldFilterByUser, profile?.full_name, profile?.user_id, companyId],
   );
 
   // Check if user can cancel orders (includes both dispatch and afterhours)
@@ -220,8 +227,7 @@ const BgLoads = () => {
     !hasRole("accounting") &&
     !hasRole("supervisor");
   const [searchTerm, setSearchTerm] = useState("");
-  const BG_COMPANY_NAME = "BG Prime Inc";
-  const [companyFilter, setCompanyFilter] = useState(BG_COMPANY_NAME);
+  const [companyFilter, setCompanyFilter] = useState(companyName);
   const [truckCompanyFilter, setTruckCompanyFilter] = useState("all-truck-companies");
   // For dispatch-only users, auto-select themselves as the default filter
   const [bookedByFilter, setBookedByFilter] = useState(() =>
@@ -277,14 +283,14 @@ const BgLoads = () => {
 
   // Restore filter state from localStorage on mount
   useEffect(() => {
-    const shouldRestore = localStorage.getItem("returnToBgLoads");
+    const shouldRestore = localStorage.getItem(returnFlag);
     if (shouldRestore === "true") {
-      const savedState = localStorage.getItem("bgLoadsFilterState");
+      const savedState = localStorage.getItem(`${storagePrefix}FilterState`);
       if (savedState) {
         try {
           const state = JSON.parse(savedState);
           setSearchTerm(state.searchTerm || "");
-          setCompanyFilter(BG_COMPANY_NAME);
+          setCompanyFilter(companyName);
           setTruckCompanyFilter(state.truckCompanyFilter || "all-truck-companies");
           setBookedByFilter(state.bookedByFilter || "all-booked-by");
           setMissingDocsFilter(state.missingDocsFilter || "all");
@@ -312,10 +318,10 @@ const BgLoads = () => {
         }
       }
       // Clear the flags
-      localStorage.removeItem("returnToBgLoads");
-      localStorage.removeItem("bgLoadsFilterState");
+      localStorage.removeItem(returnFlag);
+      localStorage.removeItem(`${storagePrefix}FilterState`);
     }
-  }, []);
+  }, [companyName, storagePrefix, returnFlag]);
 
   // For dispatch-only users, auto-set bookedByFilter to their name when profile loads
   useEffect(() => {
@@ -1450,7 +1456,7 @@ const BgLoads = () => {
     <div className="h-full w-full">
       <div className="space-y-4 md:space-y-6 p-4 md:p-6 max-w-none">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">BG Loads</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">{title}</h1>
           <div className="flex flex-wrap gap-2">
             {(primaryRole === "admin" || primaryRole === "accounting" || primaryRole === "manager") && (
               <>
@@ -1504,7 +1510,7 @@ const BgLoads = () => {
           <CardHeader>
             <div className="flex items-center justify-between gap-4">
               <div className="relative shrink-0">
-                <CardTitle className="shrink-0 whitespace-nowrap">All BG Loads</CardTitle>
+                <CardTitle className="shrink-0 whitespace-nowrap">All {title}</CardTitle>
                 <div className="absolute left-0 top-full mt-1 h-6 flex items-center">
                   {isFilteredLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                   {hasActiveFilter && filteredOrders.length > 0 && !isFilteredLoading && (
@@ -1567,7 +1573,7 @@ const BgLoads = () => {
                     className="w-full"
                   />
 
-                   {/* Company filter locked to BG Prime Inc on this page */}
+                   {/* Company filter is locked to this page's booked-by company. */}
 
                   {/* Column 5 Row 1: Users - hidden for dispatch-only users */}
                   {!isDispatchOnly && (
@@ -3035,4 +3041,13 @@ const BgLoads = () => {
     </div>
   );
 };
+const BgLoads = () => (
+  <CompanyLoads
+    companyId="238a7acf-cbb5-4718-be7a-130d8d971a90"
+    companyName="BG Prime Inc"
+    title="BG Loads"
+    storagePrefix="bgLoads"
+  />
+);
+
 export default BgLoads;
