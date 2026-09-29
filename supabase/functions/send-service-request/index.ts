@@ -7,10 +7,11 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
-  status,
-  headers: { ...corsHeaders, "Content-Type": "application/json" },
-});
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 const uuid = (value: unknown): value is string =>
   typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const bounded = (value: unknown, max: number) =>
@@ -28,12 +29,18 @@ serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authClient = createClient(url, anonKey);
-    const { data: { user }, error: authError } = await authClient.auth.getUser(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await authClient.auth.getUser(token);
     if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
     const admin = createClient(url, serviceKey);
-    const { data: roles, error: rolesError } = await admin.from("user_roles")
-      .select("role").eq("user_id", user.id).in("role", ["admin", "manager", "dispatch"]);
+    const { data: roles, error: rolesError } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .in("role", ["admin", "manager", "dispatch"]);
     if (rolesError) throw rolesError;
     if (!roles?.length) return json({ error: "Not permitted to submit service requests" }, 403);
 
@@ -74,15 +81,16 @@ serve(async (req) => {
       ? await admin.from("trailers").select("trailer_number").eq("id", truck.trailer_id).maybeSingle()
       : { data: null, error: null };
     if (trailerResult.error) throw trailerResult.error;
-    if (body.action === "preview") return json({
-      driverName: driver.name,
-      truckNumber: truck.truck_number,
-      trailerNumber: trailerResult.data?.trailer_number || "",
-      // Legacy published forms still read these fields until the new UI is published.
-      suggestedUnderLoad: null,
-      suggestedOrderId: null,
-      loads: [],
-    });
+    if (body.action === "preview")
+      return json({
+        driverName: driver.name,
+        truckNumber: truck.truck_number,
+        trailerNumber: trailerResult.data?.trailer_number || "",
+        // Legacy published forms still read these fields until the new UI is published.
+        suggestedUnderLoad: null,
+        suggestedOrderId: null,
+        loads: [],
+      });
 
     const repairInfo = bounded(body.repairInfo, 5000);
     const enteredDriverName = bounded(body.driverName, 120);
@@ -93,16 +101,31 @@ serve(async (req) => {
     const deliveryLocation = bounded(body.deliveryLocation, 500);
     const loadNote = bounded(body.loadNote ?? "", 5000);
     const photos = validateServiceRequestPhotos(body.photos);
-    if (!repairInfo || !enteredDriverName || !enteredTruckNumber || trailerNumber === null ||
-        typeof body.underLoad !== "boolean" || loadNote === null || photos === null ||
-        (body.underLoad && (!deliveryTime || !deliveryLocation))) {
-      return json({ error: "Complete the repair and applicable delivery details; use valid photos within the size limits." }, 400);
+    if (
+      !repairInfo ||
+      !enteredDriverName ||
+      !enteredTruckNumber ||
+      trailerNumber === null ||
+      typeof body.underLoad !== "boolean" ||
+      loadNote === null ||
+      photos === null ||
+      (body.underLoad && (!deliveryTime || !deliveryLocation))
+    ) {
+      return json(
+        { error: "Complete the repair and applicable delivery details; use valid photos within the size limits." },
+        400,
+      );
     }
 
-    const { data: profile } = await admin.from("profiles").select("full_name, email")
-      .eq("user_id", user.id).maybeSingle();
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("full_name, email")
+      .eq("user_id", user.id)
+      .maybeSingle();
     const submittedAt = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/Chicago", dateStyle: "medium", timeStyle: "short",
+      timeZone: "America/Chicago",
+      dateStyle: "medium",
+      timeStyle: "short",
     }).format(new Date());
     const message = [
       "Service Request",
@@ -114,10 +137,9 @@ serve(async (req) => {
         : []),
       `Repair info: ${repairInfo}`,
       `Is driver under a load: ${body.underLoad ? "Yes" : "No"}`,
-      ...(body.underLoad ? [
-        `Delivery time (TMS local appointment): ${deliveryTime}`,
-        `Delivery location: ${deliveryLocation}`,
-      ] : []),
+      ...(body.underLoad
+        ? [`Delivery time (TMS local appointment): ${deliveryTime}`, `Delivery location: ${deliveryLocation}`]
+        : []),
       `Note for load/next load: ${loadNote || "None"}`,
       `Submitted by: ${profile?.full_name || user.email || user.id} (${profile?.email || user.email || "no email"})`,
       `Submitted at (Chicago): ${submittedAt}`,
@@ -127,7 +149,7 @@ serve(async (req) => {
     const resend = new Resend(apiKey);
     const { error: emailError, data: emailData } = await resend.emails.send({
       from: "Service Requests <jon@bfprime.net>",
-      to: ["djordjeljubicicyt@gmail.com"],
+      to: ["maintenanceupdates@bfprime.net"],
       subject: `Service Request - Truck ${enteredTruckNumber} - ${enteredDriverName}`,
       text: message,
       attachments: photos,
