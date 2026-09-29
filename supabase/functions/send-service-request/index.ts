@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { Resend } from "npm:resend@4.0.1";
-import { getLoadOption, type Load, type LoadOption } from "./loadStatus.ts";
+import { validateServiceRequestPhotos } from "./photos.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +12,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
 const uuid = (value: unknown): value is string =>
-  typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+  typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const bounded = (value: unknown, max: number) =>
   typeof value === "string" && value.trim().length <= max ? value.trim() : null;
 
@@ -54,62 +54,33 @@ serve(async (req) => {
       return json({ error: "Driver is no longer assigned to this truck. Refresh Reports." }, 409);
     }
 
-    const [trailerResult, transferResult, orderResult] = await Promise.all([
-      truck.trailer_id
-        ? admin.from("trailers").select("trailer_number").eq("id", truck.trailer_id).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      admin.from("order_transfers").select("order_id")
-        .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`).limit(100),
-      admin.from("orders")
-        .select("id, status, canceled, notes, driver1_id, driver2_id, original_driver1_id, original_driver2_id, broker_load_number, delivery_datetime, bol_force_complete, pod_force_complete, pickup_drops(type, sequence_number, checked_out_at, datetime, address, city, state, zip_code), order_files(file_category), order_transfers(driver1_id, driver2_id, sequence_number, transfer_datetime, transfer_address, transfer_city, transfer_state)")
-        .in("status", ["pending", "in_transit"])
-        .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id},original_driver1_id.eq.${driver.id},original_driver2_id.eq.${driver.id}`)
-        .order("created_at", { ascending: false }).limit(100),
-    ]);
-    if (trailerResult.error || transferResult.error || orderResult.error) {
-      throw trailerResult.error || transferResult.error || orderResult.error;
-    }
-    const transferOrderIds = [...new Set((transferResult.data || []).map((t) => t.order_id))];
-    let orders = orderResult.data || [];
-    const missingIds = transferOrderIds.filter((id) => !orders.some((o) => o.id === id));
-    if (missingIds.length) {
-      const { data, error } = await admin.from("orders")
-        .select("id, status, canceled, notes, driver1_id, driver2_id, original_driver1_id, original_driver2_id, broker_load_number, delivery_datetime, bol_force_complete, pod_force_complete, pickup_drops(type, sequence_number, checked_out_at, datetime, address, city, state, zip_code), order_files(file_category), order_transfers(driver1_id, driver2_id, sequence_number, transfer_datetime, transfer_address, transfer_city, transfer_state)")
-        .in("id", missingIds).in("status", ["pending", "in_transit"]);
-      if (error) throw error;
-      orders = [...orders, ...(data || [])];
-    }
-
-    const options: LoadOption[] = orders
-      .map((o) => getLoadOption(o as Load, driver.id))
-      .filter((o): o is LoadOption => !!o);
-    const loaded = options.filter((o) => o.underLoad === true);
-    const ambiguous = options.some((o) => o.underLoad === null);
-    const suggestion = loaded.length === 1 && !ambiguous ? true :
-      loaded.length === 0 && !ambiguous ? false : null;
-    const context = {
+    const trailerResult = truck.trailer_id
+      ? await admin.from("trailers").select("trailer_number").eq("id", truck.trailer_id).maybeSingle()
+      : { data: null, error: null };
+    if (trailerResult.error) throw trailerResult.error;
+    if (body.action === "preview") return json({
       driverName: driver.name,
       truckNumber: truck.truck_number,
       trailerNumber: trailerResult.data?.trailer_number || "",
-      suggestedUnderLoad: suggestion,
-      suggestedOrderId: suggestion === true ? loaded[0].orderId : null,
-      // Older published clients still read loadNumber until Lovable republishes the UI.
-      loads: options.map((option) => ({ ...option, loadNumber: option.brokerLoadNumber || "Not set" })),
-    };
-    if (body.action === "preview") return json(context);
+      // Legacy published forms still read these fields until the new UI is published.
+      suggestedUnderLoad: null,
+      suggestedOrderId: null,
+      loads: [],
+    });
 
     const repairInfo = bounded(body.repairInfo, 5000);
     const enteredDriverName = bounded(body.driverName, 120);
     const enteredTruckNumber = bounded(body.truckNumber, 60);
     const trailerNumber = bounded(body.trailerNumber, 60);
-    const deliveryTime = bounded(body.deliveryTime, 150);
-    const deliveryLocation = bounded(body.deliveryLocation, 500);
-    if (!repairInfo || !enteredDriverName || !enteredTruckNumber || trailerNumber === null || typeof body.underLoad !== "boolean" ||
-        (body.underLoad && (!deliveryTime || !deliveryLocation))) {
-      return json({ error: "Complete the repair, trailer, load status, and applicable delivery details." }, 400);
-    }
-    if (body.orderId != null && (!uuid(body.orderId) || !options.some((o) => o.orderId === body.orderId))) {
-      return json({ error: "Selected load is no longer assigned to this driver. Reopen the form." }, 409);
+    // Old published forms can still submit delivery details while the UI rollout completes.
+    const legacyTime = bounded(body.deliveryTime, 150);
+    const legacyLocation = bounded(body.deliveryLocation, 500);
+    const legacyNote = [legacyTime, legacyLocation].filter(Boolean).join("; ");
+    const loadNote = bounded(body.loadNote ?? legacyNote, 5000);
+    const photos = validateServiceRequestPhotos(body.photos);
+    if (!repairInfo || !enteredDriverName || !enteredTruckNumber || trailerNumber === null ||
+        typeof body.underLoad !== "boolean" || loadNote === null || photos === null) {
+      return json({ error: "Complete the repair and load status; use valid photos within the size limits." }, 400);
     }
 
     const { data: profile } = await admin.from("profiles").select("full_name, email")
@@ -117,7 +88,6 @@ serve(async (req) => {
     const submittedAt = new Intl.DateTimeFormat("en-US", {
       timeZone: "America/Chicago", dateStyle: "medium", timeStyle: "short",
     }).format(new Date());
-    const selectedLoad = options.find((o) => o.orderId === body.orderId);
     const message = [
       "Service Request",
       `Driver: ${enteredDriverName}`,
@@ -128,11 +98,7 @@ serve(async (req) => {
         : []),
       `Repair info: ${repairInfo}`,
       `Is driver under a load: ${body.underLoad ? "Yes" : "No"}`,
-      ...(body.underLoad ? [
-        `Broker load number: ${selectedLoad ? selectedLoad.brokerLoadNumber || "Not set" : "Not linked to an order"}`,
-        `Delivery time (TMS local appointment): ${deliveryTime}`,
-        `Delivery location: ${deliveryLocation}`,
-      ] : []),
+      `Note for load/next load: ${loadNote || "None"}`,
       `Submitted by: ${profile?.full_name || user.email || user.id} (${profile?.email || user.email || "no email"})`,
       `Submitted at (Chicago): ${submittedAt}`,
     ].join("\n\n");
@@ -144,6 +110,7 @@ serve(async (req) => {
       to: ["djordjeljubicicyt@gmail.com"],
       subject: `Service Request - Truck ${enteredTruckNumber} - ${enteredDriverName}`,
       text: message,
+      attachments: photos,
     });
     if (emailError || !emailData?.id) throw new Error("Email provider did not accept the request");
     return json({ success: true });
