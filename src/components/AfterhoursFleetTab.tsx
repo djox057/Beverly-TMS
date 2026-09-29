@@ -10,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import AssignAfterhoursDriversDialog from "@/components/AssignAfterhoursDriversDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { countDriverUnits } from "@/lib/afterhoursAutoAssign";
 
 interface AfterhoursFleetTabProps {
   hasRole: (role: string) => boolean;
@@ -279,7 +280,7 @@ const AfterhoursFleetTab: React.FC<AfterhoursFleetTabProps> = ({ hasRole, search
                           </Badge>
                         )}
                         <Badge variant="secondary" className="text-xs">
-                          {fleet.drivers.length} drivers
+                          {countDriverUnits(fleet.drivers)} drivers
                         </Badge>
                       </div>
 
