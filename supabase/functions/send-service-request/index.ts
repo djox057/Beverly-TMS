@@ -93,7 +93,8 @@ serve(async (req) => {
       trailerNumber: trailerResult.data?.trailer_number || "",
       suggestedUnderLoad: suggestion,
       suggestedOrderId: suggestion === true ? loaded[0].orderId : null,
-      loads: options,
+      // Older published clients still read loadNumber until Lovable republishes the UI.
+      loads: options.map((option) => ({ ...option, loadNumber: option.brokerLoadNumber || "Not set" })),
     };
     if (body.action === "preview") return json(context);
 
