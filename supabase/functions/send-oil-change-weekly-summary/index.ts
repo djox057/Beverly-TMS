@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@4.0.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
-import { FROM, corsHeaders, escapeHtml, formatDate } from "../_shared/reminders.ts";
+import { FROM, corsHeaders, daysUntil, escapeHtml, formatDate } from "../_shared/reminders.ts";
 import {
   chicagoTodayISO,
   daysSinceMileageUpdate,
@@ -49,6 +49,14 @@ interface StaleItem {
   days: number | null;
   level: "red" | "yellow";
   note: string | null;
+}
+
+interface DotItem {
+  unit: string;
+  drivers: string;
+  dispatcher: string;
+  dueDate: string;
+  days: number;
 }
 
 const shell = (title: string, intro: string, body: string) =>
@@ -259,6 +267,120 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
     ];
 
     const failures: string[] = [];
+    let dotExpired = 0;
+    let dotDueSoon = 0;
+    try {
+      // Safety & Maintenance tracks DOT dates on both trucks and trailers.
+      // Fetch all active trucks so a trailer can show its current drivers.
+      const [dotTrucksResult, dotTrailersResult] = await Promise.all([
+        admin
+          .from("trucks")
+          .select(
+            "truck_number, trailer_id, dot_inspection_date, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id), driver2:drivers!trucks_driver2_id_fkey(first_name, last_name)",
+          )
+          .eq("is_active", true),
+        admin
+          .from("trailers")
+          .select("id, trailer_number, dot_inspection_date")
+          .eq("is_active", true),
+      ]);
+      if (dotTrucksResult.error) throw dotTrucksResult.error;
+      if (dotTrailersResult.error) throw dotTrailersResult.error;
+
+      const dotTrucks = (dotTrucksResult.data ?? []) as any[];
+      const truckByTrailerId = new Map<string, any>();
+      for (const truck of dotTrucks) {
+        if (truck.trailer_id) truckByTrailerId.set(truck.trailer_id, truck);
+      }
+
+      const expired: DotItem[] = [];
+      const dueSoon: DotItem[] = [];
+      const addDotItem = (unit: string, date: string | null, truck: any) => {
+        const days = daysUntil(date);
+        if (days === null || days > 7) return;
+        const drivers = [truck?.driver1, truck?.driver2]
+          .filter(Boolean)
+          .map((driver: any) => `${driver.first_name ?? ""} ${driver.last_name ?? ""}`.trim())
+          .filter(Boolean);
+        const item: DotItem = {
+          unit,
+          drivers: drivers.join(" / ") || "No driver assigned",
+          dispatcher: truck?.driver1?.dispatcher_id
+            ? dispatcherNames.get(truck.driver1.dispatcher_id) ?? "Dispatcher"
+            : "No dispatcher assigned",
+          dueDate: String(date).slice(0, 10),
+          days,
+        };
+        (days < 0 ? expired : dueSoon).push(item);
+      };
+
+      for (const truck of dotTrucks) {
+        addDotItem(`Truck ${truck.truck_number}`, truck.dot_inspection_date, truck);
+      }
+      for (const trailer of (dotTrailersResult.data ?? []) as any[]) {
+        const truck = truckByTrailerId.get(trailer.id);
+        addDotItem(
+          `Trailer ${trailer.trailer_number}${truck ? ` (Truck ${truck.truck_number})` : ""}`,
+          trailer.dot_inspection_date,
+          truck,
+        );
+      }
+
+      const dotTable = (items: DotItem[]) => {
+        if (!items.length) return "<p>No DOT inspections in this category.</p>";
+        const body = [...items]
+          .sort((a, b) => a.days - b.days || a.unit.localeCompare(b.unit))
+          .map((item) => `<tr>
+${cell(escapeHtml(item.unit))}
+${cell(escapeHtml(item.drivers))}
+${cell(escapeHtml(item.dispatcher))}
+${cell(escapeHtml(formatDate(item.dueDate)))}
+${cell(
+  item.days < 0
+    ? `${Math.abs(item.days)} day${item.days === -1 ? "" : "s"} overdue`
+    : item.days === 0
+      ? "Expires today"
+      : `Expires in ${item.days} day${item.days === 1 ? "" : "s"}`,
+  item.days < 0 ? "color:#b91c1c;font-weight:600;" : "color:#b45309;font-weight:600;",
+)}
+</tr>`)
+          .join("");
+        return `<table style="border-collapse:collapse;width:100%;">
+  <thead><tr style="background:#f3f4f6;text-align:left;">
+    <th style="padding:6px 10px;">Unit</th><th style="padding:6px 10px;">Driver(s)</th>
+    <th style="padding:6px 10px;">Dispatcher</th><th style="padding:6px 10px;">DOT expiration</th>
+    <th style="padding:6px 10px;">Status</th>
+  </tr></thead>
+  <tbody>${body}</tbody>
+</table>`;
+      };
+
+      dotExpired = expired.length;
+      dotDueSoon = dueSoon.length;
+      emails.push(
+        {
+          subject: `DOT inspections expired — ${dotExpired} unit${dotExpired === 1 ? "" : "s"} (${today})`,
+          html: shell(
+            "Expired DOT inspections",
+            "Active trucks and trailers whose DOT Inspection date in Safety &amp; Maintenance was before today.",
+            dotTable(expired),
+          ),
+        },
+        {
+          subject: `DOT inspections due within 7 days — ${dotDueSoon} unit${dotDueSoon === 1 ? "" : "s"} (${today})`,
+          html: shell(
+            "DOT inspections due within 7 days",
+            "Active trucks and trailers whose DOT Inspection date is today or within the next 7 days.",
+            dotTable(dueSoon),
+          ),
+        },
+      );
+    } catch (error) {
+      // A DOT query failure must not prevent the two existing Monday summaries.
+      console.error("DOT inspection summary failed:", error);
+      failures.push("DOT inspection summary could not be generated");
+    }
+
     let emailsSent = 0;
     if (!dryRun) {
       for (const email of emails) {
@@ -279,6 +401,9 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
         scanned: rows.length,
         oilOverdue: oilItems.length,
         staleMileage: staleItems.length,
+        dotExpired,
+        dotDueSoon,
+        emailsPlanned: emails.length,
         emailsSent,
         failures,
         dryRun,
