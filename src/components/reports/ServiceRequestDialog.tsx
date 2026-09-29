@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface LoadOption {
   orderId: string;
-  loadNumber: string;
+  brokerLoadNumber: string | null;
   underLoad: boolean | null;
   deliveryTime: string;
   deliveryLocation: string;
@@ -147,12 +147,14 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
             <div className="space-y-3 rounded-md border p-3">
               {!!preview?.loads.length && (
                 <div className="space-y-1">
-                  <Label htmlFor="service-load">Current load</Label>
+                  <Label htmlFor="service-load">Broker load number</Label>
                   <Select value={orderId || "manual"} onValueChange={selectLoad}>
                     <SelectTrigger id="service-load"><SelectValue placeholder="Select a load" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="manual">Enter delivery manually</SelectItem>
-                      {preview.loads.map((load) => <SelectItem key={load.orderId} value={load.orderId}>Load {load.loadNumber}</SelectItem>)}
+                      {preview.loads.map((load) => <SelectItem key={load.orderId} value={load.orderId}>
+                        Broker load # {load.brokerLoadNumber || `not set — ${load.deliveryLocation || load.deliveryTime || "delivery unknown"}`}
+                      </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
