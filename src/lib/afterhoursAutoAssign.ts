@@ -31,6 +31,40 @@ export interface AllocDriver {
   memberIds?: string[];
 }
 
+interface TeamTruck {
+  id?: string;
+  driver1_id?: string | null;
+  driver2_id?: string | null;
+}
+
+/** A complete active truck team is allocated once, then saved as two drivers.
+ * The truck's first driver supplies the weekday dispatcher, office and company
+ * when team members have different values. Incomplete teams stay individual. */
+export function mergeTeamDrivers(
+  drivers: (AllocDriver & { truck?: TeamTruck | null })[],
+): AllocDriver[] {
+  const byId = new Map(drivers.map((driver) => [driver.id, driver]));
+  const consumed = new Set<string>();
+  const units: AllocDriver[] = [];
+  for (const driver of drivers) {
+    if (consumed.has(driver.id)) continue;
+    const truck = driver.truck;
+    const first = truck?.driver1_id ? byId.get(truck.driver1_id) : undefined;
+    const second = truck?.driver2_id ? byId.get(truck.driver2_id) : undefined;
+    if (truck?.id && first && second && first.id !== second.id &&
+        first.truck?.id === truck.id && second.truck?.id === truck.id &&
+        !consumed.has(first.id) && !consumed.has(second.id)) {
+      units.push({ ...first, memberIds: [first.id, second.id] });
+      consumed.add(first.id);
+      consumed.add(second.id);
+    } else {
+      units.push(driver);
+      consumed.add(driver.id);
+    }
+  }
+  return units;
+}
+
 /**
  * Expands allocated unit ids back to individual driver ids (team units
  * expand to both team members).

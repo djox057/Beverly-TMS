@@ -180,12 +180,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    // --- Active drivers + their dispatcher offices ---
-    const { data: drivers, error: driversErr } = await supabase
-      .from("drivers")
-      .select("id, dispatcher_id, company_id, is_active")
-      .eq("is_active", true);
-    if (driversErr) throw driversErr;
+    // Page both tables so a team past PostgREST's row cap is not omitted.
+    const fetchPages = async (table: "drivers" | "trucks", columns: string) => {
+      const rows: any[] = [];
+      for (let from = 0;; from += 500) {
+        let query = supabase.from(table).select(columns).order("id").range(from, from + 499);
+        if (table === "drivers") query = query.eq("is_active", true);
+        const { data, error } = await query;
+        if (error) throw error;
+        rows.push(...(data ?? []));
+        if ((data ?? []).length < 500) break;
+      }
+      return rows;
+    };
+    const [drivers, trucks] = await Promise.all([
+      fetchPages("drivers", "id, dispatcher_id, company_id, is_active"),
+      fetchPages("trucks", "id, driver1_id, driver2_id"),
+    ]);
 
     const dispatcherIds = [
       ...new Set((drivers ?? []).map((d: any) => d.dispatcher_id).filter(Boolean)),
@@ -207,16 +218,42 @@ Deno.serve(async (req) => {
       dispatcher_id: string | null;
       office: string;
       company_id: string | null;
+      memberIds?: string[];
     };
-    const enrichedDrivers: EnrichedDriver[] = (drivers ?? []).map((d: any) => ({
+    const enrichedDrivers: EnrichedDriver[] = drivers.map((d: any) => ({
       id: d.id,
       dispatcher_id: d.dispatcher_id ?? null,
       company_id: d.company_id ?? null,
       office: groupKey(d.dispatcher_id ? dispatcherOfficeMap.get(d.dispatcher_id) : null),
     }));
 
+    // Only complete active pairs on the same truck form a single unit.
+    // The first truck driver anchors weekday dispatcher, office and company.
+    const driverById = new Map(enrichedDrivers.map((d) => [d.id, d]));
+    const truckByDriver = new Map<string, string>();
+    for (const truck of trucks) {
+      if (truck.driver1_id) truckByDriver.set(truck.driver1_id, truck.id);
+      if (truck.driver2_id) truckByDriver.set(truck.driver2_id, truck.id);
+    }
+    const consumed = new Set<string>();
+    const teamUnits: EnrichedDriver[] = [];
+    for (const truck of trucks) {
+      const first = driverById.get(truck.driver1_id);
+      const second = driverById.get(truck.driver2_id);
+      if (!first || !second || first.id === second.id ||
+          truckByDriver.get(first.id) !== truck.id || truckByDriver.get(second.id) !== truck.id ||
+          consumed.has(first.id) || consumed.has(second.id)) continue;
+      teamUnits.push({ ...first, memberIds: [first.id, second.id] });
+      consumed.add(first.id);
+      consumed.add(second.id);
+    }
+    for (const driver of enrichedDrivers) {
+      if (!consumed.has(driver.id)) teamUnits.push(driver);
+    }
+    const unitsById = new Map(teamUnits.map((unit) => [unit.id, unit]));
+
     const driversByOffice = new Map<string, EnrichedDriver[]>();
-    for (const d of enrichedDrivers) {
+    for (const d of teamUnits) {
       if (!driversByOffice.has(d.office)) driversByOffice.set(d.office, []);
       driversByOffice.get(d.office)!.push(d);
     }
@@ -357,7 +394,9 @@ Deno.serve(async (req) => {
       const push = (allocation: Map<string, string[]>) => {
         for (const [uid, driverIds] of allocation) {
           for (const dId of driverIds) {
-            allRows.push({ afterhours_user_id: uid, driver_id: dId, scheduled_date: date });
+            for (const memberId of unitsById.get(dId)?.memberIds ?? [dId]) {
+              allRows.push({ afterhours_user_id: uid, driver_id: memberId, scheduled_date: date });
+            }
           }
         }
       };

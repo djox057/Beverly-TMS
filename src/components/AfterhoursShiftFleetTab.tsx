@@ -31,6 +31,7 @@ import {
 import AssignAfterhoursDriversDialog from "@/components/AssignAfterhoursDriversDialog";
 import { useAfterhoursShiftAssignments, ShiftFleet, ShiftKey } from "@/hooks/useAfterhoursShiftAssignments";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { countDriverUnits } from "@/lib/afterhoursAutoAssign";
 
 interface Props {
   hasRole: (role: string) => boolean;
@@ -262,7 +263,7 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
                               </Badge>
                             )}
                             <Badge variant="secondary" className="text-xs">
-                              {fleet.drivers.length} drivers
+                              {countDriverUnits(fleet.drivers)} drivers
                             </Badge>
                           </div>
 

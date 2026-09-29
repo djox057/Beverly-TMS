@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { allocateAfterhoursDrivers, AllocDriver, AllocUser } from '@/lib/afterhoursAutoAssign';
+import { allocateAfterhoursDrivers, expandAllocatedDriverIds, mergeTeamDrivers, AllocDriver, AllocUser } from '@/lib/afterhoursAutoAssign';
 import { fetchAllRows } from '@/lib/fetchAllRows';
 
 // Canonical office bucket key for weekend distribution only. Profile offices
@@ -350,12 +350,14 @@ export const useAfterhoursAssignments = () => {
         .delete()
         .is('scheduled_date', null);
 
-      const allocDrivers: AllocDriver[] = allDriversWithTrucks.map((d: any) => ({
+      const allocDrivers: AllocDriver[] = mergeTeamDrivers(allDriversWithTrucks.map((d: any) => ({
         id: d.id,
         dispatcher_id: d.dispatcher_id ?? null,
         office: groupKey(d.dispatcher_office),
         company_id: d.company_id ?? null,
-      }));
+        truck: d.truck,
+      })));
+      const unitsById = new Map(allocDrivers.map((d) => [d.id, d]));
 
       const allRows: { afterhours_user_id: string; driver_id: string; scheduled_date: string }[] = [];
 
@@ -371,7 +373,7 @@ export const useAfterhoursAssignments = () => {
         }));
 
         const allocation = allocateAfterhoursDrivers(allocUsers, allocDrivers, { bucketByOffice: true });
-        for (const [wdId, driverIds] of allocation) {
+        for (const [wdId, driverIds] of expandAllocatedDriverIds(allocation, unitsById)) {
           for (const dId of driverIds) {
             allRows.push({ afterhours_user_id: wdId, driver_id: dId, scheduled_date: date });
           }
