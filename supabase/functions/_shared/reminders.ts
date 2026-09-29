@@ -108,7 +108,7 @@ export const routeRecipients = (intended: string[]): Recipients => {
 export const routePaperworkRecipients = (intended: string[]): Recipients => {
   const recipients = routeRecipients(intended);
   if (TEST_MODE) return recipients;
-  return { ...recipients, replyTo: "tanya@beverlyfreight.net" };
+  return { ...recipients, replyTo: "safety@beverlyfreight.net" };
 };
 
 export const reminderKey = (
