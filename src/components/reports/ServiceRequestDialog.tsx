@@ -45,6 +45,8 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
   const [trailerNumber, setTrailerNumber] = useState(initialTrailer);
   const [repairInfo, setRepairInfo] = useState("");
   const [underLoad, setUnderLoad] = useState<boolean | null>(null);
+  const [deliveryTime, setDeliveryTime] = useState("");
+  const [deliveryLocation, setDeliveryLocation] = useState("");
   const [loadNote, setLoadNote] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
 
@@ -84,7 +86,8 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (loading || loadError || underLoad === null || !enteredDriverName.trim() || !enteredTruckNumber.trim() || !repairInfo.trim()) return;
+    if (loading || loadError || underLoad === null || !enteredDriverName.trim() || !enteredTruckNumber.trim() || !repairInfo.trim() ||
+        (underLoad && (!deliveryTime.trim() || !deliveryLocation.trim()))) return;
     setSending(true);
     try {
       const attachments = await Promise.all(photos.map(encodePhoto));
@@ -92,7 +95,10 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
         body: {
           action: "send", truckId, driverId, trailerNumber: trailerNumber.trim(),
           driverName: enteredDriverName.trim(), truckNumber: enteredTruckNumber.trim(),
-          repairInfo: repairInfo.trim(), underLoad, loadNote: loadNote.trim(), photos: attachments,
+          repairInfo: repairInfo.trim(), underLoad,
+          deliveryTime: underLoad ? deliveryTime.trim() : "",
+          deliveryLocation: underLoad ? deliveryLocation.trim() : "",
+          loadNote: loadNote.trim(), photos: attachments,
         },
       });
       if (error || !data?.success) throw new Error(data?.error || "Email was not accepted. Please try again.");
@@ -129,6 +135,18 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
           </fieldset>
           {loading && <p className="flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Checking driver assignment…</p>}
           {loadError && <p role="alert" className="text-sm text-destructive">{loadError}</p>}
+          {underLoad === true && (
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="space-y-1">
+                <Label htmlFor="service-delivery-time">Delivery time (TMS local appointment)</Label>
+                <Input id="service-delivery-time" value={deliveryTime} onChange={(e) => setDeliveryTime(e.target.value)} maxLength={150} placeholder="MM/DD/YYYY HH:MM" required />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="service-delivery-location">Delivery location</Label>
+                <Input id="service-delivery-location" value={deliveryLocation} onChange={(e) => setDeliveryLocation(e.target.value)} maxLength={500} placeholder="Street, city, state" required />
+              </div>
+            </div>
+          )}
           <div className="space-y-1">
             <Label htmlFor="service-load-note">Note for load/next load</Label>
             <Textarea id="service-load-note" value={loadNote} onChange={(e) => setLoadNote(e.target.value)} maxLength={5000} rows={4} placeholder="Optional details about the current or next load" />
@@ -146,7 +164,7 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" disabled={sending} onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={loading || !!loadError || sending || underLoad === null || !enteredDriverName.trim() || !enteredTruckNumber.trim() || !repairInfo.trim()}>
+            <Button type="submit" disabled={loading || !!loadError || sending || underLoad === null || !enteredDriverName.trim() || !enteredTruckNumber.trim() || !repairInfo.trim() || (underLoad && (!deliveryTime.trim() || !deliveryLocation.trim()))}>
               {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Send Service Request
             </Button>
           </DialogFooter>

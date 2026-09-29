@@ -72,15 +72,15 @@ serve(async (req) => {
     const enteredDriverName = bounded(body.driverName, 120);
     const enteredTruckNumber = bounded(body.truckNumber, 60);
     const trailerNumber = bounded(body.trailerNumber, 60);
-    // Old published forms can still submit delivery details while the UI rollout completes.
-    const legacyTime = bounded(body.deliveryTime, 150);
-    const legacyLocation = bounded(body.deliveryLocation, 500);
-    const legacyNote = [legacyTime, legacyLocation].filter(Boolean).join("; ");
-    const loadNote = bounded(body.loadNote ?? legacyNote, 5000);
+    // Old and current clients submit these same delivery fields.
+    const deliveryTime = bounded(body.deliveryTime, 150);
+    const deliveryLocation = bounded(body.deliveryLocation, 500);
+    const loadNote = bounded(body.loadNote ?? "", 5000);
     const photos = validateServiceRequestPhotos(body.photos);
     if (!repairInfo || !enteredDriverName || !enteredTruckNumber || trailerNumber === null ||
-        typeof body.underLoad !== "boolean" || loadNote === null || photos === null) {
-      return json({ error: "Complete the repair and load status; use valid photos within the size limits." }, 400);
+        typeof body.underLoad !== "boolean" || loadNote === null || photos === null ||
+        (body.underLoad && (!deliveryTime || !deliveryLocation))) {
+      return json({ error: "Complete the repair and applicable delivery details; use valid photos within the size limits." }, 400);
     }
 
     const { data: profile } = await admin.from("profiles").select("full_name, email")
@@ -98,6 +98,10 @@ serve(async (req) => {
         : []),
       `Repair info: ${repairInfo}`,
       `Is driver under a load: ${body.underLoad ? "Yes" : "No"}`,
+      ...(body.underLoad ? [
+        `Delivery time (TMS local appointment): ${deliveryTime}`,
+        `Delivery location: ${deliveryLocation}`,
+      ] : []),
       `Note for load/next load: ${loadNote || "None"}`,
       `Submitted by: ${profile?.full_name || user.email || user.id} (${profile?.email || user.email || "no email"})`,
       `Submitted at (Chicago): ${submittedAt}`,
