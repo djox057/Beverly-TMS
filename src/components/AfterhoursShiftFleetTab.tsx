@@ -31,7 +31,7 @@ import {
 import AssignAfterhoursDriversDialog from "@/components/AssignAfterhoursDriversDialog";
 import { useAfterhoursShiftAssignments, ShiftFleet, ShiftKey } from "@/hooks/useAfterhoursShiftAssignments";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { countDriverUnits } from "@/lib/afterhoursAutoAssign";
+import { groupTeamDriverRows } from "@/lib/afterhoursAutoAssign";
 
 interface Props {
   hasRole: (role: string) => boolean;
@@ -93,15 +93,17 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
     const lower = searchTerm.toLowerCase();
     return drivers.filter(
       (d) =>
-        d.name?.toLowerCase().includes(lower) || d.truck?.truck_number?.toString().toLowerCase().includes(lower),
+        d.name?.toLowerCase().includes(lower) ||
+        d.memberNames?.some((name: string) => name?.toLowerCase().includes(lower)) ||
+        d.truck?.truck_number?.toString().toLowerCase().includes(lower),
     );
   };
 
-  const toggleDriverSelection = (fleetKey: string, driverId: string) => {
+  const toggleDriverSelection = (fleetKey: string, driverIds: string[]) => {
     setSelectedForRemoval((prev) => {
       const current = new Set(prev[fleetKey] || []);
-      if (current.has(driverId)) current.delete(driverId);
-      else current.add(driverId);
+      const allSelected = driverIds.every((id) => current.has(id));
+      driverIds.forEach((id) => allSelected ? current.delete(id) : current.add(id));
       return { ...prev, [fleetKey]: current };
     });
   };
@@ -229,12 +231,13 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
                 </div>
 
                 {filteredFleets.map((fleet) => {
-                  const filteredDrivers = filterDriversBySearch(fleet.drivers);
+                  const displayDrivers = groupTeamDriverRows(fleet.drivers);
+                  const filteredDrivers = filterDriversBySearch(displayDrivers);
                   const fleetKey = `${fleet.user.id}_${dayData.date}_${group.shift}`;
                   const selected = selectedForRemoval[fleetKey] || new Set<string>();
-                  const selectedCount = selected.size;
+                  const selectedCount = displayDrivers.filter((d) => d.memberIds.every((id) => selected.has(id))).length;
                   const allFilteredSelected =
-                    filteredDrivers.length > 0 && filteredDrivers.every((d: any) => selected.has(d.id));
+                    filteredDrivers.length > 0 && filteredDrivers.every((d: any) => d.memberIds.every((id: string) => selected.has(id)));
 
                   return (
                     <Card key={fleetKey}>
@@ -263,7 +266,7 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
                               </Badge>
                             )}
                             <Badge variant="secondary" className="text-xs">
-                              {countDriverUnits(fleet.drivers)} drivers
+                              {displayDrivers.length} driver{displayDrivers.length !== 1 ? 's' : ''}
                             </Badge>
                           </div>
 
@@ -315,7 +318,7 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
                                     onCheckedChange={() =>
                                       toggleAllDrivers(
                                         fleetKey,
-                                        filteredDrivers.map((d: any) => d.id),
+                                        filteredDrivers.flatMap((d: any) => d.memberIds),
                                       )
                                     }
                                   />
@@ -330,13 +333,18 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
                                   <div className="flex items-center gap-2 sm:gap-3">
                                     {canManage && (
                                       <Checkbox
-                                        checked={selected.has(driver.id)}
-                                        onCheckedChange={() => toggleDriverSelection(fleetKey, driver.id)}
+                                        checked={driver.memberIds.every((id: string) => selected.has(id))}
+                                        onCheckedChange={() => toggleDriverSelection(fleetKey, driver.memberIds)}
                                       />
                                     )}
                                     <Truck className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                                     <div>
                                       <div className="text-xs sm:text-sm font-medium">{driver.name}</div>
+                                      {driver.memberIds.length > 1 && (
+                                        <div className="text-[10px] sm:text-xs text-muted-foreground">
+                                          {driver.memberNames.join(' + ')}
+                                        </div>
+                                      )}
                                       <div className="text-[10px] sm:text-xs text-muted-foreground flex gap-2">
                                         {driver.truck && <span>Truck {driver.truck.truck_number}</span>}
                                         {driver.dispatcher_name && <span>• {driver.dispatcher_name}</span>}
@@ -375,7 +383,7 @@ const AfterhoursShiftFleetTab: React.FC<Props> = ({ hasRole, searchTerm, dispatc
       <AlertDialog open={!!bulkRemoveConfirm} onOpenChange={(open) => !open && setBulkRemoveConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {bulkRemoveConfirm?.count} Drivers</AlertDialogTitle>
+            <AlertDialogTitle>Remove {bulkRemoveConfirm?.count} Driver{bulkRemoveConfirm?.count !== 1 ? 's' : ''}</AlertDialogTitle>
             <AlertDialogDescription>
               Remove {bulkRemoveConfirm?.count} selected driver{bulkRemoveConfirm?.count !== 1 ? "s" : ""} from this
               shift?

@@ -7,11 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Truck, Users, ChevronDown, ChevronRight, Building2, MapPin } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { groupTeamDriverRows } from "@/lib/afterhoursAutoAssign";
 
 interface Driver {
   id: string;
   name: string;
-  truck: { truck_number: string } | null;
+  truck: { id: string; truck_number: string; driver1_id: string | null; driver2_id: string | null } | null;
   dispatcher_id: string | null;
   dispatcher_name: string | null;
   dispatcher_office: string | null;
@@ -31,9 +32,11 @@ interface OfficeGroup {
   dispatchers: {
     id: string;
     name: string;
-    drivers: Driver[];
+    drivers: DisplayDriver[];
   }[];
 }
+
+type DisplayDriver = Driver & { memberIds: string[]; memberNames: string[] };
 
 const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps> = ({
   open,
@@ -49,9 +52,9 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
   const [submitting, setSubmitting] = useState(false);
   const [collapsedDispatchers, setCollapsedDispatchers] = useState<Set<string>>(new Set());
 
-  // Available = not already assigned
+  // A team is selectable as one row only when both members are unassigned.
   const availableDrivers = useMemo(
-    () => allDrivers.filter((d) => !alreadyAssignedIds.has(d.id)),
+    () => groupTeamDriverRows(allDrivers).filter((d) => d.memberIds.every((id) => !alreadyAssignedIds.has(id))),
     [allDrivers, alreadyAssignedIds]
   );
 
@@ -88,6 +91,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
           const s = search.toLowerCase();
           return (
             d.name?.toLowerCase().includes(s) ||
+            d.memberNames.some((name) => name?.toLowerCase().includes(s)) ||
             d.truck?.truck_number?.toString().toLowerCase().includes(s) ||
             d.dispatcher_name?.toLowerCase().includes(s) ||
             d.company_name?.toLowerCase().includes(s)
@@ -96,7 +100,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
       : companyFiltered;
 
     // Build dispatcher map
-    const dispMap = new Map<string, { id: string; name: string; office: string; drivers: Driver[] }>();
+    const dispMap = new Map<string, { id: string; name: string; office: string; drivers: DisplayDriver[] }>();
 
     filtered.forEach((d) => {
       const dispKey = d.dispatcher_id || "unassigned";
@@ -138,7 +142,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     });
   };
 
-  const toggleDispatcher = (drivers: Driver[]) => {
+  const toggleDispatcher = (drivers: DisplayDriver[]) => {
     const driverIds = drivers.map((d) => d.id);
     const allSelected = driverIds.every((id) => selectedIds.has(id));
     setSelectedIds((prev) => {
@@ -165,7 +169,10 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     if (selectedIds.size === 0) return;
     setSubmitting(true);
     try {
-      await onAssign(Array.from(selectedIds));
+      const selectedMembers = availableDrivers
+        .filter((driver) => selectedIds.has(driver.id))
+        .flatMap((driver) => driver.memberIds);
+      await onAssign(selectedMembers);
       setSelectedIds(new Set());
       setSearch("");
       onOpenChange(false);
@@ -299,6 +306,11 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
                             <Truck className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                             <div className="min-w-0 flex-1">
                               <div className="text-sm truncate">{driver.name}</div>
+                              {driver.memberIds.length > 1 && (
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {driver.memberNames.join(' + ')}
+                                </div>
+                              )}
                               {driver.truck && (
                                 <div className="text-xs text-muted-foreground">
                                   Truck {driver.truck.truck_number}
@@ -327,7 +339,7 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
             {selectedIds.size} driver{selectedIds.size !== 1 ? "s" : ""} selected
           </span>
           <Button onClick={handleAssign} disabled={selectedIds.size === 0 || submitting}>
-            {submitting ? "Assigning..." : `Assign ${selectedIds.size > 0 ? selectedIds.size : ""} Driver${selectedIds.size !== 1 ? "s" : ""}`}
+            {submitting ? "Assigning..." : `Assign ${selectedIds.size} Driver${selectedIds.size !== 1 ? "s" : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>

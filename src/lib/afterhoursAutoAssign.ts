@@ -65,6 +65,32 @@ export function mergeTeamDrivers(
   return units;
 }
 
+/** One visible row per complete team in the given assignment or candidate list.
+ * Keeping this scoped to the list means drivers assigned to different people
+ * are never presented as though they were already together. */
+export function groupTeamDriverRows<T extends {
+  id: string;
+  name: string;
+  truck?: TeamTruck | null;
+}>(drivers: T[]): (T & { memberIds: string[]; memberNames: string[] })[] {
+  const byId = new Map(drivers.map((driver) => [driver.id, driver]));
+  return mergeTeamDrivers(drivers.map((driver) => ({
+    ...driver,
+    dispatcher_id: null,
+    office: '',
+    company_id: null,
+  }))).map((unit) => {
+    const first = byId.get(unit.id)!;
+    const memberIds = unit.memberIds ?? [unit.id];
+    return {
+      ...first,
+      name: memberIds.length > 1 ? 'TEAM' : first.name,
+      memberIds,
+      memberNames: memberIds.map((id) => byId.get(id)!.name),
+    };
+  });
+}
+
 /**
  * Expands allocated unit ids back to individual driver ids (team units
  * expand to both team members).
