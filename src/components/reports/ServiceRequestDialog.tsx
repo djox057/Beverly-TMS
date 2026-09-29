@@ -4,26 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Wrench } from "lucide-react";
+import { Loader2, Wrench, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
-interface LoadOption {
-  orderId: string;
-  brokerLoadNumber: string | null;
-  underLoad: boolean | null;
-  deliveryTime: string;
-  deliveryLocation: string;
-}
+import { MAX_PHOTOS, MAX_PHOTO_BYTES, MAX_TOTAL_PHOTO_BYTES } from "../../../supabase/functions/send-service-request/photos";
 
 interface Preview {
   driverName: string;
   truckNumber: string;
   trailerNumber: string;
-  suggestedUnderLoad: boolean | null;
-  suggestedOrderId: string | null;
-  loads: LoadOption[];
 }
 
 interface Props {
@@ -35,11 +24,19 @@ interface Props {
   onClose: () => void;
 }
 
-const displayAppointment = (value: string) => value.replace("T", " ").slice(0, 16);
+const acceptedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+const photoType = (file: File) => file.type || ({
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", heif: "image/heif",
+} as Record<string, string>)[file.name.split(".").pop()?.toLowerCase() || ""] || "";
+const encodePhoto = (file: File): Promise<{ name: string; type: string; content: string }> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve({ name: file.name, type: photoType(file), content: String(reader.result).split(",")[1] || "" });
+  reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+  reader.readAsDataURL(file);
+});
 
 export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumber, trailerNumber: initialTrailer, onClose }: Props) {
   const { toast } = useToast();
-  const [preview, setPreview] = useState<Preview | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [sending, setSending] = useState(false);
@@ -48,9 +45,8 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
   const [trailerNumber, setTrailerNumber] = useState(initialTrailer);
   const [repairInfo, setRepairInfo] = useState("");
   const [underLoad, setUnderLoad] = useState<boolean | null>(null);
-  const [orderId, setOrderId] = useState("");
-  const [deliveryTime, setDeliveryTime] = useState("");
-  const [deliveryLocation, setDeliveryLocation] = useState("");
+  const [loadNote, setLoadNote] = useState("");
+  const [photos, setPhotos] = useState<File[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,17 +57,9 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
       if (error || !data || "error" in data) {
         setLoadError("Could not verify the current driver assignment. Refresh Reports and reopen this form.");
       } else {
-        setPreview(data);
         setEnteredDriverName(data.driverName || driverName);
         setEnteredTruckNumber(data.truckNumber || truckNumber);
         setTrailerNumber(data.trailerNumber || initialTrailer);
-        setUnderLoad(data.suggestedUnderLoad);
-        if (data.suggestedOrderId) {
-          const selected = data.loads.find((load) => load.orderId === data.suggestedOrderId);
-          setOrderId(data.suggestedOrderId);
-          setDeliveryTime(selected?.deliveryTime ? displayAppointment(selected.deliveryTime) : "");
-          setDeliveryLocation(selected?.deliveryLocation || "");
-        }
       }
       setLoading(false);
     }).catch(() => {
@@ -83,26 +71,28 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
     return () => { cancelled = true; };
   }, [truckId, driverId, initialTrailer, driverName, truckNumber]);
 
-  const selectLoad = (value: string) => {
-    setOrderId(value === "manual" ? "" : value);
-    const selected = preview?.loads.find((load) => load.orderId === value);
-    setDeliveryTime(selected?.deliveryTime ? displayAppointment(selected.deliveryTime) : "");
-    setDeliveryLocation(selected?.deliveryLocation || "");
+  const addPhotos = (files: FileList | null) => {
+    if (!files?.length) return;
+    const next = [...photos, ...Array.from(files)];
+    if (next.length > MAX_PHOTOS || next.some((file) => !acceptedPhotoTypes.has(photoType(file)) || file.size > MAX_PHOTO_BYTES) ||
+        next.reduce((sum, file) => sum + file.size, 0) > MAX_TOTAL_PHOTO_BYTES) {
+      toast({ title: "Photos not added", description: `Choose up to ${MAX_PHOTOS} JPG, PNG, WebP, HEIC, or HEIF photos (5 MB each, 12 MB total).`, variant: "destructive" });
+      return;
+    }
+    setPhotos(next);
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (loadError || underLoad === null || !enteredDriverName.trim() || !enteredTruckNumber.trim() || !repairInfo.trim() ||
-        (underLoad && (!deliveryTime.trim() || !deliveryLocation.trim()))) return;
+    if (loading || loadError || underLoad === null || !enteredDriverName.trim() || !enteredTruckNumber.trim() || !repairInfo.trim()) return;
     setSending(true);
     try {
+      const attachments = await Promise.all(photos.map(encodePhoto));
       const { data, error } = await supabase.functions.invoke<{ success?: boolean; error?: string }>("send-service-request", {
         body: {
           action: "send", truckId, driverId, trailerNumber: trailerNumber.trim(),
           driverName: enteredDriverName.trim(), truckNumber: enteredTruckNumber.trim(),
-          repairInfo: repairInfo.trim(), underLoad, orderId: orderId || null,
-          deliveryTime: underLoad ? deliveryTime.trim() : "",
-          deliveryLocation: underLoad ? deliveryLocation.trim() : "",
+          repairInfo: repairInfo.trim(), underLoad, loadNote: loadNote.trim(), photos: attachments,
         },
       });
       if (error || !data?.success) throw new Error(data?.error || "Email was not accepted. Please try again.");
@@ -120,7 +110,7 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Wrench className="h-5 w-5" /> Service Request</DialogTitle>
-          <DialogDescription>Describe the repair and confirm whether the driver is carrying a load.</DialogDescription>
+          <DialogDescription>Describe the repair and note any details about the current or next load.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -132,40 +122,31 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium">Is the driver under a load?</legend>
             <div className="flex gap-2">
-              <Button type="button" variant={underLoad === true ? "default" : "outline"} aria-pressed={underLoad === true} onClick={() => {
-                if (!orderId && preview?.loads.length === 1) selectLoad(preview.loads[0].orderId);
-                setUnderLoad(true);
-              }}>Yes</Button>
+              <Button type="button" variant={underLoad === true ? "default" : "outline"} aria-pressed={underLoad === true} onClick={() => setUnderLoad(true)}>Yes</Button>
               <Button type="button" variant={underLoad === false ? "default" : "outline"} aria-pressed={underLoad === false} onClick={() => setUnderLoad(false)}>No</Button>
             </div>
-            <p className="text-xs text-muted-foreground">Under a load means freight has been picked up and has not been fully delivered or handed off. Confirm the suggested answer if records are incomplete.</p>
+            <p className="text-xs text-muted-foreground">Under a load means freight has been picked up and has not been fully delivered or handed off.</p>
           </fieldset>
-          {loading && <p className="flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Checking current load…</p>}
+          {loading && <p className="flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Checking driver assignment…</p>}
           {loadError && <p role="alert" className="text-sm text-destructive">{loadError}</p>}
-          {!loading && !loadError && underLoad === null && <p className="text-sm text-muted-foreground">Load records need confirmation. Choose Yes or No.</p>}
-          {underLoad === true && (
-            <div className="space-y-3 rounded-md border p-3">
-              {!!preview?.loads.length && (
-                <div className="space-y-1">
-                  <Label htmlFor="service-load">Broker load number</Label>
-                  <Select value={orderId || "manual"} onValueChange={selectLoad}>
-                    <SelectTrigger id="service-load"><SelectValue placeholder="Select a load" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="manual">Enter delivery manually</SelectItem>
-                      {preview.loads.map((load) => <SelectItem key={load.orderId} value={load.orderId}>
-                        Broker load # {load.brokerLoadNumber || `not set — ${load.deliveryLocation || load.deliveryTime || "delivery unknown"}`}
-                      </SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              <div className="space-y-1"><Label htmlFor="service-delivery-time">Delivery time (TMS local appointment)</Label><Input id="service-delivery-time" value={deliveryTime} onChange={(e) => setDeliveryTime(e.target.value)} maxLength={150} placeholder="MM/DD/YYYY HH:MM" required /></div>
-              <div className="space-y-1"><Label htmlFor="service-delivery-location">Delivery location</Label><Input id="service-delivery-location" value={deliveryLocation} onChange={(e) => setDeliveryLocation(e.target.value)} maxLength={500} placeholder="Street, city, state" required /></div>
-            </div>
-          )}
+          <div className="space-y-1">
+            <Label htmlFor="service-load-note">Note for load/next load</Label>
+            <Textarea id="service-load-note" value={loadNote} onChange={(e) => setLoadNote(e.target.value)} maxLength={5000} rows={4} placeholder="Optional details about the current or next load" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="service-photos">Photos (optional)</Label>
+            <Input id="service-photos" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple disabled={sending} onChange={(e) => { addPhotos(e.target.files); e.target.value = ""; }} />
+            <p className="text-xs text-muted-foreground">Up to 6 photos, 5 MB each and 12 MB total. Photos are attached to the email.</p>
+            {photos.map((photo, index) => (
+              <div key={`${photo.name}-${index}`} className="flex items-center justify-between gap-2 text-sm">
+                <span className="truncate">{photo.name}</span>
+                <Button type="button" size="icon" variant="ghost" aria-label={`Remove ${photo.name}`} disabled={sending} onClick={() => setPhotos((current) => current.filter((_, i) => i !== index))}><X className="h-4 w-4" /></Button>
+              </div>
+            ))}
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" disabled={sending} onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={loading || !!loadError || sending || underLoad === null || !enteredDriverName.trim() || !enteredTruckNumber.trim() || !repairInfo.trim() || (underLoad && (!deliveryTime.trim() || !deliveryLocation.trim()))}>
+            <Button type="submit" disabled={loading || !!loadError || sending || underLoad === null || !enteredDriverName.trim() || !enteredTruckNumber.trim() || !repairInfo.trim()}>
               {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Send Service Request
             </Button>
           </DialogFooter>
