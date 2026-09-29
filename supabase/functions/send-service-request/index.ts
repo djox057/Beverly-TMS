@@ -45,22 +45,35 @@ serve(async (req) => {
     if (!roles?.length) return json({ error: "Not permitted to submit service requests" }, 403);
 
     const body = await req.json();
-    if (!uuid(body?.truckId) || !uuid(body?.driverId) || !["preview", "send"].includes(body?.action)) {
+    if (typeof body?.truckId !== "string" || !uuid(body?.driverId) || !["preview", "send"].includes(body?.action)) {
       return json({ error: "Invalid service request" }, 400);
     }
 
-    const [truckResult, driverResult] = await Promise.all([
-      admin
-        .from("trucks")
-        .select("id, truck_number, trailer_id, driver1_id, driver2_id")
-        .eq("id", body.truckId)
-        .maybeSingle(),
+    const [driverResult, requestedTruckResult] = await Promise.all([
       admin.from("drivers").select("id, name").eq("id", body.driverId).maybeSingle(),
+      uuid(body.truckId)
+        ? admin.from("trucks").select("id, truck_number, trailer_id, driver1_id, driver2_id")
+          .eq("id", body.truckId).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
-    if (truckResult.error || driverResult.error) throw truckResult.error || driverResult.error;
-    const truck = truckResult.data;
+    if (driverResult.error || requestedTruckResult.error) throw driverResult.error || requestedTruckResult.error;
     const driver = driverResult.data;
-    if (!truck || !driver || (truck.driver1_id !== driver.id && truck.driver2_id !== driver.id)) {
+    let truck = requestedTruckResult.data;
+    if (!driver) {
+      return json({ error: "Driver record was not found. Refresh Reports and reopen the form." }, 409);
+    }
+
+    // Driver rows without a joined truck use a `driver-<id>` placeholder in Reports.
+    // Also recover from stale truck IDs by resolving the driver's current truck.
+    if (!truck || (truck.driver1_id !== driver.id && truck.driver2_id !== driver.id)) {
+      const assignedResult = await admin.from("trucks")
+        .select("id, truck_number, trailer_id, driver1_id, driver2_id")
+        .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
+        .limit(2);
+      if (assignedResult.error) throw assignedResult.error;
+      truck = assignedResult.data?.length === 1 ? assignedResult.data[0] : null;
+    }
+    if (!truck || (truck.driver1_id !== driver.id && truck.driver2_id !== driver.id)) {
       return json({ error: "Driver is no longer assigned to this truck. Refresh Reports." }, 409);
     }
 

@@ -35,6 +35,23 @@ const encodePhoto = (file: File): Promise<{ name: string; type: string; content:
   reader.readAsDataURL(file);
 });
 
+const getPreviewErrorMessage = async (error: unknown, data: unknown) => {
+  if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
+    return data.error;
+  }
+  if (error && typeof error === "object" && "context" in error && error.context instanceof Response) {
+    try {
+      const body: unknown = await error.context.clone().json();
+      if (body && typeof body === "object" && "error" in body && typeof body.error === "string") {
+        return body.error;
+      }
+    } catch {
+      // Keep the form's safe fallback if the function didn't return JSON.
+    }
+  }
+  return "Could not verify the current driver assignment. Refresh Reports and reopen this form.";
+};
+
 export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumber, trailerNumber: initialTrailer, onClose }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -52,24 +69,26 @@ export function ServiceRequestDialog({ truckId, driverId, driverName, truckNumbe
 
   useEffect(() => {
     let cancelled = false;
-    supabase.functions.invoke<Preview>("send-service-request", {
-      body: { action: "preview", truckId, driverId },
-    }).then(({ data, error }) => {
-      if (cancelled) return;
-      if (error || !data || "error" in data) {
-        setLoadError("Could not verify the current driver assignment. Refresh Reports and reopen this form.");
-      } else {
-        setEnteredDriverName(data.driverName || driverName);
-        setEnteredTruckNumber(data.truckNumber || truckNumber);
-        setTrailerNumber(data.trailerNumber || initialTrailer);
+    const loadAssignment = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke<Preview>("send-service-request", {
+          body: { action: "preview", truckId, driverId },
+        });
+        if (cancelled) return;
+        if (error || !data || "error" in data) {
+          setLoadError(await getPreviewErrorMessage(error, data));
+        } else {
+          setEnteredDriverName(data.driverName || driverName);
+          setEnteredTruckNumber(data.truckNumber || truckNumber);
+          setTrailerNumber(data.trailerNumber || initialTrailer);
+        }
+      } catch (error) {
+        if (!cancelled) setLoadError(await getPreviewErrorMessage(error, null));
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
-    }).catch(() => {
-      if (!cancelled) {
-        setLoadError("Could not verify the current driver assignment. Refresh Reports and reopen this form.");
-        setLoading(false);
-      }
-    });
+    };
+    void loadAssignment();
     return () => { cancelled = true; };
   }, [truckId, driverId, initialTrailer, driverName, truckNumber]);
 
