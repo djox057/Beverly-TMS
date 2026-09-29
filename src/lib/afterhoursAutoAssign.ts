@@ -26,6 +26,48 @@ export interface AllocDriver {
   /** Already-normalized office bucket of the driver's weekday dispatcher. */
   office: string;
   company_id: string | null;
+  /** When this entry represents a TEAM (two drivers on one truck), all member
+   *  driver ids. The unit counts as 1 during allocation; expand before saving. */
+  memberIds?: string[];
+}
+
+/**
+ * Expands allocated unit ids back to individual driver ids (team units
+ * expand to both team members).
+ */
+export function expandAllocatedDriverIds(
+  allocation: Map<string, string[]>,
+  unitsById: Map<string, AllocDriver>,
+): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const [userId, ids] of allocation) {
+    const expanded: string[] = [];
+    for (const id of ids) {
+      const unit = unitsById.get(id);
+      if (unit?.memberIds) expanded.push(...unit.memberIds);
+      else expanded.push(id);
+    }
+    out.set(userId, expanded);
+  }
+  return out;
+}
+
+/**
+ * Counts drivers the way allocation does: two drivers sharing one truck
+ * (a team) count as a single unit.
+ */
+export function countDriverUnits(drivers: { id: string; truck?: { id?: string } | null }[]): number {
+  const seenTrucks = new Set<string>();
+  let count = 0;
+  for (const d of drivers) {
+    const truckId = d.truck?.id;
+    if (truckId) {
+      if (seenTrucks.has(truckId)) continue;
+      seenTrucks.add(truckId);
+    }
+    count++;
+  }
+  return count;
 }
 
 export interface AllocOptions {
