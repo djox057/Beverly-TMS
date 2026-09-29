@@ -160,6 +160,7 @@ serve(async (req: Request): Promise<Response> => {
       from: FROM,
       to: recipients.to,
       ...(recipients.cc ? { cc: recipients.cc } : {}),
+      ...(recipients.replyTo ? { replyTo: recipients.replyTo } : {}),
       subject: `${milestoneText ? `${milestoneText} - ` : ""}Paperwork Reminder - ${unitLabel} - bring to yard by ${dueDate}`,
       text: lines.join("\n"),
     });
