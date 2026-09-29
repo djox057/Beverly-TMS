@@ -14,9 +14,17 @@ import {
   milestoneLabel,
   reminderKey,
   routeRecipients,
+  TEST_MODE,
 } from "../_shared/reminders.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const MAINTENANCE_REPLY_TO = [
+  "matt@bfprime.net",
+  "connor@bfprime.net",
+  "joel@bfprime.net",
+  "Tommy@beverlyfreight.net",
+  "Bob.i@bfprime.net",
+];
 
 interface Candidate {
   entityType: "truck" | "trailer" | "driver" | "temp_plate";
@@ -380,6 +388,7 @@ serve(async (req: Request): Promise<Response> => {
         from: FROM,
         to: recipients.to,
         ...(recipients.cc ? { cc: recipients.cc } : {}),
+        ...(!TEST_MODE ? { replyTo: MAINTENANCE_REPLY_TO } : {}),
         subject,
         html,
       });
