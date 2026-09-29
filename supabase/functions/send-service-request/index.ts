@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { Resend } from "npm:resend@4.0.1";
 import { validateServiceRequestPhotos } from "./photos.ts";
+import { getLoadOption, summarizeLoads, type Load, type LoadOption } from "./loadStatus.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -81,16 +82,37 @@ serve(async (req) => {
       ? await admin.from("trailers").select("trailer_number").eq("id", truck.trailer_id).maybeSingle()
       : { data: null, error: null };
     if (trailerResult.error) throw trailerResult.error;
-    if (body.action === "preview")
+    if (body.action === "preview") {
+      const orderFields = "id, status, canceled, notes, driver1_id, driver2_id, original_driver1_id, original_driver2_id, delivery_datetime, bol_force_complete, pod_force_complete, pickup_drops(type, sequence_number, checked_out_at, datetime, address, city, state, zip_code), order_files(file_category), order_transfers(driver1_id, driver2_id, sequence_number, transfer_datetime, transfer_address, transfer_city, transfer_state)";
+      const [transfersResult, ordersResult] = await Promise.all([
+        admin.from("order_transfers").select("order_id")
+          .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`).limit(100),
+        admin.from("orders").select(orderFields)
+          .in("status", ["pending", "in_transit"]).eq("canceled", false)
+          .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id},original_driver1_id.eq.${driver.id},original_driver2_id.eq.${driver.id}`)
+          .order("created_at", { ascending: false }).limit(100),
+      ]);
+      if (transfersResult.error || ordersResult.error) throw transfersResult.error || ordersResult.error;
+      let orders = ordersResult.data || [];
+      const missingIds = [...new Set((transfersResult.data || []).map((transfer) => transfer.order_id))]
+        .filter((id) => !orders.some((order) => order.id === id));
+      if (missingIds.length) {
+        const { data, error } = await admin.from("orders").select(orderFields)
+          .in("id", missingIds).in("status", ["pending", "in_transit"]).eq("canceled", false);
+        if (error) throw error;
+        orders = [...orders, ...(data || [])];
+      }
+      const options: LoadOption[] = orders
+        .map((order) => getLoadOption(order as Load, driver.id))
+        .filter((option): option is LoadOption => option !== null);
+      const suggestion = summarizeLoads(options);
       return json({
         driverName: driver.name,
         truckNumber: truck.truck_number,
         trailerNumber: trailerResult.data?.trailer_number || "",
-        // Legacy published forms still read these fields until the new UI is published.
-        suggestedUnderLoad: null,
-        suggestedOrderId: null,
-        loads: [],
+        ...suggestion,
       });
+    }
 
     const repairInfo = bounded(body.repairInfo, 5000);
     const enteredDriverName = bounded(body.driverName, 120);
