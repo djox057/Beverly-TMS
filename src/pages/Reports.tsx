@@ -22,6 +22,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { EfsRequestDialog } from "@/components/EfsRequestDialog";
+import { ServiceRequestDialog } from "@/components/reports/ServiceRequestDialog";
 import { HosRequestDialog } from "@/components/HosRequestDialog";
 import { DriverComplaintDialog } from "@/components/complaints/DriverComplaintDialog";
 import { AllProblemsDialog } from "@/components/AllProblemsDialog";
@@ -75,6 +76,7 @@ import {
   AlertTriangle,
   MessageSquareWarning,
   Share2,
+  Wrench,
   Plus,
   Navigation,
 } from "lucide-react";
@@ -1256,6 +1258,13 @@ const Reports = () => {
 
   // Samsara Live Share dialog state
   const [liveShareDialog, setLiveShareDialog] = useState<{ truckNumber: string } | null>(null);
+  const [serviceRequestDialog, setServiceRequestDialog] = useState<{
+    truckId: string;
+    driverId: string;
+    driverName: string;
+    truckNumber: string;
+    trailerNumber: string;
+  } | null>(null);
 
   // EFS fuel card status dialog state
   const [efsCardDialog, setEfsCardDialog] = useState<{
@@ -6012,6 +6021,12 @@ const Reports = () => {
                                                                   >
                                                                     <Share2 className="h-3 w-3" />
                                                                   </Button>
+                                                                  {(hasRole("manager") || hasRole("admin") || hasRole("dispatch")) && truck.driverId && (
+                                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Service Request" aria-label="Service Request"
+                                                                      onClick={(e) => { e.stopPropagation(); setServiceRequestDialog({ truckId: truck.id, driverId: truck.driverId!, driverName: truck.driver1Name, truckNumber: truck.truckNumber, trailerNumber: truck.trailerNumber || "" }); }}>
+                                                                      <Wrench className="h-3 w-3" />
+                                                                    </Button>
+                                                                  )}
                                                                   {(hasRole("manager") ||
                                                                     hasRole("admin") ||
                                                                     hasRole("dispatch")) && (
@@ -6111,6 +6126,12 @@ const Reports = () => {
                                                                   >
                                                                     <Share2 className="h-3 w-3" />
                                                                   </Button>
+                                                                  {(hasRole("manager") || hasRole("admin") || hasRole("dispatch")) && truck.driver2Id && (
+                                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Service Request" aria-label="Service Request"
+                                                                      onClick={(e) => { e.stopPropagation(); setServiceRequestDialog({ truckId: truck.id, driverId: truck.driver2Id!, driverName: truck.driver2Name || "", truckNumber: truck.truckNumber, trailerNumber: truck.trailerNumber || "" }); }}>
+                                                                      <Wrench className="h-3 w-3" />
+                                                                    </Button>
+                                                                  )}
                                                                 </div>
                                                               </div>
                                                               {truck.driver2Phone && (
@@ -6451,6 +6472,12 @@ const Reports = () => {
                                                                     >
                                                                       <Share2 className="h-3 w-3" />
                                                                     </Button>
+                                                                    {(hasRole("manager") || hasRole("admin") || hasRole("dispatch")) && truck.driverId && (
+                                                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Service Request" aria-label="Service Request"
+                                                                        onClick={(e) => { e.stopPropagation(); setServiceRequestDialog({ truckId: truck.id, driverId: truck.driverId!, driverName: truck.driver, truckNumber: truck.truckNumber, trailerNumber: truck.trailerNumber || "" }); }}>
+                                                                        <Wrench className="h-3 w-3" />
+                                                                      </Button>
+                                                                    )}
                                                                     {(hasRole("manager") ||
                                                                       hasRole("admin") ||
                                                                       hasRole("dispatch")) && (
@@ -9168,6 +9195,13 @@ const Reports = () => {
         onOpenChange={(open) => !open && setLiveShareDialog(null)}
         truckNumber={liveShareDialog?.truckNumber || ""}
       />
+
+      {serviceRequestDialog && (
+        <ServiceRequestDialog
+          {...serviceRequestDialog}
+          onClose={() => setServiceRequestDialog(null)}
+        />
+      )}
 
       {/* Suggested Loads Dialog */}
       <LoadSuggestionsDialog
