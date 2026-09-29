@@ -51,7 +51,7 @@ import { useBrokers } from "@/hooks/useBrokers";
 import { useOrdersSearch } from "@/hooks/useOrdersSearch";
 import { useFilteredOrdersSearch } from "@/hooks/useFilteredOrdersSearch";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS } from "@/lib/constants";
+import { MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS, UES_BOOKED_BY_COMPANY_ID } from "@/lib/constants";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -82,6 +82,9 @@ import { z } from "zod";
 import { useDragPan } from "@/hooks/useDragPan";
 import { formatCurrency, formatDateNoTimezone, cn } from "@/lib/utils";
 // OrdersCacheStatus removed - now using direct database queries
+const excludedBookedByCompanyIds = new Set(
+  MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS.split(",").map((id) => id.trim()).filter(Boolean),
+);
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -200,8 +203,7 @@ const Orders = () => {
   // This includes orders they booked AND orders for drivers assigned to them
   // Use null instead of undefined to prevent double fetch when profile loads
   const shouldFilterByUser = individualMode || isDispatchOnly;
-  // Exclude BG Prime Inc and Lale Transport booked-by orders entirely from /orders
-  // (they live on /bg-loads and /lale-loads). Comma-separated list of company IDs.
+  // Company-specific loads live on their own pages; omit them from /orders.
   const EXCLUDED_BOOKED_BY_COMPANY_ID = MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS;
   const orderFilterOptions = useMemo(
     () =>
@@ -535,7 +537,9 @@ const Orders = () => {
       pickupDateFrom: pickupDateRange?.from ? chicagoBoundary(pickupDateRange.from, false, -1) : undefined,
       pickupDateTo: pickupDateRange?.to ? chicagoBoundary(pickupDateRange.to, true, 1) : undefined,
 
-      excludeBookedByCompanyId: serverBackedStatusFilter === "canceled" ? undefined : EXCLUDED_BOOKED_BY_COMPANY_ID,
+      excludeBookedByCompanyId: serverBackedStatusFilter === "canceled"
+        ? UES_BOOKED_BY_COMPANY_ID
+        : EXCLUDED_BOOKED_BY_COMPANY_ID,
     };
   }, [
     hasActiveFilter,
@@ -592,10 +596,19 @@ const Orders = () => {
     const sortUnlockedFirst = (rows: any[]) => {
       const isLocked = (o: any) =>
         o?.locked === true || o?.locked === "true" || o?.locked === 1;
-      const unlocked = rows
+      // Realtime can briefly patch a cached row after its booked-by company
+      // changes. Keep dedicated-page loads out of every main Loads view.
+      const mainLoads = rows.filter((o) => {
+        const bookedByCompanyId = o.bookedByCompanyId ?? o.booked_by_company_id;
+        // Preserve the canceled view's existing BG/Lale scope.
+        return serverBackedStatusFilter === "canceled"
+          ? bookedByCompanyId !== UES_BOOKED_BY_COMPANY_ID
+          : !excludedBookedByCompanyIds.has(bookedByCompanyId);
+      });
+      const unlocked = mainLoads
         .filter((o) => !isLocked(o))
         .sort((a, b) => pickupTs(a) - pickupTs(b));
-      const locked = rows.filter((o) => isLocked(o));
+      const locked = mainLoads.filter((o) => isLocked(o));
       return [...unlocked, ...locked];
     };
 
@@ -629,6 +642,7 @@ const Orders = () => {
     isFilteredLoading,
     isPrefetchingUnlocked,
     cacheVersion,
+    serverBackedStatusFilter,
   ]);
 
   // Filter orders based on search term and filters

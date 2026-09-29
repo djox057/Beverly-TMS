@@ -7,7 +7,7 @@ import { traceFetch } from "@/utils/fetchTrace";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 import { MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS } from "@/lib/constants";
 
-// BG Prime / Lale loads live on their own pages — keep them out of the main
+// BG Prime / Lale / UES loads live on their own pages — keep them out of the main
 // Loads caches even when they arrive via realtime updates.
 const EXCLUDED_BOOKED_COMPANY_SET = new Set(
   MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS.split(",").map((s) => s.trim()).filter(Boolean)
@@ -173,7 +173,7 @@ export function useOrdersRealtime() {
           const qk = query.queryKey as string[];
           const isFilteredOrSearch = qk.length > 1 && (qk[1] === 'filtered' || qk[1] === 'search' || qk[1] === 'page');
           if (isFilteredOrSearch) return old;
-          // Keep BG Prime / Lale loads out of the main Loads cache — realtime
+          // Keep company-specific loads out of the main Loads cache — realtime
           // inserts must respect the same exclusion as the initial fetch.
           if (isExcludedBookedByCompany(transformedOrder.bookedByCompanyId)) return old;
           // Don't insert NEW locked orders into analytics caches — they're already

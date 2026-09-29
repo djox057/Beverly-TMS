@@ -1,7 +1,8 @@
 // Companies whose booked-by loads live on their own pages and are excluded
-// from the main Loads page (/orders): BG Prime Inc, Lale Transport LLC.
+// from the main Loads page (/orders): BG Prime Inc, Lale Transport LLC, UES.
+export const UES_BOOKED_BY_COMPANY_ID = "0fc3ad2c-eb06-4727-99d4-218aed6d89e7";
 export const MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS =
-  "238a7acf-cbb5-4718-be7a-130d8d971a90,f0c75da4-7598-4a34-839a-c2eb4adc2a03";
+  `238a7acf-cbb5-4718-be7a-130d8d971a90,f0c75da4-7598-4a34-839a-c2eb4adc2a03,${UES_BOOKED_BY_COMPANY_ID}`;
 
 // US States for dropdown
 export const US_STATES = [
