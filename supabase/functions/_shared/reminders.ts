@@ -87,6 +87,7 @@ export const escapeHtml = (value: unknown): string =>
 export interface Recipients {
   to: string[];
   cc?: string[];
+  replyTo?: string;
   banner: string | null;
 }
 
@@ -103,11 +104,11 @@ export const routeRecipients = (intended: string[]): Recipients => {
   return { to: clean.length ? clean : SAFETY_FALLBACK, cc: undefined, banner: null };
 };
 
-/** CC Safety on paperwork reminders only, while preserving test-mode isolation. */
+/** Replies to paperwork reminders go to Tanya; test emails keep their normal reply route. */
 export const routePaperworkRecipients = (intended: string[]): Recipients => {
   const recipients = routeRecipients(intended);
   if (TEST_MODE) return recipients;
-  return { ...recipients, cc: [...(recipients.cc ?? []), "safety@beverlyfreight.net"] };
+  return { ...recipients, replyTo: "tanya@beverlyfreight.net" };
 };
 
 export const reminderKey = (
