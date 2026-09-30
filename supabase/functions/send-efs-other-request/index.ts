@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
+import { getTruckRequirementError } from "./truckRequirement.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -121,7 +122,8 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const body: EfsOtherRequest = await req.json();
-    const { driverId, driverName, truckNumber, companyName, amount, purpose, city, state, quantity, receiptPath } = body;
+    const { driverId, driverName, companyName, amount, purpose, city, state, quantity, receiptPath } = body;
+    const truckNumber = typeof body.truckNumber === "string" ? body.truckNumber.trim() : "";
 
     // Prefer resolving requester identity from the JWT
     let requesterEmail = body.requesterEmail;
@@ -184,10 +186,29 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Requester resolved:", { requesterEmail, requesterName, requesterId });
 
     // Validate required fields
-    if (!driverName || !truckNumber || amount === undefined || !purpose) {
+    if (!driverName || amount === undefined || !purpose) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing required fields" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Recovery drivers can request EFS without a permanent truck assignment.
+    // Check the driver record, never the requesting user's Recovery toggle or a client-supplied flag.
+    const truckError = await getTruckRequirementError(truckNumber, driverId, async (id) => {
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: driver, error } = await supabaseAdmin.from("drivers")
+        .select("is_recovery").eq("id", id).maybeSingle();
+      if (error) {
+        console.error("Failed to verify driver's recovery status:", error);
+        throw new Error("Could not verify the driver's recovery status. Please try again.");
+      }
+      return driver?.is_recovery === true;
+    });
+    if (truckError) {
+      return new Response(
+        JSON.stringify({ success: false, error: truckError }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
