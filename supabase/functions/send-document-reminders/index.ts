@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@4.0.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
+import { assignedTruckContext } from "./assignment.ts";
 import {
   FROM,
   addOneYear,
@@ -90,7 +91,7 @@ serve(async (req: Request): Promise<Response> => {
       admin
         .from("trucks")
         .select(
-          "id, truck_number, source, miles, last_oil_change_miles, dispatcher_id, driver1_id, trailer_id, dot_inspection_date, plate_expiration_date, insurance_expiration_date, registration_expiration_date, maintenance_check_date",
+          "id, truck_number, source, miles, last_oil_change_miles, dispatcher_id, driver1_id, driver2_id, trailer_id, dot_inspection_date, plate_expiration_date, insurance_expiration_date, registration_expiration_date, maintenance_check_date",
         )
         .eq("is_active", true),
       admin
@@ -120,21 +121,22 @@ serve(async (req: Request): Promise<Response> => {
 
     const driverById = new Map(drivers.map((d: any) => [d.id, d]));
     const truckById = new Map(trucks.map((t: any) => [t.id, t]));
+    const contextByTruckId = new Map<string, { driverName: string; dispatcherId: string }>();
     const truckByTrailerId = new Map<string, any>();
-    for (const t of trucks as any[]) if (t.trailer_id) truckByTrailerId.set(t.trailer_id, t);
-
-    const dispatcherForTruck = (truck: any): string | null => {
-      const driver = truck?.driver1_id ? driverById.get(truck.driver1_id) : null;
-      return driver?.dispatcher_id ?? truck?.dispatcher_id ?? null;
-    };
+    for (const truck of trucks as any[]) {
+      const context = assignedTruckContext(truck, driverById);
+      if (!context) continue;
+      contextByTruckId.set(truck.id, context);
+      if (truck.trailer_id) truckByTrailerId.set(truck.trailer_id, truck);
+    }
 
     const candidates: Candidate[] = [];
     let scanned = 0;
 
     // ---- Trucks ----
     for (const truck of trucks as any[]) {
-      const driver = truck.driver1_id ? driverById.get(truck.driver1_id) : null;
-      const dispatcherId = dispatcherForTruck(truck);
+      const context = contextByTruckId.get(truck.id);
+      if (!context) continue;
       for (const f of TRUCK_FIELDS) {
         scanned++;
         const days = daysUntil(truck[f.key]);
@@ -145,13 +147,13 @@ serve(async (req: Request): Promise<Response> => {
           entityId: truck.id,
           entityLabel: `Truck ${truck.truck_number}`,
           unit: `Truck ${truck.truck_number}`,
-          driverName: driver?.name ?? null,
+          driverName: context.driverName,
           document: f.label,
           fieldKey: f.key,
           dueDate: String(truck[f.key]).slice(0, 10),
           days,
           milestone,
-          dispatcherId,
+          dispatcherId: context.dispatcherId,
         });
       }
 
@@ -166,14 +168,14 @@ serve(async (req: Request): Promise<Response> => {
             entityId: truck.id,
             entityLabel: `Truck ${truck.truck_number}`,
             unit: `Truck ${truck.truck_number}`,
-            driverName: driver?.name ?? null,
+            driverName: context.driverName,
             document: "Oil Change",
             fieldKey: "oil_change",
             dueDate: null,
             days: null,
             milestone,
             detail: `${since.toLocaleString("en-US")} mi since last oil change (limit ${red.toLocaleString("en-US")})`,
-            dispatcherId,
+            dispatcherId: context.dispatcherId,
           });
         }
       }
@@ -182,8 +184,8 @@ serve(async (req: Request): Promise<Response> => {
     // ---- Trailers ----
     for (const trailer of trailers as any[]) {
       const truck = truckByTrailerId.get(trailer.id);
-      const driver = truck?.driver1_id ? driverById.get(truck.driver1_id) : null;
-      const dispatcherId = truck ? dispatcherForTruck(truck) : null;
+      if (!truck) continue;
+      const context = contextByTruckId.get(truck.id)!;
       for (const f of TRAILER_FIELDS) {
         scanned++;
         const days = daysUntil(trailer[f.key]);
@@ -193,16 +195,14 @@ serve(async (req: Request): Promise<Response> => {
           entityType: "trailer",
           entityId: trailer.id,
           entityLabel: `Trailer ${trailer.trailer_number}`,
-          unit: truck
-            ? `Trailer ${trailer.trailer_number} (Truck ${truck.truck_number})`
-            : `Trailer ${trailer.trailer_number}`,
-          driverName: driver?.name ?? null,
+          unit: `Trailer ${trailer.trailer_number} (Truck ${truck.truck_number})`,
+          driverName: context.driverName,
           document: f.label,
           fieldKey: f.key,
           dueDate: String(trailer[f.key]).slice(0, 10),
           days,
           milestone,
-          dispatcherId,
+          dispatcherId: context.dispatcherId,
         });
       }
     }
@@ -245,19 +245,20 @@ serve(async (req: Request): Promise<Response> => {
       const milestone = milestoneFor(days);
       if (milestone === null) continue;
       const truck = plate.truck_id ? truckById.get(plate.truck_id) : null;
-      const driver = truck?.driver1_id ? driverById.get(truck.driver1_id) : null;
+      const context = truck ? contextByTruckId.get(truck.id) : null;
+      if (!truck || !context) continue;
       candidates.push({
         entityType: "temp_plate",
         entityId: plate.id,
-        entityLabel: truck ? `Truck ${truck.truck_number}` : "Temporary plate",
-        unit: truck ? `Truck ${truck.truck_number}` : "Temporary plate",
-        driverName: driver?.name ?? null,
+        entityLabel: `Truck ${truck.truck_number}`,
+        unit: `Truck ${truck.truck_number}`,
+        driverName: context.driverName,
         document: "Temporary Plate",
         fieldKey: "temp_plate",
         dueDate: due,
         days,
         milestone,
-        dispatcherId: truck ? dispatcherForTruck(truck) : null,
+        dispatcherId: context.dispatcherId,
       });
     }
 
