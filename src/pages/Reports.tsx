@@ -158,6 +158,8 @@ import { useReportsFilters } from "./Reports/useReportsFilters";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useAfterhoursDriverMap } from "@/hooks/useAfterhoursDriverMap";
 import { useAutoSwitchOffice } from "@/hooks/useAutoSwitchOffice";
+import { useCoverageReportsSearch } from "@/hooks/useCoverageReportsSearch";
+import { filterReportGroups, matchesReportLoad } from "@/lib/reportsSearch";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
 import {
   generateLeaseAgreementPdf,
@@ -433,22 +435,7 @@ const LeaseAgreementButton = ({
 };
 
 // Helper to check if an order matches the load number search filter
-const orderMatchesLoadFilter = (order: any, searchTerm: string): boolean => {
-  if (!searchTerm || !order) return false;
-  const term = searchTerm.toLowerCase();
-  const brokerMatch = String(order.broker_load_number || "")
-    .toLowerCase()
-    .includes(term);
-  if (brokerMatch) return true;
-  const internalLoadNumber = order.internal_load_number;
-  const companyName = order.company?.name || order.driver1?.company?.name;
-  if (internalLoadNumber) {
-    const formattedInternal = formatInternalLoadNumber(internalLoadNumber, companyName).toLowerCase();
-    if (formattedInternal.includes(term)) return true;
-    if (String(internalLoadNumber).toLowerCase().includes(term)) return true;
-  }
-  return false;
-};
+const orderMatchesLoadFilter = matchesReportLoad;
 
 const getOrderPickupDateForCarousel = (order: any): Date | null => {
   const pickupDatetime = order?.pickupStops?.[0]?.datetime || order?.pickupStop?.datetime || order?.pickup_datetime;
@@ -739,6 +726,8 @@ const Reports = () => {
 
   // Use rawGroupedReports directly - progressive rendering handles tab switch performance.
   const groupedReports = rawGroupedReports;
+  const [proximityMatchedTrucks, setProximityMatchedTrucks] = useState<Map<string, number> | null>(null);
+
 
   // Companies that have at least 1 truck in the currently selected office
   const companiesInOffice = useMemo(() => {
@@ -755,24 +744,35 @@ const Reports = () => {
     return Array.from(companies).sort();
   }, [groupedReports, activeTab, expandOffice, inCoverageView]);
 
-  // Auto-switch office based on filter inputs (shared engine for all 3 filters)
-  // During coverage the visible tab is the sentinel that matches no office; feed the
-  // search engine the user's real office so "found in my office" still matches the
-  // loaded coverage data instead of forcing a switch out of Individual Mode.
-  const autoSwitchActiveTab =
-    inCoverageView && profile?.office && ALL_OFFICES.includes(profile.office) ? profile.office : activeTab;
-  const { ambiguousMatch, searchStatus, foundOrderMeta } = useAutoSwitchOffice({
+  const searchToday = format(getChicagoToday(), "yyyy-MM-dd");
+  const searchFilters = useMemo(() => ({
+    unit: debouncedTruckDriverFilter,
+    dispatch: debouncedDispatchNameFilter,
+    load: debouncedLoadNumberFilter,
+    company: companyFilter,
+    proximity: proximityMatchedTrucks,
+    today: searchToday,
+    driverIds: inCoverageView ? individualOverrideDriverIds : undefined,
+  }), [debouncedTruckDriverFilter, debouncedDispatchNameFilter, debouncedLoadNumberFilter,
+    companyFilter, proximityMatchedTrucks, inCoverageView, individualOverrideDriverIds, searchToday]);
+  const officeSearch = useAutoSwitchOffice({
+    enabled: !inCoverageView,
     truckDriverFilter: debouncedTruckDriverFilter,
     dispatchNameFilter: debouncedDispatchNameFilter,
     loadNumberFilter: debouncedLoadNumberFilter,
-    activeTab: autoSwitchActiveTab,
-    // While covering (Individual Mode), searching must only filter the covered
-    // trucks — never jump to another office and drop out of the coverage view.
-    setActiveTab: inCoverageView ? () => {} : setActiveTab,
+    activeTab,
+    setActiveTab,
     offices,
     groupedReports,
     setSpotlightDriverId,
   });
+  const coverageSearch = useCoverageReportsSearch({
+    enabled: inCoverageView,
+    groups: groupedReports,
+    filters: searchFilters,
+    loading: isLoading || isFetchingBackground,
+  });
+  const { ambiguousMatch, searchStatus, foundOrderMeta } = inCoverageView ? coverageSearch : officeSearch;
 
   // Once the spotlighted driver appears in any loaded group, drop the
   // spotlight so future tab interactions aren't gated by it. The hook also
@@ -821,13 +821,13 @@ const Reports = () => {
     loadFilterWasActiveRef.current = true;
 
     const updates: Record<string, Date> = {};
-    for (const group of (groupedReports || []) as any[]) {
+    for (const group of (inCoverageView ? filterReportGroups(groupedReports, searchFilters) : groupedReports || []) as any[]) {
       const dispatcherId = group?.dispatcherId;
       if (!dispatcherId || !Array.isArray(group?.trucks)) continue;
       let loadDate: Date | null = null;
       for (const truck of group.trucks) {
         const matchedOrder = (truck?.allOrders || []).find((order: any) =>
-          orderMatchesLoadFilter(order, debouncedLoadNumberFilter),
+          orderMatchesLoadFilter(order, debouncedLoadNumberFilter, inCoverageView ? searchFilters.today : undefined),
         );
         if (matchedOrder) {
           loadDate = getOrderPickupDateForCarousel(matchedOrder);
@@ -846,8 +846,10 @@ const Reports = () => {
     setCalendarDates((prev) => ({ ...prev, ...updates }));
     for (const [dispatcherId, newDate] of Object.entries(updates)) {
       const previousStartDate = calendarDates[dispatcherId] || addDays(getChicagoToday(), -2);
-      loadDispatcherOrders(dispatcherId, newDate);
-      loadDispatcherOrders(dispatcherId, addDays(newDate, 5));
+      if (!inCoverageView) {
+        loadDispatcherOrders(dispatcherId, newDate);
+        loadDispatcherOrders(dispatcherId, addDays(newDate, 5));
+      }
       if (newDate < previousStartDate) {
         ensureLostDayNotesForDateRange(newDate, addDays(previousStartDate, -1));
       } else if (newDate > previousStartDate) {
@@ -855,7 +857,7 @@ const Reports = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [foundOrderMeta?.pickupDate, debouncedLoadNumberFilter, groupedReports]);
+  }, [foundOrderMeta?.pickupDate, debouncedLoadNumberFilter, groupedReports, inCoverageView]);
 
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
@@ -1110,7 +1112,6 @@ const Reports = () => {
   // Proximity search state
   const [proximityAddress, setProximityAddress] = useState("");
   const [proximitySearching, setProximitySearching] = useState(false);
-  const [proximityMatchedTrucks, setProximityMatchedTrucks] = useState<Map<string, number> | null>(null);
   const [proximityCoords, setProximityCoords] = useState<{ lat: number; lon: number } | null>(null);
   const proximityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // When true, proximity search matches trucks by their current GPS location
@@ -2436,8 +2437,12 @@ const Reports = () => {
       console.log(`[Reports] Calendar navigation for dispatcher ${dispatcherId} to ${format(newDate, "yyyy-MM-dd")}`);
 
       // Load orders for the start and end of the visible 6-day range
-      loadDispatcherOrders(dispatcherId, newDate);
-      loadDispatcherOrders(dispatcherId, addDays(newDate, 5));
+      if (inCoverageView) {
+        setSelectedDateForWindow(addDays(newDate, 1));
+      } else {
+        loadDispatcherOrders(dispatcherId, newDate);
+        loadDispatcherOrders(dispatcherId, addDays(newDate, 5));
+      }
 
       // Also expand the lost_day_notes window so Home Time / Game Over icons
       // appear for past/future dates the user scrolls into.
@@ -2447,7 +2452,7 @@ const Reports = () => {
         ensureLostDayNotesForDateRange(addDays(previousStartDate, 6), addDays(newDate, 5));
       }
     },
-    [calendarDates, loadDispatcherOrders],
+    [calendarDates, loadDispatcherOrders, inCoverageView],
   );
   const getStatusColors = (status: string) => {
     switch (status) {
@@ -3701,127 +3706,11 @@ const Reports = () => {
     });
   };
 
-  // Filter reports by office - memoized (must be before any early returns)
-  const filterReportsByOffice = useMemo(() => {
-    return (office: string) => {
-      if (!groupedReports) return [];
-      // Coverage view: data is already scoped to the covered drivers — no office filter.
-      if (inCoverageView) {
-        let all = groupedReports;
-        if (debouncedDispatchNameFilter) {
-          all = all.filter((group) =>
-            group.dispatcher.toLowerCase().includes(debouncedDispatchNameFilter.toLowerCase()),
-          );
-        }
-        return all;
-      }
-      const allowed = expandOffice(office);
-      let filtered = groupedReports.filter((group) => allowed.includes(group.office));
-
-      // Apply dispatch name filter
-      if (debouncedDispatchNameFilter) {
-        filtered = filtered.filter((group) =>
-          group.dispatcher.toLowerCase().includes(debouncedDispatchNameFilter.toLowerCase()),
-        );
-      }
-
-      // Apply company filter (driver's company)
-      if (companyFilter) {
-        filtered = filtered
-          .map((group) => ({
-            ...group,
-            trucks: group.trucks.filter((truck) => truck.companyName === companyFilter),
-          }))
-          .filter((group) => group.trucks.length > 0);
-      }
-
-      // Apply truck/driver and load number filters
-      if (debouncedTruckDriverFilter || debouncedLoadNumberFilter) {
-        filtered = filtered
-          .map((group) => {
-            const filteredTrucks = group.trucks.filter((truck) => {
-              // Check truck/driver filter
-              if (debouncedTruckDriverFilter) {
-                const searchLower = debouncedTruckDriverFilter.toLowerCase();
-                const isNumericSearch = /^\d+$/.test(debouncedTruckDriverFilter);
-
-                // For numeric searches, use exact match for truck or trailer number
-                const matchesTruck = isNumericSearch
-                  ? truck.truckNumber?.toLowerCase() === searchLower
-                  : truck.truckNumber?.toLowerCase().includes(searchLower);
-                const matchesTrailer = isNumericSearch
-                  ? truck.trailerNumber?.toLowerCase() === searchLower
-                  : truck.trailerNumber?.toLowerCase().includes(searchLower);
-                const matchesDriver = truck.driver?.toLowerCase().includes(searchLower);
-                if (!matchesTruck && !matchesTrailer && !matchesDriver) return false;
-              }
-
-              // Check load number filter (searches both internal and broker load numbers)
-              if (debouncedLoadNumberFilter) {
-                const searchTerm = debouncedLoadNumberFilter.toLowerCase();
-                const hasMatchingLoad = truck.allOrders?.some((order: any) => {
-                  // Exclude canceled orders unless they still appear as red cells in reports
-                  // (canceled with pickup today — i.e., no next load yet). Mirrors getPickupCellColor logic.
-                  if (order.canceled) {
-                    const pickupDateStr =
-                      order.pickupStops?.[0]?.datetime || order.pickup_datetime || order.pickupStop?.datetime;
-                    if (!pickupDateStr) return false;
-                    const datePart = String(pickupDateStr).substring(0, 10);
-                    const today = new Date();
-                    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-                    if (datePart !== todayStr) return false;
-                  }
-                  // Check broker load number
-                  const brokerMatch = String(order.broker_load_number || "")
-                    .toLowerCase()
-                    .includes(searchTerm);
-                  if (brokerMatch) return true;
-
-                  // Check internal load number with suffix (e.g., "123-BFP")
-                  const internalLoadNumber = order.internal_load_number;
-                  const companyName = order.company?.name || order.driver1?.company?.name;
-                  if (internalLoadNumber) {
-                    const formattedInternal = formatInternalLoadNumber(internalLoadNumber, companyName).toLowerCase();
-                    if (formattedInternal.includes(searchTerm)) return true;
-                    // Also check raw internal number
-                    if (String(internalLoadNumber).toLowerCase().includes(searchTerm)) return true;
-                  }
-                  return false;
-                });
-                if (!hasMatchingLoad) return false;
-              }
-              return true;
-            });
-            return {
-              ...group,
-              trucks: filteredTrucks,
-            };
-          })
-          .filter((group) => group.trucks.length > 0);
-      }
-
-      // Apply proximity address filter
-      if (proximityMatchedTrucks) {
-        filtered = filtered
-          .map((group) => ({
-            ...group,
-            trucks: group.trucks.filter((truck) => proximityMatchedTrucks.has(truck.id)),
-          }))
-          .filter((group) => group.trucks.length > 0);
-      }
-
-      return filtered;
-    };
-  }, [
-    groupedReports,
-    debouncedTruckDriverFilter,
-    debouncedDispatchNameFilter,
-    debouncedLoadNumberFilter,
-    companyFilter,
-    proximityMatchedTrucks,
-    expandOffice,
-    inCoverageView,
-  ]);
+  // Pick the office/coverage scope, then apply the same row filters in both modes.
+  const filterReportsByOffice = useMemo(() => (office: string) => filterReportGroups(groupedReports, {
+    ...searchFilters,
+    offices: inCoverageView ? undefined : expandOffice(office),
+  }), [groupedReports, searchFilters, expandOffice, inCoverageView]);
 
   // Collect all driver IDs for weekly plans hook
   const allDriverIds = useMemo(() => {

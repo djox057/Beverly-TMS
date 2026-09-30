@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { isValidUUID } from "@/utils/validation";
-import { useIndividualMode } from "@/contexts/IndividualModeContext";
 
 /**
  * Word-boundary match: term matches the start of any word in `text`,
@@ -58,7 +57,9 @@ export function useAutoSwitchOffice({
   offices,
   groupedReports,
   setSpotlightDriverId,
+  enabled = true,
 }: {
+  enabled?: boolean;
   truckDriverFilter: string;
   dispatchNameFilter: string;
   loadNumberFilter: string;
@@ -74,7 +75,22 @@ export function useAutoSwitchOffice({
    */
   setSpotlightDriverId?: (driverId: string | null) => void;
 }) {
-  const { individualMode } = useIndividualMode();
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+  const searchGeneration = useRef(0);
+  useEffect(() => {
+    searchGeneration.current++;
+    lastAutoSwitchRef.current = null;
+    localMatchFoundRef.current = null;
+    manualTabSwitchRef.current = null;
+    userOverrideRef.current = null;
+    lastSearchedTermsRef.current = {};
+    isSearchingRef.current = false;
+    lastSwitchTimeRef.current = 0;
+    setAmbiguousMatch(null);
+    setFoundOrderMeta(null);
+    setSpotlightDriverId?.(null);
+  }, [enabled]);
   
   // Values are already debounced by the caller (useReportsFilters at 300ms)
   const debouncedTruckDriver = truckDriverFilter;
@@ -579,6 +595,8 @@ export function useAutoSwitchOffice({
 
   // Main effect for Truck/Driver filter
   useEffect(() => {
+    if (!enabled) return;
+    const generation = searchGeneration.current;
     if (!debouncedTruckDriver) {
       setAmbiguousMatch(prev => prev?.filter === "truck" ? null : prev);
       setTruckSearchStatus("idle");
@@ -675,6 +693,7 @@ export function useAutoSwitchOffice({
       setTruckSearchStatus("searching");
       try {
         const result = await lookupTruckDriverOffice(debouncedTruckDriver);
+        if (!enabledRef.current || generation !== searchGeneration.current) return;
 
         // Reset circuit breaker on successful DB call (even if not_found)
         if (result.type !== "error") {
@@ -726,17 +745,21 @@ export function useAutoSwitchOffice({
           setTruckSearchStatus("not_found");
         }
       } finally {
-        isSearchingRef.current = false;
-        lastSearchedTermsRef.current.truck = debouncedTruckDriver;
+        if (generation === searchGeneration.current) {
+          isSearchingRef.current = false;
+          lastSearchedTermsRef.current.truck = debouncedTruckDriver;
+        }
       }
     };
     
     search();
   // NOTE: Remove hasLocalMatch and findInAllLoadedData from deps - they use refs internally for stable checks
-  }, [debouncedTruckDriver, activeTab, lookupTruckDriverOffice, setActiveTab, normalizeToKnownOffice]);
+  }, [enabled, debouncedTruckDriver, activeTab, lookupTruckDriverOffice, setActiveTab, normalizeToKnownOffice]);
 
   // Main effect for Dispatch name filter
   useEffect(() => {
+    if (!enabled) return;
+    const generation = searchGeneration.current;
     if (!debouncedDispatchName) {
       setAmbiguousMatch(prev => prev?.filter === "dispatch" ? null : prev);
       setDispatchSearchStatus("idle");
@@ -828,6 +851,7 @@ export function useAutoSwitchOffice({
       setDispatchSearchStatus("searching");
       try {
         const result = await lookupDispatcherOffice(debouncedDispatchName);
+        if (!enabledRef.current || generation !== searchGeneration.current) return;
 
         if (result.type !== "error") {
           dbErrorCountRef.current = 0;
@@ -877,17 +901,21 @@ export function useAutoSwitchOffice({
           setDispatchSearchStatus("not_found");
         }
       } finally {
-        isSearchingRef.current = false;
-        lastSearchedTermsRef.current.dispatch = debouncedDispatchName;
+        if (generation === searchGeneration.current) {
+          isSearchingRef.current = false;
+          lastSearchedTermsRef.current.dispatch = debouncedDispatchName;
+        }
       }
     };
     
     search();
   // NOTE: Remove hasLocalMatch and findInAllLoadedData from deps - they use refs internally for stable checks
-  }, [debouncedDispatchName, activeTab, lookupDispatcherOffice, setActiveTab, normalizeToKnownOffice]);
+  }, [enabled, debouncedDispatchName, activeTab, lookupDispatcherOffice, setActiveTab, normalizeToKnownOffice]);
 
   // Main effect for Load number filter
   useEffect(() => {
+    if (!enabled) return;
+    const generation = searchGeneration.current;
     if (!debouncedLoadNumber) {
       setAmbiguousMatch(prev => prev?.filter === "load" ? null : prev);
       setLoadSearchStatus("idle");
@@ -981,6 +1009,7 @@ export function useAutoSwitchOffice({
         });
 
         const localOffice = await localPromise;
+        if (!enabledRef.current || generation !== searchGeneration.current) return;
         if (localOffice && localOffice !== activeTab) {
           lastAutoSwitchRef.current = { filter: "load", value: debouncedLoadNumber, targetOffice: localOffice };
           lastSwitchTimeRef.current = Date.now();
@@ -993,6 +1022,7 @@ export function useAutoSwitchOffice({
         }
 
         const result = await dbPromise;
+        if (!enabledRef.current || generation !== searchGeneration.current) return;
         if (resolved) return;
 
         if (result.type !== "error") {
@@ -1049,14 +1079,16 @@ export function useAutoSwitchOffice({
           setFoundOrderMeta(null);
         }
       } finally {
-        isSearchingRef.current = false;
-        lastSearchedTermsRef.current.load = debouncedLoadNumber;
+        if (generation === searchGeneration.current) {
+          isSearchingRef.current = false;
+          lastSearchedTermsRef.current.load = debouncedLoadNumber;
+        }
       }
     };
     
     search();
   // NOTE: Remove hasLocalMatch and findInAllLoadedData from deps - they use refs internally for stable checks
-  }, [debouncedLoadNumber, activeTab, lookupLoadOffice, setActiveTab, normalizeToKnownOffice]);
+  }, [enabled, debouncedLoadNumber, activeTab, lookupLoadOffice, setActiveTab, normalizeToKnownOffice]);
 
   // Clear the last auto-switch ref when filters are cleared
   useEffect(() => {

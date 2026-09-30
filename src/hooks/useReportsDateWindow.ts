@@ -744,7 +744,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     individualMode ? 'individual' : 'all',
     individualMode ? currentUserDispatcherId || 'no-user' : 'all-dispatchers',
     individualMode && individualOverrideDriverIds
-      ? `override:${individualOverrideDriverIds.length}:${[...individualOverrideDriverIds].sort().slice(0, 5).join(',')}`
+      ? `override:${individualOverrideDriverIds.length}:${[...individualOverrideDriverIds].sort().join(',')}`
       : 'no-override',
   ].join('|');
   if (lastScopeSignature !== undefined && lastScopeSignature !== scopeSignature) {
@@ -762,7 +762,7 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
     individualMode ? 'individual' : 'all',
     individualMode ? currentUserDispatcherId : 'all-dispatchers',
     individualMode && individualOverrideDriverIds
-      ? `override:${individualOverrideDriverIds.length}:${individualOverrideDriverIds.slice(0, 3).join(',')}`
+      ? `override:${individualOverrideDriverIds.length}:${[...individualOverrideDriverIds].sort().join(',')}`
       : 'no-override',
     individualMode ? (bookedByName || 'no-booked-by') : 'no-booked-by',
   ], [individualMode, currentUserDispatcherId, individualOverrideDriverIds, bookedByName]);
