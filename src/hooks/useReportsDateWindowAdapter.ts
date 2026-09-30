@@ -459,7 +459,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
   
   // When searching across offices in Individual Mode, bypass the dispatcher filter
   // This allows search results from other offices to load properly
-  const shouldBypassIndividualMode = hasActiveSearch && isViewingOtherOffice;
+  const shouldBypassIndividualMode = !individualOverrideDriverIds && hasActiveSearch && isViewingOtherOffice;
   
   // When individual mode changes, invalidate all adapter queries to force refetch with new scope
   useEffect(() => {
