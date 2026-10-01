@@ -911,12 +911,12 @@ const Trailers = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Trailer</DialogTitle>
           </DialogHeader>
           
-          <Tabs defaultValue="info" className="w-full">
+          <Tabs defaultValue="info" className="min-w-0 w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="info">Trailer Info</TabsTrigger>
               <TabsTrigger value="files">Trailer Files</TabsTrigger>

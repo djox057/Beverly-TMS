@@ -459,7 +459,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
   };
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Truck Files {truckNumber && `- ${truckNumber}`}</CardTitle>
       </CardHeader>
@@ -523,7 +523,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
               value={currentFolder ?? "__all__"}
               onValueChange={(v) => setCurrentFolder(v === "__all__" ? null : v)}
             >
-              <SelectTrigger className="w-[240px]">
+              <SelectTrigger className="w-full sm:w-[240px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -610,7 +610,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">or</p>
               </div>
-              <div className="flex gap-2 w-full">
+              <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row">
                 <Input
                   id="truck-file-input"
                   type="file"
@@ -619,7 +619,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
                     addPendingFiles(e.target.files);
                     clearPendingInput();
                   }}
-                  className="flex-1"
+                  className="min-w-0 flex-1"
                 />
                 <Button 
                   onClick={handleFileUpload} 
@@ -649,7 +649,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
                     return (
                       <div
                         key={pending.id}
-                        className="flex items-center gap-2 rounded-md border bg-background p-2"
+                        className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-2"
                       >
                         <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <div className="min-w-0 flex-1">
@@ -819,22 +819,22 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
                 return (
                   <div
                     key={file.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
+                    className="flex min-w-0 flex-col items-stretch gap-3 p-3 border rounded-lg"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       <Checkbox
                         checked={selectedIds.includes(file.id)}
                         onCheckedChange={(checked) => toggleSelected(file.id, checked === true)}
                       />
                       <FileText className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">{file.file_name}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium break-words" title={file.file_name}>{file.file_name}</p>
                         <p className="text-xs text-muted-foreground">
                           {(file.file_size / 1024).toFixed(2)} KB • {new Date(file.created_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Popover
                         open={openDocTypeId === file.id}
                         onOpenChange={(open) => setOpenDocTypeId(open ? file.id : null)}
