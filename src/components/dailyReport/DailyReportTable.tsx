@@ -467,8 +467,8 @@ export const DailyReportTable = ({
   };
 
   const gridTemplate = readOnly
-    ? `32px ${columns.map((c) => c.width).join(" ")} 64px`
-    : `32px ${columns.map((c) => c.width).join(" ")} 64px 28px`;
+    ? `32px ${columns.map((c) => c.width).join(" ")} 28px`
+    : `32px ${columns.map((c) => c.width).join(" ")} 28px 28px`;
 
   const truckColKey = columns.find((c) => c.autocompleteTrucks)?.key;
   const filtering = !!truckFilter.trim() || !!colorFilter;
@@ -530,21 +530,11 @@ export const DailyReportTable = ({
           aria-pressed={sortByPriority}
           title="Sort: orange, yellow, blue, red, green. Click again to restore original order."
           className={cn(
-            "group/sort relative mx-1 my-0.5 flex items-center justify-center gap-1 overflow-hidden rounded-md border px-1.5 py-1 text-[10px] font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
-            sortByPriority
-              ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
-              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-foreground"
+            "flex h-full w-full items-center justify-center self-stretch p-0 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
+            sortByPriority && "text-primary"
           )}
         >
-          <ArrowDownWideNarrow className="h-3 w-3 shrink-0" />
-          <span>Sort</span>
-          <span aria-hidden="true" className="absolute inset-x-0 bottom-0 flex h-0.5 overflow-hidden">
-            <span className="flex-1 bg-orange-400" />
-            <span className="flex-1 bg-yellow-400" />
-            <span className="flex-1 bg-cyan-400" />
-            <span className="flex-1 bg-red-500" />
-            <span className="flex-1 bg-green-500" />
-          </span>
+          <ArrowDownWideNarrow className="h-3.5 w-3.5 shrink-0" />
         </button>
         {!readOnly && <div />}
       </div>
