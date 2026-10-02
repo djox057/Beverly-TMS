@@ -2,7 +2,7 @@ import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Info, PaintBucket, Maximize2 } from "lucide-react";
+import { Plus, Trash2, Info, PaintBucket, Maximize2, ArrowDownWideNarrow } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -36,6 +36,9 @@ export const ROW_COLORS: { value: string; label: string; bg: string; swatch: str
   { value: "red", label: "Recovery", bg: "bg-red-500/80 dark:bg-red-600/70", swatch: "bg-red-500" },
   { value: "green", label: "Resolved", bg: "bg-green-500/80 dark:bg-green-600/70", swatch: "bg-green-500" },
 ];
+const COLOR_PRIORITY: Record<string, number> = { orange: 0, yellow: 1, cyan: 2, blue: 2, red: 3, green: 4 };
+const colorPriority = (color?: string | null) => COLOR_PRIORITY[color ?? ""] ?? 5;
+
 const colorBg = (c?: string | null) => ROW_COLORS.find((x) => x.value === c)?.bg ?? "";
 
 // Shared, lightweight cache of active truck numbers (refreshed on demand)
@@ -155,6 +158,7 @@ export const DailyReportTable = ({
   const [rows, setRows] = useState<Row[]>(() =>
     Array.from({ length: initialRows }, () => makeRow(columns))
   );
+  const [sortByPriority, setSortByPriority] = useState(false);
   const rowsRef = useRef<Row[]>([]);
   useEffect(() => {
     rowsRef.current = rows;
@@ -463,7 +467,7 @@ export const DailyReportTable = ({
   };
 
   const gridTemplate = readOnly
-    ? `32px ${columns.map((c) => c.width).join(" ")}`
+    ? `32px ${columns.map((c) => c.width).join(" ")} 28px`
     : `32px ${columns.map((c) => c.width).join(" ")} 28px 28px`;
 
   const truckColKey = columns.find((c) => c.autocompleteTrucks)?.key;
@@ -484,13 +488,23 @@ export const DailyReportTable = ({
 
   // When aggregating across offices, sort so rows from the same office cluster
   // together; we'll inject a small header row before each office group.
-  const renderedRows = ignoreOffice
+  const groupedRows = ignoreOffice
     ? [...visibleRows].sort((a, b) => {
         const ao = (a.office ?? "") as string;
         const bo = (b.office ?? "") as string;
         return ao.localeCompare(bo);
       })
     : visibleRows;
+  // Sort a copy so editing, persistence, and the original order remain intact.
+  const renderedRows = sortByPriority
+    ? [...groupedRows].sort((a, b) => {
+        if (ignoreOffice) {
+          const officeOrder = String(a.office ?? "").localeCompare(String(b.office ?? ""));
+          if (officeOrder) return officeOrder;
+        }
+        return colorPriority(a.color) - colorPriority(b.color);
+      })
+    : groupedRows;
 
   return (
     <div className={cn("border border-border rounded-md overflow-hidden bg-card", className)}>
@@ -509,6 +523,16 @@ export const DailyReportTable = ({
             {c.label}
           </div>
         ))}
+        <button
+          type="button"
+          onClick={() => setSortByPriority((active) => !active)}
+          aria-label="Sort rows by color priority"
+          aria-pressed={sortByPriority}
+          title="Sort: orange, yellow, blue, red, green. Click again to restore original order."
+          className={cn("flex items-center justify-center hover:text-primary", sortByPriority && "bg-accent text-primary")}
+        >
+          <ArrowDownWideNarrow className="h-3.5 w-3.5" />
+        </button>
         {!readOnly && <div />}
       </div>
       <div className="divide-y divide-border">
@@ -630,6 +654,7 @@ export const DailyReportTable = ({
                 )}
               </div>
             ))}
+            {readOnly && <div />}
             {!readOnly && (
             <Popover>
               <PopoverTrigger asChild>
