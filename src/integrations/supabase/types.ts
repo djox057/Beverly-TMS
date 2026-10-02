@@ -7136,6 +7136,7 @@ export type Database = {
       is_afterhours_manager: { Args: { _user_id: string }; Returns: boolean }
       is_recovery_dispatcher: { Args: never; Returns: boolean }
       is_schedule_manager: { Args: { _user_id: string }; Returns: boolean }
+      is_supervisor_dispatch_user: { Args: never; Returns: boolean }
       log_pii_view: {
         Args: {
           p_driver_id: string
@@ -7205,6 +7206,17 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       sign_out_all_users: { Args: never; Returns: Json }
+      supervisor_can_view_order: {
+        Args: {
+          _booked_by: string
+          _driver1: string
+          _driver2: string
+          _original_driver1: string
+          _original_driver2: string
+        }
+        Returns: boolean
+      }
+      supervisor_team_user_ids: { Args: never; Returns: string[] }
       try_advisory_lock_truck_distances: { Args: never; Returns: boolean }
       upcoming_driver_staff: {
         Args: never
