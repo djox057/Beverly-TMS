@@ -17,6 +17,20 @@ describe("supervisor permissions", () => {
     }
     expect(hasRoleAccess(["supervisor"], "supervisor")).toBe(true);
   });
+  it("preserves permissions for every combination of non-supervisor roles", () => {
+    const nonSupervisorRoles: UserRole[] = ["dispatch", "afterhours", "admin", "manager", "driver", "safety", "accounting", "maintenance", "chicago_management", "yard", "recruiting", "claims"];
+    for (let mask = 0; mask < 2 ** nonSupervisorRoles.length; mask++) {
+      const roles = nonSupervisorRoles.filter((_, index) => mask & (1 << index));
+      for (const required of [...nonSupervisorRoles, "supervisor" as UserRole]) {
+        const priorAccess = roles.length > 0 && (
+          (roles.some(role => ["admin", "accounting", "manager", "chicago_management"].includes(role)) && required !== "driver") ||
+          (roles.some(role => ["safety", "maintenance"].includes(role)) && required === "dispatch") ||
+          roles.includes(required)
+        );
+        expect(hasRoleAccess(roles, required)).toBe(priorAccess);
+      }
+    }
+  });
   it("preserves additional explicitly granted roles and existing admin behavior", () => {
     expect(hasRoleAccess(["supervisor", "maintenance"], "maintenance")).toBe(true);
     expect(hasRoleAccess(["admin"], "manager")).toBe(true);

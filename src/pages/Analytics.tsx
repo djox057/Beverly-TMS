@@ -447,10 +447,10 @@ const Analytics = () => {
     !hasRole("safety");
 
   useEffect(() => {
-    if (isDispatchOnly && !["performance", "salaries", "missing-pod"].includes(activeTab)) {
+    if (supervisorTeam.isSupervisor && isDispatchOnly && !["performance", "salaries", "missing-pod"].includes(activeTab)) {
       setActiveTab("performance");
     }
-  }, [isDispatchOnly, activeTab]);
+  }, [supervisorTeam.isSupervisor, isDispatchOnly, activeTab]);
 
   // Use Individual Mode context - applies filtering when toggle is ON
   const { individualMode } = useIndividualMode();
@@ -3094,7 +3094,7 @@ const Analytics = () => {
           </div>
         </div>
 
-        <Tabs value={isDispatchOnly && !["performance", "salaries", "missing-pod"].includes(activeTab) ? "performance" : activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={supervisorTeam.isSupervisor && isDispatchOnly && !["performance", "salaries", "missing-pod"].includes(activeTab) ? "performance" : activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <TabsList>
               <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
@@ -5517,7 +5517,7 @@ const Analytics = () => {
                             <TableCell className="font-bold">Total</TableCell>
                             <TableCell className="text-right font-bold">
                               $
-                              {sortedDispatcherStatsForSalaries
+                              {(supervisorTeam.isSupervisor ? sortedDispatcherStatsForSalaries : dispatcherStats)
                                 .reduce((sum, s) => sum + s.totalFreight, 0)
                                 .toLocaleString(undefined, {
                                   minimumFractionDigits: 2,
@@ -5526,7 +5526,7 @@ const Analytics = () => {
                             </TableCell>
                             <TableCell className="text-right font-bold">
                               $
-                              {sortedDispatcherStatsForSalaries
+                              {(supervisorTeam.isSupervisor ? sortedDispatcherStatsForSalaries : dispatcherStats)
                                 .reduce((sum, s) => sum + s.cut, 0)
                                 .toLocaleString(undefined, {
                                   minimumFractionDigits: 2,
@@ -5535,14 +5535,14 @@ const Analytics = () => {
                             </TableCell>
                             <TableCell className="text-right font-bold">
                               {(() => {
-                                const tF = sortedDispatcherStatsForSalaries.reduce((sum, s) => sum + s.totalFreight, 0);
-                                const tM = sortedDispatcherStatsForSalaries.reduce((sum, s) => sum + s.totalMiles, 0);
+                                const tF = (supervisorTeam.isSupervisor ? sortedDispatcherStatsForSalaries : dispatcherStats).reduce((sum, s) => sum + s.totalFreight, 0);
+                                const tM = (supervisorTeam.isSupervisor ? sortedDispatcherStatsForSalaries : dispatcherStats).reduce((sum, s) => sum + s.totalMiles, 0);
                                 return tM > 0 ? `$${(tF / tM).toFixed(2)}` : "—";
                               })()}
                             </TableCell>
                             <TableCell className="text-right font-bold text-green-600">
                               +
-                              {sortedDispatcherStatsForSalaries.reduce(
+                              {(supervisorTeam.isSupervisor ? sortedDispatcherStatsForSalaries : dispatcherStats).reduce(
                                 (sum, s) => sum + (s.userId ? extraDaysByUser[s.userId] || 0 : 0),
                                 0,
                               )}
@@ -5550,7 +5550,7 @@ const Analytics = () => {
                             {!isDispatchOnly && (
                               <TableCell className="text-right font-bold text-red-600">
                                 -
-                                {sortedDispatcherStatsForSalaries.reduce(
+                                {(supervisorTeam.isSupervisor ? sortedDispatcherStatsForSalaries : dispatcherStats).reduce(
                                   (sum, s) => sum + (s.userId ? lostDaysByUser[s.userId] || 0 : 0),
                                   0,
                                 )}
@@ -5558,7 +5558,7 @@ const Analytics = () => {
                             )}
                             {!isDispatchOnly && hasFoodOffice(profile?.office) && (
                               <TableCell className="text-right font-bold">
-                                ${sortedDispatcherStatsForSalaries.reduce((sum, s) => sum + getFoodAllowance(s.office, s.userId), 0).toFixed(2)}
+                                ${(supervisorTeam.isSupervisor ? sortedDispatcherStatsForSalaries : dispatcherStats).reduce((sum, s) => sum + getFoodAllowance(s.office, s.userId), 0).toFixed(2)}
                               </TableCell>
                             )}
                             {!isDispatchOnly && <TableCell className="text-right font-bold">—</TableCell>}
