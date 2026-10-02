@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useState } from "react";
 import { useBillboardOrders } from "@/hooks/useBillboardOrders";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ThumbsDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, ThumbsDown } from "lucide-react";
 
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 40;
@@ -32,6 +32,16 @@ async function fetchAllRows<T = any>(
 
 const Billboard = () => {
   const { data: orders, isLoading } = useBillboardOrders();
+  const [isCompact, setIsCompact] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsCompact(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const [dispatcherProfiles, setDispatcherProfiles] = useState<
     Record<string, { full_name: string; user_id: string; office: string | null }>
   >({});
@@ -459,28 +469,53 @@ const Billboard = () => {
     "monthlyOfficeRpm",
   ];
 
-  // Rotate views every 20 seconds with smooth transition (6 views)
+  const viewLabels: Record<typeof activeView, string> = {
+    rpm5: "Weekly RPM · Top 5",
+    rpm10: "Weekly RPM · Ranks 6–10",
+    gross5: "Weekly Gross · Top 5",
+    gross10: "Weekly Gross · Ranks 6–10",
+    monthlyRpm5: "Monthly RPM · Top 5",
+    monthlyGross5: "Monthly Gross · Top 5",
+    worstRpm5: "Weekly RPM · Bottom 5",
+    worstMonthlyRpm5: "Monthly RPM · Bottom 5",
+    monthlyOfficeRpm: "Monthly Office RPM",
+  };
+
+  // Keep phone boards still while reading; display screens rotate every 20 seconds.
   useEffect(() => {
+    if (isCompact) return;
+    let switchTimeout: ReturnType<typeof setTimeout>;
+    let revealTimeout: ReturnType<typeof setTimeout>;
     const interval = setInterval(() => {
       setIsTransitioning(true);
-      setTimeout(() => {
+      switchTimeout = setTimeout(() => {
         setActiveView((prev) => {
           const currentIndex = viewOrder.indexOf(prev);
           const nextIndex = (currentIndex + 1) % viewOrder.length;
           return viewOrder[nextIndex];
         });
-        setTimeout(() => {
+        revealTimeout = setTimeout(() => {
           setIsTransitioning(false);
         }, 50);
       }, 500);
     }, 20000);
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(switchTimeout);
+      clearTimeout(revealTimeout);
+      setIsTransitioning(false);
+    };
+  }, [isCompact]);
 
   // Manual page switch handler
   const handlePageClick = (view: typeof activeView) => {
     if (view === activeView) return;
+    if (isCompact) {
+      setActiveView(view);
+      setIsTransitioning(false);
+      return;
+    }
     setIsTransitioning(true);
     setTimeout(() => {
       setActiveView(view);
@@ -661,29 +696,55 @@ const Billboard = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center" role="status" aria-label="Loading Billboard">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="bg-background flex flex-col p-4 overflow-hidden" style={{ height: "100vh" }}>
+    <div className="min-h-[100dvh] bg-background flex flex-col px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] lg:h-screen lg:min-h-0 lg:p-4 lg:overflow-hidden">
       {/* Average RPM - Big number at top */}
-      <div className="text-center py-4 border-b border-border">
-        <p className="text-2xl text-muted-foreground uppercase tracking-widest mb-2">Average Rate Per Mile</p>
-        <p className="text-[8.5rem] font-bold text-primary leading-none">{formatRPM(overallRPM)}</p>
+      <div className="text-center py-3 lg:py-4 border-b border-border">
+        <p className="text-xs sm:text-sm lg:text-2xl text-muted-foreground uppercase tracking-widest mb-2">Average Rate Per Mile</p>
+        <p className="text-6xl sm:text-7xl lg:text-[8.5rem] font-bold text-primary leading-none tabular-nums">{formatRPM(overallRPM)}</p>
       </div>
 
       {/* Rotating Leaderboard */}
-      <div className="flex-1 flex flex-col mt-5 min-h-0">
+      <div className="flex-1 flex flex-col mt-4 lg:mt-5 min-h-0">
+        <nav aria-label="Billboard views" className="flex items-center gap-2 mb-4 lg:hidden">
+          <button
+            type="button"
+            aria-label="Previous leaderboard"
+            onClick={() => handlePageClick(viewOrder[(viewOrder.indexOf(activeView) + viewOrder.length - 1) % viewOrder.length])}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-card active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <select
+            aria-label="Choose leaderboard"
+            value={activeView}
+            onChange={(event) => handlePageClick(event.target.value as typeof activeView)}
+            className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-card px-2 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            {viewOrder.map(view => <option key={view} value={view}>{viewLabels[view]}</option>)}
+          </select>
+          <button
+            type="button"
+            aria-label="Next leaderboard"
+            onClick={() => handlePageClick(viewOrder[(viewOrder.indexOf(activeView) + 1) % viewOrder.length])}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-card active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </nav>
         <div
-          className={`transition-all duration-500 ease-in-out ${
+          className={`transition-all duration-500 ease-in-out motion-reduce:transition-none ${
             isTransitioning ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
           }`}
         >
           <h2
-            className={`text-xl text-center uppercase tracking-widest mb-3 ${
+            className={`text-sm lg:text-xl text-center uppercase tracking-wide lg:tracking-widest mb-3 ${
               isWorstView ? "text-destructive/80" : "text-muted-foreground"
             }`}
           >
@@ -695,25 +756,25 @@ const Billboard = () => {
             {currentList.map((dispatcher, index) => (
               <div
                 key={dispatcher.name}
-                className={`flex items-center justify-between px-8 py-3 rounded-lg border ${
+                className={`flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-0 px-3 lg:px-8 py-3 rounded-lg border ${
                   isWorstView
                     ? "bg-destructive/5 border-destructive/25 shadow-[inset_0_0_30px_hsl(var(--destructive)/0.08)]"
                     : "bg-card border-border"
                 }`}
               >
                 {/* Rank + Name + Office */}
-                <div className="flex items-center gap-5">
+                <div className="flex min-w-0 items-center gap-3 lg:gap-5">
                   <span
-                    className={`text-4xl font-bold w-12 text-center ${
+                    className={`text-2xl lg:text-4xl font-bold w-8 lg:w-12 shrink-0 text-center ${
                       isWorstView ? "text-destructive/70" : "text-muted-foreground"
                     }`}
                   >
                     {descending ? startRank - index : startRank + index}
                   </span>
-                  <span className="text-3xl font-semibold text-foreground">
+                  <span className="min-w-0 text-base lg:text-3xl font-semibold text-foreground break-words">
                     {dispatcher.displayName}
                     {dispatcher.office && (
-                      <span className="text-xl text-muted-foreground ml-2">
+                      <span className="block text-xs lg:inline lg:text-xl text-muted-foreground lg:ml-2">
                         ~{dispatcher.office === "Čačak" ? "ČAČAK" : dispatcher.office}
                       </span>
                     )}
@@ -721,11 +782,11 @@ const Billboard = () => {
                 </div>
 
                 {/* Gross or Miles + RPM */}
-                <div className="flex items-center gap-12">
-                  <div className="text-right w-36 shrink-0">
+                <div className="grid grid-cols-2 gap-3 border-t border-border/60 pt-2 lg:flex lg:items-center lg:gap-12 lg:border-0 lg:pt-0">
+                  <div className="min-w-0 text-left lg:text-right lg:w-36 lg:shrink-0">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">RPM</p>
                     <p
-                      className={`text-3xl font-bold tabular-nums ${
+                      className={`text-xl lg:text-3xl font-bold tabular-nums ${
                         isWorstView ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"
                       }`}
                     >
@@ -733,14 +794,14 @@ const Billboard = () => {
                     </p>
                   </div>
                   {isRpmView ? (
-                    <div className="text-right w-56 shrink-0">
+                    <div className="min-w-0 text-right lg:w-56 lg:shrink-0">
                       <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Miles</p>
-                      <p className="text-3xl font-bold text-primary tabular-nums">{dispatcher.totalMiles.toLocaleString()}</p>
+                      <p className="text-xl lg:text-3xl font-bold text-primary tabular-nums break-words">{dispatcher.totalMiles.toLocaleString()}</p>
                     </div>
                   ) : (
-                    <div className="text-right w-56 shrink-0">
+                    <div className="min-w-0 text-right lg:w-56 lg:shrink-0">
                       <p className="text-xs text-muted-foreground uppercase tracking-wide">Gross</p>
-                      <p className="text-3xl font-bold text-primary tabular-nums">{formatCurrency(dispatcher.totalFreight)}</p>
+                      <p className="text-xl lg:text-3xl font-bold text-primary tabular-nums break-words">{formatCurrency(dispatcher.totalFreight)}</p>
                     </div>
                   )}
                 </div>
@@ -748,13 +809,19 @@ const Billboard = () => {
             ))}
 
 
-            {/* If less than 5 dispatchers, fill empty slots */}
+            {currentList.length === 0 && (
+              <p className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground lg:hidden">
+                No qualifying rankings for this view yet.
+              </p>
+            )}
+
+            {/* Keep empty display slots on larger screens only. */}
             {Array.from({ length: Math.max(0, 5 - currentList.length) }).map((_, i) => {
               const emptyRank = startRank + currentList.length + i;
               return (
                 <div
                   key={`empty-${i}`}
-                  className="flex items-center justify-between px-8 py-3 bg-card/50 rounded-lg border border-border opacity-30"
+                  className="hidden lg:flex items-center justify-between px-8 py-3 bg-card/50 rounded-lg border border-border opacity-30"
                 >
                   <div className="flex items-center gap-5">
                     <span className="text-4xl font-bold text-muted-foreground w-12 text-center">{emptyRank}</span>
@@ -778,18 +845,23 @@ const Billboard = () => {
           </div>
         </div>
 
-        {/* View indicator dots (6 dots now, clickable) */}
-        <div className="flex justify-center gap-3 mt-3">
+        {/* Keyboard-accessible indicators for the rotating display view. */}
+        <nav aria-label="Billboard display views" className="hidden lg:flex justify-center mt-3">
           {viewOrder.map((view) => (
-            <div
+            <button
               key={view}
+              type="button"
+              aria-label={viewLabels[view]}
+              aria-pressed={activeView === view}
               onClick={() => handlePageClick(view)}
-              className={`w-3 h-3 rounded-full transition-all duration-300 cursor-pointer ${
+              className="flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <span className={`h-3 w-3 rounded-full transition-all duration-300 ${
                 activeView === view ? "bg-primary scale-125" : "bg-muted-foreground/30"
-              }`}
-            />
+              }`} />
+            </button>
           ))}
-        </div>
+        </nav>
       </div>
     </div>
   );
