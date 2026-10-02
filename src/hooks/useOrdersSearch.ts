@@ -2,6 +2,8 @@ import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+import { useSupervisorTeam } from "./useSupervisorTeam";
+
 import { transformOrders } from "@/utils/ordersTransform";
 
 /**
@@ -13,8 +15,9 @@ function getSearchQueryKey(
   dispatcherUserId?: string | null,
   excludeBookedByCompanyId?: string | null,
   bookedByCompanyId?: string | null,
+  scope?: string | null,
 ): (string | null | undefined)[] {
-  return ["orders", "search", searchTerm, bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId];
+  return ["orders", "search", searchTerm, bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId, scope];
 }
 
 /**
@@ -26,6 +29,7 @@ function getSearchQueryKey(
  */
 export function useOrdersSearch() {
   const queryClient = useQueryClient();
+  const { cacheScope: scope } = useSupervisorTeam(false);
   
   const [activeSearchTerm, setActiveSearchTerm] = useState<string | null>(null);
   const [activeOptions, setActiveOptions] = useState<{ bookedBy?: string | null; dispatcherUserId?: string | null; excludeBookedByCompanyId?: string | null; bookedByCompanyId?: string | null } | null>(null);
@@ -75,7 +79,7 @@ export function useOrdersSearch() {
     
     setActiveSearchTerm(term);
     setActiveOptions(options || null);
-    const newQueryKey = getSearchQueryKey(term, options?.bookedBy, options?.dispatcherUserId, options?.excludeBookedByCompanyId, options?.bookedByCompanyId);
+    const newQueryKey = getSearchQueryKey(term, options?.bookedBy, options?.dispatcherUserId, options?.excludeBookedByCompanyId, options?.bookedByCompanyId, scope);
     activeQueryKeyRef.current = newQueryKey;
 
     // Abort any in-flight request from a prior keystroke
@@ -164,7 +168,7 @@ export function useOrdersSearch() {
         inFlightAbortRef.current = null;
       }
     }
-  }, [queryClient]); // Stable deps - no queryKey!
+  }, [queryClient, scope]); // No reactive queryKey dependency.
 
   const clearSearch = useCallback(() => {
     inFlightAbortRef.current?.abort();
@@ -179,13 +183,13 @@ export function useOrdersSearch() {
     setActiveOptions(null);
     setIsSearching(false);
     setSearchError(null);
-  }, [queryClient]); // Stable deps - no queryKey!
+  }, [queryClient, scope]); // No reactive queryKey dependency.
 
   // Derive query key from state so useQuery subscribes to cache changes
   const searchQueryKey = useMemo(() => {
     if (!activeSearchTerm) return ["orders", "search", "__disabled__"];
-    return getSearchQueryKey(activeSearchTerm, activeOptions?.bookedBy, activeOptions?.dispatcherUserId, activeOptions?.excludeBookedByCompanyId, activeOptions?.bookedByCompanyId);
-  }, [activeSearchTerm, activeOptions]);
+    return getSearchQueryKey(activeSearchTerm, activeOptions?.bookedBy, activeOptions?.dispatcherUserId, activeOptions?.excludeBookedByCompanyId, activeOptions?.bookedByCompanyId, scope);
+  }, [activeSearchTerm, activeOptions, scope]);
 
   // useQuery subscribes to cache updates (setQueryData) even with enabled: false
   const { data: searchResults = null } = useQuery<any[] | null>({

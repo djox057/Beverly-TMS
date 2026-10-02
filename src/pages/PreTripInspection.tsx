@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid, differenceInCalendarDays } from "date-fns";
@@ -171,7 +172,7 @@ const PreTripInspection = () => {
 
   const { getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
-  const isDispatcher = primaryRole === 'dispatch';
+  const isDispatcher = isDispatcherRole(primaryRole);
   const { allDispatchers } = useFleetManagement();
   const [search, setSearch] = useState("");
   const [photoDate, setPhotoDate] = useState<string>(() => pretripDueDate());

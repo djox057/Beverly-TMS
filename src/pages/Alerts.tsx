@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -308,7 +309,7 @@ export default function Alerts() {
   // Dispatch role: view-only access, scoped to their own trucks/trailers/drivers
   const isDispatchOnly =
     !hasRole('admin') && !hasRole('safety') && !hasRole('maintenance') &&
-    (getPrimaryRole() === 'dispatch' || getPrimaryRole() === 'afterhours');
+    (isDispatcherRole(getPrimaryRole()) || getPrimaryRole() === 'afterhours');
   const canEdit = !isDispatchOnly;
 
   const myTruckIds = new Set<string>();

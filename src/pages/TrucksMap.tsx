@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, Truck as TruckIcon } from "lucide-react";
@@ -257,7 +258,7 @@ export default function TrucksMap() {
   const { profile, getPrimaryRole } = useAuthContext();
   const { individualOverrideDriverIds } = useIndividualMode();
   const primaryRole = getPrimaryRole();
-  const isDispatch = primaryRole === "dispatch";
+  const isDispatch = isDispatcherRole(primaryRole);
   const isAfterhours = primaryRole === "afterhours";
   const afterhoursDriverIds = individualOverrideDriverIds || [];
   const canUseIndividual =

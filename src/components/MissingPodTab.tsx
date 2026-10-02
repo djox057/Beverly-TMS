@@ -67,7 +67,6 @@ export const MissingPodTab = () => {
     !hasRole("admin") &&
     !hasRole("manager") &&
     !hasRole("accounting") &&
-    !hasRole("supervisor") &&
     !hasRole("safety") &&
     !hasRole("afterhours");
 

@@ -164,7 +164,7 @@ export default function BeverlyHeatmap() {
   const { hasRole } = useAuthContext();
   const canRecompute = hasRole("admin") || hasRole("manager");
   const isDispatchOnly = hasRole("dispatch") && !hasRole("admin") && !hasRole("manager") && !hasRole("chicago_management");
-  const canDeepSearch = hasRole("admin") || hasRole("manager") || hasRole("supervisor");
+  const canDeepSearch = hasRole("admin") || hasRole("manager");
   const isAdmin = hasRole("admin");
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);

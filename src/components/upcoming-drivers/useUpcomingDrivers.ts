@@ -51,8 +51,8 @@ export function useUpcomingDrivers(week: string, archived: boolean) {
   const role=getPrimaryRole();
   const canView=!!user && !!role && UPCOMING_DRIVERS_ROLES.includes(role);
   const canEdit=canView && role!=="chicago_management";
-  const canArchive=!!role && ["admin","manager","supervisor"].includes(role);
-  const canDelete=canEdit && !!role && ["admin","manager","supervisor","recruiting"].includes(role);
+  const canArchive=!!role && ["admin","manager"].includes(role);
+  const canDelete=canEdit && !!role && ["admin","manager","recruiting"].includes(role);
   const [visible,setVisible]=useState(document.visibilityState!=="hidden");
   const [live,setLive]=useState("Connecting");
   const qc=useQueryClient();

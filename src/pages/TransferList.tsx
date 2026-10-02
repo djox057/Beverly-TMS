@@ -1,3 +1,4 @@
+import { hasDispatcherRole } from "@/lib/dispatchAccess";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -579,7 +580,7 @@ const TransferList = () => {
 
   const canEdit = hasRole("admin") || hasRole("manager") || hasRole("safety");
   const { roles } = useAuthContext();
-  const isDispatchOnly = roles.includes("dispatch") && !canEdit;
+  const isDispatchOnly = hasDispatcherRole(roles) && !canEdit;
   const columnPerms = useCanEditColumn(hasRole);
 
   const driverMap = useMemo(() => {

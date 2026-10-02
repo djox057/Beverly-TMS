@@ -103,7 +103,6 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     hasRole("manager") ||
     hasRole("accounting") ||
     hasRole("safety") ||
-    hasRole("supervisor") ||
     hasRole("maintenance") ||
     hasRole("afterhours");
   const { allDispatchers } = useFleetManagement();

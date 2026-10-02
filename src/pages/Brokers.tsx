@@ -1,3 +1,4 @@
+import { hasDispatcherRole } from "@/lib/dispatchAccess";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,11 +49,10 @@ const Brokers = () => {
   const { roles } = useAuth();
 
   // Check if user is dispatch-only (has dispatch role but not admin/manager/accounting/supervisor)
-  const isDispatchOnly = roles.includes('dispatch') && 
+  const isDispatchOnly = hasDispatcherRole(roles) &&
     !roles.includes('admin') && 
     !roles.includes('manager') && 
-    !roles.includes('accounting') &&
-    !roles.includes('supervisor');
+    !roles.includes('accounting');
 
   // Debounce search term to avoid filtering on every keystroke
   const debouncedSearchTerm = useDebounce(searchTerm, 300);

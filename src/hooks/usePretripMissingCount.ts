@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -5,7 +6,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 /** Dispatcher's own trucks missing pre-trip photos for the latest Monday/Friday. */
 export const usePretripMissingCount = () => {
   const { getPrimaryRole, profile } = useAuthContext();
-  const isDispatcher = getPrimaryRole() === "dispatch";
+  const isDispatcher = isDispatcherRole(getPrimaryRole());
   return useQuery({
     queryKey: ["pretrip-missing-count", profile?.user_id],
     enabled: isDispatcher && !!profile?.user_id,

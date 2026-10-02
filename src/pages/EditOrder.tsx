@@ -5099,7 +5099,7 @@ const EditOrder = () => {
                     {hasSalaryCharge ? "Edit Charge" : "Add charge"}
                   </Button>
                 )}
-                {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) &&
+                {(hasRole("manager") || hasRole("admin") || hasRole("dispatch")) &&
                   !isRecovery &&
                   !isLocked && (
                     <Button type="button" variant="secondary" onClick={() => setRecoveryDialogOpen(true)}>
@@ -5108,7 +5108,7 @@ const EditOrder = () => {
                     </Button>
                   )}
                 {/* Add Transfer button for orders that already have transfers */}
-                {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) &&
+                {(hasRole("manager") || hasRole("admin") || hasRole("dispatch")) &&
                   isRecovery &&
                   !isLocked && (
                     <Button type="button" variant="outline" onClick={() => setAddTransferDialogOpen(true)}>
@@ -5116,7 +5116,7 @@ const EditOrder = () => {
                       Add Transfer
                     </Button>
                   )}
-                {(hasRole("manager") || hasRole("supervisor") || hasRole("admin")) && isRecovery && !isLocked && (
+                {(hasRole("manager") || hasRole("admin")) && isRecovery && !isLocked && (
                   <Button type="button" variant="destructive" onClick={handleRevertTransfer}>
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Revert Transfer

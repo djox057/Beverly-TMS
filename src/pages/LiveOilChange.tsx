@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid } from "date-fns";
@@ -258,11 +259,11 @@ const LiveOilChange = () => {
 
   const { getPrimaryRole, profile, user } = useAuthContext();
   const primaryRole = getPrimaryRole();
-  const isDispatcher = primaryRole === 'dispatch';
+  const isDispatcher = isDispatcherRole(primaryRole);
   const isMaintenance = primaryRole === 'maintenance' || hasMaintenanceOverride(user?.email);
   const { allDispatchers } = useFleetManagement();
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
-  const canEditAll = primaryRole !== 'dispatch';
+  const canEditAll = !isDispatcherRole(primaryRole);
   const canEditMiles = true;
   const [search, setSearch] = useState("");
 

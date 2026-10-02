@@ -890,7 +890,7 @@ const Fleets = () => {
                                                 )}
                                               </div>
                                             </div>
-                                            {(hasRole("admin") || hasRole("manager") || hasRole("supervisor")) && (
+                                            {(hasRole("admin") || hasRole("manager")) && (
                                               <div className="flex gap-1 sm:gap-2">
                                                 <Button
                                                   variant="outline"
@@ -984,7 +984,7 @@ const Fleets = () => {
                                                 )}
                                               </div>
                                             </div>
-                                            {(hasRole("admin") || hasRole("manager") || hasRole("supervisor")) && (
+                                            {(hasRole("admin") || hasRole("manager")) && (
                                               <div className="flex gap-1 sm:gap-2">
                                                 <Button
                                                   variant="outline"

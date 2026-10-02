@@ -1,3 +1,4 @@
+import { hasRoleAccess } from "@/lib/dispatchAccess";
 import React, { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -284,30 +285,7 @@ export const useAuth = () => {
     }
   };
 
-  const hasRole = (requiredRole: UserRole): boolean => {
-    if (roles.length === 0) return false;
-    
-    // Admin and Accounting have access to everything except driver-only pages
-    if ((roles.includes('admin') || roles.includes('accounting')) && requiredRole !== 'driver') return true;
-    
-    // Manager has same access as admin (except user management which is checked separately)
-    if (roles.includes('manager') && requiredRole !== 'driver') return true;
-    
-    // Supervisor has same access as admin (except user management which is checked separately)
-    if (roles.includes('supervisor') && requiredRole !== 'driver') return true;
-    
-    // Chicago Management has view-only access to everything except driver-only pages
-    if (roles.includes('chicago_management') && requiredRole !== 'driver') return true;
-    
-    // Safety has access to dispatch functions (can create/edit orders, manage trucks/drivers)
-    if (roles.includes('safety') && requiredRole === 'dispatch') return true;
-    
-    // Maintenance has access to dispatch functions (can change driver/truck/trailer assignments)
-    if (roles.includes('maintenance') && requiredRole === 'dispatch') return true;
-    
-    // Check exact role match
-    return roles.includes(requiredRole);
-  };
+  const hasRole = (requiredRole: UserRole): boolean => hasRoleAccess(roles, requiredRole);
 
   // Helper to get primary role for display
   const getPrimaryRole = (): UserRole | null => {

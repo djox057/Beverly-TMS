@@ -25,10 +25,10 @@ vi.mock("@/contexts/AuthContext", () => ({
     getPrimaryRole: () => auth.primaryRole,
     hasRole: (role: string) => {
       // Model broad inherited permissions to catch an accidental non-strict gate.
-      if (["admin", "manager", "supervisor", "chicago_management", "accounting", "claims"].includes(auth.primaryRole ?? "")) {
+      if (["admin", "manager", "chicago_management", "accounting", "claims"].includes(auth.primaryRole ?? "")) {
         return role !== "driver";
       }
-      if (["safety", "maintenance"].includes(auth.primaryRole ?? "") && role === "dispatch") return true;
+      if (["supervisor", "safety", "maintenance"].includes(auth.primaryRole ?? "") && role === "dispatch") return true;
       return auth.primaryRole === role;
     },
     signOut: vi.fn(),
@@ -38,6 +38,7 @@ vi.mock("@/contexts/IndividualModeContext", () => ({
   useIndividualMode: () => ({ individualMode: false, canUseIndividualMode: false, setIndividualMode: vi.fn() }),
 }));
 vi.mock("next-themes", () => ({ useTheme: () => ({ theme: "light", setTheme: vi.fn() }) }));
+vi.mock("@/hooks/usePretripMissingCount", () => ({ usePretripMissingCount: () => ({ data: 0 }) }));
 vi.mock("@/hooks/useYardLoadsCount", () => ({ useYardLoadsCount: () => ({ data: 0 }) }));
 vi.mock("@/hooks/useRecoveryLoadsCount", () => ({ useRecoveryLoadsCount: () => ({ data: { count: 0 } }) }));
 vi.mock("@/hooks/useDispatchAlertCount", () => ({ useDispatchAlertCount: () => ({ data: 0 }) }));

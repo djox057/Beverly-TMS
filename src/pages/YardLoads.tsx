@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useYardLoadsFromOrders, YardLoadOrder } from "@/hooks/useYardLoadsFromOrders";
@@ -111,7 +112,7 @@ export default function YardLoads() {
   // Dispatchers flagged as "Recovery" get access to this page too.
   const isRecoveryDispatch = !!profile?.is_recovery && hasRole('dispatch');
   // Plain dispatchers (no Recovery flag) get read-only access: all columns except Actions.
-  const isViewOnlyDispatch = primaryRole === 'dispatch' && !isRecoveryDispatch;
+  const isViewOnlyDispatch = isDispatcherRole(primaryRole) && !isRecoveryDispatch;
 
   // Check if user has required roles
   useEffect(() => {

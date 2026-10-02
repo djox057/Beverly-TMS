@@ -1,3 +1,4 @@
+import { useSupervisorTeam } from "./useSupervisorTeam";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +40,7 @@ const plog = (...args: unknown[]) => {
  */
 export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
   const queryClient = useQueryClient();
+  const { cacheScope: supervisorCacheScope } = useSupervisorTeam(false);
 
   // Feature flag: skip locked orders when precomputed aggregates are available
   // Temporarily disabled — defaulting to raw order fetching (all orders loaded).
@@ -55,16 +57,16 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
     isComplete: false,
     usePrecomputed,
   });
-  
+
   const isMountedRef = useRef(true);
 
   const bookedBy = options?.bookedBy ?? null;
   const dispatcherUserId = options?.dispatcherUserId ?? null;
   const hasFilters = Boolean(bookedBy || dispatcherUserId);
-  
-  const queryKey = hasFilters 
-    ? ["orders", "analytics-full", bookedBy, dispatcherUserId] 
-    : ["orders", "analytics-full"];
+
+  const queryKey = hasFilters
+    ? ["orders", "analytics-full", bookedBy, dispatcherUserId, supervisorCacheScope]
+    : ["orders", "analytics-full", supervisorCacheScope];
 
   useOrdersRealtime();
 
@@ -136,8 +138,8 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
       tTransformMs += performance.now() - tTUnlockedStart;
 
       if (isMountedRef.current) {
-        setProgress(prev => ({ 
-          ...prev, 
+        setProgress(prev => ({
+          ...prev,
           unlockedLoaded: allUnlockedOrders.length,
           unlockedTotal: totalUnlockedCount,
         }));
@@ -314,7 +316,7 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
     if (query.data && !progress.isComplete && !query.isFetching) {
       const unlockedCount = query.data.filter((o: any) => !o.locked).length;
       const lockedCount = query.data.filter((o: any) => o.locked).length;
-      
+
       setProgress({
         unlockedLoaded: unlockedCount,
         unlockedTotal: unlockedCount,

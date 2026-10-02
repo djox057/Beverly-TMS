@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { CoiRequestDialog } from "@/components/reports/CoiRequestDialog";
 import { TruckOosCheckbox } from "@/components/reports/TruckOosCheckbox";
 import { Button } from "@/components/ui/button";
@@ -533,34 +534,17 @@ const Reports = () => {
     return map;
   }, [temporaryPlates]);
 
-  // Supervised dispatcher ids (for supervisors viewing the $ revenue popover)
-  const { data: supervisedDispatcherIds = [] } = useQuery({
-    queryKey: ["reports-supervised-dispatchers", profile?.user_id],
-    enabled: !!profile?.user_id && hasRole("supervisor"),
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("dispatcher_supervisors")
-        .select("dispatcher_id")
-        .eq("supervisor_id", profile!.user_id);
-      return (data || []).map((r: any) => r.dispatcher_id as string);
-    },
-  });
-
   const canSeeWeekRevenue = useCallback(
     (truck: any) => {
       // Use raw roles check so accounting/safety (which get dispatch-like access
       // via hasRole) cannot see the $ revenue popover.
       if (roles.includes("admin") || roles.includes("manager")) return true;
-      if (roles.includes("supervisor")) {
-        if (!truck?.dispatcherId) return false;
-        return truck.dispatcherId === profile?.user_id || supervisedDispatcherIds.includes(truck.dispatcherId);
-      }
-      if (roles.includes("dispatch")) {
+      if (roles.includes("dispatch") || roles.includes("supervisor")) {
         return !!truck?.dispatcherId && truck.dispatcherId === profile?.user_id;
       }
       return false;
     },
-    [roles, profile?.user_id, supervisedDispatcherIds],
+    [roles, profile?.user_id],
   );
 
   // Temporary plate upload dialog state
@@ -4439,7 +4423,7 @@ const Reports = () => {
           <div className="px-4 pt-2 sticky top-0 bg-background z-[101] border-b border-border">
             {/* Filters Section */}
             <div className="flex flex-wrap gap-2 mb-2 items-center">
-              {individualMode && getPrimaryRole() === "dispatch" && (
+              {individualMode && isDispatcherRole(getPrimaryRole()) && (
                 <div className="w-full flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-3 py-1.5 rounded-md">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>
@@ -4737,7 +4721,7 @@ const Reports = () => {
                       OOS trucks
                     </Button>
                   )}
-                  {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety")) && (
+                  {(hasRole("manager") || hasRole("admin") || hasRole("safety")) && (
                     <>
                       <Button
                         variant={showTwoWeekNotice ? "default" : "outline"}
@@ -5473,7 +5457,7 @@ const Reports = () => {
                                               >
                                                 {truck.driverId &&
                                                   hasDriverProblem(truck.driverId) &&
-                                                  !(roles.includes("dispatch") || roles.includes("afterhours")) && (
+                                                  !(roles.includes("dispatch") || roles.includes("supervisor") || roles.includes("afterhours")) && (
                                                     <Popover>
                                                       <PopoverTrigger asChild>
                                                         <button
@@ -8201,7 +8185,6 @@ const Reports = () => {
                       hasRole("dispatch") &&
                       !hasRole("admin") &&
                       !hasRole("manager") &&
-                      !hasRole("supervisor") &&
                       !hasRole("afterhours") &&
                       !hasRole("safety") &&
                       !hasRole("accounting");
@@ -8256,7 +8239,6 @@ const Reports = () => {
                       hasRole("dispatch") &&
                       !hasRole("admin") &&
                       !hasRole("manager") &&
-                      !hasRole("supervisor") &&
                       !hasRole("afterhours") &&
                       !hasRole("safety") &&
                       !hasRole("accounting");

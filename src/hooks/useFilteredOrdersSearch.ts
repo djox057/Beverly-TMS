@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSupervisorTeam } from "./useSupervisorTeam";
 import { transformOrders } from "@/utils/ordersTransform";
 
 interface SearchFilters {
@@ -48,7 +49,7 @@ const BATCH_SIZE = 500;
  * Generate a stable query key from filters for React Query caching.
  * This enables real-time updates to patch filtered results.
  */
-function getFilterQueryKey(filters: SearchFilters): (string | boolean | undefined)[] {
+function getFilterQueryKey(filters: SearchFilters, scope?: string): (string | boolean | undefined)[] {
   return [
     "orders",
     "filtered",
@@ -66,6 +67,7 @@ function getFilterQueryKey(filters: SearchFilters): (string | boolean | undefine
     filters.pickupDateFrom,
     filters.pickupDateTo,
     filters.excludeBookedByCompanyId,
+    scope,
   ];
 }
 
@@ -75,6 +77,8 @@ function getFilterQueryKey(filters: SearchFilters): (string | boolean | undefine
  */
 export function useFilteredOrdersSearch(): FilteredSearchResult {
   const queryClient = useQueryClient();
+  const { cacheScope } = useSupervisorTeam(false);
+  const scope = cacheScope ?? undefined;
   
   // Track current filters and pagination
   const [totalCount, setTotalCount] = useState<number | null>(null);
@@ -96,7 +100,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     isLoadingRef.current = true;
     offsetRef.current = 0;
     
-    const newQueryKey = getFilterQueryKey(filters);
+    const newQueryKey = getFilterQueryKey(filters, scope);
     // Update refs BEFORE any async work
     activeQueryKeyRef.current = newQueryKey;
     activeFiltersRef.current = filters;
@@ -209,7 +213,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
         }
       }
     }
-  }, [queryClient]);
+  }, [queryClient, scope]);
 
   const loadMore = useCallback(async () => {
     if (isLoadingRef.current || !hasMoreRef.current || !activeFiltersRef.current || !activeQueryKeyRef.current) {

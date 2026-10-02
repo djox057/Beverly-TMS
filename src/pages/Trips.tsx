@@ -1,3 +1,5 @@
+import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -425,13 +427,13 @@ const Trips = () => {
   const primaryRole = getPrimaryRole();
 
   // For dispatch users, filter to only show their booked orders and orders for drivers assigned to them
+  const supervisorTeam = useSupervisorTeam();
   const isDispatchOnly =
     hasRole("dispatch") &&
     !hasRole("afterhours") &&
     !hasRole("admin") &&
     !hasRole("manager") &&
     !hasRole("accounting") &&
-    !hasRole("supervisor") &&
     !hasRole("safety");
 
   // Use Individual Mode context - applies filtering when toggle is ON
@@ -503,6 +505,7 @@ const Trips = () => {
   // Apply dispatch-only filter: keep only orders for drivers assigned to this dispatcher.
   // For all other roles, this is a no-op.
   const orders = useMemo(() => {
+    if (supervisorTeam.isSupervisor) return ordersRaw?.filter(supervisorTeam.includesOrder);
     if (!isDispatchOnly) return ordersRaw;
     if (!ordersRaw) return ordersRaw;
     const allowed = new Set(dispatchAssignedDriverIds || []);
@@ -516,7 +519,7 @@ const Trips = () => {
         (o.originalDriver2Id && allowed.has(o.originalDriver2Id)) ||
         (!!userFullName && o.bookedBy === userFullName),
     );
-  }, [ordersRaw, isDispatchOnly, dispatchAssignedDriverIds, profile?.full_name]);
+  }, [ordersRaw, supervisorTeam, isDispatchOnly, dispatchAssignedDriverIds, profile?.full_name]);
 
   // Cell selection for Excel-like sum/average functionality
   const { selectedCellsArray, toggleCell, clearSelection, isSelected } = useCellSelection();
@@ -538,14 +541,14 @@ const Trips = () => {
 
   // Check if user can move loads between weeks (managers, admins, accounting) - dispatch/supervisor cannot
   const canMoveLoads =
-    primaryRole !== "dispatch" &&
+    !isDispatcherRole(primaryRole) &&
     primaryRole !== "supervisor" &&
     (roles?.some((role) => ["manager", "admin", "accounting"].includes(role)) ?? false);
 
   // Check if user can see paid columns - dispatch/supervisor cannot
-  const canSeePaidColumn = primaryRole !== "dispatch" && primaryRole !== "supervisor";
+  const canSeePaidColumn = !isDispatcherRole(primaryRole) && primaryRole !== "supervisor";
   // Check if user can toggle paid - manager/supervisor/dispatch cannot
-  const canTogglePaid = primaryRole !== "dispatch" && primaryRole !== "supervisor" && primaryRole !== "manager";
+  const canTogglePaid = !isDispatcherRole(primaryRole) && primaryRole !== "supervisor" && primaryRole !== "manager";
 
   // Fetch week overrides
   const { data: weekOverrides } = useQuery({

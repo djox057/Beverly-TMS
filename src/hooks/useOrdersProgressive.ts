@@ -1,3 +1,4 @@
+import { useSupervisorTeam } from "./useSupervisorTeam";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +38,7 @@ interface UseOrdersProgressiveOptions {
  */
 export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   const queryClient = useQueryClient();
+  const { cacheScope: supervisorCacheScope } = useSupervisorTeam(false);
   const bookedBy = options?.bookedBy ?? null;
   const dispatcherUserId = options?.dispatcherUserId ?? null;
   const currentPage = options?.currentPage ?? 1;
@@ -57,6 +59,7 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
 
   // Cache for loaded pages: Map<pageNumber, orders[]>
   const loadedPagesRef = useRef<Map<number, any[]>>(new Map());
+  const loadedCacheScopeRef = useRef(supervisorCacheScope);
   const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set());
   const [isLoadingPage, setIsLoadingPage] = useState(false);
 
@@ -77,8 +80,8 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
   // Fetch both unlocked and locked counts
   const countsQuery = useQuery({
     queryKey: hasFilters 
-      ? ["orders-counts", "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
-      : ["orders-counts"],
+      ? ["orders-counts", "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId, supervisorCacheScope]
+      : ["orders-counts", supervisorCacheScope],
     queryFn: async () => {
       const tCounts0 = performance.now();
       console.log(`[OrdersProgressive] ▶ counts START @ ${new Date().toISOString()} (filters=${hasFilters})`);
@@ -176,6 +179,11 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
    * - If spans boundary: fetch from both and merge
    */
   const fetchPage = useCallback(async (pageNumber: number, unlockedTotal: number, lockedTotal: number) => {
+    if (loadedCacheScopeRef.current !== supervisorCacheScope) {
+      loadedPagesRef.current.clear();
+      setLoadedPages(new Set());
+      loadedCacheScopeRef.current = supervisorCacheScope;
+    }
     if (loadedPagesRef.current.has(pageNumber)) {
       const cached = loadedPagesRef.current.get(pageNumber)!;
 
@@ -297,13 +305,13 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
     } finally {
       setIsLoadingPage(false);
     }
-  }, [bookedBy, dispatcherUserId, fetchDispatcherDriverIds, excludeBookedByCompanyId, bookedByCompanyId]);
+  }, [supervisorCacheScope, bookedBy, dispatcherUserId, fetchDispatcherDriverIds, excludeBookedByCompanyId, bookedByCompanyId]);
 
   // Query for the current page - dynamically loads the page the user is viewing
   const currentPageQuery = useQuery({
     queryKey: hasFilters 
-      ? ["orders", "page", currentPage, "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
-      : ["orders", "page", currentPage],
+      ? ["orders", "page", currentPage, "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId, supervisorCacheScope]
+      : ["orders", "page", currentPage, supervisorCacheScope],
     queryFn: () => fetchPage(currentPage, unlockedCount, lockedCount),
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -390,13 +398,13 @@ export function useOrdersProgressive(options?: UseOrdersProgressiveOptions) {
       // Also update the TanStack Query cache for this page so the memo picks it up
       const updatedPageData = loadedPagesRef.current.get(foundPage);
       const pageQueryKey = hasFilters
-        ? ["orders", "page", foundPage, "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId]
-        : ["orders", "page", foundPage];
+        ? ["orders", "page", foundPage, "filtered", bookedBy, dispatcherUserId, excludeBookedByCompanyId, bookedByCompanyId, supervisorCacheScope]
+        : ["orders", "page", foundPage, supervisorCacheScope];
       queryClient.setQueryData(pageQueryKey, updatedPageData);
       // Trigger re-render by bumping loadedPages state
       setLoadedPages(prev => new Set(prev));
     }
-  }, [hasFilters, bookedBy, dispatcherUserId, queryClient, excludeBookedByCompanyId, bookedByCompanyId]);
+  }, [supervisorCacheScope, hasFilters, bookedBy, dispatcherUserId, queryClient, excludeBookedByCompanyId, bookedByCompanyId]);
 
   return {
     data: currentPageOrders,

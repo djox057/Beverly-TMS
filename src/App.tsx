@@ -231,7 +231,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/drivers-complaints" element={
-          <ProtectedRoute strictAllowedRoles={['admin', 'manager', 'dispatch', 'chicago_management', 'yard']} allowedEmails={['joey@bfprime.net']}>
+          <ProtectedRoute strictAllowedRoles={['admin', 'manager', 'dispatch', 'supervisor', 'chicago_management', 'yard']} allowedEmails={['joey@bfprime.net']}>
             <Layout><DriversComplaints /></Layout>
           </ProtectedRoute>
         } />
@@ -281,7 +281,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/problems" element={
-          <ProtectedRoute allowedRoles={['supervisor', 'manager', 'admin']}>
+          <ProtectedRoute allowedRoles={['manager', 'admin']}>
             <Layout><Problems /></Layout>
           </ProtectedRoute>
         } />

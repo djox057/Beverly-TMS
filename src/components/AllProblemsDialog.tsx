@@ -1,3 +1,4 @@
+import { hasDispatcherRole } from "@/lib/dispatchAccess";
 import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -28,8 +29,8 @@ function AllProblemsDialogContent({ open, onOpenChange }: AllProblemsDialogProps
   const [confirmResolveId, setConfirmResolveId] = useState<string | null>(null);
 
   // Hide actions ONLY for users who have dispatch or afterhours role and no other elevated roles
-  const isDispatchOnly = roles.includes('dispatch') && !roles.includes('admin') && !roles.includes('manager') && !roles.includes('supervisor') && !roles.includes('safety') && !roles.includes('accounting') && !roles.includes('chicago_management');
-  const isAfterhoursOnly = roles.includes('afterhours') && !roles.includes('admin') && !roles.includes('manager') && !roles.includes('supervisor') && !roles.includes('safety') && !roles.includes('accounting') && !roles.includes('chicago_management');
+  const isDispatchOnly = hasDispatcherRole(roles) && !roles.includes('admin') && !roles.includes('manager') && !roles.includes('safety') && !roles.includes('accounting') && !roles.includes('chicago_management');
+  const isAfterhoursOnly = roles.includes('afterhours') && !roles.includes('admin') && !roles.includes('manager') && !roles.includes('safety') && !roles.includes('accounting') && !roles.includes('chicago_management');
   const canSeeActions = !isDispatchOnly && !isAfterhoursOnly;
 
   // Resolve names for just the drivers referenced by the listed problems,

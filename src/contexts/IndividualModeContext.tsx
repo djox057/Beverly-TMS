@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuthContext } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,7 +30,7 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
 
   // Dispatch can always use individual mode.
   // Afterhours can use it only when they have at least one weekend assignment.
-  const isDispatch = primaryRole === 'dispatch';
+  const isDispatch = isDispatcherRole(primaryRole);
   const isAfterhours = primaryRole === 'afterhours';
   const canUseIndividualMode =
     isDispatch || (isAfterhours && (afterhoursDriverIds?.length ?? 0) > 0);

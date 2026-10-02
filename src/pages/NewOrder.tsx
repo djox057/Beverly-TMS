@@ -1,3 +1,4 @@
+import { requiresLowStopAmountApproval } from "@/lib/dispatchAccess";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -185,7 +186,7 @@ const NewOrder = () => {
   const [pendingBfPrimeSkipDuplicateStops, setPendingBfPrimeSkipDuplicateStops] = useState(false);
 
   const { toast } = useToast();
-  const { profile, hasRole } = useAuthContext();
+  const { profile, hasRole, roles } = useAuthContext();
   const queryClient = useQueryClient();
 
   // Company email configuration
@@ -277,13 +278,12 @@ const NewOrder = () => {
     !hasRole("admin") &&
     !hasRole("afterhours") &&
     !hasRole("accounting") &&
-    !hasRole("supervisor") &&
     !hasRole("safety");
 
   // Stop Amount floor: dispatch/afterhours cannot go below a % of freight amount.
   // Drivers hired within the last 3 weeks (or with no hire date — falls back to
   // the driver's creation date) use 90%; longer-tenured drivers use 85%.
-  const stopAmountRestricted = (hasRole("dispatch") || hasRole("afterhours")) && !hasRole("manager") && !hasRole("admin");
+  const stopAmountRestricted = requiresLowStopAmountApproval(roles);
   const stopAmountPct = (() => {
     const d = (allDrivers as any[])?.find((x) => x.id === driver1);
     const dateStr = d?.hire_date || d?.created_at || null;

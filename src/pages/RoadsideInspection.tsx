@@ -117,7 +117,7 @@ const RoadsideInspection = () => {
   const driverMap = useMemo(() => new Map(drivers?.map((d: any) => [d.id, d.name]) || []), [drivers]);
   const driverDispatcherMap = useMemo(() => new Map(drivers?.map((d: any) => [d.id, d.dispatcher_id]) || []), [drivers]);
 
-  const isDispatchOnly = hasRole("dispatch") && !hasRole("admin") && !hasRole("safety") && !hasRole("maintenance") && !hasRole("manager") && !hasRole("supervisor");
+  const isDispatchOnly = hasRole("dispatch") && !hasRole("admin") && !hasRole("safety") && !hasRole("maintenance") && !hasRole("manager");
 
   const enriched = useMemo(() => {
     const rows = (inspections || []).map(row => ({

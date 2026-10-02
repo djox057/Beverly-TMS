@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
@@ -134,7 +135,7 @@ const navigation = [
     name: "Drivers Complaints",
     href: "/drivers-complaints",
     icon: MessageSquareWarning,
-    roles: ["admin", "manager", "dispatch", "chicago_management"],
+    roles: ["admin", "manager", "dispatch", "supervisor", "chicago_management"],
     strict: true,
   },
   {
@@ -288,7 +289,7 @@ export const Sidebar = () => {
     const primaryRole = getPrimaryRole();
 
     // Dispatchers get Loads at the Yard (read-only unless flagged as "Recovery").
-    const isDispatchRole = primaryRole === "dispatch";
+    const isDispatchRole = isDispatcherRole(primaryRole);
 
     // Filter out items based on role restrictions
     const filteredNav = navigation.filter((item) => {
@@ -332,14 +333,6 @@ export const Sidebar = () => {
         { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel },
         { name: "EFS Requests", href: "/efs-requests", icon: CreditCard },
-      ];
-    }
-
-    // Supervisor role: all pages + Alerts (full access)
-    if (primaryRole === "supervisor") {
-      return [
-        ...filteredNav.filter((item) => item.href !== "/truck-sales"),
-        { name: "Safety and Maintenance", href: "/alerts", icon: AlertTriangle },
       ];
     }
 
@@ -436,7 +429,7 @@ export const Sidebar = () => {
     }
 
     // Dispatch and Afterhours roles: all navigation + EFS Requests (afterhours cannot see Live Oil Change)
-    if (primaryRole === "dispatch" || primaryRole === "afterhours") {
+    if (isDispatcherRole(primaryRole) || primaryRole === "afterhours") {
       return [
         ...filteredNav.filter((item) => !(primaryRole === "afterhours" && item.href === "/live-oil-change")),
         { name: "Safety and Maintenance", href: "/alerts", icon: AlertTriangle },

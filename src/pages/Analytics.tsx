@@ -1,3 +1,5 @@
+import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
+import { hasDispatcherRole } from "@/lib/dispatchAccess";
 import React from "react";
 import { DateRange } from "react-day-picker";
 import { formatDateNoTimezone } from "@/lib/utils";
@@ -124,6 +126,7 @@ const getStatusBadge = (status: string) => {
 const Analytics = () => {
   const navigate = useNavigate();
   const { hasRole, profile, getPrimaryRole, roles } = useAuthContext();
+  const supervisorTeam = useSupervisorTeam();
   const isAdmin = roles.includes("admin");
   const canViewSalaries = roles.includes("admin") || roles.includes("chicago_management");
 
@@ -441,14 +444,19 @@ const Analytics = () => {
     !hasRole("admin") &&
     !hasRole("manager") &&
     !hasRole("accounting") &&
-    !hasRole("supervisor") &&
     !hasRole("safety");
+
+  useEffect(() => {
+    if (isDispatchOnly && !["performance", "salaries", "missing-pod"].includes(activeTab)) {
+      setActiveTab("performance");
+    }
+  }, [isDispatchOnly, activeTab]);
 
   // Use Individual Mode context - applies filtering when toggle is ON
   const { individualMode } = useIndividualMode();
 
   // Apply filtering when Individual Mode is ON or user is dispatch-only
-  const shouldFilterByUser = individualMode || isDispatchOnly;
+  const shouldFilterByUser = !supervisorTeam.isSupervisor && (individualMode || isDispatchOnly);
   const orderFilterOptions = shouldFilterByUser
     ? {
         bookedBy: profile?.full_name || null,
@@ -1580,19 +1588,9 @@ const Analytics = () => {
           return matchesDate;
         }
 
-        // Supervisors only see orders from their office dispatchers
+        // Performance follows bookers assigned in Fleets, regardless of office.
         if (primaryRole === "supervisor") {
-          if (!profile?.office) {
-            return false;
-          }
-          if (!order.bookedBy || order.bookedBy === "N/A" || order.bookedBy === "Unknown") {
-            return false;
-          }
-          const dispatcherProfile = dispatcherProfiles[order.bookedBy];
-          if (!dispatcherProfile) {
-            return false;
-          }
-          return matchesDate && dispatcherProfile.office === profile.office;
+          return matchesDate && supervisorTeam.includesBooker(order.bookedBy);
         }
 
         // Dispatchers and Afterhours only see their own orders
@@ -1610,7 +1608,7 @@ const Analytics = () => {
         return false;
       }) || [];
     return filtered;
-  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices, isPrecomputed, maxRcWeightFilter]);
+  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices, isPrecomputed, maxRcWeightFilter, supervisorTeam]);
 
   // Helper function to get week start date
   const getWeekStartDate = (weeksAgo: number) => {
@@ -1955,9 +1953,8 @@ const Analytics = () => {
       ) {
         return true;
       }
-      // Supervisors only see dispatchers from their office
-      if (primaryRole === "supervisor" && profile?.office) {
-        return dispatcherProfile.office === profile.office;
+      if (primaryRole === "supervisor") {
+        return supervisorTeam.includesBooker(stat.name) || supervisorTeam.ids.has(stat.userId ?? "");
       }
       // Dispatchers only see themselves
       if (primaryRole === "dispatch" && profile?.full_name) {
@@ -2573,6 +2570,7 @@ const Analytics = () => {
   // Create sorted dispatcher stats for salaries tab
   const sortedDispatcherStatsForSalaries = useMemo(() => {
     const stats = [...dispatcherStats].filter((stat) => {
+      if (isDispatchOnly && stat.userId !== profile?.user_id && stat.name !== profile?.full_name) return false;
       // Deleted users (no valid userId) - determine their last salary month
       if (!stat.userId) {
         if (stat.totalFreight <= 0) return false;
@@ -2635,7 +2633,7 @@ const Analytics = () => {
         return salarySortDir === "desc" ? salaryB - salaryA : salaryA - salaryB;
       }
     });
-  }, [dispatcherStats, salarySortBy, salarySortDir, deletedDispatcherLastPaidMonth, selectedMonth, orders, getDispatcherRates]);
+  }, [dispatcherStats, isDispatchOnly, profile?.user_id, profile?.full_name, salarySortBy, salarySortDir, deletedDispatcherLastPaidMonth, selectedMonth, orders, getDispatcherRates]);
 
   // Handle sorting for Driver Gross Rankings
   const handleGrossRankingsSort = (column: typeof grossRankingsSortBy) => {
@@ -3096,7 +3094,7 @@ const Analytics = () => {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={isDispatchOnly && !["performance", "salaries", "missing-pod"].includes(activeTab) ? "performance" : activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <TabsList>
               <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
@@ -3110,7 +3108,7 @@ const Analytics = () => {
                 <TabsTrigger value="salaries">{isDispatchOnly ? "My Salary" : "Dispatcher Salaries"}</TabsTrigger>
               )}
               {roles.includes("admin") && <TabsTrigger value="recruiting">Other Salaries</TabsTrigger>}
-              {(roles.includes("admin") || roles.includes("manager") || roles.includes("dispatch")) && (
+              {(roles.includes("admin") || roles.includes("manager") || hasDispatcherRole(roles)) && (
                 <TabsTrigger value="missing-pod">Missing POD</TabsTrigger>
               )}
             </TabsList>
@@ -5519,7 +5517,7 @@ const Analytics = () => {
                             <TableCell className="font-bold">Total</TableCell>
                             <TableCell className="text-right font-bold">
                               $
-                              {dispatcherStats
+                              {sortedDispatcherStatsForSalaries
                                 .reduce((sum, s) => sum + s.totalFreight, 0)
                                 .toLocaleString(undefined, {
                                   minimumFractionDigits: 2,
@@ -5528,7 +5526,7 @@ const Analytics = () => {
                             </TableCell>
                             <TableCell className="text-right font-bold">
                               $
-                              {dispatcherStats
+                              {sortedDispatcherStatsForSalaries
                                 .reduce((sum, s) => sum + s.cut, 0)
                                 .toLocaleString(undefined, {
                                   minimumFractionDigits: 2,
@@ -5537,14 +5535,14 @@ const Analytics = () => {
                             </TableCell>
                             <TableCell className="text-right font-bold">
                               {(() => {
-                                const tF = dispatcherStats.reduce((sum, s) => sum + s.totalFreight, 0);
-                                const tM = dispatcherStats.reduce((sum, s) => sum + s.totalMiles, 0);
+                                const tF = sortedDispatcherStatsForSalaries.reduce((sum, s) => sum + s.totalFreight, 0);
+                                const tM = sortedDispatcherStatsForSalaries.reduce((sum, s) => sum + s.totalMiles, 0);
                                 return tM > 0 ? `$${(tF / tM).toFixed(2)}` : "—";
                               })()}
                             </TableCell>
                             <TableCell className="text-right font-bold text-green-600">
                               +
-                              {dispatcherStats.reduce(
+                              {sortedDispatcherStatsForSalaries.reduce(
                                 (sum, s) => sum + (s.userId ? extraDaysByUser[s.userId] || 0 : 0),
                                 0,
                               )}
@@ -5552,7 +5550,7 @@ const Analytics = () => {
                             {!isDispatchOnly && (
                               <TableCell className="text-right font-bold text-red-600">
                                 -
-                                {dispatcherStats.reduce(
+                                {sortedDispatcherStatsForSalaries.reduce(
                                   (sum, s) => sum + (s.userId ? lostDaysByUser[s.userId] || 0 : 0),
                                   0,
                                 )}
@@ -5560,7 +5558,7 @@ const Analytics = () => {
                             )}
                             {!isDispatchOnly && hasFoodOffice(profile?.office) && (
                               <TableCell className="text-right font-bold">
-                                ${dispatcherStats.reduce((sum, s) => sum + getFoodAllowance(s.office, s.userId), 0).toFixed(2)}
+                                ${sortedDispatcherStatsForSalaries.reduce((sum, s) => sum + getFoodAllowance(s.office, s.userId), 0).toFixed(2)}
                               </TableCell>
                             )}
                             {!isDispatchOnly && <TableCell className="text-right font-bold">—</TableCell>}
@@ -5606,7 +5604,7 @@ const Analytics = () => {
                       <span className="font-medium">{selectedDispatcherIds.size} dispatcher(s)</span>
                     </div>
 
-                    {(hasRole("manager") || hasRole("admin") || hasRole("accounting") || hasRole("supervisor")) && (
+                    {(hasRole("manager") || hasRole("admin") || hasRole("accounting")) && (
                       <Button
                         className="w-full mt-3"
                         size="sm"

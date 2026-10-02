@@ -1,3 +1,4 @@
+import { supervisorScopedClient } from "../_shared/supervisorAccess.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -125,7 +126,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const service = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = await supervisorScopedClient(service, supabaseAuth, userData.user.id);
 
     // Parse optional filters
     let bookedBy: string | null = null;

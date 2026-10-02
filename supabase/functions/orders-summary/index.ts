@@ -1,3 +1,4 @@
+import { supervisorScopedClient } from "../_shared/supervisorAccess.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -98,7 +99,7 @@ Deno.serve(async (req) => {
     }
 
     // Role gate: only operational roles may read order aggregates
-    const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
+    let supabaseService = createClient(supabaseUrl, supabaseServiceKey);
     const { data: roleRows } = await supabaseService
       .from("user_roles")
       .select("role")
@@ -120,6 +121,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    supabaseService = await supervisorScopedClient(supabaseService, supabaseAuth, userData.user.id);
 
     let filters: OrdersSummaryFilters = {};
     if (req.method === "POST") {

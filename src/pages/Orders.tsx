@@ -1,3 +1,5 @@
+import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { DateRange } from "react-day-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -186,9 +188,10 @@ const Orders = () => {
     console.log("=== END NAVIGATION DEBUG ===");
   };
   // Auto-set bookedBy filter for dispatchers (but not afterhours or safety)
-  const isDispatcher = primaryRole === "dispatch";
+  const isDispatcher = isDispatcherRole(primaryRole);
 
   // Check if user has only dispatch role (afterhours, safety, and maintenance excluded from auto-filter)
+  const supervisorTeam = useSupervisorTeam();
   const isDispatchOnly =
     hasRole("dispatch") &&
     !roles.includes("maintenance") &&
@@ -196,13 +199,12 @@ const Orders = () => {
     !hasRole("admin") &&
     !hasRole("manager") &&
     !hasRole("accounting") &&
-    !hasRole("supervisor") &&
     !hasRole("safety");
 
   // For individual mode users OR dispatch-only users, pass their name and user_id to filter at the database level
   // This includes orders they booked AND orders for drivers assigned to them
   // Use null instead of undefined to prevent double fetch when profile loads
-  const shouldFilterByUser = individualMode || isDispatchOnly;
+  const shouldFilterByUser = !supervisorTeam.isSupervisor && (individualMode || isDispatchOnly);
   // Company-specific loads live on their own pages; omit them from /orders.
   const EXCLUDED_BOOKED_BY_COMPANY_ID = MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS;
   const orderFilterOptions = useMemo(
@@ -226,8 +228,7 @@ const Orders = () => {
     (hasRole("dispatch") || hasRole("afterhours")) &&
     !hasRole("admin") &&
     !hasRole("manager") &&
-    !hasRole("accounting") &&
-    !hasRole("supervisor");
+    !hasRole("accounting");
   const [searchTerm, setSearchTerm] = useState(
     () => localStorage.getItem("orders-loadNumberFilter") || ""
   );
@@ -235,7 +236,7 @@ const Orders = () => {
   const [truckCompanyFilter, setTruckCompanyFilter] = useState("all-truck-companies");
   // For dispatch-only users, auto-select themselves as the default filter
   const [bookedByFilter, setBookedByFilter] = useState(() =>
-    isDispatchOnly && profile?.full_name ? profile.full_name : "all-users",
+    isDispatchOnly && !supervisorTeam.isSupervisor && profile?.full_name ? profile.full_name : "all-users",
   );
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
@@ -334,10 +335,10 @@ const Orders = () => {
 
   // For dispatch-only users, auto-set bookedByFilter to their name when profile loads
   useEffect(() => {
-    if (isDispatchOnly && profile?.full_name && bookedByFilter === "all-users") {
+    if (isDispatchOnly && !supervisorTeam.isSupervisor && profile?.full_name && bookedByFilter === "all-users") {
       setBookedByFilter(profile.full_name);
     }
-  }, [isDispatchOnly, profile?.full_name]);
+  }, [isDispatchOnly, supervisorTeam.isSupervisor, profile?.full_name]);
 
   // Progressive loading hook - fetches pages directly from server
   const {
@@ -649,6 +650,7 @@ const Orders = () => {
   // When server-side filtering is active, skip most client-side filters
   const filteredOrders = useMemo(() => {
     return dataSource?.filter((order) => {
+      if (supervisorTeam.isSupervisor && !supervisorTeam.includesOrder(order)) return false;
       const isServerSearch = searchTerm && searchTerm.trim().length >= 3;
       // During an active load-number search the rows come from the search RPC
       // (which ignores the filter bar), so the server-filter shortcuts must NOT
@@ -864,6 +866,7 @@ const Orders = () => {
     }) || [];
   }, [
     dataSource,
+    supervisorTeam,
     searchTerm,
     hasActiveFilter,
     filteredServerOrders,
@@ -1224,7 +1227,7 @@ const Orders = () => {
       "Delivery City": order.deliveryCity,
       "Delivery State": order.deliveryState,
       Miles: order.mileage,
-      ...(primaryRole !== "dispatch" ? { "Driver Pay": (order as any).totalDriverPay } : {}),
+      ...(!isDispatcherRole(primaryRole) ? { "Driver Pay": (order as any).totalDriverPay } : {}),
       Driver: order.driverName,
       "Broker Name": order.brokerName,
       "Broker Load #": order.brokerLoadNumber,
@@ -1247,7 +1250,7 @@ const Orders = () => {
       "Delivery City": "",
       "Delivery State": "",
       Miles: sumNum((o) => o.mileage),
-      ...(primaryRole !== "dispatch"
+      ...(!isDispatcherRole(primaryRole)
         ? { "Driver Pay": sumNum((o) => (o as any).totalDriverPay) }
         : {}),
       Driver: "",
@@ -2010,7 +2013,7 @@ const Orders = () => {
                   />
 
                   {/* Column 6 Row 2: Show Invoiced - hidden for dispatch/afterhours */}
-                  {primaryRole !== "dispatch" && primaryRole !== "afterhours" && (
+                  {!isDispatcherRole(primaryRole) && primaryRole !== "afterhours" && (
                     <div className="flex flex-col gap-1">
                       <Button
                         variant={invoicedFilter ? "default" : "outline"}
@@ -2145,11 +2148,11 @@ const Orders = () => {
                     <TableHead className="w-[110px] min-w-[110px] max-w-[110px] whitespace-nowrap">
                       Broker Load #
                     </TableHead>
-                    {primaryRole !== "dispatch" && primaryRole !== "afterhours" && (
+                    {!isDispatcherRole(primaryRole) && primaryRole !== "afterhours" && (
                       <TableHead className="w-[70px] min-w-[70px] max-w-[70px] whitespace-nowrap">Invoiced</TableHead>
                     )}
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">Notes</TableHead>
-                    {primaryRole !== "dispatch" && (
+                    {!isDispatcherRole(primaryRole) && (
                       <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Driver Pay</TableHead>
                     )}
                     <TableHead className="w-[100px] min-w-[100px] max-w-[100px] whitespace-nowrap">
@@ -2168,7 +2171,7 @@ const Orders = () => {
                     <TableHead className="w-[160px] min-w-[160px] max-w-[160px] whitespace-nowrap text-center">
                       Actions
                     </TableHead>
-                    {primaryRole !== "dispatch" && primaryRole !== "afterhours" && (
+                    {!isDispatcherRole(primaryRole) && primaryRole !== "afterhours" && (
                       <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap text-center">
                         Paid
                       </TableHead>
@@ -2179,7 +2182,7 @@ const Orders = () => {
                   {paginatedOrders.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={primaryRole === "dispatch" || primaryRole === "afterhours" ? 20 : 22}
+                        colSpan={isDispatcherRole(primaryRole) || primaryRole === "afterhours" ? 20 : 22}
                         className="text-center py-8 text-muted-foreground"
                       >
                         No orders found
@@ -2447,7 +2450,7 @@ const Orders = () => {
                                         </div>
 
                                         {/* Driver Section */}
-                                        {primaryRole !== "dispatch" && hasDriverItems && (
+                                        {!isDispatcherRole(primaryRole) && hasDriverItems && (
                                           <div className="space-y-1 text-sm mt-3 pt-3 border-t">
                                             <div className="font-medium text-muted-foreground">Driver Pay</div>
                                             <div>Base: {formatCurrency(driverPrice)}</div>
@@ -2619,7 +2622,7 @@ const Orders = () => {
                               <>{order.brokerLoadNumber}</>
                             )}
                           </TableCell>
-                          {primaryRole !== "dispatch" && primaryRole !== "afterhours" && (
+                          {!isDispatcherRole(primaryRole) && primaryRole !== "afterhours" && (
                             <TableCell className="w-20">
                               {primaryRole === "manager" || primaryRole === "supervisor" ? (
                                 <span>{order.invoiced ? "Yes" : "No"}</span>
@@ -2654,7 +2657,7 @@ const Orders = () => {
                               </Button>
                             )}
                           </TableCell>
-                          {primaryRole !== "dispatch" && (
+                          {!isDispatcherRole(primaryRole) && (
                             <TableCell className="w-24">
                               <div className="font-semibold text-green-600 dark:text-green-400">
                                 {formatCurrency((order as any).totalDriverPay)}
@@ -2832,8 +2835,7 @@ const Orders = () => {
                                 )}
                               {(hasRole("manager") ||
                                 hasRole("admin") ||
-                                hasRole("accounting") ||
-                                hasRole("supervisor")) && (
+                                hasRole("accounting")) && (
                                 <>
                                   {!order.locked && !order.canceled && (
                                     <Button
@@ -2879,7 +2881,7 @@ const Orders = () => {
                               )}
                             </div>
                           </TableCell>
-                          {primaryRole !== "dispatch" && primaryRole !== "afterhours" && (
+                          {!isDispatcherRole(primaryRole) && primaryRole !== "afterhours" && (
                             <TableCell className="w-20 text-center">
                               <div className="flex justify-center">
                                 {primaryRole === "manager" || primaryRole === "supervisor" ? (

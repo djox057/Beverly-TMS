@@ -1,3 +1,4 @@
+import { hasDispatcherRole } from "@/lib/dispatchAccess";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 /** Extra user allowed view-only access even though their role is `yard`. */
@@ -7,7 +8,7 @@ export function useComplaintsAccess() {
   const { roles, user } = useAuthContext();
 
   const canManage = roles.includes("admin") || roles.includes("manager");
-  const isDispatch = !canManage && roles.includes("dispatch");
+  const isDispatch = !canManage && hasDispatcherRole(roles);
   const email = user?.email?.toLowerCase() ?? "";
   const viewOnly =
     !canManage &&

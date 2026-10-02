@@ -139,7 +139,7 @@ export default function EfsRequests() {
   const queryClient = useQueryClient();
   const isAdmin = hasRole("admin") || hasRole("manager");
   const canDeleteReceipt = hasRole("admin") || hasRole("accounting");
-  const isDispatchOnly = hasRole("dispatch") && !isAdmin && !hasRole("supervisor") && !hasRole("accounting") && !hasRole("safety") && !hasRole("chicago_management");
+  const isDispatchOnly = hasRole("dispatch") && !isAdmin && !hasRole("accounting") && !hasRole("safety") && !hasRole("chicago_management");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [purposeFilter, setPurposeFilter] = useState("All");
