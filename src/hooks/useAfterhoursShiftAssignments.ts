@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { allocateAfterhoursDrivers, expandAllocatedDriverIds, mergeTeamDrivers, AllocDriver, AllocUser } from '@/lib/afterhoursAutoAssign';
@@ -46,6 +47,7 @@ export interface ShiftFleetDay {
 const SHIFTS: ShiftKey[] = ['night', 'morning'];
 
 export const useAfterhoursShiftAssignments = () => {
+  const queryClient = useQueryClient();
   const [shiftFleetsByDay, setShiftFleetsByDay] = useState<ShiftFleetDay[]>([]);
   const [allDriversWithTrucks, setAllDriversWithTrucks] = useState<any[]>([]);
   const [shiftDates, setShiftDates] = useState<string[]>([]);
@@ -220,6 +222,7 @@ export const useAfterhoursShiftAssignments = () => {
         .upsert(rows, { onConflict: 'afterhours_user_id,driver_id,scheduled_date,shift' });
       if (error) throw error;
       toast({ title: 'Success', description: `${driverIds.length} driver(s) assigned` });
+      void queryClient.invalidateQueries({ queryKey: ['afterhours-driver-map'] });
       fetchData();
     } catch (error: any) {
       console.error('Error assigning drivers:', error);
@@ -243,6 +246,7 @@ export const useAfterhoursShiftAssignments = () => {
         .in('driver_id', driverIds);
       if (error) throw error;
       toast({ title: 'Success', description: `${driverIds.length} driver(s) removed` });
+      void queryClient.invalidateQueries({ queryKey: ['afterhours-driver-map'] });
       fetchData();
     } catch (error: any) {
       console.error('Error removing drivers:', error);
@@ -307,6 +311,7 @@ export const useAfterhoursShiftAssignments = () => {
       }
 
       toast({ title: 'Success', description: `Assigned ${rows.length} driver-shift assignments` });
+      void queryClient.invalidateQueries({ queryKey: ['afterhours-driver-map'] });
       fetchData();
     } catch (error: any) {
       console.error('Error auto-assigning shift drivers:', error);
@@ -325,6 +330,7 @@ export const useAfterhoursShiftAssignments = () => {
         .in('scheduled_date', shiftDates);
       if (error) throw error;
       toast({ title: 'Success', description: 'All shift assignments removed' });
+      void queryClient.invalidateQueries({ queryKey: ['afterhours-driver-map'] });
       fetchData();
     } catch (error: any) {
       console.error('Error unassigning all:', error);

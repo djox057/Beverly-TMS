@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { allocateAfterhoursDrivers, expandAllocatedDriverIds, mergeTeamDrivers, AllocDriver, AllocUser } from '@/lib/afterhoursAutoAssign';
@@ -47,6 +48,7 @@ export interface AfterhoursFleetDay {
 }
 
 export const useAfterhoursAssignments = () => {
+  const queryClient = useQueryClient();
   const [afterhoursFleetsByDay, setAfterhoursFleetsByDay] = useState<AfterhoursFleetDay[]>([]);
   const [afterhoursFleets, setAfterhoursFleets] = useState<AfterhoursFleet[]>([]);
   const [allDriversWithTrucks, setAllDriversWithTrucks] = useState<any[]>([]);
@@ -266,6 +268,7 @@ export const useAfterhoursAssignments = () => {
         .insert({ afterhours_user_id: afterhoursUserId, driver_id: driverId, scheduled_date: scheduledDate || null });
       if (error) throw error;
       toast({ title: "Success", description: "Driver assigned to afterhours dispatcher" });
+      void queryClient.invalidateQueries({ queryKey: ['afterhours-driver-map'] });
       fetchData();
     } catch (error: any) {
       console.error('Error assigning driver:', error);
@@ -285,6 +288,7 @@ export const useAfterhoursAssignments = () => {
         .insert(rows);
       if (error) throw error;
       toast({ title: "Success", description: `${driverIds.length} driver(s) assigned` });
+      void queryClient.invalidateQueries({ queryKey: ['afterhours-driver-map'] });
       fetchData();
     } catch (error: any) {
       console.error('Error bulk assigning drivers:', error);
@@ -303,6 +307,7 @@ export const useAfterhoursAssignments = () => {
       const { error } = await query;
       if (error) throw error;
       toast({ title: "Success", description: "Driver removed from afterhours dispatcher" });
+      void queryClient.invalidateQueries({ queryKey: ['afterhours-driver-map'] });
       fetchData();
     } catch (error: any) {
       console.error('Error removing driver:', error);
@@ -321,6 +326,7 @@ export const useAfterhoursAssignments = () => {
       const { error } = await query;
       if (error) throw error;
       toast({ title: "Success", description: `${driverIds.length} driver(s) removed` });
+      void queryClient.invalidateQueries({ queryKey: ['afterhours-driver-map'] });
       fetchData();
     } catch (error: any) {
       console.error('Error bulk removing drivers:', error);
@@ -390,6 +396,7 @@ export const useAfterhoursAssignments = () => {
       }
 
       toast({ title: "Success", description: `Auto-assigned ${allRows.length} driver-day assignments across ${openDates.length} days` });
+      void queryClient.invalidateQueries({ queryKey: ['afterhours-driver-map'] });
       fetchData();
     } catch (error: any) {
       console.error('Error auto-assigning drivers:', error);
@@ -419,6 +426,7 @@ export const useAfterhoursAssignments = () => {
         .delete()
         .is('scheduled_date', null);
       toast({ title: "Success", description: "All weekend assignments cleared" });
+      void queryClient.invalidateQueries({ queryKey: ['afterhours-driver-map'] });
       fetchData();
     } catch (error: any) {
       console.error('Error unassigning all:', error);

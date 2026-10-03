@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { fetchAllRows } from '@/lib/fetchAllRows';
@@ -8,146 +8,106 @@ interface AfterhoursDriverInfo {
   userId: string;
 }
 
+interface CoverageRow {
+  afterhours_user_id: string;
+  driver_id: string;
+  scheduled_date?: string;
+  shift?: string;
+}
+
 const fmt = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-/**
- * Builds a map of driver_id -> afterhours user info for display in Reports.
- *
- * Two sources, treated identically:
- *  - Weekend/holiday schedule (afterhours_schedule + afterhours_assignments),
- *    active 6:00 AM - 5:00 PM Chicago time on a scheduled day.
- *  - Afterhours shift schedule (afterhours_shift_assignments):
- *      night shift   22:00 -> 06:00 (belongs to the date the shift started)
- *      morning shift 06:00 -> 14:00
+const EMPTY_MAP = new Map<string, AfterhoursDriverInfo>();
+
+/** Reports labels only: keep the existing weekend and 16:00–07:00 tag windows.
+ * Own coverage wins; otherwise prefer the live shift (tonight's night shift
+ * during evening preview). Refresh while Reports stays open across shifts.
  */
 export const useAfterhoursDriverMap = () => {
-  const [driverAfterhoursMap, setDriverAfterhoursMap] = useState<Map<string, AfterhoursDriverInfo>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [isWeekendWindow, setIsWeekendWindow] = useState(false);
   const { profile } = useAuthContext();
   const currentUserId = profile?.user_id ?? null;
+  const { data, isLoading } = useQuery({
+    queryKey: ['afterhours-driver-map', currentUserId],
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+    queryFn: async () => {
+      // Calculate on every refresh, not only when the component mounts.
+      const chicagoNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+      const hour = chicagoNow.getHours();
+      const todayStr = fmt(chicagoNow);
+      const yesterday = new Date(chicagoNow);
+      yesterday.setDate(chicagoNow.getDate() - 1);
+      const yesterdayStr = fmt(yesterday);
+      const inAfterhoursTagWindow = hour >= 16 || hour < 7;
+      const preferredShift = hour < 6 || hour >= 16 ? 'night' : 'morning';
+      const preferredDate = hour < 6 ? yesterdayStr : todayStr;
+      const rows: CoverageRow[] = [];
 
-  useEffect(() => {
-    const chicagoNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
-    const hour = chicagoNow.getHours();
-    const todayStr = fmt(chicagoNow);
-    const yesterday = new Date(chicagoNow);
-    yesterday.setDate(chicagoNow.getDate() - 1);
-    const yesterdayStr = fmt(yesterday);
+      const { data: scheduleData, error: scheduleErr } = await supabase
+        .from('afterhours_schedule')
+        .select('id')
+        .eq('scheduled_date', todayStr)
+        .limit(1);
+      if (scheduleErr) throw scheduleErr;
 
-    // Afterhours shift coverage tags are only shown between 16:00 and 07:00 Chicago.
-    const inAfterhoursTagWindow = hour >= 16 || hour < 7;
-
-    // Which afterhours shift (if any) is live right now? Live coverage wins when a
-    // driver is covered by more than one person today.
-    let activeShift: { shift: 'night' | 'morning'; date: string } | null = null;
-    if (hour >= 22) {
-      activeShift = { shift: 'night', date: todayStr };
-    } else if (hour < 6) {
-      activeShift = { shift: 'night', date: yesterdayStr };
-    } else if (hour < 14) {
-      activeShift = { shift: 'morning', date: todayStr };
-    }
-
-    let cancelled = false;
-
-    const fetchData = async () => {
-      try {
-        const rows: { afterhours_user_id: string; driver_id: string }[] = [];
-
-        // Weekend / holiday schedule for today (shown all day, like the shift tags)
-        const { data: scheduleData, error: scheduleErr } = await supabase
-          .from('afterhours_schedule')
-          .select('id')
-          .eq('scheduled_date', todayStr)
-          .limit(1);
-        if (scheduleErr) throw scheduleErr;
-
-        if (scheduleData && scheduleData.length > 0) {
-          const assignData = await fetchAllRows<any>((from, to) =>
-            supabase
-              .from('afterhours_assignments')
-              .select('afterhours_user_id, driver_id')
-              .eq('scheduled_date', todayStr)
-              .range(from, to));
-          rows.push(...assignData);
-        }
-
-        // Afterhours shift schedule, only inside the 16:00 -> 07:00 Chicago tag window:
-        //  - evening (>= 16:00): tonight's shifts
-        //  - early morning (< 07:00): last night's night shift + this morning's shift
-        if (inAfterhoursTagWindow) {
-          const shiftData = await fetchAllRows<any>((from, to) =>
-            supabase
-              .from('afterhours_shift_assignments')
-              .select('afterhours_user_id, driver_id, scheduled_date, shift')
-              .in('scheduled_date', [yesterdayStr, todayStr])
-              .range(from, to));
-
-          const shiftRows = ((shiftData || []) as any[]).filter(r => {
-            if (hour >= 16) return r.scheduled_date === todayStr;
-            // hour < 7
-            return (
-              (r.scheduled_date === yesterdayStr && r.shift === 'night') ||
-              (r.scheduled_date === todayStr && r.shift === 'morning')
-            );
-          });
-          // Non-live rows first so the live shift overrides them in the map.
-          const isLive = (r: any) =>
-            !!activeShift && r.scheduled_date === activeShift.date && r.shift === activeShift.shift;
-          rows.push(...shiftRows.filter(r => !isLive(r)), ...shiftRows.filter(isLive));
-        }
-
-        if (cancelled) return;
-
-        if (rows.length === 0) {
-          setLoading(false);
-          return;
-        }
-
-        setIsWeekendWindow(true);
-
-
-        const userIds = [...new Set(rows.map(r => r.afterhours_user_id))];
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, full_name, email')
-          .in('user_id', userIds);
-
-        if (cancelled) return;
-
-        const profileMap = new Map<string, string>();
-        (profiles || []).forEach(p => {
-          profileMap.set(p.user_id, p.full_name || p.email);
-        });
-
-        const map = new Map<string, AfterhoursDriverInfo>();
-        // The signed-in user's own coverage always wins over someone else's,
-        // so a covering user never sees another person's name on their trucks.
-        const ordered = currentUserId
-          ? [
-              ...rows.filter(r => r.afterhours_user_id !== currentUserId),
-              ...rows.filter(r => r.afterhours_user_id === currentUserId),
-            ]
-          : rows;
-        ordered.forEach(r => {
-          const userName = profileMap.get(r.afterhours_user_id);
-          if (userName && r.driver_id) {
-            map.set(r.driver_id, { userName, userId: r.afterhours_user_id });
-          }
-        });
-        setDriverAfterhoursMap(map);
-      } catch (err) {
-        console.error('Error fetching afterhours driver map:', err);
-      } finally {
-        if (!cancelled) setLoading(false);
+      if (scheduleData?.length) {
+        rows.push(...await fetchAllRows<CoverageRow>((from, to) =>
+          supabase
+            .from('afterhours_assignments')
+            .select('afterhours_user_id, driver_id')
+            .eq('scheduled_date', todayStr)
+            .order('id')
+            .range(from, to)));
       }
-    };
 
-    fetchData();
-    return () => { cancelled = true; };
-  }, [currentUserId]);
+      if (inAfterhoursTagWindow) {
+        const shiftData = await fetchAllRows<CoverageRow>((from, to) =>
+          supabase
+            .from('afterhours_shift_assignments')
+            .select('afterhours_user_id, driver_id, scheduled_date, shift')
+            .in('scheduled_date', [yesterdayStr, todayStr])
+            .order('id')
+            .range(from, to));
+        rows.push(...shiftData.filter(r => hour >= 16
+          ? r.scheduled_date === todayStr
+          : (r.scheduled_date === yesterdayStr && r.shift === 'night') ||
+            (r.scheduled_date === todayStr && r.shift === 'morning')));
+      }
 
-  return { driverAfterhoursMap, isWeekendWindow, loading };
+      const map = new Map<string, AfterhoursDriverInfo>();
+      // Returning an empty map clears labels after removals/day/window changes.
+      if (!rows.length) return { map, isWeekendWindow: false };
+
+      const { data: profiles, error: profilesErr } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', [...new Set(rows.map(r => r.afterhours_user_id))]);
+      if (profilesErr) throw profilesErr;
+      const profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name || p.email]));
+
+      const priority = (r: CoverageRow) =>
+        (currentUserId && r.afterhours_user_id === currentUserId ? 4 : 0) +
+        (r.shift === preferredShift && r.scheduled_date === preferredDate ? 2 : r.shift ? 1 : 0);
+      // Lowest priority first: Map.set deliberately overwrites it. Resolve ties
+      // consistently instead of depending on the database's return order.
+      rows.sort((a, b) => priority(a) - priority(b) ||
+        a.afterhours_user_id.localeCompare(b.afterhours_user_id));
+      for (const r of rows) {
+        const userName = profileMap.get(r.afterhours_user_id);
+        if (userName && r.driver_id) {
+          map.set(r.driver_id, { userName, userId: r.afterhours_user_id });
+        }
+      }
+      return { map, isWeekendWindow: map.size > 0 };
+    },
+  });
+
+  return {
+    driverAfterhoursMap: data?.map ?? EMPTY_MAP,
+    isWeekendWindow: data?.isWeekendWindow ?? false,
+    loading: isLoading,
+  };
 };
