@@ -3,7 +3,7 @@ import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import ExcelJS from "exceljs";
-import { formatInternalLoadNumber, resolveLoadCompanyName } from "@/utils/formatInternalLoadNumber";
+import { formatInternalLoadNumber, resolveLoadCompanyName, getCompanySuffix } from "@/utils/formatInternalLoadNumber";
 // Helper function to load file from Supabase storage
 const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
   try {
@@ -562,9 +562,10 @@ export const generateInvoicePDF = async (
       safePdfText(doc, "TOTAL:", 164, yPosition + 5);
       safePdfText(doc, formatPdfCurrency(finalTotal), 184, yPosition + 5);
 
-      // Notice section — skipped for BG Prime Inc
+      // Notice section — skipped for BG Prime Inc and LALE Transport loads
       const isBgPrime = derivedCompany === "BG Prime Inc";
-      if (!isBgPrime) {
+      const isLaleTrans = getCompanySuffix(derivedCompany) === "LT";
+      if (!isBgPrime && !isLaleTrans) {
         yPosition += 30;
         const isBeverlyFreight = derivedCompany === "Beverly Freight Inc";
         if (isBeverlyFreight) {
