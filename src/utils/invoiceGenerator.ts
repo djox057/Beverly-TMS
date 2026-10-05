@@ -3,6 +3,7 @@ import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import ExcelJS from "exceljs";
+import { removeInvoiceCoverPage } from "@/utils/removeInvoiceCoverPage";
 import { formatInternalLoadNumber, resolveLoadCompanyName, getCompanySuffix } from "@/utils/formatInternalLoadNumber";
 // Helper function to load file from Supabase storage
 const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
@@ -124,6 +125,7 @@ const safePdfText = (doc: jsPDF, value: unknown, x: number, y: number, options?:
 
 // Process a single invoice merge
 interface MergeTask {
+  omitInvoiceCover: boolean;
   invoicePdfBytes: ArrayBuffer;
   rcFiles: OrderFile[];
   bolFiles: OrderFile[];
@@ -628,6 +630,7 @@ export const generateInvoicePDF = async (
       const taskIndex = mergeTasks.length;
       taskToCompanyMap.set(taskIndex, sanitizedCompanyName);
       mergeTasks.push({
+        omitInvoiceCover: isLaleTrans,
         invoicePdfBytes,
         rcFiles,
         bolFiles,
@@ -704,6 +707,10 @@ export const generateInvoicePDF = async (
           };
         }
 
+        if (task.omitInvoiceCover) {
+          result.pdfBytes = await removeInvoiceCoverPage(result.pdfBytes);
+        }
+
         // Track skipped files per invoice
         if (result.skippedFiles && result.skippedFiles.length > 0) {
           invoicesWithSkippedFiles.push({
@@ -768,6 +775,14 @@ export const generateInvoicePDF = async (
   }
 
   console.log(`All batches processed. Success: ${successCount}/${mergeTasks.length}, Failed: ${failedInvoices.length}`);
+
+  // Never download an invoice-only fallback or mark a failed LALE export invoiced.
+  const failedLaleExports = mergeTasks.filter(
+    (task) => task.omitInvoiceCover && failedInvoices.includes(task.baseFilename),
+  );
+  if (failedLaleExports.length > 0) {
+    throw new Error(`Unable to export LALE Trans load documents: ${failedLaleExports.map((task) => task.baseFilename).join(", ")}. Check the attached files and retry.`);
+  }
 
   // Report failures if any
   if (failedInvoices.length > 0) {
