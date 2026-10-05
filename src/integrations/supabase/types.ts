@@ -5699,6 +5699,7 @@ export type Database = {
           created_at: string
           dot_inspection_date: string | null
           dot_inspection_note: string | null
+          dot_inspection_checked: boolean
           id: string
           insurance_expiration_date: string | null
           is_active: boolean
@@ -5720,6 +5721,7 @@ export type Database = {
           created_at?: string
           dot_inspection_date?: string | null
           dot_inspection_note?: string | null
+          dot_inspection_checked?: boolean
           id?: string
           insurance_expiration_date?: string | null
           is_active?: boolean
@@ -5741,6 +5743,7 @@ export type Database = {
           created_at?: string
           dot_inspection_date?: string | null
           dot_inspection_note?: string | null
+          dot_inspection_checked?: boolean
           id?: string
           insurance_expiration_date?: string | null
           is_active?: boolean
@@ -6265,6 +6268,7 @@ export type Database = {
           dispatcher_id: string | null
           dot_inspection_date: string | null
           dot_inspection_note: string | null
+          dot_inspection_checked: boolean
           driver1_id: string | null
           driver2_id: string | null
           engine: string | null
@@ -6322,6 +6326,7 @@ export type Database = {
           dispatcher_id?: string | null
           dot_inspection_date?: string | null
           dot_inspection_note?: string | null
+          dot_inspection_checked?: boolean
           driver1_id?: string | null
           driver2_id?: string | null
           engine?: string | null
@@ -6379,6 +6384,7 @@ export type Database = {
           dispatcher_id?: string | null
           dot_inspection_date?: string | null
           dot_inspection_note?: string | null
+          dot_inspection_checked?: boolean
           driver1_id?: string | null
           driver2_id?: string | null
           engine?: string | null

@@ -92,13 +92,13 @@ serve(async (req: Request): Promise<Response> => {
       admin
         .from("trucks")
         .select(
-          "id, truck_number, source, miles, last_oil_change_miles, dispatcher_id, driver1_id, driver2_id, trailer_id, dot_inspection_date, dot_inspection_note, plate_expiration_date, insurance_expiration_date, registration_expiration_date, maintenance_check_date",
+          "id, truck_number, source, miles, last_oil_change_miles, dispatcher_id, driver1_id, driver2_id, trailer_id, dot_inspection_date, dot_inspection_note, dot_inspection_checked, plate_expiration_date, insurance_expiration_date, registration_expiration_date, maintenance_check_date",
         )
         .eq("is_active", true),
       admin
         .from("trailers")
         .select(
-          "id, trailer_number, dot_inspection_date, dot_inspection_note, plate_expiration_date, insurance_expiration_date",
+          "id, trailer_number, dot_inspection_date, dot_inspection_note, dot_inspection_checked, plate_expiration_date, insurance_expiration_date",
         )
         .eq("is_active", true),
       admin
@@ -139,6 +139,7 @@ serve(async (req: Request): Promise<Response> => {
       const context = contextByTruckId.get(truck.id);
       if (!context) continue;
       for (const f of TRUCK_FIELDS) {
+        if (f.key === "dot_inspection_date" && truck.dot_inspection_checked) continue;
         scanned++;
         const days = daysUntil(truck[f.key]);
         const milestone = milestoneFor(days);
@@ -189,6 +190,7 @@ serve(async (req: Request): Promise<Response> => {
       if (!truck) continue;
       const context = contextByTruckId.get(truck.id)!;
       for (const f of TRAILER_FIELDS) {
+        if (f.key === "dot_inspection_date" && trailer.dot_inspection_checked) continue;
         scanned++;
         const days = daysUntil(trailer[f.key]);
         const milestone = milestoneFor(days);

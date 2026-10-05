@@ -13,6 +13,7 @@ import {
   PaginationEllipsis
 } from "@/components/ui/pagination";
 import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, CreditCard, ShieldCheck, CircleDot, Wrench, IdCard, FileSearch, ScrollText, HeartPulse, FlaskConical, FileText, Mail } from "lucide-react";
+import { DotInspectionChecked } from "@/components/alerts/DotInspectionChecked";
 import { DotInspectionNote } from "@/components/alerts/DotInspectionNote";
 import { PaperworkTab } from "@/components/alerts/PaperworkTab";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
@@ -230,8 +231,8 @@ export default function Alerts() {
 
   // Sort state per table: { key, dir } where dir: 'asc' | 'desc'. null = no sort.
   type SortState<K extends string> = { key: K; dir: "asc" | "desc" } | null;
-  type TruckSortKey = "company" | "dot" | "plate" | "insurance" | "registration" | "maintenance_check";
-  type TrailerSortKey = "dot" | "plate" | "insurance";
+  type TruckSortKey = "company" | "dot_checked" | "dot" | "plate" | "insurance" | "registration" | "maintenance_check";
+  type TrailerSortKey = "dot_checked" | "dot" | "plate" | "insurance";
   type DriverSortKey = "cdl" | "mvr" | "clearing_house" | "medical" | "drug_test";
   const [truckSort, setTruckSort] = useState<SortState<TruckSortKey>>(null);
   const [trailerSort, setTrailerSort] = useState<SortState<TrailerSortKey>>(null);
@@ -522,7 +523,7 @@ export default function Alerts() {
     return dir === "asc" ? cmp : -cmp;
   };
 
-  const truckSortKeyToDate: Record<Exclude<TruckSortKey, "company">, keyof typeof trucks[number]> = {
+  const truckSortKeyToDate: Record<Exclude<TruckSortKey, "company" | "dot_checked">, keyof typeof trucks[number]> = {
     dot: "dot_inspection_date" as any,
     plate: "plate_expiration_date" as any,
     insurance: "insurance_expiration_date" as any,
@@ -533,6 +534,10 @@ export default function Alerts() {
   // Pagination logic for trucks
   const sortedTrucks = truckSort
     ? [...filteredTrucks].sort((a, b) => {
+        if (truckSort.key === "dot_checked") {
+          const comparison = Number(a.dot_inspection_checked) - Number(b.dot_inspection_checked);
+          return truckSort.dir === "asc" ? comparison : -comparison;
+        }
         if (truckSort.key === "company") {
           return compareStrings(a.company?.name, b.company?.name, truckSort.dir);
         }
@@ -545,13 +550,17 @@ export default function Alerts() {
   const trucksEndIndex = trucksStartIndex + itemsPerPage;
   const paginatedTrucks = sortedTrucks.slice(trucksStartIndex, trucksEndIndex);
 
-  const trailerSortKeyToDate: Record<TrailerSortKey, string> = {
+  const trailerSortKeyToDate: Record<Exclude<TrailerSortKey, "dot_checked">, string> = {
     dot: "dot_inspection_date",
     plate: "plate_expiration_date",
     insurance: "insurance_expiration_date",
   };
   const sortedTrailers = trailerSort
     ? [...filteredTrailers].sort((a, b) => {
+        if (trailerSort.key === "dot_checked") {
+          const comparison = Number(a.dot_inspection_checked) - Number(b.dot_inspection_checked);
+          return trailerSort.dir === "asc" ? comparison : -comparison;
+        }
         const field = trailerSortKeyToDate[trailerSort.key];
         return compareDates((a as any)[field], (b as any)[field], trailerSort.dir);
       })
@@ -1031,6 +1040,14 @@ export default function Alerts() {
                         </div>
                       </TableHead>
                       )}
+                      {showTruckCol("dot") && (
+                        <TableHead className="w-[110px]" title="Checked units do not receive DOT reminder emails">
+                          <div className="flex items-center gap-1">
+                            <span>DOT checked</span>
+                            {renderSortButton(truckSort, "dot_checked", () => { setTruckSort(prev => cycleSort(prev, "dot_checked")); setTrucksPage(1); }, "DOT checked status")}
+                          </div>
+                        </TableHead>
+                      )}
                       {showTruckCol("plate") && (
                       <TableHead
                         onClick={() => setTruckColumnFilter(truckColumnFilter === "plate" ? "all" : "plate")}
@@ -1108,6 +1125,12 @@ export default function Alerts() {
                            </div>
                          <DotInspectionNote table="trucks" id={truck.id} unit={`Truck ${truck.truck_number}`} note={truck.dot_inspection_note} canEdit={canEdit} />
                          </TableCell>
+                         )}
+                         {showTruckCol("dot") && (
+                           <TableCell>
+                             <DotInspectionChecked table="trucks" id={truck.id} unit={`Truck ${truck.truck_number}`}
+                               checked={truck.dot_inspection_checked} canEdit={canEdit} />
+                           </TableCell>
                          )}
                          {showTruckCol("plate") && (
                          <TableCell>
@@ -1243,6 +1266,14 @@ export default function Alerts() {
                         </div>
                       </TableHead>
                       )}
+                      {showTrailerCol("dot") && (
+                        <TableHead className="w-[110px]" title="Checked units do not receive DOT reminder emails">
+                          <div className="flex items-center gap-1">
+                            <span>DOT checked</span>
+                            {renderSortButton(trailerSort, "dot_checked", () => { setTrailerSort(prev => cycleSort(prev, "dot_checked")); setTrailersPage(1); }, "DOT checked status")}
+                          </div>
+                        </TableHead>
+                      )}
                       {showTrailerCol("plate") && (
                       <TableHead
                         onClick={() => setTrailerColumnFilter(trailerColumnFilter === "plate" ? "all" : "plate")}
@@ -1299,6 +1330,12 @@ export default function Alerts() {
                            </div>
                          <DotInspectionNote table="trailers" id={trailer.id} unit={`Trailer ${trailer.trailer_number}`} note={trailer.dot_inspection_note} canEdit={canEdit} />
                          </TableCell>
+                         )}
+                         {showTrailerCol("dot") && (
+                           <TableCell>
+                             <DotInspectionChecked table="trailers" id={trailer.id} unit={`Trailer ${trailer.trailer_number}`}
+                               checked={trailer.dot_inspection_checked} canEdit={canEdit} />
+                           </TableCell>
                          )}
                          {showTrailerCol("plate") && (
                          <TableCell>

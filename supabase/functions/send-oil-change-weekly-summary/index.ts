@@ -277,12 +277,12 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
         admin
           .from("trucks")
           .select(
-            "truck_number, trailer_id, dot_inspection_date, dot_inspection_note, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id), driver2:drivers!trucks_driver2_id_fkey(first_name, last_name)",
+            "truck_number, trailer_id, dot_inspection_date, dot_inspection_note, dot_inspection_checked, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id), driver2:drivers!trucks_driver2_id_fkey(first_name, last_name)",
           )
           .eq("is_active", true),
         admin
           .from("trailers")
-          .select("id, trailer_number, dot_inspection_date, dot_inspection_note")
+          .select("id, trailer_number, dot_inspection_date, dot_inspection_note, dot_inspection_checked")
           .eq("is_active", true),
       ]);
       if (dotTrucksResult.error) throw dotTrucksResult.error;
@@ -296,7 +296,8 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
 
       const expired: DotItem[] = [];
       const dueSoon: DotItem[] = [];
-      const addDotItem = (unit: string, date: string | null, truck: any, note: string | null) => {
+      const addDotItem = (unit: string, date: string | null, truck: any, note: string | null, checked: boolean) => {
+        if (checked) return;
         const days = daysUntil(date);
         if (days === null || days > 7) return;
         const drivers = [truck?.driver1, truck?.driver2]
@@ -317,7 +318,7 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
       };
 
       for (const truck of dotTrucks) {
-        addDotItem(`Truck ${truck.truck_number}`, truck.dot_inspection_date, truck, truck.dot_inspection_note);
+        addDotItem(`Truck ${truck.truck_number}`, truck.dot_inspection_date, truck, truck.dot_inspection_note, truck.dot_inspection_checked);
       }
       for (const trailer of (dotTrailersResult.data ?? []) as any[]) {
         const truck = truckByTrailerId.get(trailer.id);
@@ -326,6 +327,7 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
           trailer.dot_inspection_date,
           truck,
           trailer.dot_inspection_note,
+          trailer.dot_inspection_checked,
         );
       }
 
