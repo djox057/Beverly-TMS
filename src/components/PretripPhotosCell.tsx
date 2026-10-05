@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-type Photo = { id: string; truck_id: string; file_path: string; file_name: string | null };
+type Photo = { id: string; truck_id: string; file_path: string; file_name: string | null; photo_category?: string | null };
 
 export const usePretripPhotos = (date: string) =>
   useQuery({
@@ -15,7 +15,7 @@ export const usePretripPhotos = (date: string) =>
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("pretrip_photos")
-        .select("id, truck_id, file_path, file_name")
+        .select("id, truck_id, file_path, file_name, photo_category")
         .eq("inspection_date", date)
         .order("created_at");
       if (error) throw error;
@@ -101,6 +101,7 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date }: { truckId: 
           <DialogHeader>
             <DialogTitle>Photos ({photos.length ? idx + 1 : 0} / {photos.length})</DialogTitle>
           </DialogHeader>
+          {current?.photo_category && <p className="text-sm font-medium">{current.photo_category}</p>}
           <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" disabled={idx === 0} onClick={() => setIdx(idx - 1)}>
               <ChevronLeft className="h-4 w-4" />

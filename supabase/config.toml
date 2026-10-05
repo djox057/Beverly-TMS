@@ -140,3 +140,9 @@ verify_jwt = false
 
 [functions.efs-sync-card-statuses]
 verify_jwt = false
+
+[functions.sync-pretrip-form]
+verify_jwt = false
+
+[functions.receive-pretrip-form]
+verify_jwt = false

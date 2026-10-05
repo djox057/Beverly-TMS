@@ -1,6 +1,6 @@
 import { addDays, format, parseISO } from "date-fns";
 
-const chicagoToday = () =>
+export const chicagoToday = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" }).format(new Date());
 
 /** Most recent Monday or Friday (Chicago) on or before today. */

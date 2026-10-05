@@ -20,9 +20,10 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { busChannel } from "@/hooks/realtimeBus";
 import { Button } from "@/components/ui/button";
-import { pretripDueDate, stepPretripDate } from "@/lib/pretripDates";
+import { chicagoToday } from "@/lib/pretripDates";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PretripPhotosCell, usePretripPhotos } from "@/components/PretripPhotosCell";
+import { PretripFormCell, PretripFormConnection, usePretripSubmissions } from "@/components/PretripFormSubmissions";
 import { PretripProblemsCell } from "@/components/PretripProblemsCell";
 
 type TruckRow = {
@@ -45,6 +46,8 @@ const fmtDate = (iso: string | null) => {
   if (!iso) return "";
   try { return format(parseISO(iso), "MM/dd/yyyy"); } catch { return ""; }
 };
+
+const EMPTY_FORM_SUBMISSIONS: import("@/components/PretripFormSubmissions").PretripSubmission[] = [];
 
 const bareInput =
   "h-7 px-1 border-0 bg-transparent shadow-none rounded-none " +
@@ -175,7 +178,16 @@ const PreTripInspection = () => {
   const isDispatcher = isDispatcherRole(primaryRole);
   const { allDispatchers } = useFleetManagement();
   const [search, setSearch] = useState("");
-  const [photoDate, setPhotoDate] = useState<string>(() => pretripDueDate());
+  const [photoDate, setPhotoDate] = useState<string>(() => chicagoToday());
+  const { data: formSubmissions = EMPTY_FORM_SUBMISSIONS, isError: formError } = usePretripSubmissions(photoDate);
+  const formsByTruck = useMemo(() => {
+    const map: Record<string, typeof formSubmissions> = {};
+    for (const s of formSubmissions) if (s.truck_id) (map[s.truck_id] ||= []).push(s);
+    return map;
+  }, [formSubmissions]);
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["pretrip-photos", photoDate] });
+  }, [formSubmissions, photoDate, queryClient]);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { data: photosByTruck = {}, isPending: photosLoading } = usePretripPhotos(photoDate);
   const { data: checksByTruck = {} as Record<string, { checked_by: string | null; checked_at: string }>, isPending: checksLoading, isError: checksError } = useQuery({
@@ -367,7 +379,7 @@ const PreTripInspection = () => {
       if (companyFilter !== "all" && t.company_id !== companyFilter) return false;
       if (dispatcherFilter !== "all" && t.dispatcher_id !== dispatcherFilter) return false;
       if (officeFilter !== "all" && t.dispatcher_office !== officeFilter) return false;
-      const problems = (problemsByTruck as Record<string, string>)[t.id]?.trim() ?? "";
+      const problems = [(problemsByTruck as Record<string, string>)[t.id], ...(formsByTruck[t.id] ?? []).map(s => s.complaints)].filter(Boolean).join("\n").trim();
       if (problemsFilter === "with" && problems === "") return false;
       if (problemsFilter === "without" && problems !== "") return false;
       const hasPictures = (photosByTruck[t.id]?.length ?? 0) > 0;
@@ -378,7 +390,7 @@ const PreTripInspection = () => {
       if (checkedFilter === "not-checked" && isChecked) return false;
       return true;
     });
-  }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter, problemsFilter, problemsByTruck, picturesFilter, photosByTruck, checkedFilter, checksByTruck]);
+  }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter, problemsFilter, problemsByTruck, formsByTruck, picturesFilter, photosByTruck, checkedFilter, checksByTruck]);
 
   return (
     <div className="py-6 px-2 space-y-6">
@@ -401,6 +413,8 @@ const PreTripInspection = () => {
         </div>
       </div>
 
+      <PretripFormConnection canManage={["admin", "manager"].some(r => (_roles ?? []).includes(r) || primaryRole === r)} />
+      {formError && <p className="text-sm text-destructive">Could not load Google Form submissions.</p>}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Report</CardTitle>
@@ -458,7 +472,7 @@ const PreTripInspection = () => {
         </CardHeader>
         <CardContent className="px-2">
           <div className="mx-auto mb-3 grid w-[390px] max-w-full grid-cols-[32px_minmax(0,1fr)_96px_32px] items-center gap-2">
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPhotoDate(stepPretripDate(photoDate, -1))} title="Previous inspection day">
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPhotoDate(format(new Date(parseISO(photoDate).getTime() - 86400000), "yyyy-MM-dd"))} title="Previous inspection day">
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -472,31 +486,31 @@ const PreTripInspection = () => {
                 <Calendar
                   mode="single"
                   selected={parseISO(photoDate)}
-                  disabled={(d) => d.getDay() !== 1 && d.getDay() !== 5}
                   onSelect={(d) => { if (d) { setPhotoDate(format(d, "yyyy-MM-dd")); setDatePickerOpen(false); } }}
                   initialFocus
                   className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
-            {photoDate === pretripDueDate() ? (
+            {photoDate === chicagoToday() ? (
               <span className="text-center text-xs text-muted-foreground">(current)</span>
             ) : (
-              <Button variant="link" size="sm" className="h-auto w-full p-0 text-xs" onClick={() => setPhotoDate(pretripDueDate())}>Back to current</Button>
+              <Button variant="link" size="sm" className="h-auto w-full p-0 text-xs" onClick={() => setPhotoDate(chicagoToday())}>Back to current</Button>
             )}
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled={photoDate >= pretripDueDate()} onClick={() => setPhotoDate(stepPretripDate(photoDate, 1))} title="Next inspection day">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={photoDate >= chicagoToday()} onClick={() => setPhotoDate(format(new Date(parseISO(photoDate).getTime() + 86400000), "yyyy-MM-dd"))} title="Next inspection day">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
           <div className="overflow-x-auto">
-          <Table className="w-full min-w-[1070px] table-fixed">
+          <Table className="w-full min-w-[1240px] table-fixed">
             <colgroup>
               <col className="w-[8%]" />
-              <col className="w-[14%]" />
-              <col className="w-[13%]" />
-              <col className="w-[14%]" />
-              <col className="w-[18%]" />
-              <col className="w-[21%]" />
+              <col className="w-[12%]" />
+              <col className="w-[11%]" />
+              <col className="w-[12%]" />
+              <col className="w-[16%]" />
+              <col className="w-[17%]" />
+              <col className="w-[12%]" />
               <col className="w-[12%]" />
             </colgroup>
             <TableHeader className="sticky top-0 z-20 bg-background">
@@ -507,25 +521,26 @@ const PreTripInspection = () => {
                 <TableHead className="sticky top-0 z-20 bg-background px-2">Company</TableHead>
                 <TableHead className="sticky top-0 z-20 bg-background px-2">Pictures</TableHead>
                 <TableHead className="sticky top-0 z-20 bg-background px-2">Problems</TableHead>
+                <TableHead className="sticky top-0 z-20 bg-background px-2">Google Form</TableHead>
                 <TableHead className="sticky top-0 z-20 bg-background px-2 text-center">Checked</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading || (picturesFilter !== "all" && photosLoading) || (checkedFilter !== "all" && checksLoading) ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : checkedFilter !== "all" && checksError ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-destructive py-8">
+                  <TableCell colSpan={8} className="text-center text-destructive py-8">
                     Failed to load checked status
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No trucks found
                   </TableCell>
                 </TableRow>
@@ -555,7 +570,9 @@ const PreTripInspection = () => {
                           value={problemsByTruck[t.id] ?? null}
                           onSave={(v) => saveProblems(t.id, v)}
                         />
+                        {formsByTruck[t.id]?.[0]?.complaints && <p className="mt-1 line-clamp-2 text-xs" title={formsByTruck[t.id][0].complaints}>Driver: {formsByTruck[t.id][0].complaints}</p>}
                       </TableCell>
+                      <TableCell className="h-[64px] px-2 py-1"><PretripFormCell submissions={formsByTruck[t.id] ?? []} /></TableCell>
                       <TableCell className="h-[64px] px-2 py-1 text-center">
                         <div className="flex flex-col items-center gap-0.5">
                           <Checkbox checked={!!checksByTruck[t.id]} disabled={!canCheck || checksLoading || checksError || savingCheck !== null}
