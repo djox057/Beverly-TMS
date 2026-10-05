@@ -52,6 +52,7 @@ interface StaleItem {
 }
 
 interface DotItem {
+  note: string | null;
   unit: string;
   drivers: string;
   dispatcher: string;
@@ -276,12 +277,12 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
         admin
           .from("trucks")
           .select(
-            "truck_number, trailer_id, dot_inspection_date, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id), driver2:drivers!trucks_driver2_id_fkey(first_name, last_name)",
+            "truck_number, trailer_id, dot_inspection_date, dot_inspection_note, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id), driver2:drivers!trucks_driver2_id_fkey(first_name, last_name)",
           )
           .eq("is_active", true),
         admin
           .from("trailers")
-          .select("id, trailer_number, dot_inspection_date")
+          .select("id, trailer_number, dot_inspection_date, dot_inspection_note")
           .eq("is_active", true),
       ]);
       if (dotTrucksResult.error) throw dotTrucksResult.error;
@@ -295,7 +296,7 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
 
       const expired: DotItem[] = [];
       const dueSoon: DotItem[] = [];
-      const addDotItem = (unit: string, date: string | null, truck: any) => {
+      const addDotItem = (unit: string, date: string | null, truck: any, note: string | null) => {
         const days = daysUntil(date);
         if (days === null || days > 7) return;
         const drivers = [truck?.driver1, truck?.driver2]
@@ -303,6 +304,7 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
           .map((driver: any) => `${driver.first_name ?? ""} ${driver.last_name ?? ""}`.trim())
           .filter(Boolean);
         const item: DotItem = {
+          note,
           unit,
           drivers: drivers.join(" / ") || "No driver assigned",
           dispatcher: truck?.driver1?.dispatcher_id
@@ -315,7 +317,7 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
       };
 
       for (const truck of dotTrucks) {
-        addDotItem(`Truck ${truck.truck_number}`, truck.dot_inspection_date, truck);
+        addDotItem(`Truck ${truck.truck_number}`, truck.dot_inspection_date, truck, truck.dot_inspection_note);
       }
       for (const trailer of (dotTrailersResult.data ?? []) as any[]) {
         const truck = truckByTrailerId.get(trailer.id);
@@ -323,6 +325,7 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
           `Trailer ${trailer.trailer_number}${truck ? ` (Truck ${truck.truck_number})` : ""}`,
           trailer.dot_inspection_date,
           truck,
+          trailer.dot_inspection_note,
         );
       }
 
@@ -331,7 +334,7 @@ ${cell(escapeHtml(i.note ?? "—"), "white-space:pre-wrap;")}
         const body = [...items]
           .sort((a, b) => a.days - b.days || a.unit.localeCompare(b.unit))
           .map((item) => `<tr>
-${cell(escapeHtml(item.unit))}
+${cell(`${escapeHtml(item.unit)}${item.note?.trim() ? `<div style="margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere;color:#4b5563;"><strong>DOT note:</strong> ${escapeHtml(item.note)}</div>` : ""}`)}
 ${cell(escapeHtml(item.drivers))}
 ${cell(escapeHtml(item.dispatcher))}
 ${cell(escapeHtml(formatDate(item.dueDate)))}

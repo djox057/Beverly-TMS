@@ -5698,6 +5698,7 @@ export type Database = {
           capacity: number | null
           created_at: string
           dot_inspection_date: string | null
+          dot_inspection_note: string | null
           id: string
           insurance_expiration_date: string | null
           is_active: boolean
@@ -5718,6 +5719,7 @@ export type Database = {
           capacity?: number | null
           created_at?: string
           dot_inspection_date?: string | null
+          dot_inspection_note?: string | null
           id?: string
           insurance_expiration_date?: string | null
           is_active?: boolean
@@ -5738,6 +5740,7 @@ export type Database = {
           capacity?: number | null
           created_at?: string
           dot_inspection_date?: string | null
+          dot_inspection_note?: string | null
           id?: string
           insurance_expiration_date?: string | null
           is_active?: boolean
@@ -6261,6 +6264,7 @@ export type Database = {
           created_at: string
           dispatcher_id: string | null
           dot_inspection_date: string | null
+          dot_inspection_note: string | null
           driver1_id: string | null
           driver2_id: string | null
           engine: string | null
@@ -6317,6 +6321,7 @@ export type Database = {
           created_at?: string
           dispatcher_id?: string | null
           dot_inspection_date?: string | null
+          dot_inspection_note?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
           engine?: string | null
@@ -6373,6 +6378,7 @@ export type Database = {
           created_at?: string
           dispatcher_id?: string | null
           dot_inspection_date?: string | null
+          dot_inspection_note?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
           engine?: string | null

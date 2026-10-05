@@ -13,6 +13,7 @@ import {
   PaginationEllipsis
 } from "@/components/ui/pagination";
 import { AlertTriangle, Truck, Package, User, Search, Plus, Image, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ClipboardCheck, CreditCard, ShieldCheck, CircleDot, Wrench, IdCard, FileSearch, ScrollText, HeartPulse, FlaskConical, FileText, Mail } from "lucide-react";
+import { DotInspectionNote } from "@/components/alerts/DotInspectionNote";
 import { PaperworkTab } from "@/components/alerts/PaperworkTab";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
 import { annualDocExpiration, isAnnualDocExpiring, todayISODate } from "@/lib/annualDocuments";
@@ -1105,6 +1106,7 @@ export default function Alerts() {
                                </Badge>
                              )}
                            </div>
+                         <DotInspectionNote table="trucks" id={truck.id} unit={`Truck ${truck.truck_number}`} note={truck.dot_inspection_note} canEdit={canEdit} />
                          </TableCell>
                          )}
                          {showTruckCol("plate") && (
@@ -1295,6 +1297,7 @@ export default function Alerts() {
                                </Badge>
                              )}
                            </div>
+                         <DotInspectionNote table="trailers" id={trailer.id} unit={`Trailer ${trailer.trailer_number}`} note={trailer.dot_inspection_note} canEdit={canEdit} />
                          </TableCell>
                          )}
                          {showTrailerCol("plate") && (

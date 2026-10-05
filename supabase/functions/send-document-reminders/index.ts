@@ -39,6 +39,7 @@ interface Candidate {
   days: number | null;
   milestone: number;
   detail?: string;
+  dotNote?: string | null;
   dispatcherId: string | null;
 }
 
@@ -91,13 +92,13 @@ serve(async (req: Request): Promise<Response> => {
       admin
         .from("trucks")
         .select(
-          "id, truck_number, source, miles, last_oil_change_miles, dispatcher_id, driver1_id, driver2_id, trailer_id, dot_inspection_date, plate_expiration_date, insurance_expiration_date, registration_expiration_date, maintenance_check_date",
+          "id, truck_number, source, miles, last_oil_change_miles, dispatcher_id, driver1_id, driver2_id, trailer_id, dot_inspection_date, dot_inspection_note, plate_expiration_date, insurance_expiration_date, registration_expiration_date, maintenance_check_date",
         )
         .eq("is_active", true),
       admin
         .from("trailers")
         .select(
-          "id, trailer_number, dot_inspection_date, plate_expiration_date, insurance_expiration_date",
+          "id, trailer_number, dot_inspection_date, dot_inspection_note, plate_expiration_date, insurance_expiration_date",
         )
         .eq("is_active", true),
       admin
@@ -151,6 +152,7 @@ serve(async (req: Request): Promise<Response> => {
           document: f.label,
           fieldKey: f.key,
           dueDate: String(truck[f.key]).slice(0, 10),
+          dotNote: f.key === "dot_inspection_date" ? truck.dot_inspection_note : null,
           days,
           milestone,
           dispatcherId: context.dispatcherId,
@@ -200,6 +202,7 @@ serve(async (req: Request): Promise<Response> => {
           document: f.label,
           fieldKey: f.key,
           dueDate: String(trailer[f.key]).slice(0, 10),
+          dotNote: f.key === "dot_inspection_date" ? trailer.dot_inspection_note : null,
           days,
           milestone,
           dispatcherId: context.dispatcherId,
@@ -356,7 +359,7 @@ serve(async (req: Request): Promise<Response> => {
           return `<tr>
   <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(c.unit)}</td>
   <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(c.driverName ?? "—")}</td>
-  <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(c.document)}</td>
+  <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(c.document)}${c.dotNote?.trim() ? `<div style="margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere;color:#4b5563;"><strong>DOT note:</strong> ${escapeHtml(c.dotNote)}</div>` : ""}</td>
   <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(c.detail ?? formatDate(c.dueDate))}</td>
   <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;color:${color};font-weight:600;">${escapeHtml(
             milestoneLabel(c.milestone, c.days),
