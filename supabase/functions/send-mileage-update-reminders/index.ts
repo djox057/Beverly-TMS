@@ -10,7 +10,8 @@ import {
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
-const CC = ["tommyj@bfprime.net", "bob.i@bfprime.net", "kyle@bfprime.net"];
+// Management receives dispatcher replies, without copies of automated reminders.
+const REPLY_TO = ["tommyj@bfprime.net", "bob.i@bfprime.net", "kyle@bfprime.net"];
 
 interface Item {
   truckId: string;
@@ -181,7 +182,7 @@ serve(async (req: Request): Promise<Response> => {
       const response = await resend.emails.send({
         from: FROM,
         to: [group.email],
-        cc: CC.filter((c) => c !== group.email),
+        replyTo: REPLY_TO,
         subject,
         html,
       });
