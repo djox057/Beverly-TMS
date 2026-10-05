@@ -48,11 +48,24 @@ export function useMandatoryYardRepairs(activeOnly = false) {
     const refresh = () => { void client.invalidateQueries({ queryKey: ["mandatory-yard-repairs"] }); };
     return subscribeTable("mandatory_yard_repairs", refresh, refresh, "mandatory-yard-repairs");
   }, [client, enabled]);
+  const sendNotification = async (taskId: string) => {
+    const { data, error } = await supabase.functions.invoke("notify-mandatory-yard-repair", { body: { taskId } });
+    if (error || data?.error || !data?.sent) throw new Error("Email was not sent");
+  };
+  const notifyDispatcher = useMutation({
+    mutationFn: sendNotification,
+    onSuccess: () => { void client.invalidateQueries({ queryKey: ["mandatory-yard-repairs"] }); toast.success("Dispatcher email sent"); },
+    onError: () => { void client.invalidateQueries({ queryKey: ["mandatory-yard-repairs"] }); toast.warning("Email was not sent. Check the assigned dispatcher and retry."); },
+  });
   const save = useMutation({
     mutationFn: async ({ id, values }: { id?: string; values: YardRepairInput }) => {
       const request = id ? supabase.from("mandatory_yard_repairs").update(values).eq("id", id) : supabase.from("mandatory_yard_repairs").insert(values);
       const { data, error } = await request.select().single();
       if (error) throw error;
+      if (!id && data.service_type === "mandatory_yard_repair" && isOpenRepair(data.status)) {
+        try { await sendNotification(data.id); }
+        catch { toast.warning("Task saved, but dispatcher email was not sent. Use Retry Email."); }
+      }
       return data;
     },
     onSuccess: () => { void client.invalidateQueries({ queryKey: ["mandatory-yard-repairs"] }); toast.success("Repair task saved"); },
@@ -68,5 +81,5 @@ export function useMandatoryYardRepairs(activeOnly = false) {
     }
     return map;
   }, [query.data]);
-  return { ...query, tasks: query.data || [], byTruck, save };
+  return { ...query, tasks: query.data || [], byTruck, save, notifyDispatcher };
 }
