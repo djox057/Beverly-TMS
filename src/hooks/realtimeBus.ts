@@ -29,6 +29,7 @@ export const PUBLISHED_TABLES = new Set([
   "profiles",
   "user_roles",
   "hr_reports",
+  "mandatory_yard_repairs",
 ]);
 
 
