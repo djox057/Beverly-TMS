@@ -1,3 +1,4 @@
+import { YARD_REPAIR_VIEW_ROLES } from "@/hooks/useMandatoryYardRepairs";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -456,6 +457,12 @@ export const Sidebar = () => {
   };
 
   const baseNavigation = getFilteredNavigation();
+  if (YARD_REPAIR_VIEW_ROLES.some(role => role === getPrimaryRole())) {
+    const repairsIndex = baseNavigation.findIndex(item => item.href === "/repairs");
+    const reportsIndex = baseNavigation.findIndex(item => item.href === "/reports");
+    baseNavigation.splice((repairsIndex !== -1 ? repairsIndex : reportsIndex) + 1, 0,
+      { name: "Mandatory Yard Repair", href: "/mandatory-yard-repair", icon: Wrench });
+  }
   // Inject Daily Report just after Reports when the user has view permission
   const allNavigation = (() => {
     if (!canViewDailyReport) return baseNavigation;

@@ -1,3 +1,6 @@
+import { useChicagoToday, useMandatoryYardRepairs } from "@/hooks/useMandatoryYardRepairs";
+import { hasOverdueTruckRequirement } from "@/lib/yardRepairDue";
+import { TruckRepairDeadlines } from "@/components/reports/TruckRepairDeadlines";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { CoiRequestDialog } from "@/components/reports/CoiRequestDialog";
 import { TruckOosCheckbox } from "@/components/reports/TruckOosCheckbox";
@@ -488,6 +491,8 @@ const getOrderPickupDateForCarousel = (order: any): Date | null => {
 
 const Reports = () => {
   const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
+  const { byTruck: yardRepairsByTruck } = useMandatoryYardRepairs(true);
+  const repairToday = useChicagoToday();
   useTruckOosRealtime();
   const resolveTruckOos = useTruckOosOverrides();
 
@@ -5282,6 +5287,8 @@ const Reports = () => {
                                     const isNew = isNewDriver(truck);
                                     const canManageDrugTests =
                                       hasRole("safety") || hasRole("manager") || hasRole("admin");
+                                    const yardRepairTasks = yardRepairsByTruck.get(truck.id) || [];
+                                    const overdueRequirement = hasOverdueTruckRequirement(yardRepairTasks, truck.dot_inspection_date, truck.trailer_dot_inspection_date, repairToday);
                                     const driverCellStyle = getDriverCellStyle(truck);
                                     const shouldShowDrugTestUI = isNew && canManageDrugTests;
                                     return (
@@ -5315,7 +5322,7 @@ const Reports = () => {
                                                     </Tooltip>
                                                   </TooltipProvider>
                                                 ) : (
-                                                  truck.truckNumber
+                                                  <span className={overdueRequirement ? "text-red-600" : undefined} title={overdueRequirement ? "Overdue DOT or Mandatory Yard Repair" : undefined}>{truck.truckNumber}</span>
                                                 )}
                                                 {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
                                                 {truck.twoWeekBlockDate && (
@@ -5427,6 +5434,7 @@ const Reports = () => {
                                                   );
                                                 })()}
                                               </div>
+                                              <TruckRepairDeadlines tasks={yardRepairTasks} truckDot={truck.dot_inspection_date} trailerDot={truck.trailer_dot_inspection_date} today={repairToday} />
                                               {truck.companyName && (
                                                 <div className="text-[9px] leading-tight font-semibold text-black opacity-60">
                                                   {truck.companyName}

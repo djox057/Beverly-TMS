@@ -46,6 +46,8 @@ import TrucksMap from "./pages/TrucksMap";
 import BeverlyHeatmap from "./pages/BeverlyHeatmap";
 
 import Repairs from "./pages/Repairs";
+import MandatoryYardRepair from "./pages/MandatoryYardRepair";
+import { YARD_REPAIR_VIEW_ROLES } from "@/hooks/useMandatoryYardRepairs";
 import FuelReports from "./pages/FuelReports";
 import EfsRequests from "./pages/EfsRequests";
 import Stuff from "./pages/Stuff";
@@ -243,6 +245,11 @@ const AppContent = () => {
         <Route path="/alerts" element={
           <ProtectedRoute>
             <Layout><Alerts /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/mandatory-yard-repair" element={
+          <ProtectedRoute strictAllowedRoles={[...YARD_REPAIR_VIEW_ROLES]}>
+            <Layout><MandatoryYardRepair /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/repairs" element={

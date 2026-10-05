@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      mandatory_yard_repairs: {
+        Row: {
+          id: string
+          truck_id: string
+          driver_id: string | null
+          service_type: "mandatory_yard_repair" | "dot" | "oil_change"
+          description: string
+          due_date: string
+          reported_date: string
+          reported_by: string
+          reported_by_name: string
+          dispatch_informed: boolean
+          status: "pending" | "in_progress" | "completed" | "cancelled"
+          status_note: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          truck_id: string
+          driver_id?: string | null
+          service_type?: "mandatory_yard_repair" | "dot" | "oil_change"
+          description: string
+          due_date: string
+          reported_date?: string
+          reported_by?: string
+          reported_by_name?: string
+          dispatch_informed?: boolean
+          status?: "pending" | "in_progress" | "completed" | "cancelled"
+          status_note?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          truck_id?: string
+          driver_id?: string | null
+          service_type?: "mandatory_yard_repair" | "dot" | "oil_change"
+          description?: string
+          due_date?: string
+          reported_date?: string
+          reported_by?: string
+          reported_by_name?: string
+          dispatch_informed?: boolean
+          status?: "pending" | "in_progress" | "completed" | "cancelled"
+          status_note?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       afterhours_assignments: {
         Row: {
           afterhours_user_id: string
