@@ -146,3 +146,6 @@ verify_jwt = false
 
 [functions.receive-pretrip-form]
 verify_jwt = false
+
+[functions.notify-mandatory-yard-repair]
+verify_jwt = true

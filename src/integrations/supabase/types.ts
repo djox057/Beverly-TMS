@@ -16,6 +16,10 @@ export type Database = {
     Tables: {
       mandatory_yard_repairs: {
         Row: {
+          dispatch_email_sent_at: string | null
+          dispatch_email_claimed_at: string | null
+          dispatch_email_error: string | null
+          dispatch_email_payload: Json | null
           id: string
           truck_id: string
           driver_id: string | null
@@ -32,6 +36,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          dispatch_email_sent_at?: string | null
+          dispatch_email_claimed_at?: string | null
+          dispatch_email_error?: string | null
+          dispatch_email_payload?: Json | null
           id?: string
           truck_id: string
           driver_id?: string | null
@@ -48,6 +56,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          dispatch_email_sent_at?: string | null
+          dispatch_email_claimed_at?: string | null
+          dispatch_email_error?: string | null
+          dispatch_email_payload?: Json | null
           id?: string
           truck_id?: string
           driver_id?: string | null

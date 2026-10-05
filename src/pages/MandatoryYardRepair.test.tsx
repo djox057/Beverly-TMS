@@ -10,7 +10,7 @@ vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ roles: mocks
 vi.mock("@/hooks/useMandatoryYardRepairs", () => ({
   YARD_REPAIR_EDIT_ROLES: ["admin", "manager", "maintenance"],
   useChicagoToday: () => "2026-10-05",
-  useMandatoryYardRepairs: () => ({ tasks: [mocks.task], save: { mutateAsync: mocks.save, isPending: false }, isLoading: false, isError: false }),
+  useMandatoryYardRepairs: () => ({ tasks: [mocks.task], save: { mutateAsync: mocks.save, isPending: false }, notifyDispatcher: { mutate: vi.fn(), isPending: false }, isLoading: false, isError: false }),
 }));
 vi.mock("@/hooks/useTrucks", () => ({ useTrucks: () => ({ data: [{ id: "truck-1", truck_number: "7346", driver1_id: "driver-1", dispatcher: { full_name: "Assigned Dispatcher" } }] }) }));
 vi.mock("@/hooks/useDrivers", () => ({ useDrivers: () => ({ data: [{ id: "driver-1", name: "Driver Name" }] }) }));
@@ -22,13 +22,16 @@ describe("Mandatory Yard Repair page", () => {
     expect(screen.getByText("7346")).toHaveClass("text-red-600");
     for (const text of ["Driver Name", "Assigned Dispatcher", "Maintenance Worker", "09/28/2026", "Overdue"]) expect(screen.getByText(text)).toBeInTheDocument();
   });
-  it("autofills the assigned unit and dispatch when adding a driver task", async () => {
+  it("asks for the unit first and autofills its driver without a Type field", async () => {
     render(<MandatoryYardRepair />);
     fireEvent.click(screen.getByRole("button", { name: "Add Task" }));
     expect(screen.getByRole("button", { name: "Save Task" })).toBeDisabled();
-    fireEvent.click(screen.getByText("Select driver"));
-    fireEvent.click(screen.getByRole("option", { name: "Driver Name" }));
+    fireEvent.click(screen.getByText("Select unit number"));
+    fireEvent.click(screen.getByRole("option", { name: "7346" }));
     expect(within(screen.getByRole("dialog")).getByText("7346")).toBeInTheDocument();
+    expect(screen.getByLabelText("Driver")).toHaveValue("Driver Name");
+    expect(screen.getByLabelText("Driver")).toHaveAttribute("readonly");
+    expect(screen.queryByText("Type")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Description of the Problem *"), { target: { value: "Inspect steering" } });
     fireEvent.change(screen.getByLabelText("Due Date *"), { target: { value: "2026-10-12" } });
     fireEvent.click(screen.getByRole("button", { name: "Save Task" }));
