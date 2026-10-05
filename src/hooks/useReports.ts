@@ -275,7 +275,7 @@ export const useReports = (options?: UseReportsOptions) => {
   });
 
   const updateTruckNote = useMutation({
-    mutationFn: async ({ truckId, note, driverId }: { truckId: string; note: string; driverId?: string }) => {
+    mutationFn: async ({ truckId, note, driverId, restoreOnly }: { truckId: string; note: string; driverId?: string; restoreOnly?: boolean }) => {
       // Check if this is a "fake" truckId for unassigned drivers (prefixed with "driver-")
       const isUnassignedDriver = truckId.startsWith('driver-');
       const actualTruckId = isUnassignedDriver ? null : truckId;
@@ -311,6 +311,19 @@ export const useReports = (options?: UseReportsOptions) => {
 
       // Client-side timestamp (DB has no guarantee of updated_at triggers)
       const nowIso = new Date().toISOString();
+
+      // Restore only into an empty note, so a concurrent edit cannot be overwritten.
+      if (restoreOnly) {
+        const { data, error } = await supabase
+          .from("truck_notes")
+          .update({ note: note.trim(), updated_by: user.id, updated_at: nowIso })
+          .eq("driver_id", driverId)
+          .or("note.is.null,note.eq.")
+          .select("id");
+        if (error) throw error;
+        if (!data?.length) throw new Error("The note is no longer empty. Refresh and try again.");
+        return;
+      }
 
       // Upsert directly - unique constraint on driver_id handles conflicts
 

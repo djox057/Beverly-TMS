@@ -271,7 +271,7 @@ const EditableNoteField = ({
   truckId: string;
   driverId: string | null;
   value: string;
-  handleNoteChange: (truckId: string, driverId: string | null, value: string) => Promise<void>;
+  handleNoteChange: (truckId: string, driverId: string | null, value: string, restoreOnly?: boolean) => Promise<boolean>;
   setNoteDialogContent: (value: string) => void;
   setNoteDialogOpen: (data: { truckId: string; driverId: string | null } | null) => void;
   onHistoryClick: (driverId: string | null) => void;
@@ -281,6 +281,35 @@ const EditableNoteField = ({
   const [isEditing, setIsEditing] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
+
+  const restoreLatestNote = async () => {
+    if (!driverId || isSaving || value?.trim() || localValue?.trim()) return;
+    setIsSaving(true);
+    try {
+      // Fetch on demand instead of adding a history request for every report row.
+      const { data, error } = await supabase
+        .from("truck_note_history")
+        .select("note")
+        .eq("driver_id", driverId)
+        .order("edited_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(7);
+      if (error) throw error;
+      const previousNote = data?.find((entry) => entry.note?.trim())?.note;
+      if (!previousNote) {
+        toast({ title: "No previous note", description: "There is no saved note to restore for this driver." });
+        return;
+      }
+      if (await handleNoteChange(truckId, driverId, previousNote, true)) {
+        setLocalValue(previousNote);
+      }
+    } catch (error: any) {
+      toast({ title: "Restore failed", description: error?.message || "Could not load the previous note.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Update local value when prop changes (e.g., after successful save)
   useEffect(() => {
@@ -346,7 +375,19 @@ const EditableNoteField = ({
           {hasContent ? localValue : <span className="text-muted-foreground">Add note...</span>}
         </div>
       )}
-      <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+      <div className={`absolute top-0.5 right-0.5 flex gap-0.5 transition-opacity z-10 ${!hasContent && !isEditing ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+        {!hasContent && !isEditing && driverId && (
+          <button
+            type="button"
+            disabled={isSaving}
+            className="inline-flex items-center gap-0.5 rounded bg-background/90 px-1 text-[9px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+            title="Restore the latest saved note"
+            onClick={(e) => { e.stopPropagation(); void restoreLatestNote(); }}
+          >
+            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+            Restore last
+          </button>
+        )}
         <History
           className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground"
           onClick={(e) => {
@@ -4360,12 +4401,13 @@ const Reports = () => {
       </div>
     );
   }
-  const handleNoteChange = async (truckId: string, driverId: string | null, newValue: string) => {
+  const handleNoteChange = async (truckId: string, driverId: string | null, newValue: string, restoreOnly = false) => {
     try {
       await updateTruckNote.mutateAsync({
         truckId,
         driverId: driverId || undefined,
         note: newValue.trim(),
+        restoreOnly,
       });
       // Final Update: if we're in the 15:45-16:30 Chicago window and there's a note, send email
       if (isFinalUpdateWindow && newValue.trim() && !finalUpdateSentTruckIds.has(truckId)) {
@@ -4408,12 +4450,14 @@ const Reports = () => {
           });
         }
       }
+      return true;
     } catch (error: any) {
       toast({
         title: "Update failed",
         description: error?.message || "There was an error updating the note.",
         variant: "destructive",
       });
+      return false;
     }
   };
   return (
