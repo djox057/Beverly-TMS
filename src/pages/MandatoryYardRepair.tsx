@@ -1,5 +1,5 @@
 import { type ReactNode, useMemo, useState } from "react";
-import { Plus, Wrench } from "lucide-react";
+import { Plus, Wrench, Trash2 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Combobox } from "@/components/ui/combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const emptyTask = (): YardRepairInput => ({ truck_id: "", driver_id: null, service_type: "mandatory_yard_repair", description: "", due_date: "", status: "pending", status_note: "", dispatch_informed: false });
@@ -21,7 +22,7 @@ export default function MandatoryYardRepair() {
   const { roles, user, getPrimaryRole } = useAuthContext();
   const dispatcherOnly = getPrimaryRole() === "dispatch";
   const canEdit = roles.some(role => YARD_REPAIR_EDIT_ROLES.some(allowed => allowed === role));
-  const { tasks, save, isLoading, isError, refetch } = useMandatoryYardRepairs();
+  const { tasks, save, remove, isLoading, isError, refetch } = useMandatoryYardRepairs();
   const { data: allTrucks = [], isLoading: trucksLoading, isError: trucksError } = useTrucks();
   const { data: allDrivers = [], isLoading: driversLoading, isError: driversError } = useDrivers();
   // Match the truck's current dispatcher, using the primary driver assignment first.
@@ -43,6 +44,7 @@ export default function MandatoryYardRepair() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<YardRepair | null>(null);
   const [form, setForm] = useState<YardRepairInput>(emptyTask);
+  const [deleteTask, setDeleteTask] = useState<YardRepair | null>(null);
   const [inlineId, setInlineId] = useState<string | null>(null);
   const [inlineForm, setInlineForm] = useState<YardRepairInput>(emptyTask);
   const beginInlineEdit = (task: YardRepair) => {
@@ -124,13 +126,32 @@ export default function MandatoryYardRepair() {
                 <TableCell className={inlineId === task.id ? "min-w-[100px]" : undefined}>{inlineCell(task, "dispatch informed", task.dispatch_informed ? "Yes" : "No", <select aria-label="Dispatch informed" disabled={save.isPending} className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs font-normal text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50" value={inlineForm.dispatch_informed ? "yes" : "no"} onChange={e => inlinePatch("dispatch_informed", e.target.value === "yes")}><option value="yes">Yes</option><option value="no">No</option></select>)}</TableCell>
                 <TableCell className={inlineId === task.id ? "min-w-[140px]" : undefined}>{inlineCell(task, "status", STATUS_LABELS[task.status], <select aria-label="Repair status" disabled={save.isPending} className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs font-normal text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50" value={inlineForm.status} onChange={e => inlinePatch("status", e.target.value as RepairStatus)}>{Object.entries(STATUS_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>)}</TableCell>
                 <TableCell className="min-w-40 max-w-72 whitespace-pre-wrap break-words">{inlineCell(task, "status note", task.status_note || "—", <Textarea aria-label="Status note" disabled={save.isPending} className="min-h-[64px] bg-background px-2 py-1.5 text-xs font-normal text-foreground" value={inlineForm.status_note} onChange={e => inlinePatch("status_note", e.target.value)} />)}</TableCell><TableCell>{task.reported_by_name}</TableCell>
-                {canEdit && <TableCell>{inlineId === task.id ? <div className="flex items-center gap-1.5 whitespace-nowrap"><Button className="h-8 px-3 text-xs" size="sm" disabled={save.isPending || !inlineForm.truck_id || !inlineForm.driver_id || !inlineForm.description.trim() || !inlineForm.due_date} onClick={() => void saveInline()}>{save.isPending ? "Saving..." : "Save"}</Button><Button variant="outline" className="h-8 px-2 text-xs" size="sm" disabled={save.isPending} onClick={() => setInlineId(null)}>Cancel</Button></div> : <Button variant="ghost" size="sm" disabled={save.isPending || !!inlineId} onClick={() => beginInlineEdit(task)}>Edit</Button>}</TableCell>}
+                {canEdit && <TableCell>{inlineId === task.id ? <div className="flex items-center gap-1.5 whitespace-nowrap"><Button className="h-8 px-3 text-xs" size="sm" disabled={save.isPending || !inlineForm.truck_id || !inlineForm.driver_id || !inlineForm.description.trim() || !inlineForm.due_date} onClick={() => void saveInline()}>{save.isPending ? "Saving..." : "Save"}</Button><Button variant="outline" className="h-8 px-2 text-xs" size="sm" disabled={save.isPending} onClick={() => setInlineId(null)}>Cancel</Button></div> : <div className="flex items-center gap-1"><Button variant="ghost" size="sm" disabled={save.isPending || remove.isPending || !!inlineId} onClick={() => beginInlineEdit(task)}>Edit</Button><Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" aria-label={`Delete repair task for unit ${truckMap.get(task.truck_id)?.truck_number || "unknown"}`} title="Delete task" disabled={save.isPending || remove.isPending || !!inlineId} onClick={() => setDeleteTask(task)}><Trash2 className="h-4 w-4" /></Button></div>}</TableCell>}
               </TableRow>;
             })}
           </TableBody>
         </Table>
       </div>
       {filtered.length > 100 && <div className="flex items-center justify-end gap-3 text-sm"><Button variant="outline" size="sm" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>Previous</Button>Page {safePage + 1} of {Math.ceil(filtered.length / 100)}<Button variant="outline" size="sm" disabled={(safePage + 1) * 100 >= filtered.length} onClick={() => setPage(safePage + 1)}>Next</Button></div>}
+      <AlertDialog open={!!deleteTask} onOpenChange={open => { if (!open && !remove.isPending) setDeleteTask(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Mandatory Yard Repair?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete the task for unit {deleteTask ? truckMap.get(deleteTask.truck_id)?.truck_number || "—" : "—"}{deleteTask?.driver_id ? ` · ${driverMap.get(deleteTask.driver_id)?.name || "—"}` : ""}? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <p className="whitespace-pre-wrap break-words text-sm">{deleteTask?.description}</p>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={remove.isPending}>Cancel</AlertDialogCancel>
+            <Button variant="destructive" disabled={!canEdit || remove.isPending || save.isPending} onClick={async () => {
+              if (!canEdit || !deleteTask || remove.isPending || save.isPending) return;
+              try { await remove.mutateAsync(deleteTask.id); setDeleteTask(null); }
+              catch { /* Keep confirmation open for retry; the mutation displays the error. */ }
+            }}>{remove.isPending ? "Deleting..." : "Delete"}</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog open={dialogOpen} onOpenChange={open => { if (!save.isPending) setDialogOpen(open); }}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{editing ? "Edit Task" : "Add Task"}</DialogTitle><DialogDescription>Reported date and reporter are recorded automatically. Dates use Chicago time.</DialogDescription></DialogHeader>
         <form className="space-y-4" onSubmit={async e => { e.preventDefault(); if (!canEdit || !form.truck_id || !form.driver_id || !form.description.trim() || !form.due_date) return; try { await save.mutateAsync({ id: editing?.id, values: { ...form, description: form.description.trim() } }); setDialogOpen(false); } catch { /* Mutation displays the error; retain input. */ } }}>
           <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-1"><Label>Unit *</Label><Combobox value={form.truck_id} options={trucks.map(t => ({ value: t.id, label: t.truck_number }))} onValueChange={selectTruck} placeholder="Select truck" /></div><div className="space-y-1"><Label>Driver *</Label><Combobox value={form.driver_id || ""} options={drivers.map(d => ({ value: d.id, label: d.name }))} onValueChange={selectDriver} placeholder="Select driver" /></div></div>
