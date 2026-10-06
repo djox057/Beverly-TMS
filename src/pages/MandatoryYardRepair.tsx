@@ -18,11 +18,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 const emptyTask = (): YardRepairInput => ({ truck_id: "", driver_id: null, service_type: "mandatory_yard_repair", description: "", due_date: "", status: "pending", status_note: "", dispatch_informed: false });
 
 export default function MandatoryYardRepair() {
-  const { roles } = useAuthContext();
+  const { roles, user, getPrimaryRole } = useAuthContext();
+  const dispatcherOnly = getPrimaryRole() === "dispatch";
   const canEdit = roles.some(role => YARD_REPAIR_EDIT_ROLES.some(allowed => allowed === role));
   const { tasks, save, isLoading, isError, refetch } = useMandatoryYardRepairs();
-  const { data: trucks = [], isLoading: trucksLoading, isError: trucksError } = useTrucks();
-  const { data: drivers = [], isLoading: driversLoading, isError: driversError } = useDrivers();
+  const { data: allTrucks = [], isLoading: trucksLoading, isError: trucksError } = useTrucks();
+  const { data: allDrivers = [], isLoading: driversLoading, isError: driversError } = useDrivers();
+  // Match the truck's current dispatcher, using the primary driver assignment first.
+  const trucks = useMemo(() => dispatcherOnly
+    ? allTrucks.filter(truck => {
+        if (!user?.id) return false;
+        const dispatcherId = truck.driver1?.dispatcher_id || truck.driver2?.dispatcher_id;
+        return dispatcherId === user.id;
+      })
+    : allTrucks, [allTrucks, dispatcherOnly, user?.id]);
+  const visibleTruckIds = useMemo(() => new Set(trucks.map(truck => truck.id)), [trucks]);
+  const drivers = useMemo(() => dispatcherOnly
+    ? allDrivers.filter(driver => !!user?.id && driver.dispatcher_id === user.id)
+    : allDrivers, [allDrivers, dispatcherOnly, user?.id]);
   const today = useChicagoToday();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("open");
@@ -37,6 +50,7 @@ export default function MandatoryYardRepair() {
     return truck?.dispatcher?.full_name || driverMap.get(truck?.driver1_id)?.dispatcher_info?.full_name || "—";
   };
   const filtered = tasks.filter(task => {
+    if (dispatcherOnly && !visibleTruckIds.has(task.truck_id)) return false;
     if (statusFilter === "open" && !isOpenRepair(task.status)) return false;
     if (statusFilter === "overdue" && !(isOpenRepair(task.status) && isPastDue(task.due_date, today))) return false;
     if (!["all", "open", "overdue"].includes(statusFilter) && task.status !== statusFilter) return false;
