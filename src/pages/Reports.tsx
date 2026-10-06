@@ -5288,8 +5288,10 @@ const Reports = () => {
                                     const canManageDrugTests =
                                       hasRole("safety") || hasRole("manager") || hasRole("admin");
                                     const yardRepairTasks = yardRepairsByTruck.get(truck.id) || [];
-                                    const hasMandatoryYardRepair = yardRepairTasks.some(task => task.service_type === "mandatory_yard_repair" && (task.status === "pending" || task.status === "in_progress"));
-                                    const overdueRequirement = hasOverdueTruckRequirement(yardRepairTasks, truck.dot_inspection_date, truck.trailer_dot_inspection_date, repairToday);
+                                    const yardRepairWarningCutoff = new Date(Date.parse(repairToday + "T00:00:00Z") + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                                    const yardRepairWarnings = yardRepairTasks.filter(task => task.service_type === "mandatory_yard_repair" && (task.status === "pending" || task.status === "in_progress") && !!task.due_date && task.due_date.slice(0, 10) <= yardRepairWarningCutoff);
+                                    const yardRepairOverdue = yardRepairWarnings.some(task => task.due_date.slice(0, 10) < repairToday);
+                                    const overdueRequirement = hasOverdueTruckRequirement(yardRepairTasks.filter(task => task.service_type !== "mandatory_yard_repair"), truck.dot_inspection_date, truck.trailer_dot_inspection_date, repairToday);
                                     const driverCellStyle = getDriverCellStyle(truck);
                                     const shouldShowDrugTestUI = isNew && canManageDrugTests;
                                     return (
@@ -5323,7 +5325,25 @@ const Reports = () => {
                                                     </Tooltip>
                                                   </TooltipProvider>
                                                 ) : (
-                                                  <span className={hasMandatoryYardRepair || overdueRequirement ? "font-bold text-red-600" : undefined} title={hasMandatoryYardRepair ? "Mandatory Yard Repair" : overdueRequirement ? "Overdue DOT or Mandatory Yard Repair" : undefined}>{truck.truckNumber}</span>
+                                                  <span className={overdueRequirement ? "font-bold text-red-600" : undefined} title={overdueRequirement ? "Overdue DOT inspection" : undefined}>{truck.truckNumber}</span>
+                                                )}
+                                                {yardRepairWarnings.length > 0 && (
+                                                  <Popover>
+                                                    <PopoverTrigger asChild>
+                                                      <button type="button" className="inline-flex" aria-label="Mandatory Yard Repair warning" onClick={e => e.stopPropagation()}>
+                                                        <img src={dotInspectionIcon} alt="Mandatory Yard Repair" className="h-4 w-4 cursor-pointer" style={{ filter: yardRepairOverdue
+                                                          ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
+                                                          : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)" }} />
+                                                      </button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto max-w-xs p-3">
+                                                      <p className="text-xs font-semibold">Mandatory Yard Repair</p>
+                                                      {yardRepairWarnings.map(task => <div key={task.id} className="mt-2 text-xs">
+                                                        <p>Due: {formatDateNoTimezone(task.due_date)}{task.due_date.slice(0, 10) < repairToday ? " · Overdue" : task.due_date.slice(0, 10) === repairToday ? " · Due today" : ""}</p>
+                                                        <p className="whitespace-pre-wrap break-words">{task.description}</p>
+                                                      </div>)}
+                                                    </PopoverContent>
+                                                  </Popover>
                                                 )}
                                                 {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
                                                 {truck.twoWeekBlockDate && (
