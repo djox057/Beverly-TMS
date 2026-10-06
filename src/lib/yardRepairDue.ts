@@ -12,7 +12,7 @@ export const chicagoToday = (now = new Date()) => formatInTimeZone(now, "America
 export const isOpenRepair = (status: string) => status === "pending" || status === "in_progress";
 export const isPastDue = (date: string | null | undefined, today: string) => !!date && date.slice(0, 10) < today;
 export const formatDueDate = (date: string | null | undefined) => date ? `${date.slice(5, 7)}/${date.slice(8, 10)}/${date.slice(0, 4)}` : "—";
-export interface DueTask { service_type: ServiceType; due_date: string; status: RepairStatus }
+export interface DueTask { service_type: ServiceType | string; due_date: string; status: RepairStatus | string }
 export function hasOverdueTruckRequirement(tasks: readonly DueTask[], truckDot: string | null | undefined, trailerDot: string | null | undefined, today: string) {
   return isPastDue(truckDot, today) || isPastDue(trailerDot, today) || tasks.some(task =>
     isOpenRepair(task.status) && task.service_type !== "oil_change" && isPastDue(task.due_date, today));
