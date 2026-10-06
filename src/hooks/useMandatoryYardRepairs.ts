@@ -58,6 +58,16 @@ export function useMandatoryYardRepairs(activeOnly = false) {
     onSuccess: () => { void client.invalidateQueries({ queryKey: ["mandatory-yard-repairs"] }); toast.success("Repair task saved"); },
     onError: () => toast.error("Could not save repair task. Please try again."),
   });
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user || !roles.some(role => YARD_REPAIR_EDIT_ROLES.some(allowed => allowed === role))) throw new Error("Not authorized to delete repair tasks");
+      const { data, error } = await supabase.from("mandatory_yard_repairs").delete().eq("id", id).select("id").single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => { void client.invalidateQueries({ queryKey: ["mandatory-yard-repairs"] }); toast.success("Repair task deleted"); },
+    onError: () => toast.error("Could not delete repair task. Please try again."),
+  });
   const byTruck = useMemo(() => {
     const map = new Map<string, YardRepair[]>();
     for (const task of query.data || []) {
@@ -68,5 +78,5 @@ export function useMandatoryYardRepairs(activeOnly = false) {
     }
     return map;
   }, [query.data]);
-  return { ...query, tasks: query.data || [], byTruck, save };
+  return { ...query, tasks: query.data || [], byTruck, save, remove };
 }
