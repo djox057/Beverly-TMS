@@ -14,57 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      mandatory_yard_repairs: {
-        Row: {
-          id: string
-          truck_id: string
-          driver_id: string | null
-          service_type: "mandatory_yard_repair" | "dot" | "oil_change"
-          description: string
-          due_date: string
-          reported_date: string
-          reported_by: string
-          reported_by_name: string
-          dispatch_informed: boolean
-          status: "pending" | "in_progress" | "completed" | "cancelled"
-          status_note: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          truck_id: string
-          driver_id?: string | null
-          service_type?: "mandatory_yard_repair" | "dot" | "oil_change"
-          description: string
-          due_date: string
-          reported_date?: string
-          reported_by?: string
-          reported_by_name?: string
-          dispatch_informed?: boolean
-          status?: "pending" | "in_progress" | "completed" | "cancelled"
-          status_note?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          truck_id?: string
-          driver_id?: string | null
-          service_type?: "mandatory_yard_repair" | "dot" | "oil_change"
-          description?: string
-          due_date?: string
-          reported_date?: string
-          reported_by?: string
-          reported_by_name?: string
-          dispatch_informed?: boolean
-          status?: "pending" | "in_progress" | "completed" | "cancelled"
-          status_note?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       afterhours_assignments: {
         Row: {
           afterhours_user_id: string
@@ -3621,6 +3570,84 @@ export type Database = {
           },
         ]
       }
+      mandatory_yard_repairs: {
+        Row: {
+          created_at: string
+          description: string
+          dispatch_email_claimed_at: string | null
+          dispatch_email_error: string | null
+          dispatch_email_payload: Json | null
+          dispatch_email_sent_at: string | null
+          dispatch_informed: boolean
+          driver_id: string | null
+          due_date: string
+          id: string
+          reported_by: string
+          reported_by_name: string
+          reported_date: string
+          service_type: string
+          status: string
+          status_note: string
+          truck_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          dispatch_email_claimed_at?: string | null
+          dispatch_email_error?: string | null
+          dispatch_email_payload?: Json | null
+          dispatch_email_sent_at?: string | null
+          dispatch_informed?: boolean
+          driver_id?: string | null
+          due_date: string
+          id?: string
+          reported_by?: string
+          reported_by_name?: string
+          reported_date?: string
+          service_type?: string
+          status?: string
+          status_note?: string
+          truck_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          dispatch_email_claimed_at?: string | null
+          dispatch_email_error?: string | null
+          dispatch_email_payload?: Json | null
+          dispatch_email_sent_at?: string | null
+          dispatch_informed?: boolean
+          driver_id?: string | null
+          due_date?: string
+          id?: string
+          reported_by?: string
+          reported_by_name?: string
+          reported_date?: string
+          service_type?: string
+          status?: string
+          status_note?: string
+          truck_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mandatory_yard_repairs_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mandatory_yard_repairs_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_files: {
         Row: {
           content_type: string | null
@@ -4439,13 +4466,153 @@ export type Database = {
           },
         ]
       }
+      pretrip_form_connection: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: boolean
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: boolean
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: boolean
+          token_hash?: string
+        }
+        Relationships: []
+      }
+      pretrip_form_submissions: {
+        Row: {
+          answers: Json
+          complaints: string
+          created_at: string
+          driver_name: string
+          email: string
+          files: Json
+          id: string
+          import_error: string | null
+          inspection_date: string | null
+          last_attempt_at: string | null
+          response_key: string | null
+          sheet_id: string
+          sheet_tab: string
+          source_key: string
+          source_row: number
+          source_timezone: string
+          status: string
+          submitted_at: string
+          trailer_number: string
+          truck_id: string | null
+          truck_number: string
+        }
+        Insert: {
+          answers?: Json
+          complaints?: string
+          created_at?: string
+          driver_name: string
+          email?: string
+          files?: Json
+          id?: string
+          import_error?: string | null
+          inspection_date?: string | null
+          last_attempt_at?: string | null
+          response_key?: string | null
+          sheet_id: string
+          sheet_tab: string
+          source_key: string
+          source_row: number
+          source_timezone?: string
+          status?: string
+          submitted_at?: string
+          trailer_number?: string
+          truck_id?: string | null
+          truck_number: string
+        }
+        Update: {
+          answers?: Json
+          complaints?: string
+          created_at?: string
+          driver_name?: string
+          email?: string
+          files?: Json
+          id?: string
+          import_error?: string | null
+          inspection_date?: string | null
+          last_attempt_at?: string | null
+          response_key?: string | null
+          sheet_id?: string
+          sheet_tab?: string
+          source_key?: string
+          source_row?: number
+          source_timezone?: string
+          status?: string
+          submitted_at?: string
+          trailer_number?: string
+          truck_id?: string | null
+          truck_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pretrip_form_submissions_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pretrip_form_sync: {
+        Row: {
+          enabled: boolean
+          id: boolean
+          last_error: string | null
+          last_finished_at: string | null
+          last_started_at: string | null
+          last_success_at: string | null
+          lease_id: string | null
+          lease_until: string | null
+          service_account: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          id?: boolean
+          last_error?: string | null
+          last_finished_at?: string | null
+          last_started_at?: string | null
+          last_success_at?: string | null
+          lease_id?: string | null
+          lease_until?: string | null
+          service_account?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          id?: boolean
+          last_error?: string | null
+          last_finished_at?: string | null
+          last_started_at?: string | null
+          last_success_at?: string | null
+          lease_id?: string | null
+          lease_until?: string | null
+          service_account?: string | null
+        }
+        Relationships: []
+      }
       pretrip_photos: {
         Row: {
           created_at: string
           file_name: string | null
           file_path: string
+          form_submission_id: string | null
+          google_file_id: string | null
           id: string
           inspection_date: string
+          photo_category: string | null
           truck_id: string
           uploaded_by: string | null
         }
@@ -4453,8 +4620,11 @@ export type Database = {
           created_at?: string
           file_name?: string | null
           file_path: string
+          form_submission_id?: string | null
+          google_file_id?: string | null
           id?: string
           inspection_date?: string
+          photo_category?: string | null
           truck_id: string
           uploaded_by?: string | null
         }
@@ -4462,12 +4632,22 @@ export type Database = {
           created_at?: string
           file_name?: string | null
           file_path?: string
+          form_submission_id?: string | null
+          google_file_id?: string | null
           id?: string
           inspection_date?: string
+          photo_category?: string | null
           truck_id?: string
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "pretrip_photos_form_submission_id_fkey"
+            columns: ["form_submission_id"]
+            isOneToOne: false
+            referencedRelation: "pretrip_form_submissions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pretrip_photos_truck_id_fkey"
             columns: ["truck_id"]
@@ -5748,9 +5928,9 @@ export type Database = {
         Row: {
           capacity: number | null
           created_at: string
+          dot_inspection_checked: boolean
           dot_inspection_date: string | null
           dot_inspection_note: string | null
-          dot_inspection_checked: boolean
           id: string
           insurance_expiration_date: string | null
           is_active: boolean
@@ -5770,9 +5950,9 @@ export type Database = {
         Insert: {
           capacity?: number | null
           created_at?: string
+          dot_inspection_checked?: boolean
           dot_inspection_date?: string | null
           dot_inspection_note?: string | null
-          dot_inspection_checked?: boolean
           id?: string
           insurance_expiration_date?: string | null
           is_active?: boolean
@@ -5792,9 +5972,9 @@ export type Database = {
         Update: {
           capacity?: number | null
           created_at?: string
+          dot_inspection_checked?: boolean
           dot_inspection_date?: string | null
           dot_inspection_note?: string | null
-          dot_inspection_checked?: boolean
           id?: string
           insurance_expiration_date?: string | null
           is_active?: boolean
@@ -6317,9 +6497,9 @@ export type Database = {
           company_id: string | null
           created_at: string
           dispatcher_id: string | null
+          dot_inspection_checked: boolean
           dot_inspection_date: string | null
           dot_inspection_note: string | null
-          dot_inspection_checked: boolean
           driver1_id: string | null
           driver2_id: string | null
           engine: string | null
@@ -6375,9 +6555,9 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
+          dot_inspection_checked?: boolean
           dot_inspection_date?: string | null
           dot_inspection_note?: string | null
-          dot_inspection_checked?: boolean
           driver1_id?: string | null
           driver2_id?: string | null
           engine?: string | null
@@ -6433,9 +6613,9 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
+          dot_inspection_checked?: boolean
           dot_inspection_date?: string | null
           dot_inspection_note?: string | null
-          dot_inspection_checked?: boolean
           driver1_id?: string | null
           driver2_id?: string | null
           engine?: string | null
@@ -6967,6 +7147,7 @@ export type Database = {
           office: string
         }[]
       }
+      claim_pretrip_form_sync: { Args: { _lease_id: string }; Returns: boolean }
       clear_truck_notes_scheduled: { Args: never; Returns: number }
       create_order_with_unique_load_number: {
         Args: { order_data: Json }
@@ -7224,6 +7405,7 @@ export type Database = {
         Returns: undefined
       }
       resolve_login_email: { Args: { p_email: string }; Returns: string }
+      rotate_pretrip_form_token: { Args: never; Returns: string }
       search_hr_reports: {
         Args: {
           match_count?: number
@@ -7288,6 +7470,15 @@ export type Database = {
           role: string
           user_id: string
         }[]
+      }
+      update_pretrip_form_file: {
+        Args: {
+          _category: string
+          _drive_id: string
+          _id: string
+          _patch: Json
+        }
+        Returns: undefined
       }
       validate_driver_email: { Args: { p_email: string }; Returns: Json }
     }
