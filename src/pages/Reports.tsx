@@ -5288,6 +5288,7 @@ const Reports = () => {
                                     const canManageDrugTests =
                                       hasRole("safety") || hasRole("manager") || hasRole("admin");
                                     const yardRepairTasks = yardRepairsByTruck.get(truck.id) || [];
+                                    const hasMandatoryYardRepair = yardRepairTasks.some(task => task.service_type === "mandatory_yard_repair" && (task.status === "pending" || task.status === "in_progress"));
                                     const overdueRequirement = hasOverdueTruckRequirement(yardRepairTasks, truck.dot_inspection_date, truck.trailer_dot_inspection_date, repairToday);
                                     const driverCellStyle = getDriverCellStyle(truck);
                                     const shouldShowDrugTestUI = isNew && canManageDrugTests;
@@ -5322,7 +5323,7 @@ const Reports = () => {
                                                     </Tooltip>
                                                   </TooltipProvider>
                                                 ) : (
-                                                  <span className={overdueRequirement ? "text-red-600" : undefined} title={overdueRequirement ? "Overdue DOT or Mandatory Yard Repair" : undefined}>{truck.truckNumber}</span>
+                                                  <span className={hasMandatoryYardRepair || overdueRequirement ? "font-bold text-red-600" : undefined} title={hasMandatoryYardRepair ? "Mandatory Yard Repair" : overdueRequirement ? "Overdue DOT or Mandatory Yard Repair" : undefined}>{truck.truckNumber}</span>
                                                 )}
                                                 {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
                                                 {truck.twoWeekBlockDate && (
@@ -5434,7 +5435,7 @@ const Reports = () => {
                                                   );
                                                 })()}
                                               </div>
-                                              <TruckRepairDeadlines tasks={yardRepairTasks} truckDot={truck.dot_inspection_date} trailerDot={truck.trailer_dot_inspection_date} today={repairToday} />
+                                              <TruckRepairDeadlines tasks={yardRepairTasks.filter(task => task.service_type !== "mandatory_yard_repair")} truckDot={truck.dot_inspection_date} trailerDot={truck.trailer_dot_inspection_date} today={repairToday} />
                                               {truck.companyName && (
                                                 <div className="text-[9px] leading-tight font-semibold text-black opacity-60">
                                                   {truck.companyName}
