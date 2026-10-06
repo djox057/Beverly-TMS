@@ -36,7 +36,7 @@ export const ROW_COLORS: { value: string; label: string; bg: string; swatch: str
   { value: "red", label: "Recovery", bg: "bg-red-500/80 dark:bg-red-600/70", swatch: "bg-red-500" },
   { value: "green", label: "Resolved", bg: "bg-green-500/80 dark:bg-green-600/70", swatch: "bg-green-500" },
 ];
-const COLOR_PRIORITY: Record<string, number> = { orange: 0, yellow: 1, cyan: 2, blue: 2, red: 3, green: 4 };
+const COLOR_PRIORITY: Record<string, number> = { red: 0, orange: 1, yellow: 2, cyan: 3, blue: 3, green: 4 };
 const colorPriority = (color?: string | null) => COLOR_PRIORITY[color ?? ""] ?? 5;
 
 const colorBg = (c?: string | null) => ROW_COLORS.find((x) => x.value === c)?.bg ?? "";
@@ -528,7 +528,7 @@ export const DailyReportTable = ({
           onClick={() => setSortByPriority((active) => !active)}
           aria-label="Sort rows by color priority"
           aria-pressed={sortByPriority}
-          title="Sort: orange, yellow, blue, red, green. Click again to restore original order."
+          title="Sort: red, orange, yellow, blue, green. Click again to restore original order."
           className={cn(
             "flex h-full w-full items-center justify-center self-stretch p-0 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
             sortByPriority && "text-primary"
