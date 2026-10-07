@@ -247,28 +247,45 @@ const PreTripInspection = () => {
     }
   };
 
-  const { data: trucks = [], isLoading } = useQuery({
+  const { data: trucks = [], isLoading, isError: trucksError } = useQuery({
     queryKey: ["pretrip-trucks", isDispatcher ? profile?.user_id : "all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, pretrip_date, pretrip_note, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
+        .select("id, truck_number, source, pretrip_date, pretrip_note, is_active, driver1_id, dispatcher_id, company_id")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
-      const rows = (data ?? []).map((t: any) => ({
-        ...t,
-        driver_name: t.driver1
-          ? `${t.driver1.first_name ?? ""} ${t.driver1.last_name ?? ""}`.trim()
+      const rows = (data ?? []) as TruckRow[];
+      const driverIds = Array.from(new Set(rows.map((truck) => truck.driver1_id).filter(Boolean))) as string[];
+
+      // Keep truck visibility independent from optional driver/company lookups. A blocked
+      // embedded relationship must not make the entire inspection report appear empty.
+      const driversResult = driverIds.length
+        ? await supabase.from("drivers").select("id, first_name, last_name, dispatcher_id, company_id").in("id", driverIds)
+        : { data: [], error: null };
+      const driverById = new Map((driversResult.data ?? []).map((driver) => [driver.id, driver]));
+      const companyIds = Array.from(new Set([
+        ...rows.map((truck) => truck.company_id),
+        ...(driversResult.data ?? []).map((driver) => driver.company_id),
+      ].filter(Boolean))) as string[];
+      const companiesResult = companyIds.length
+        ? await supabase.from("companies").select("id, name").in("id", companyIds)
+        : { data: [], error: null };
+      const companyNames = new Map((companiesResult.data ?? []).map((company) => [company.id, company.name]));
+      const enrichedRows = rows.map((truck) => ({
+        ...truck,
+        dispatcher_id: truck.dispatcher_id ?? (truck.driver1_id ? driverById.get(truck.driver1_id)?.dispatcher_id : null),
+        company_id: truck.company_id ?? (truck.driver1_id ? driverById.get(truck.driver1_id)?.company_id : null),
+        driver_name: truck.driver1_id ? `${driverById.get(truck.driver1_id)?.first_name ?? ""} ${driverById.get(truck.driver1_id)?.last_name ?? ""}`.trim() || null : null,
+        company_name: (truck.company_id ?? (truck.driver1_id ? driverById.get(truck.driver1_id)?.company_id : null))
+          ? companyNames.get((truck.company_id ?? driverById.get(truck.driver1_id!)?.company_id)!) ?? null
           : null,
-        dispatcher_id: t.driver1?.dispatcher_id ?? null,
-        company_id: t.driver1?.company_id ?? null,
-        company_name: t.driver1?.companies?.name ?? null,
-      })) as TruckRow[];
+      }));
       if (isDispatcher && profile?.user_id) {
-        return rows.filter((t) => t.dispatcher_id === profile.user_id);
+        return enrichedRows.filter((t) => t.dispatcher_id === profile.user_id);
       }
-      return rows;
+      return enrichedRows;
     },
   });
 
@@ -538,6 +555,12 @@ const PreTripInspection = () => {
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-destructive py-8">
                     Failed to load checked status
+                  </TableCell>
+                </TableRow>
+              ) : trucksError ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-destructive py-8">
+                    Could not load trucks. Refresh the page and try again.
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
