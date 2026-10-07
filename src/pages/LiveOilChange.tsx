@@ -267,24 +267,40 @@ const LiveOilChange = () => {
   const canEditMiles = true;
   const [search, setSearch] = useState("");
 
-  const { data: trucks = [], isLoading } = useQuery({
+  const { data: trucks = [], isLoading, isError: trucksError } = useQuery({
     queryKey: ["live-oil-change-trucks", isDispatcher ? profile?.user_id : "all"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, oil_change_note, is_active, driver1_id, driver1:drivers!trucks_driver1_id_fkey(first_name, last_name, dispatcher_id, company_id, companies:companies(id, name))")
+        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, oil_change_note, is_active, driver1_id, dispatcher_id, company_id")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
-      const rows = (data ?? []).map((t: any) => ({
-        ...t,
-        driver_name: t.driver1
-          ? `${t.driver1.first_name ?? ""} ${t.driver1.last_name ?? ""}`.trim()
-          : null,
-        dispatcher_id: t.driver1?.dispatcher_id ?? null,
-        company_id: t.driver1?.company_id ?? null,
-        company_name: t.driver1?.companies?.name ?? null,
-      })) as TruckRow[];
+      const truckRows = (data ?? []) as TruckRow[];
+      const driverIds = Array.from(new Set(truckRows.map((truck) => truck.driver1_id).filter(Boolean))) as string[];
+      const driversResult = driverIds.length
+        ? await supabase.from("drivers").select("id, first_name, last_name, dispatcher_id, company_id").in("id", driverIds)
+        : { data: [], error: null };
+      const driverById = new Map((driversResult.data ?? []).map((driver) => [driver.id, driver]));
+      const companyIds = Array.from(new Set([
+        ...truckRows.map((truck) => truck.company_id),
+        ...(driversResult.data ?? []).map((driver) => driver.company_id),
+      ].filter(Boolean))) as string[];
+      const companiesResult = companyIds.length
+        ? await supabase.from("companies").select("id, name").in("id", companyIds)
+        : { data: [], error: null };
+      const companyNames = new Map((companiesResult.data ?? []).map((company) => [company.id, company.name]));
+      const rows = truckRows.map((truck) => {
+        const driver = truck.driver1_id ? driverById.get(truck.driver1_id) : undefined;
+        const companyId = truck.company_id ?? driver?.company_id ?? null;
+        return {
+          ...truck,
+          dispatcher_id: truck.dispatcher_id ?? driver?.dispatcher_id ?? null,
+          company_id: companyId,
+          driver_name: driver ? `${driver.first_name ?? ""} ${driver.last_name ?? ""}`.trim() || null : null,
+          company_name: companyId ? companyNames.get(companyId) ?? null : null,
+        };
+      });
       if (isDispatcher && profile?.user_id) {
         return rows.filter((t) => t.dispatcher_id === profile.user_id);
       }
@@ -494,6 +510,12 @@ const LiveOilChange = () => {
                   <TableRow>
                     <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       Loading...
+                    </TableCell>
+                  </TableRow>
+                ) : trucksError ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center text-destructive py-8">
+                      Could not load trucks. Refresh the page and try again.
                     </TableCell>
                   </TableRow>
                 ) : filtered.length === 0 ? (
