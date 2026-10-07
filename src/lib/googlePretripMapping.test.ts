@@ -29,3 +29,9 @@ describe("Google pre-trip response mapping",()=>{
   expect(matchTruck("2405",[{id:"one",truck_number:"02405"}])).toBeNull();
  });
 });
+
+it("accepts the current response sheet labels and uses the submission date when no inspection date is asked",()=>{
+ const currentHeaders=["Timestamp","Driver name and last name","Truck number","Trailer number",...PHOTO_CATEGORIES.map(([,prefix])=>prefix),"Driver Complaints or Maintenance Issues","Email Address"];
+ const result=mapResponse(currentHeaders,["2026-10-07T08:43:56","Example Driver","4662","T123",...PHOTO_CATEGORIES.map(()=>"https://drive.google.com/open?id=abcdefghijk12345"),"No issues","driver@example.com"]);
+ expect(result.inspection_date).toBe("2026-10-07");expect(result.driver_name).toBe("Example Driver");expect(result.files).toHaveLength(8);
+});

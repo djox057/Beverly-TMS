@@ -34,8 +34,8 @@ export type FormFile = { category: string; drive_id: string; status: "pending" |
 export function mapResponse(headers: string[], row: unknown[]) {
   const answers: Record<string,string>={};
   headers.forEach((h,i)=> { if (h.trim()) answers[h]=String(row[i]??""); });
-  const get=(name: string)=> {
-    const matches=headers.map((h,i)=>({h,i})).filter(x=>normalize(x.h)===normalize(name));
+  const get=(name: string, aliases: string[] = [])=> {
+    const matches=headers.map((h,i)=>({h,i})).filter(x=>[name, ...aliases].some(label => normalize(x.h)===normalize(label)));
     if(matches.length!==1) throw new Error(`Missing or ambiguous column: ${name}`);
     return row[matches[0].i];
   };
@@ -49,11 +49,11 @@ export function mapResponse(headers: string[], row: unknown[]) {
     for(const drive_id of ids) files.push({category,drive_id,status:"pending"});
   }
   const truck_number=String(get("Truck Number")??"").trim();
-  const driver_name=String(get("Driver Full Name")??"").trim();
+  const driver_name=String(get("Driver Full Name", ["Driver name and last name"])??"").trim();
   if(!truck_number || !driver_name) throw new Error("Truck number and driver name are required");
   const emailIndex=headers.findIndex(h=>["email", "email address"].includes(normalize(h)));
   const timestampIndex=headers.findIndex(h=>normalize(h)==="timestamp");
-  return {driver_name,truck_number,trailer_number:String(get("Trailer Number")??""),inspection_date:sheetDate(get("Inspection Date")),
+  return {driver_name,truck_number,trailer_number:String(get("Trailer Number")??""),inspection_date:sheetDate(headers.some(h => normalize(h) === "inspection date") ? get("Inspection Date") : sheetTimestamp(row[timestampIndex]).split("T")[0]),
     email: emailIndex>=0?String(row[emailIndex]??""):"",submitted_at:sheetTimestamp(row[timestampIndex]),
     complaints:String(get("Driver Complaints or Maintenance Issues")??""),answers,files};
 }

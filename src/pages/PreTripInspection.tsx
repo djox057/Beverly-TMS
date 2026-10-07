@@ -20,10 +20,10 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { busChannel } from "@/hooks/realtimeBus";
 import { Button } from "@/components/ui/button";
-import { chicagoToday } from "@/lib/pretripDates";
+import { chicagoToday, pretripDueDate, pretripWeekStart, pretripWeekEnd, stepPretripDate } from "@/lib/pretripDates";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PretripPhotosCell, usePretripPhotos } from "@/components/PretripPhotosCell";
-import { PretripFormCell, PretripFormConnection, usePretripSubmissions } from "@/components/PretripFormSubmissions";
+import { PretripFormCell, usePretripSubmissions } from "@/components/PretripFormSubmissions";
 import { PretripProblemsCell } from "@/components/PretripProblemsCell";
 
 type TruckRow = {
@@ -178,7 +178,7 @@ const PreTripInspection = () => {
   const isDispatcher = isDispatcherRole(primaryRole);
   const { allDispatchers } = useFleetManagement();
   const [search, setSearch] = useState("");
-  const [photoDate, setPhotoDate] = useState<string>(() => chicagoToday());
+  const [photoDate, setPhotoDate] = useState<string>(() => pretripDueDate());
   const { data: formSubmissions = EMPTY_FORM_SUBMISSIONS, isError: formError } = usePretripSubmissions(photoDate);
   const formsByTruck = useMemo(() => {
     const map: Record<string, typeof formSubmissions> = {};
@@ -196,7 +196,9 @@ const PreTripInspection = () => {
       const { data, error } = await (supabase as any)
         .from("pretrip_checks")
         .select("truck_id, checked_by, checked_at")
-        .eq("inspection_date", photoDate);
+        .gte("inspection_date", photoDate)
+        .lte("inspection_date", pretripWeekEnd(photoDate))
+        .order("checked_at");
       if (error) throw error;
       const checks: Record<string, { checked_by: string | null; checked_at: string }> = {};
       (data ?? []).forEach((row: { truck_id: string; checked_by: string | null; checked_at: string }) => {
@@ -205,20 +207,24 @@ const PreTripInspection = () => {
       return checks;
     },
   });
-  const { data: problemsByTruck = {} as Record<string, string> } = useQuery({
+  const { data: problemsByTruck = {} as Record<string, { problems: string | null; inspection_date: string; earlier: string[] }> } = useQuery({
     queryKey: ["pretrip-problems", photoDate],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("pretrip_problems").select("truck_id, problems").eq("inspection_date", photoDate);
+        .from("pretrip_problems").select("truck_id, problems, inspection_date")
+        .gte("inspection_date", photoDate).lte("inspection_date", pretripWeekEnd(photoDate)).order("updated_at");
       if (error) throw error;
-      const m: Record<string, string> = {};
-      (data ?? []).forEach((r: { truck_id: string; problems: string | null }) => { if (r.problems) m[r.truck_id] = r.problems; });
+      const m: Record<string, { problems: string | null; inspection_date: string; earlier: string[] }> = {};
+      (data ?? []).forEach((r: { truck_id: string; problems: string | null; inspection_date: string }) => {
+        const previous = m[r.truck_id];
+        m[r.truck_id] = { ...r, earlier: [...(previous?.earlier ?? []), ...(previous?.problems ? [`${previous.inspection_date}: ${previous.problems}`] : [])] };
+      });
       return m;
     },
   });
   const saveProblems = async (truckId: string, problems: string | null) => {
     const { error } = await (supabase as any).from("pretrip_problems").upsert(
-      { truck_id: truckId, inspection_date: photoDate, problems, updated_by: profile?.user_id, updated_at: new Date().toISOString() },
+      { truck_id: truckId, inspection_date: problemsByTruck[truckId]?.inspection_date ?? photoDate, problems, updated_by: profile?.user_id, updated_at: new Date().toISOString() },
       { onConflict: "truck_id,inspection_date" },
     );
     if (error) return toast({ title: "Failed to save", description: error.message, variant: "destructive" });
@@ -231,7 +237,7 @@ const PreTripInspection = () => {
     const inspectionDate = photoDate;
     setSavingCheck(id);
     try {
-      const { error } = await (supabase as any).rpc("set_pretrip_checked", {
+      const { error } = await (supabase as any).rpc("set_pretrip_week_checked", {
         _truck_id: id, _inspection_date: inspectionDate, _checked: v,
       });
       if (error) throw error;
@@ -379,7 +385,7 @@ const PreTripInspection = () => {
       if (companyFilter !== "all" && t.company_id !== companyFilter) return false;
       if (dispatcherFilter !== "all" && t.dispatcher_id !== dispatcherFilter) return false;
       if (officeFilter !== "all" && t.dispatcher_office !== officeFilter) return false;
-      const problems = [(problemsByTruck as Record<string, string>)[t.id], ...(formsByTruck[t.id] ?? []).map(s => s.complaints)].filter(Boolean).join("\n").trim();
+      const problems = [...(problemsByTruck[t.id]?.earlier ?? []), problemsByTruck[t.id]?.problems, ...(formsByTruck[t.id] ?? []).map(s => s.complaints)].filter(Boolean).join("\n").trim();
       if (problemsFilter === "with" && problems === "") return false;
       if (problemsFilter === "without" && problems !== "") return false;
       const hasPictures = (photosByTruck[t.id]?.length ?? 0) > 0;
@@ -399,7 +405,7 @@ const PreTripInspection = () => {
           <ClipboardCheck className="h-8 w-8 shrink-0 text-primary" />
           <div>
             <h1 className="text-3xl font-bold text-foreground">Pre Trip Inspection</h1>
-            <p className="mt-1 text-muted-foreground">Daily pre-trip inspection status per truck</p>
+            <p className="mt-1 text-muted-foreground">One pre-trip inspection per truck each week · Any day, Monday–Sunday (Chicago)</p>
           </div>
         </div>
         <div className="relative ml-auto w-72 max-w-full">
@@ -413,7 +419,6 @@ const PreTripInspection = () => {
         </div>
       </div>
 
-      <PretripFormConnection canManage={["admin", "manager"].some(r => (_roles ?? []).includes(r) || primaryRole === r)} />
       {formError && <p className="text-sm text-destructive">Could not load Google Form submissions.</p>}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
@@ -471,33 +476,33 @@ const PreTripInspection = () => {
           </div>
         </CardHeader>
         <CardContent className="px-2">
-          <div className="mx-auto mb-3 grid w-[390px] max-w-full grid-cols-[32px_minmax(0,1fr)_96px_32px] items-center gap-2">
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPhotoDate(format(new Date(parseISO(photoDate).getTime() - 86400000), "yyyy-MM-dd"))} title="Previous inspection day">
+          <div className="mx-auto mb-3 grid w-[520px] max-w-full grid-cols-[32px_minmax(0,1fr)_96px_32px] items-center gap-2">
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPhotoDate(stepPretripDate(photoDate, -1))} title="Previous inspection week">
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="sm" className="w-full min-w-0 gap-2 px-1">
                   <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{format(parseISO(photoDate), "EEE, MMM d, yyyy")}</span>
+                  <span className="truncate">{format(parseISO(photoDate), "MMM d")} – {format(parseISO(pretripWeekEnd(photoDate)), "MMM d, yyyy")}</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="center">
                 <Calendar
                   mode="single"
                   selected={parseISO(photoDate)}
-                  onSelect={(d) => { if (d) { setPhotoDate(format(d, "yyyy-MM-dd")); setDatePickerOpen(false); } }}
+                  onSelect={(d) => { if (d) { setPhotoDate(pretripWeekStart(format(d, "yyyy-MM-dd"))); setDatePickerOpen(false); } }}
                   initialFocus
                   className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
-            {photoDate === chicagoToday() ? (
+            {photoDate === pretripDueDate() ? (
               <span className="text-center text-xs text-muted-foreground">(current)</span>
             ) : (
-              <Button variant="link" size="sm" className="h-auto w-full p-0 text-xs" onClick={() => setPhotoDate(chicagoToday())}>Back to current</Button>
+              <Button variant="link" size="sm" className="h-auto w-full p-0 text-xs" onClick={() => setPhotoDate(pretripDueDate())}>Back to current</Button>
             )}
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled={photoDate >= chicagoToday()} onClick={() => setPhotoDate(format(new Date(parseISO(photoDate).getTime() + 86400000), "yyyy-MM-dd"))} title="Next inspection day">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={photoDate >= pretripDueDate()} onClick={() => setPhotoDate(stepPretripDate(photoDate, 1))} title="Next inspection week">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -562,14 +567,15 @@ const PreTripInspection = () => {
                         <div className="truncate" title={t.company_name ?? ""}>{t.company_name ?? ""}</div>
                       </TableCell>
                       <TableCell className="h-[64px] px-2 py-1">
-                        <PretripPhotosCell truckId={t.id} photos={(photosByTruck as any)[t.id] ?? []} userId={profile?.user_id} date={photoDate} />
+                        <PretripPhotosCell truckId={t.id} photos={(photosByTruck as any)[t.id] ?? []} userId={profile?.user_id} date={photoDate === pretripDueDate() ? chicagoToday() : photoDate} />
                       </TableCell>
                       <TableCell className="h-[64px] p-1">
                         <PretripProblemsCell
                           key={photoDate}
-                          value={problemsByTruck[t.id] ?? null}
+                          value={problemsByTruck[t.id]?.problems ?? null}
                           onSave={(v) => saveProblems(t.id, v)}
                         />
+                        {!!problemsByTruck[t.id]?.earlier.length && <p className="mt-1 line-clamp-1 text-xs text-muted-foreground" title={problemsByTruck[t.id].earlier.join("\n")}>{problemsByTruck[t.id].earlier.join("; ")}</p>}
                         {formsByTruck[t.id]?.[0]?.complaints && <p className="mt-1 line-clamp-2 text-xs" title={formsByTruck[t.id][0].complaints}>Driver: {formsByTruck[t.id][0].complaints}</p>}
                       </TableCell>
                       <TableCell className="h-[64px] px-2 py-1"><PretripFormCell submissions={formsByTruck[t.id] ?? []} /></TableCell>

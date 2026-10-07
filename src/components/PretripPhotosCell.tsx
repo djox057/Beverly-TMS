@@ -5,20 +5,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+import { pretripWeekStart, pretripWeekEnd } from "@/lib/pretripDates";
 import { cn } from "@/lib/utils";
 
 type Photo = { id: string; truck_id: string; file_path: string; file_name: string | null; photo_category?: string | null };
 
 export const usePretripPhotos = (date: string) =>
   useQuery({
-    queryKey: ["pretrip-photos", date],
+    queryKey: ["pretrip-photos", pretripWeekStart(date)],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("pretrip_photos")
-        .select("id, truck_id, file_path, file_name, photo_category")
-        .eq("inspection_date", date)
-        .order("created_at");
-      if (error) throw error;
+      const data: Photo[] = [];
+      // A week can contain several thousand photos; fetch every page.
+      for (let offset = 0; ; offset += 1000) {
+        const { data: page, error } = await (supabase as any)
+          .from("pretrip_photos")
+          .select("id, truck_id, file_path, file_name, photo_category")
+          .gte("inspection_date", pretripWeekStart(date))
+          .lte("inspection_date", pretripWeekEnd(date))
+          .order("created_at").order("id")
+          .range(offset, offset + 999);
+        if (error) throw error;
+        data.push(...(page ?? []));
+        if ((page ?? []).length < 1000) break;
+      }
       const map: Record<string, Photo[]> = {};
       (data ?? []).forEach((p: Photo) => { (map[p.truck_id] ||= []).push(p); });
       return map;

@@ -1,14 +1,15 @@
+import { pretripDueDate } from "@/lib/pretripDates";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 
-/** Dispatcher's own trucks missing pre-trip photos for the latest Monday/Friday. */
+/** Dispatcher's own trucks missing pre-trip photos in the current Chicago week. */
 export const usePretripMissingCount = () => {
   const { getPrimaryRole, profile } = useAuthContext();
   const isDispatcher = isDispatcherRole(getPrimaryRole());
   return useQuery({
-    queryKey: ["pretrip-missing-count", profile?.user_id],
+    queryKey: ["pretrip-missing-count", profile?.user_id, pretripDueDate()],
     enabled: isDispatcher && !!profile?.user_id,
     refetchInterval: 5 * 60 * 1000,
     queryFn: async () => {
