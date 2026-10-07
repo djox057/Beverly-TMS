@@ -49,8 +49,9 @@ type PaymentRow = {
   is_checked: boolean;
 };
 
-const WITH_CARD_RATE = 65;
-const WITHOUT_CARD_RATE = 130;
+// Rates changed from October 2026 onwards.
+const getCardRates = (month: string) =>
+  month >= "2026-10" ? { withCard: 80, withoutCard: 150 } : { withCard: 65, withoutCard: 130 };
 const FOOD_ALLOWANCE = 0;
 const AFTERHOURS_FOOD_ALLOWANCE = 0;
 const MAX_PTO_DAYS_PER_YEAR = 3;
@@ -397,6 +398,8 @@ export default function RecruitingTab({ monthOptions }: { monthOptions: MonthOpt
   // Afterhours staff earn/lose days against a fixed 16-day divisor instead of
   // the month's workday count.
   const dayDivisor = selectedRole === "afterhours" ? 16 : workDaysInMonth;
+
+  const { withCard: WITH_CARD_RATE, withoutCard: WITHOUT_CARD_RATE } = getCardRates(selectedMonth);
 
   const computeSalary = (r: PaymentRow) => {
     const withCard = showCardColumns ? r.with_card_days : 0;
