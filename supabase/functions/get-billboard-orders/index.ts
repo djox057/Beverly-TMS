@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
             id,
             name,
             company_id,
-            company:companies (
+            company:companies!drivers_company_id_fkey (
               id,
               name
             )
@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
             id,
             name,
             company_id,
-            company:companies (
+            company:companies!drivers_company_id_fkey (
               id,
               name
             )
