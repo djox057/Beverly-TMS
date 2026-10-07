@@ -152,7 +152,7 @@ const navigation = [
     name: "Pre Trip Inspection",
     href: "/pretrip-inspection",
     icon: ClipboardCheck,
-    roles: ["admin", "maintenance", "manager", "supervisor", "dispatch"],
+    roles: ["admin", "maintenance", "manager", "supervisor", "dispatch", "safety"],
     strict: true,
   },
   {
@@ -383,6 +383,7 @@ export const Sidebar = () => {
         "/fleets",
         "/transfer-list",
         "/roadside-inspection",
+        "/pretrip-inspection",
       ];
       return [
         ...filteredNav.filter((item) => safetyPages.includes(item.href)),

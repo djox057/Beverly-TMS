@@ -326,7 +326,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/pretrip-inspection" element={
-          <ProtectedRoute strictAllowedRoles={['admin', 'maintenance', 'manager', 'supervisor', 'dispatch']}>
+          <ProtectedRoute strictAllowedRoles={['admin', 'maintenance', 'manager', 'supervisor', 'dispatch', 'safety']}>
             <Layout><PreTripInspection /></Layout>
           </ProtectedRoute>
         } />
