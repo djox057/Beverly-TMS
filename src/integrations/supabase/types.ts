@@ -4807,6 +4807,42 @@ export type Database = {
           },
         ]
       }
+      recovery_driver_drug_test_companies: {
+        Row: {
+          company_id: string
+          driver_id: string
+          is_tested: boolean
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          driver_id: string
+          is_tested?: boolean
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          driver_id?: string
+          is_tested?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recovery_driver_drug_test_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_driver_drug_test_companies_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recovery_history: {
         Row: {
           created_at: string

@@ -72,6 +72,7 @@ import { AssignmentReasonDialog, AssignmentConflict } from "@/components/Assignm
 import { useCompanies } from "@/hooks/useCompanies";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
+import { RecoveryDrugTestSection } from "@/components/RecoveryDrugTestSection";
 interface DriverFormData {
   first_name: string;
   last_name: string;
@@ -127,6 +128,7 @@ const Drivers = () => {
   const { hasRole, profile } = useAuthContext();
   const canViewSensitiveData = hasRole("manager") || hasRole("admin") || hasRole("accounting");
   const canDelete = hasRole("admin") || hasRole("manager") || hasRole("safety") || hasRole("maintenance");
+  const canManageRecoveryDrugTests = hasRole("admin") || hasRole("manager") || hasRole("safety") || hasRole("maintenance");
   const { upsertDrugTest } = useDriverDrugTests();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -3058,6 +3060,13 @@ const Drivers = () => {
                     />
                   </div>
                 </div>
+
+                <RecoveryDrugTestSection
+                  driverId={editingDriver?.id}
+                  isRecovery={Boolean(editingDriver?.is_recovery && formData.is_recovery)}
+                  companies={(companies ?? []).map((company: any) => ({ id: company.id, name: company.name }))}
+                  canManage={canManageRecoveryDrugTests}
+                />
 
                 {canViewSensitiveData && (
                   <div className="grid grid-cols-1 gap-4 pt-4 border-t">

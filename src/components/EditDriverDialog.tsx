@@ -34,6 +34,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AssignmentReasonDialog } from "@/components/AssignmentReasonDialog";
+import { RecoveryDrugTestSection } from "@/components/RecoveryDrugTestSection";
 
 interface DriverFormData {
   first_name: string;
@@ -97,6 +98,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   const queryClient = useQueryClient();
   const { hasRole, profile } = useAuthContext();
   const canViewSensitiveData = hasRole("manager") || hasRole("admin") || hasRole("accounting");
+  const canManageRecoveryDrugTests = hasRole("admin") || hasRole("manager") || hasRole("safety") || hasRole("maintenance");
   // Mirrors the trucks UPDATE policy — dispatch-only users cannot change truck/trailer assignment
   const canChangeAssignment =
     hasRole("admin") ||
@@ -1228,6 +1230,13 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     />
                   </div>
                 </div>
+
+                <RecoveryDrugTestSection
+                  driverId={driver?.id}
+                  isRecovery={Boolean(driver?.is_recovery && formData.is_recovery)}
+                  companies={(companies ?? []).map((company: any) => ({ id: company.id, name: company.name }))}
+                  canManage={canManageRecoveryDrugTests}
+                />
 
                 <div className="flex items-center gap-4">
                   <div className="flex items-center space-x-2">
