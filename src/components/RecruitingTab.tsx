@@ -49,9 +49,9 @@ type PaymentRow = {
   is_checked: boolean;
 };
 
-// Rates changed from October 2026 onwards.
+// Rates changed from September 2026 onwards.
 const getCardRates = (month: string) =>
-  month >= "2026-10" ? { withCard: 80, withoutCard: 150 } : { withCard: 65, withoutCard: 130 };
+  month >= "2026-09" ? { withCard: 80, withoutCard: 150 } : { withCard: 65, withoutCard: 130 };
 const FOOD_ALLOWANCE = 0;
 const AFTERHOURS_FOOD_ALLOWANCE = 0;
 const MAX_PTO_DAYS_PER_YEAR = 3;
