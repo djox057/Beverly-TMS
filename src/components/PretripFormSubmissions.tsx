@@ -7,11 +7,12 @@ import { pretripWeekStart, pretripWeekEnd } from "@/lib/pretripDates";
 import { PHOTO_CATEGORIES, normalize } from "../../supabase/functions/receive-pretrip-form/mapping";
 
 export const PRETRIP_FORM_URL="https://docs.google.com/forms/d/e/1FAIpQLSdas-2jAuWm6_ihsVgpayT_pPACcO_CdBCjzHyBsJmdZJ38hg/viewform";
+const ACTIVE_PRETRIP_SHEET_ID="1XhvVxfi2g_cYQUJfZiAgBORbl8ciqwKFkTebBlVunBQ";
 type FormFile={category:string;drive_id:string;status:string;file_path?:string;file_name?:string;error?:string};
 export type PretripSubmission={id:string;truck_id:string|null;truck_number:string;trailer_number:string;driver_name:string;email:string;inspection_date:string|null;submitted_at:string;source_timezone:string;answers:Record<string,string>;complaints:string;files:FormFile[];status:string;import_error:string|null};
 export function usePretripSubmissions(date:string) {
  return useQuery({queryKey:["pretrip-form-submissions",pretripWeekStart(date)],refetchInterval:30000,queryFn:async()=>{
-  const {data,error}=await (supabase as any).from("pretrip_form_submissions").select("*").gte("inspection_date",pretripWeekStart(date)).lte("inspection_date",pretripWeekEnd(date)).neq("status","superseded").order("submitted_at",{ascending:false});
+  const {data,error}=await (supabase as any).from("pretrip_form_submissions").select("*").eq("sheet_id",ACTIVE_PRETRIP_SHEET_ID).gte("inspection_date",pretripWeekStart(date)).lte("inspection_date",pretripWeekEnd(date)).neq("status","superseded").order("submitted_at",{ascending:false});
   if(error) throw error; return (data??[]) as PretripSubmission[];
  }});
 }
