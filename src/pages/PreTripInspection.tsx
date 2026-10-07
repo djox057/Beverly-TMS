@@ -9,9 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
@@ -25,6 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { PretripPhotosCell, usePretripPhotos } from "@/components/PretripPhotosCell";
 import { PretripFormCell, usePretripSubmissions } from "@/components/PretripFormSubmissions";
 import { PretripProblemsCell } from "@/components/PretripProblemsCell";
+import { SearchableSelect } from "@/components/SearchableSelect";
 
 type TruckRow = {
   id: string;
@@ -424,55 +422,54 @@ const PreTripInspection = () => {
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Report</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={companyFilter} onValueChange={setCompanyFilter}>
-              <SelectTrigger className="w-48"><SelectValue placeholder="Company" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All companies</SelectItem>
-                {companies.map(([id, name]) => (
-                  <SelectItem key={id} value={id}>{name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={dispatcherFilter} onValueChange={setDispatcherFilter}>
-              <SelectTrigger className="w-48"><SelectValue placeholder="Dispatcher" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All dispatchers</SelectItem>
-                {dispatcherOptions.map(d => (
-                  <SelectItem key={d.id} value={d.id}>{d.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={officeFilter} onValueChange={setOfficeFilter}>
-              <SelectTrigger className="w-40"><SelectValue placeholder="Office" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All offices</SelectItem>
-                {officeOptions.map(o => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
-              </SelectContent>
-            </Select>
-            <Select value={problemsFilter} onValueChange={setProblemsFilter}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Problems" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All trucks</SelectItem>
-                <SelectItem value="with">With problems only</SelectItem>
-                <SelectItem value="without">Without problems</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={picturesFilter} onValueChange={setPicturesFilter}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Pictures" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All pictures</SelectItem>
-                <SelectItem value="with">With pictures</SelectItem>
-                <SelectItem value="without">Without pictures</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={checkedFilter} onValueChange={setCheckedFilter}>
-              <SelectTrigger className="w-40" aria-label="Filter by checked status"><SelectValue placeholder="Checked" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All checks</SelectItem>
-                <SelectItem value="not-checked">Not checked</SelectItem>
-                <SelectItem value="checked">Checked</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={companyFilter}
+              onValueChange={setCompanyFilter}
+              placeholder="All companies"
+              searchPlaceholder="Search companies..."
+              className="w-full sm:w-48"
+              options={[{ value: "all", label: "All companies" }, ...companies.map(([id, label]) => ({ value: id, label }))]}
+            />
+            <SearchableSelect
+              value={dispatcherFilter}
+              onValueChange={setDispatcherFilter}
+              placeholder="All dispatchers"
+              searchPlaceholder="Search dispatchers..."
+              className="w-full sm:w-48"
+              options={[{ value: "all", label: "All dispatchers" }, ...dispatcherOptions.map((d) => ({ value: d.id, label: d.label }))]}
+            />
+            <SearchableSelect
+              value={officeFilter}
+              onValueChange={setOfficeFilter}
+              placeholder="All offices"
+              searchPlaceholder="Search offices..."
+              className="w-full sm:w-40"
+              options={[{ value: "all", label: "All offices" }, ...officeOptions.map((label) => ({ value: label, label }))]}
+            />
+            <SearchableSelect
+              value={problemsFilter}
+              onValueChange={setProblemsFilter}
+              placeholder="All trucks"
+              searchPlaceholder="Search problem status..."
+              className="w-full sm:w-44"
+              options={[{ value: "all", label: "All trucks" }, { value: "with", label: "With problems only" }, { value: "without", label: "Without problems" }]}
+            />
+            <SearchableSelect
+              value={picturesFilter}
+              onValueChange={setPicturesFilter}
+              placeholder="All pictures"
+              searchPlaceholder="Search picture status..."
+              className="w-full sm:w-44"
+              options={[{ value: "all", label: "All pictures" }, { value: "with", label: "With pictures" }, { value: "without", label: "Without pictures" }]}
+            />
+            <SearchableSelect
+              value={checkedFilter}
+              onValueChange={setCheckedFilter}
+              placeholder="All checks"
+              searchPlaceholder="Search check status..."
+              className="w-full sm:w-40"
+              options={[{ value: "all", label: "All checks" }, { value: "not-checked", label: "Not checked" }, { value: "checked", label: "Checked" }]}
+            />
           </div>
         </CardHeader>
         <CardContent className="px-2">
