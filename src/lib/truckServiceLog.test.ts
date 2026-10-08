@@ -77,4 +77,29 @@ describe("truck service log rules", () => {
     expect(result.current).toBe(168624);
     expect(result.currentDate).toBe("2026-09-30");
   });
+  it("uses truck start miles, baseline date and note without inventing a date", () => {
+    const base = { ...truck, start_miles: 0, baseline_start_date: null, baseline_note: "Start", baseline_created_by: "author1" };
+    const entries = buildServiceEntries(base, [], []);
+    expect(entries.find(e => e.source_key === "truck:baseline")).toMatchObject({ odometer: 0, log_date: null, notes: "Start", created_by: "author1" });
+    expect(serviceSummary(base, entries).baseline?.odometer).toBe(0);
+  });
+  it("applies inline overrides and retains the original reading author", () => {
+    const history = [{ id: "h1", field: "miles", new_value: 160000, changed_at: "2026-09-01T12:00:00Z", changed_by: "original" }];
+    const override = entry({ source_key: "history:h1", entry_type: "Mileage Check", odometer: 161000, log_date: "2026-09-02", created_by: "editor" });
+    const entries = buildServiceEntries(truck, history, [override]);
+    expect(entries.find(e => e.source_key === "history:h1")).toMatchObject({ odometer: 161000, log_date: "2026-09-02", created_by: "original" });
+    expect(truck.miles).toBe(168624);
+  });
+
+  it("uses edited current mileage and permits clearing a linked service date", () => {
+    const original = buildServiceEntries(truck, [], []);
+    const current = original.find(e => e.current_reading)!;
+    const oil = original.find(e => e.entry_type === "Oil Change")!;
+    const entries = buildServiceEntries(truck, [], [entry({ ...current, id: "a", odometer: 170000 }), entry({ ...oil, id: "b", log_date: null })]);
+    const result = serviceSummary(truck, entries, "2026-10-08");
+    expect(result.current).toBe(170000);
+    expect(result.sinceOil).toBe(21892);
+    expect(result.targetDate).toBeNull();
+  });
+
 });

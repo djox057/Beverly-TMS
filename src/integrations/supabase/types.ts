@@ -6622,6 +6622,10 @@ export type Database = {
           samsara_insured: boolean | null
           samsara_insured_updated_at: string | null
           source: string | null
+          baseline_start_date: string | null
+          baseline_note: string | null
+          oil_spec: string | null
+          baseline_created_by: string | null
           start_miles: number | null
           status: string | null
           termination_date: string | null
@@ -6681,6 +6685,10 @@ export type Database = {
           samsara_insured?: boolean | null
           samsara_insured_updated_at?: string | null
           source?: string | null
+          baseline_start_date?: string | null
+          baseline_note?: string | null
+          oil_spec?: string | null
+          baseline_created_by?: string | null
           start_miles?: number | null
           status?: string | null
           termination_date?: string | null
@@ -6740,6 +6748,10 @@ export type Database = {
           samsara_insured?: boolean | null
           samsara_insured_updated_at?: string | null
           source?: string | null
+          baseline_start_date?: string | null
+          baseline_note?: string | null
+          oil_spec?: string | null
+          baseline_created_by?: string | null
           start_miles?: number | null
           status?: string | null
           termination_date?: string | null
