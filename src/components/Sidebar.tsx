@@ -46,12 +46,7 @@ import { isComplaintsViewOnlyEmail } from "@/components/complaints/useComplaints
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useYardLoadsCount } from "@/hooks/useYardLoadsCount";
@@ -194,8 +189,21 @@ const navigation = [
 export const Sidebar = () => {
   const { profile, signOut, hasRole, getPrimaryRole, user } = useAuthContext();
   const { individualMode, setIndividualMode, canUseIndividualMode } = useIndividualMode();
-  const { state, isMobile, setOpenMobile } = useSidebar();
+  const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
   const location = useLocation();
+  const [loadsOpen, setLoadsOpen] = useState(() =>
+    [...LOAD_NAVIGATION_PATHS].some(
+      (path) => location.pathname === path || location.pathname.startsWith(`${path}/`),
+    ),
+  );
+
+  useEffect(() => {
+    if ([...LOAD_NAVIGATION_PATHS].some(
+      (path) => location.pathname === path || location.pathname.startsWith(`${path}/`),
+    )) {
+      setLoadsOpen(true);
+    }
+  }, [location.pathname]);
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
   const { data: dispatchAlertCount = 0 } = useDispatchAlertCount();
@@ -524,53 +532,78 @@ export const Sidebar = () => {
           <SidebarGroupContent>
             <SidebarMenu>
               {groupedNavigation.map((item) => LOAD_NAVIGATION_PATHS.has(item.href) ? (
-                <SidebarMenuItem key="loads-menu">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <SidebarMenuButton
-                        isActive={isLoadsActive}
-                        tooltip="Loads"
-                        aria-label="Loads"
-                        className={cn(
-                          "gap-3 px-3 py-2 font-medium",
-                          isLoadsActive ? "text-foreground bg-muted" : "text-muted-foreground",
-                        )}
-                      >
-                        <FileText className={cn("h-4 w-4", !showText ? "mx-auto" : "")} />
-                        {showText && (
-                          <>
-                            <span className="flex-1">Loads</span>
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          </>
-                        )}
+                <Collapsible
+                  key="loads-menu"
+                  asChild
+                  open={loadsOpen && showText}
+                  onOpenChange={(open) => {
+                    setLoadsOpen(open);
+                    if (open && !showText) setOpen(true);
+                  }}
+                >
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton asChild tooltip="Loads" isActive={isLoadsActive}>
+                        <button
+                          type="button"
+                          aria-label="Loads"
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-all relative",
+                            isLoadsActive
+                              ? "text-foreground bg-muted"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                          )}
+                        >
+                          {isLoadsActive && (
+                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
+                          )}
+                          <FileText className={cn("h-4 w-4", !showText ? "mx-auto" : "")} />
+                          {showText && (
+                            <div className="flex items-center gap-2 flex-1">
+                              <span>Loads</span>
+                              <ChevronDown className={cn(
+                                "h-4 w-4 ml-auto transition-transform",
+                                loadsOpen && "rotate-180",
+                              )} />
+                            </div>
+                          )}
+                        </button>
                       </SidebarMenuButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      side={showText ? "bottom" : "right"}
-                      align="start"
-                      sideOffset={4}
-                      className="min-w-48"
-                    >
-                      {loadNavigation.map((loadItem) => (
-                        <DropdownMenuItem key={loadItem.href} asChild>
-                          <NavLink
-                            to={loadItem.href}
-                            onClick={() => {
-                              if (isMobile) setOpenMobile(false);
-                            }}
-                            className={({ isActive }) => cn(
-                              "flex items-center gap-2 cursor-pointer",
-                              isActive && "bg-muted text-foreground font-medium",
-                            )}
-                          >
-                            <FileText className="h-4 w-4" />
-                            <span>{loadItem.name}</span>
-                          </NavLink>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </SidebarMenuItem>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenu className="ml-4 mt-1 border-l border-border pl-2">
+                        {loadNavigation.map((loadItem) => (
+                          <SidebarMenuItem key={loadItem.href}>
+                            <SidebarMenuButton asChild>
+                              <NavLink
+                                to={loadItem.href}
+                                onClick={() => {
+                                  if (isMobile) setOpenMobile(false);
+                                }}
+                                className={({ isActive }) => cn(
+                                  "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-all relative",
+                                  isActive
+                                    ? "text-foreground bg-muted"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                                )}
+                              >
+                                {({ isActive }) => (
+                                  <>
+                                    {isActive && (
+                                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
+                                    )}
+                                    <FileText className="h-4 w-4" />
+                                    <span>{loadItem.name}</span>
+                                  </>
+                                )}
+                              </NavLink>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        ))}
+                      </SidebarMenu>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
               ) : (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild>
