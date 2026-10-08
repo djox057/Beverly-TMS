@@ -76,6 +76,19 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
+// Hide these pages from navigation for every role while keeping their routes available.
+const HIDDEN_NAVIGATION_PATHS = new Set([
+  "/trucks-map",
+  "/upcoming-drivers",
+  "/driver-expenses",
+  "/stuff",
+  "/transfer-list",
+  "/roadside-inspection",
+  "/truck-sales",
+  "/repairs",
+  "/fuel-reports",
+]);
+
 const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
   { name: "Loads", href: "/orders", icon: FileText },
@@ -482,6 +495,8 @@ export const Sidebar = () => {
     ? allNavigation
     : [...allNavigation, { name: "Info", href: "/info", icon: InfoIcon }];
 
+  const visibleNavigation = navWithInfo.filter((item) => !HIDDEN_NAVIGATION_PATHS.has(item.href));
+
   return (
     <SidebarPrimitive className="z-50">
       <SidebarContent>
@@ -492,7 +507,7 @@ export const Sidebar = () => {
           </div>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navWithInfo.map((item) => (
+              {visibleNavigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild>
                     <NavLink
