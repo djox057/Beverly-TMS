@@ -35,7 +35,6 @@ import {
   Info as InfoIcon,
   MessageSquareWarning,
   ClipboardCheck,
-  ChevronDown,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
