@@ -17,3 +17,7 @@ export function hasOverdueTruckRequirement(tasks: readonly DueTask[], truckDot: 
   return isPastDue(truckDot, today) || isPastDue(trailerDot, today) || tasks.some(task =>
     isOpenRepair(task.status) && task.service_type !== "oil_change" && isPastDue(task.due_date, today));
 }
+
+export function getActiveMandatoryYardRepairAlerts<T extends DueTask>(tasks: readonly T[]): T[] {
+  return tasks.filter(task => task.service_type === "mandatory_yard_repair" && isOpenRepair(task.status));
+}
