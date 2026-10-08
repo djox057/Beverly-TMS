@@ -33,6 +33,8 @@ import { useChangedTrucks } from "@/hooks/useChangedTrucks";
 
 interface TruckFormData {
   truck_number: string;
+  source: string;
+  start_miles: string;
   vin: string;
   plate: string;
   make: string;
@@ -90,6 +92,8 @@ const Trucks = () => {
   const originalAssignmentRef = useRef<{ driver_id: string; driver2_id: string; trailer_id: string } | null>(null);
   const [formData, setFormData] = useState<TruckFormData>({
     truck_number: "",
+    source: "",
+    start_miles: "",
     vin: "",
     plate: "",
     make: "",
@@ -189,6 +193,8 @@ const Trucks = () => {
   const resetForm = () => {
     setFormData({
       truck_number: "",
+      source: "",
+      start_miles: "",
       vin: "",
       plate: "",
       make: "",
@@ -213,6 +219,9 @@ const Trucks = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      if (formData.start_miles !== "" && (!Number.isInteger(Number(formData.start_miles)) || Number(formData.start_miles) < 0 || Number(formData.start_miles) > 2147483647)) {
+        throw new Error("Start miles must be a whole number between 0 and 2,147,483,647.");
+      }
       // Remove trailer from any other truck if already assigned
       if (formData.trailer_id) {
         await supabase.from('trucks')
@@ -234,6 +243,8 @@ const Trucks = () => {
         error
       } = await supabase.from('trucks').insert({
         truck_number: formData.truck_number?.trim(),
+        source: formData.source.trim() || null,
+        start_miles: formData.start_miles === "" ? null : Number(formData.start_miles),
         vin: formData.vin || null,
         plate: formData.plate || null,
         make: formData.make || null,
@@ -412,6 +423,9 @@ const Trucks = () => {
     if (!editingTruck) return;
     setIsSubmitting(true);
     try {
+      if (formData.start_miles !== "" && (!Number.isInteger(Number(formData.start_miles)) || Number(formData.start_miles) < 0 || Number(formData.start_miles) > 2147483647)) {
+        throw new Error("Start miles must be a whole number between 0 and 2,147,483,647.");
+      }
       // Remove trailer from any other truck if already assigned (excluding current truck)
       if (formData.trailer_id) {
         await supabase.from('trucks')
@@ -435,6 +449,8 @@ const Trucks = () => {
         error
       } = await supabase.from('trucks').update({
         truck_number: formData.truck_number,
+        source: formData.source.trim() || null,
+        start_miles: formData.start_miles === "" ? null : Number(formData.start_miles),
         vin: formData.vin || null,
         plate: formData.plate || null,
         make: formData.make || null,
@@ -603,6 +619,8 @@ const Trucks = () => {
     setEditingTruck(truck);
     setFormData({
       truck_number: truck.truck_number || "",
+      source: truck.source ?? "",
+      start_miles: truck.start_miles == null ? "" : String(truck.start_miles),
       vin: truck.vin || "",
       plate: truck.plate || "",
       make: truck.make || "",
@@ -827,6 +845,20 @@ const Trucks = () => {
                   ...formData,
                   vin: e.target.value
                 })} placeholder="1HGBH41JXMN109186" maxLength={17} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="source">Source</Label>
+                  <Input id="source" list="truck-source-options" value={formData.source} onChange={e => setFormData({ ...formData, source: e.target.value })} placeholder="BF TRUCK, M&K, Ryder, TEL" />
+                  <datalist id="truck-source-options">
+                    {Array.from(new Set(["BF TRUCK", "M&K", "Ryder", "TEL", ...(trucks || []).map(t => t.source).filter((source): source is string => Boolean(source))])).sort().map(source => <option key={source} value={source} />)}
+                  </datalist>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="start_miles">Start miles</Label>
+                  <Input id="start_miles" type="number" min={0} max={2147483647} step={1} value={formData.start_miles} onChange={e => setFormData({ ...formData, start_miles: e.target.value })} placeholder="Starting odometer" />
                 </div>
               </div>
 
@@ -1296,6 +1328,20 @@ const Trucks = () => {
                     ...formData,
                     vin: e.target.value
                   })} placeholder="1HGBH41JXMN109186" maxLength={17} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_source">Source</Label>
+                    <Input id="edit_source" list="edit_truck-source-options" value={formData.source} onChange={e => setFormData({ ...formData, source: e.target.value })} placeholder="BF TRUCK, M&K, Ryder, TEL" />
+                    <datalist id="edit_truck-source-options">
+                      {Array.from(new Set(["BF TRUCK", "M&K", "Ryder", "TEL", ...(trucks || []).map(t => t.source).filter((source): source is string => Boolean(source))])).sort().map(source => <option key={source} value={source} />)}
+                    </datalist>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_start_miles">Start miles</Label>
+                    <Input id="edit_start_miles" type="number" min={0} max={2147483647} step={1} value={formData.start_miles} onChange={e => setFormData({ ...formData, start_miles: e.target.value })} placeholder="Starting odometer" />
                   </div>
                 </div>
 
