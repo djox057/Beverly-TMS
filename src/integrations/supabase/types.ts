@@ -6326,54 +6326,6 @@ export type Database = {
           },
         ]
       }
-      truck_service_log_entries: {
-        Row: {
-          id: string
-          truck_id: string
-          source_key: string | null
-          log_date: string | null
-          entry_type: string
-          odometer: number | null
-          oil_spec: string | null
-          facility: string | null
-          invoice: string | null
-          notes: string | null
-          created_at: string
-          created_by: string
-        }
-        Insert: {
-          id?: string
-          truck_id: string
-          source_key?: string | null
-          log_date?: string | null
-          entry_type: string
-          odometer?: number | null
-          oil_spec?: string | null
-          facility?: string | null
-          invoice?: string | null
-          notes?: string | null
-          created_at?: string
-          created_by?: string
-        }
-        Update: {
-          truck_id?: string
-          source_key?: string | null
-          log_date?: string | null
-          entry_type?: string
-          odometer?: number | null
-          oil_spec?: string | null
-          facility?: string | null
-          invoice?: string | null
-          notes?: string | null
-        }
-        Relationships: [{
-          foreignKeyName: "truck_service_log_entries_truck_id_fkey"
-          columns: ["truck_id"]
-          isOneToOne: false
-          referencedRelation: "trucks"
-          referencedColumns: ["id"]
-        }]
-      }
       truck_mileage_history: {
         Row: {
           changed_at: string
@@ -6502,6 +6454,59 @@ export type Database = {
           },
         ]
       }
+      truck_service_log_entries: {
+        Row: {
+          created_at: string
+          created_by: string
+          entry_type: string
+          facility: string | null
+          id: string
+          invoice: string | null
+          log_date: string | null
+          notes: string | null
+          odometer: number | null
+          oil_spec: string | null
+          source_key: string | null
+          truck_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          entry_type: string
+          facility?: string | null
+          id?: string
+          invoice?: string | null
+          log_date?: string | null
+          notes?: string | null
+          odometer?: number | null
+          oil_spec?: string | null
+          source_key?: string | null
+          truck_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          entry_type?: string
+          facility?: string | null
+          id?: string
+          invoice?: string | null
+          log_date?: string | null
+          notes?: string | null
+          odometer?: number | null
+          oil_spec?: string | null
+          source_key?: string | null
+          truck_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_service_log_entries_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       truck_telemetry: {
         Row: {
           created_at: string
@@ -6578,6 +6583,9 @@ export type Database = {
       trucks: {
         Row: {
           air_filter: number | null
+          baseline_created_by: string | null
+          baseline_note: string | null
+          baseline_start_date: string | null
           company_id: string | null
           created_at: string
           dispatcher_id: string | null
@@ -6609,6 +6617,7 @@ export type Database = {
           needs_recovery: boolean | null
           oil_change_date: string | null
           oil_change_note: string | null
+          oil_spec: string | null
           oos: boolean
           plate: string | null
           plate_expiration_date: string | null
@@ -6622,10 +6631,6 @@ export type Database = {
           samsara_insured: boolean | null
           samsara_insured_updated_at: string | null
           source: string | null
-          baseline_start_date: string | null
-          baseline_note: string | null
-          oil_spec: string | null
-          baseline_created_by: string | null
           start_miles: number | null
           status: string | null
           termination_date: string | null
@@ -6641,6 +6646,9 @@ export type Database = {
         }
         Insert: {
           air_filter?: number | null
+          baseline_created_by?: string | null
+          baseline_note?: string | null
+          baseline_start_date?: string | null
           company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
@@ -6672,6 +6680,7 @@ export type Database = {
           needs_recovery?: boolean | null
           oil_change_date?: string | null
           oil_change_note?: string | null
+          oil_spec?: string | null
           oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
@@ -6685,10 +6694,6 @@ export type Database = {
           samsara_insured?: boolean | null
           samsara_insured_updated_at?: string | null
           source?: string | null
-          baseline_start_date?: string | null
-          baseline_note?: string | null
-          oil_spec?: string | null
-          baseline_created_by?: string | null
           start_miles?: number | null
           status?: string | null
           termination_date?: string | null
@@ -6704,6 +6709,9 @@ export type Database = {
         }
         Update: {
           air_filter?: number | null
+          baseline_created_by?: string | null
+          baseline_note?: string | null
+          baseline_start_date?: string | null
           company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
@@ -6735,6 +6743,7 @@ export type Database = {
           needs_recovery?: boolean | null
           oil_change_date?: string | null
           oil_change_note?: string | null
+          oil_spec?: string | null
           oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
@@ -6748,10 +6757,6 @@ export type Database = {
           samsara_insured?: boolean | null
           samsara_insured_updated_at?: string | null
           source?: string | null
-          baseline_start_date?: string | null
-          baseline_note?: string | null
-          oil_spec?: string | null
-          baseline_created_by?: string | null
           start_miles?: number | null
           status?: string | null
           termination_date?: string | null
@@ -7245,6 +7250,10 @@ export type Database = {
           empty_day_count: number
           office: string
         }[]
+      }
+      can_access_truck_service_log: {
+        Args: { _entry_type?: string; _truck_id: string; _write?: boolean }
+        Returns: boolean
       }
       claim_pretrip_form_sync: { Args: { _lease_id: string }; Returns: boolean }
       clear_truck_notes_scheduled: { Args: never; Returns: number }
