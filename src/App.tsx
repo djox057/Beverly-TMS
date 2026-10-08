@@ -59,6 +59,7 @@ import TransferList from "./pages/TransferList";
 import TurnoverList from "./pages/TurnoverList";
 import RoadsideInspection from "./pages/RoadsideInspection";
 import LiveOilChange from "./pages/LiveOilChange";
+import TruckServiceLog from "./pages/TruckServiceLog";
 import PreTripInspection from "./pages/PreTripInspection";
 import TruckSales from "./pages/TruckSales";
 import Info from "./pages/Info";
@@ -323,6 +324,14 @@ const AppContent = () => {
             allowedEmails={['ella@bfprime.net']}
           >
             <Layout><LiveOilChange /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/live-oil-change/:truckId" element={
+          <ProtectedRoute
+            excludedRoles={['afterhours', 'accounting', 'safety', 'claims']}
+            allowedEmails={['ella@bfprime.net']}
+          >
+            <Layout><TruckServiceLog /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/pretrip-inspection" element={

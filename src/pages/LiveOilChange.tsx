@@ -1,4 +1,5 @@
 import { isDispatcherRole } from "@/lib/dispatchAccess";
+import { Link } from "react-router-dom";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid } from "date-fns";
@@ -567,7 +568,7 @@ const LiveOilChange = () => {
                             readOnly={!canEditAll}
                           />
                         </TableCell>
-                        <TableCell className="font-medium">{t.truck_number}</TableCell>
+                        <TableCell className="font-medium"><Link to={`/live-oil-change/${t.id}`} className="hover:underline focus-visible:underline" aria-label={`Open service log for truck ${t.truck_number}`}>{t.truck_number}</Link></TableCell>
                         <TableCell>
                           {canEditAll ? (
                             <MaintenanceDateCell

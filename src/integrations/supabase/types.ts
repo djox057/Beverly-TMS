@@ -6326,6 +6326,54 @@ export type Database = {
           },
         ]
       }
+      truck_service_log_entries: {
+        Row: {
+          id: string
+          truck_id: string
+          source_key: string | null
+          log_date: string | null
+          entry_type: string
+          odometer: number | null
+          oil_spec: string | null
+          facility: string | null
+          invoice: string | null
+          notes: string | null
+          created_at: string
+          created_by: string
+        }
+        Insert: {
+          id?: string
+          truck_id: string
+          source_key?: string | null
+          log_date?: string | null
+          entry_type: string
+          odometer?: number | null
+          oil_spec?: string | null
+          facility?: string | null
+          invoice?: string | null
+          notes?: string | null
+          created_at?: string
+          created_by?: string
+        }
+        Update: {
+          truck_id?: string
+          source_key?: string | null
+          log_date?: string | null
+          entry_type?: string
+          odometer?: number | null
+          oil_spec?: string | null
+          facility?: string | null
+          invoice?: string | null
+          notes?: string | null
+        }
+        Relationships: [{
+          foreignKeyName: "truck_service_log_entries_truck_id_fkey"
+          columns: ["truck_id"]
+          isOneToOne: false
+          referencedRelation: "trucks"
+          referencedColumns: ["id"]
+        }]
+      }
       truck_mileage_history: {
         Row: {
           changed_at: string
