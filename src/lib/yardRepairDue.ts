@@ -21,3 +21,15 @@ export function hasOverdueTruckRequirement(tasks: readonly DueTask[], truckDot: 
 export function getActiveMandatoryYardRepairAlerts<T extends DueTask>(tasks: readonly T[]): T[] {
   return tasks.filter(task => task.service_type === "mandatory_yard_repair" && isOpenRepair(task.status));
 }
+
+const addDaysToIsoDate = (date: string, days: number) =>
+  new Date(Date.parse(`${date.slice(0, 10)}T00:00:00Z`) + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+export function hasActiveMandatoryYardRepairDueWithin(tasks: readonly DueTask[], today: string, days: number) {
+  const cutoff = addDaysToIsoDate(today, days);
+  return tasks.some(task =>
+    task.service_type === "mandatory_yard_repair" &&
+    isOpenRepair(task.status) &&
+    !!task.due_date &&
+    task.due_date.slice(0, 10) <= cutoff);
+}

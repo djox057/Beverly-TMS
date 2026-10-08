@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chicagoToday, getActiveMandatoryYardRepairAlerts, hasOverdueTruckRequirement, isPastDue, type DueTask } from "./yardRepairDue";
+import { chicagoToday, getActiveMandatoryYardRepairAlerts, hasActiveMandatoryYardRepairDueWithin, hasOverdueTruckRequirement, isPastDue, type DueTask } from "./yardRepairDue";
 
 const task = (service_type: DueTask["service_type"], due_date: string, status: DueTask["status"] = "pending"): DueTask => ({ service_type, due_date, status });
 describe("yard repair deadlines", () => {
@@ -37,3 +37,15 @@ describe("yard repair deadlines", () => {
     expect(hasOverdueTruckRequirement([], "2026-10-05", "2026-10-06", "2026-10-05")).toBe(false);
   });
 });
+
+  it("turns the alert icon red within five days, and truck/driver labels red within two days", () => {
+    const active = (due: string, status: DueTask["status"] = "pending") => task("mandatory_yard_repair", due, status);
+    const today = "2026-10-08";
+    expect(hasActiveMandatoryYardRepairDueWithin([active("2026-10-13")], today, 5)).toBe(true);
+    expect(hasActiveMandatoryYardRepairDueWithin([active("2026-10-14")], today, 5)).toBe(false);
+    expect(hasActiveMandatoryYardRepairDueWithin([active("2026-10-10")], today, 2)).toBe(true);
+    expect(hasActiveMandatoryYardRepairDueWithin([active("2026-10-11")], today, 2)).toBe(false);
+    expect(hasActiveMandatoryYardRepairDueWithin([active("2026-10-07")], today, 2)).toBe(true);
+    expect(hasActiveMandatoryYardRepairDueWithin([active("2026-10-08", "completed")], today, 5)).toBe(false);
+    expect(hasActiveMandatoryYardRepairDueWithin([active("2026-10-08", "cancelled")], today, 5)).toBe(false);
+  });

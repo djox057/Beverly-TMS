@@ -1,5 +1,5 @@
 import { useChicagoToday, useMandatoryYardRepairs } from "@/hooks/useMandatoryYardRepairs";
-import { getActiveMandatoryYardRepairAlerts, hasOverdueTruckRequirement } from "@/lib/yardRepairDue";
+import { getActiveMandatoryYardRepairAlerts, hasActiveMandatoryYardRepairDueWithin, hasOverdueTruckRequirement } from "@/lib/yardRepairDue";
 import { TruckRepairDeadlines } from "@/components/reports/TruckRepairDeadlines";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { CoiRequestDialog } from "@/components/reports/CoiRequestDialog";
@@ -5290,7 +5290,8 @@ const Reports = () => {
                                       hasRole("safety") || hasRole("manager") || hasRole("admin");
                                     const yardRepairTasks = yardRepairsByTruck.get(truck.id) || [];
                                     const yardRepairWarnings = getActiveMandatoryYardRepairAlerts(yardRepairTasks);
-                                    const yardRepairOverdue = yardRepairWarnings.some(task => !!task.due_date && task.due_date.slice(0, 10) < repairToday);
+                                    const yardRepairIconRed = hasActiveMandatoryYardRepairDueWithin(yardRepairWarnings, repairToday, 5);
+                                    const yardRepairTruckAndDriverRed = hasActiveMandatoryYardRepairDueWithin(yardRepairWarnings, repairToday, 2);
                                     const overdueRequirement = hasOverdueTruckRequirement(yardRepairTasks.filter(task => task.service_type !== "mandatory_yard_repair"), truck.dot_inspection_date, truck.trailer_dot_inspection_date, repairToday);
                                     const driverCellStyle = getDriverCellStyle(truck);
                                     const shouldShowDrugTestUI = isNew && canManageDrugTests;
@@ -5325,13 +5326,13 @@ const Reports = () => {
                                                     </Tooltip>
                                                   </TooltipProvider>
                                                 ) : (
-                                                  <span className={overdueRequirement ? "font-bold text-red-600" : undefined} title={overdueRequirement ? "Overdue DOT inspection" : undefined}>{truck.truckNumber}</span>
+                                                  <span className={overdueRequirement || yardRepairTruckAndDriverRed ? "font-bold text-red-600" : undefined} title={overdueRequirement ? "Overdue DOT inspection" : yardRepairTruckAndDriverRed ? "Mandatory Yard Repair due within two days or overdue" : undefined}>{truck.truckNumber}</span>
                                                 )}
                                                 {yardRepairWarnings.length > 0 && (
                                                   <Popover>
                                                     <PopoverTrigger asChild>
                                                       <button type="button" className="inline-flex" aria-label="Mandatory Yard Repair warning" onClick={e => e.stopPropagation()}>
-                                                        <img src={dotInspectionIcon} alt="Mandatory Yard Repair" className="h-4 w-4 cursor-pointer" style={{ filter: yardRepairOverdue
+                                                        <img src={dotInspectionIcon} alt="Mandatory Yard Repair" className="h-4 w-4 cursor-pointer" style={{ filter: yardRepairIconRed
                                                           ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
                                                           : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)" }} />
                                                       </button>
@@ -5599,7 +5600,7 @@ const Reports = () => {
                                                     </PopoverContent>
                                                   </Popover>
                                                 )}
-                                                <span>{truck.driver}</span>
+                                                <span className={yardRepairTruckAndDriverRed ? "font-bold text-red-600" : undefined} title={yardRepairTruckAndDriverRed ? "Mandatory Yard Repair due within two days or overdue" : undefined}>{truck.driver}</span>
                                                 {(() => {
                                                   // Collect all driver-row icons into a unified list
                                                   type DriverIcon = {
