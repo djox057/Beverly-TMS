@@ -95,6 +95,29 @@ describe("truck service log page", () => {
     cleanup(); mocks.role = "dispatch"; mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
     expect(screen.queryByRole("button", { name: "Edit Baseline Odometer" })).not.toBeInTheDocument();
   });
+  it("adds a row directly from a blank odometer cell and records its creator", async () => {
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    const label = "New row 1 odometer";
+    fireEvent.click(screen.getByRole("button", { name: `Edit ${label}` }));
+    fireEvent.change(screen.getByLabelText(label), { target: { value: "0" } });
+    fireEvent.keyDown(screen.getByLabelText(label), { key: "Enter" });
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledOnce());
+    expect(mocks.insert.mock.calls[0]).toEqual(["truck_service_log_entries", expect.objectContaining({ truck_id: "truck1", source_key: null, odometer: 0, entry_type: "Mileage Check", created_by: "user1" })]);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+  it("keeps partial blank-row details until the odometer is entered", async () => {
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    for (const [key, value] of [["notes", "Verified by photo"], ["odometer", "170000"]]) {
+      const label = `New row 1 ${key}`;
+      fireEvent.click(screen.getByRole("button", { name: `Edit ${label}` }));
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+      fireEvent.keyDown(screen.getByLabelText(label), { key: "Enter" });
+      await waitFor(() => expect(screen.queryByLabelText(label)).not.toBeInTheDocument());
+      if (key === "notes") expect(mocks.insert).not.toHaveBeenCalled();
+    }
+    expect(mocks.insert).toHaveBeenCalledOnce();
+    expect(mocks.insert.mock.calls[0][1]).toMatchObject({ odometer: 170000, notes: "Verified by photo", created_by: "user1" });
+  });
   it("limits dispatchers to mileage entries and rejects another dispatcher's truck", async () => {
     mocks.role = "dispatch"; mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
     fireEvent.click(screen.getByRole("button", { name: "Add log entry" }));
