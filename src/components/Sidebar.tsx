@@ -35,6 +35,7 @@ import {
   Info as InfoIcon,
   MessageSquareWarning,
   ClipboardCheck,
+  ChevronDown,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,12 @@ import { isComplaintsViewOnlyEmail } from "@/components/complaints/useComplaints
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useYardLoadsCount } from "@/hooks/useYardLoadsCount";
@@ -88,6 +95,8 @@ const HIDDEN_NAVIGATION_PATHS = new Set([
   "/repairs",
   "/fuel-reports",
 ]);
+
+const LOAD_NAVIGATION_PATHS = new Set(["/orders", "/bg-loads", "/lale-loads", "/ues-loads"]);
 
 const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
@@ -496,6 +505,13 @@ export const Sidebar = () => {
     : [...allNavigation, { name: "Info", href: "/info", icon: InfoIcon }];
 
   const visibleNavigation = navWithInfo.filter((item) => !HIDDEN_NAVIGATION_PATHS.has(item.href));
+  const loadNavigation = visibleNavigation.filter((item) => LOAD_NAVIGATION_PATHS.has(item.href));
+  const groupedNavigation = visibleNavigation.filter(
+    (item) => !LOAD_NAVIGATION_PATHS.has(item.href) || item === loadNavigation[0],
+  );
+  const isLoadsActive = loadNavigation.some(
+    (item) => location.pathname === item.href || location.pathname.startsWith(`${item.href}/`),
+  );
 
   return (
     <SidebarPrimitive className="z-50">
@@ -507,7 +523,55 @@ export const Sidebar = () => {
           </div>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleNavigation.map((item) => (
+              {groupedNavigation.map((item) => LOAD_NAVIGATION_PATHS.has(item.href) ? (
+                <SidebarMenuItem key="loads-menu">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <SidebarMenuButton
+                        isActive={isLoadsActive}
+                        tooltip="Loads"
+                        aria-label="Loads"
+                        className={cn(
+                          "gap-3 px-3 py-2 font-medium",
+                          isLoadsActive ? "text-foreground bg-muted" : "text-muted-foreground",
+                        )}
+                      >
+                        <FileText className={cn("h-4 w-4", !showText ? "mx-auto" : "")} />
+                        {showText && (
+                          <>
+                            <span className="flex-1">Loads</span>
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          </>
+                        )}
+                      </SidebarMenuButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      side={showText ? "bottom" : "right"}
+                      align="start"
+                      sideOffset={4}
+                      className="min-w-48"
+                    >
+                      {loadNavigation.map((loadItem) => (
+                        <DropdownMenuItem key={loadItem.href} asChild>
+                          <NavLink
+                            to={loadItem.href}
+                            onClick={() => {
+                              if (isMobile) setOpenMobile(false);
+                            }}
+                            className={({ isActive }) => cn(
+                              "flex items-center gap-2 cursor-pointer",
+                              isActive && "bg-muted text-foreground font-medium",
+                            )}
+                          >
+                            <FileText className="h-4 w-4" />
+                            <span>{loadItem.name}</span>
+                          </NavLink>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </SidebarMenuItem>
+              ) : (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild>
                     <NavLink
