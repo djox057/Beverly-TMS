@@ -200,6 +200,7 @@ import {
   getPreviousLoadDeliveryStatus,
   getStatusColors,
   getMaintenanceIconStatus,
+  getOilChangeThresholds,
   getDotInspectionIconStatus,
   isLateDeliveryTime,
   haversineDistanceMiles,
@@ -5615,10 +5616,17 @@ const Reports = () => {
                                                   // 1. Maintenance / Oil Change
                                                   const maintenanceStatus = getMaintenanceIconStatus(truck);
                                                   if (maintenanceStatus.show) {
+                                                    const oilChangeDueMiles = getOilChangeThresholds(truck.source).red;
+                                                    const oilMilesSince = maintenanceStatus.oilMilesSince;
+                                                    const oilChangeLabel = maintenanceStatus.oilTriggered && oilMilesSince != null
+                                                      ? oilMilesSince > oilChangeDueMiles
+                                                        ? `Oil Change — ${Math.round(oilMilesSince - oilChangeDueMiles).toLocaleString("en-US")} mi overdue`
+                                                        : `Oil Change — ${Math.round(oilChangeDueMiles - oilMilesSince).toLocaleString("en-US")} mi remaining`
+                                                      : "Oil Change";
                                                     icons.push({
                                                       key: "maintenance",
-                                                      label: "Oil Change",
-                                                      tooltip: maintenanceStatus.tooltip,
+                                                      label: oilChangeLabel,
+                                                      tooltip: `${oilChangeLabel}: ${maintenanceStatus.tooltip}`,
                                                       color: maintenanceStatus.color === "red" ? "red" : "yellow",
                                                       renderIcon: () => (
                                                         <img
