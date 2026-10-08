@@ -21,3 +21,6 @@ export function hasOverdueTruckRequirement(tasks: readonly DueTask[], truckDot: 
 export function getActiveMandatoryYardRepairAlerts<T extends DueTask>(tasks: readonly T[]): T[] {
   return tasks.filter(task => task.service_type === "mandatory_yard_repair" && isOpenRepair(task.status));
 }
+
+// threshold helper
+export function __testMarker() { return true; }
