@@ -7185,6 +7185,21 @@ export type Database = {
       }
       claim_pretrip_form_sync: { Args: { _lease_id: string }; Returns: boolean }
       clear_truck_notes_scheduled: { Args: never; Returns: number }
+      companies: {
+        Args: { _driver: Database["public"]["Tables"]["drivers"]["Row"] }
+        Returns: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "drivers"
+          to: "companies"
+          isOneToOne: true
+          isSetofReturn: true
+        }
+      }
       create_order_with_unique_load_number: {
         Args: { order_data: Json }
         Returns: Json
@@ -7477,6 +7492,10 @@ export type Database = {
         Returns: Json
       }
       set_pretrip_checked: {
+        Args: { _checked: boolean; _inspection_date: string; _truck_id: string }
+        Returns: undefined
+      }
+      set_pretrip_week_checked: {
         Args: { _checked: boolean; _inspection_date: string; _truck_id: string }
         Returns: undefined
       }
