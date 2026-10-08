@@ -1,5 +1,5 @@
 import { useChicagoToday, useMandatoryYardRepairs } from "@/hooks/useMandatoryYardRepairs";
-import { hasOverdueTruckRequirement } from "@/lib/yardRepairDue";
+import { getActiveMandatoryYardRepairAlerts, hasOverdueTruckRequirement } from "@/lib/yardRepairDue";
 import { TruckRepairDeadlines } from "@/components/reports/TruckRepairDeadlines";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { CoiRequestDialog } from "@/components/reports/CoiRequestDialog";
@@ -5289,9 +5289,8 @@ const Reports = () => {
                                     const canManageDrugTests =
                                       hasRole("safety") || hasRole("manager") || hasRole("admin");
                                     const yardRepairTasks = yardRepairsByTruck.get(truck.id) || [];
-                                    const yardRepairWarningCutoff = new Date(Date.parse(repairToday + "T00:00:00Z") + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-                                    const yardRepairWarnings = yardRepairTasks.filter(task => task.service_type === "mandatory_yard_repair" && (task.status === "pending" || task.status === "in_progress") && !!task.due_date && task.due_date.slice(0, 10) <= yardRepairWarningCutoff);
-                                    const yardRepairOverdue = yardRepairWarnings.some(task => task.due_date.slice(0, 10) < repairToday);
+                                    const yardRepairWarnings = getActiveMandatoryYardRepairAlerts(yardRepairTasks);
+                                    const yardRepairOverdue = yardRepairWarnings.some(task => !!task.due_date && task.due_date.slice(0, 10) < repairToday);
                                     const overdueRequirement = hasOverdueTruckRequirement(yardRepairTasks.filter(task => task.service_type !== "mandatory_yard_repair"), truck.dot_inspection_date, truck.trailer_dot_inspection_date, repairToday);
                                     const driverCellStyle = getDriverCellStyle(truck);
                                     const shouldShowDrugTestUI = isNew && canManageDrugTests;

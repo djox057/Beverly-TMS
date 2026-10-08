@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chicagoToday, hasOverdueTruckRequirement, isPastDue, type DueTask } from "./yardRepairDue";
+import { chicagoToday, getActiveMandatoryYardRepairAlerts, hasOverdueTruckRequirement, isPastDue, type DueTask } from "./yardRepairDue";
 
 const task = (service_type: DueTask["service_type"], due_date: string, status: DueTask["status"] = "pending"): DueTask => ({ service_type, due_date, status });
 describe("yard repair deadlines", () => {
@@ -18,6 +18,17 @@ describe("yard repair deadlines", () => {
     expect(hasOverdueTruckRequirement([task("dot", "2026-10-04", "in_progress")], null, null, "2026-10-05")).toBe(true);
     expect(hasOverdueTruckRequirement([task("oil_change", "2026-10-04")], null, null, "2026-10-05")).toBe(false);
     expect(hasOverdueTruckRequirement([task("mandatory_yard_repair", "2026-10-04", "completed"), task("dot", "2026-10-04", "cancelled")], null, null, "2026-10-05")).toBe(false);
+  });
+  it("shows every active mandatory yard repair, regardless of due date, but hides closed tasks", () => {
+    const alerts = getActiveMandatoryYardRepairAlerts([
+      task("mandatory_yard_repair", "2026-10-14"),
+      task("mandatory_yard_repair", "2026-10-31", "in_progress"),
+      task("mandatory_yard_repair", "2026-10-04", "completed"),
+      task("mandatory_yard_repair", "2026-10-04", "cancelled"),
+      task("dot", "2026-10-04"),
+    ]);
+    expect(alerts).toHaveLength(2);
+    expect(alerts.map(item => item.due_date)).toEqual(["2026-10-14", "2026-10-31"]);
   });
   it("keeps existing truck/trailer DOT expiration active independently of task completion", () => {
     const completed = [task("dot", "2026-10-04", "completed")];
