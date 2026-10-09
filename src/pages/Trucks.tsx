@@ -47,6 +47,7 @@ interface TruckFormData {
   dot_inspection_date: string;
   plate_expiration_date: string;
   insurance_expiration_date: string;
+  is_insured: boolean;
   oil_change_date: string;
   tires_swap_date: string;
   maintenance_check_date: string;
@@ -106,6 +107,7 @@ const Trucks = () => {
     dot_inspection_date: "",
     plate_expiration_date: "",
     insurance_expiration_date: "",
+    is_insured: false,
     oil_change_date: "",
     tires_swap_date: "",
     maintenance_check_date: "",
@@ -207,6 +209,7 @@ const Trucks = () => {
       dot_inspection_date: "",
       plate_expiration_date: "",
       insurance_expiration_date: "",
+    is_insured: false,
       oil_change_date: "",
       tires_swap_date: "",
       maintenance_check_date: "",
@@ -260,6 +263,7 @@ const Trucks = () => {
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
         insurance_expiration_date: formData.insurance_expiration_date || null,
+         is_insured: formData.is_insured,
         oil_change_date: formData.oil_change_date || null,
         tires_swap_date: formData.tires_swap_date || null,
         maintenance_check_date: formData.maintenance_check_date || null
@@ -467,6 +471,7 @@ const Trucks = () => {
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
         insurance_expiration_date: formData.insurance_expiration_date || null,
+         is_insured: formData.is_insured,
         oil_change_date: formData.oil_change_date || null,
         tires_swap_date: formData.tires_swap_date || null,
         maintenance_check_date: formData.maintenance_check_date || null,
@@ -635,6 +640,7 @@ const Trucks = () => {
       dot_inspection_date: truck.dot_inspection_date || "",
       plate_expiration_date: truck.plate_expiration_date || "",
       insurance_expiration_date: truck.insurance_expiration_date || "",
+       is_insured: truck.is_insured ?? false,
       oil_change_date: truck.oil_change_date || "",
       tires_swap_date: truck.tires_swap_date || "",
       maintenance_check_date: truck.maintenance_check_date || "",
@@ -777,6 +783,7 @@ const Trucks = () => {
       "IPASS": truck.ipass || "",
       "DOT Inspection": truck.dot_inspection_date || "",
       "Plate Exp.": truck.plate_expiration_date || "",
+      "Insurance": truck.is_insured ? "Insured" : "Not insured",
       "Insurance Exp.": truck.insurance_expiration_date || ""
     }));
     
@@ -993,6 +1000,11 @@ const Trucks = () => {
                 </div>
               </div>
 
+              <div className="flex items-center gap-2">
+                <Checkbox id="is_insured" checked={formData.is_insured} onCheckedChange={checked => setFormData({ ...formData, is_insured: checked === true })} />
+                <Label htmlFor="is_insured" className="cursor-pointer">Truck is insured</Label>
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="oil_change_date">Oil Change Date</Label>
@@ -1114,13 +1126,14 @@ const Trucks = () => {
                   <TableHead className="text-center w-[90px]">IPASS</TableHead>
                   <TableHead className="text-center w-[95px]">DOT Inspection</TableHead>
                   <TableHead className="text-center w-[85px]">Plate Exp.</TableHead>
+                  <TableHead className="text-center w-[95px]">Insurance</TableHead>
                   <TableHead className="text-center w-[95px]">Insurance Exp.</TableHead>
                   <TableHead className="text-center w-[140px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                   {paginatedTrucks.length === 0 ? <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                       No trucks found
                     </TableCell>
                   </TableRow> : (
@@ -1163,6 +1176,7 @@ const Trucks = () => {
                         </TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.dot_inspection_date || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.plate_expiration_date || "—"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{truck.is_insured ? "Insured" : "Not insured"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.insurance_expiration_date || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">
                           <div className="flex gap-2">
@@ -1487,6 +1501,11 @@ const Trucks = () => {
                     insurance_expiration_date: e.target.value
                   })} />
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Checkbox id="edit_is_insured" checked={formData.is_insured} onCheckedChange={checked => setFormData({ ...formData, is_insured: checked === true })} />
+                  <Label htmlFor="edit_is_insured" className="cursor-pointer">Truck is insured</Label>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
