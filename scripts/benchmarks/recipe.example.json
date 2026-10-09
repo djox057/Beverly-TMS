@@ -7,7 +7,7 @@
   "datasetLabel": "reference-week-2026-10-05",
   "timezone": "America/Chicago",
   "roleMarkers": {
-    "dispatcher": "text=/^dispatcher$/",
+    "dispatcher": "text=/^dispatch$/",
     "supervisor": "text=/^supervisor$/",
     "manager": "text=/^manager$/",
     "admin": "text=/^admin$/"

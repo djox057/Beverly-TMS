@@ -23,7 +23,7 @@ were inspected and left unchanged. No database changes or deployment are needed.
 | Live Analytics structure | One rendered table, 153 body rows and 12 header cells at the observed default admin view |
 | Live Reports structure | 28 rendered tables, 143 body rows combined, 15 header cells per table at the observed default admin view |
 | Cold/warm network bytes, usable time, heap | Not captured: current browser interface does not expose Performance/CDP measurements |
-| Dispatcher, supervisor/team, manager parity | Not captured: separate role sessions unavailable |
+| Dispatcher, supervisor/team, manager parity | Dispatcher spot checks now recorded below; populated financial parity and supervisor/team/manager sessions remain outstanding |
 
 The two live observations are transient UI structure checks, not reconciled
 business row counts or a fixed-filter performance baseline. They include no names,
@@ -32,6 +32,40 @@ No speedup, financial parity or complete live acceptance is claimed. The default
 Playwright browser download failed; browser validation used a pinned temporary
 `@sparticuz/chromium@153.0.0` installation from npm with the executable override.
 No repository dependencies or lockfiles were changed.
+
+## Follow-up dispatcher checks — 9 October 2026
+
+Secure sign-in verified a separate account with primary role `dispatch`.
+The workload label remains `dispatcher`; its visible-role selector in the example
+recipe is corrected to `text=/^dispatch$/`, matching the live sidebar and source.
+No user roles, assignments or records were changed to obtain the test view.
+
+| View and scope | Observation |
+|---|---|
+| Analytics, dispatcher-owned, all-time default | No performance table rows; five summary metrics displayed zero |
+| Analytics, fixed 21–27 September 2026 week | Same empty rows and five zero summaries |
+| Analytics, navigation away/return, same week | Same rows/zero summaries |
+| Analytics, reload, same week reapplied | Signed-in role retained; same rows/zero summaries; the week filter resets on reload and was explicitly reapplied |
+| Reports, Individual Mode | No rendered tables or body rows in the observed office tab |
+| Trips, Individual Mode default | Three visible business loads at the initial observation; this is not a closed-week or financial parity result |
+| Trucks / Drivers / Trailers | Each rendered one table with 100 multi-cell body rows on its default first page; these are visible-page counts, not full totals or proof of account-scoped permissions |
+| Fleets / Heatmap | Headings loaded; neither used a main-content table in the observed snapshot, so no business count inferred |
+| EFS Requests | One rendered table with 10 multi-cell body rows in its default view |
+| Oil Change / Mandatory Yard Repair / Pre-trip | Each rendered a table with one single-cell placeholder row; no populated truck/task/form data was validated |
+| Load editor | Not validated: an observed Trips edit target no longer matched when the click was attempted; no save or input edits were performed |
+
+These are read-only UI spot checks, not request/byte/time/heap measurements. The
+authenticated browser interface still lacks those profiler capabilities. General
+page navigation was inspected; multi-form photos, service details, populated debt/
+salary/financial totals and realtime reconnect were not validated. Zero Analytics
+summaries alongside visible Trips are a recorded difference between workflows,
+not proof that the app is wrong or that the account has no assignments.
+
+Individual Mode was restored to its original off state after the checks. No raw
+record names, amounts, IDs, email addresses, passwords or session state are saved
+in this record. Supervisor/team and manager sessions are still required, together
+with a reproducible populated dataset and passive profiling or the standalone
+runner in an authorized browser environment. TMS-02 remains Blocked acceptance.
 
 ## Repeatable recipe
 
