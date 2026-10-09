@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Download, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,8 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "@/hooks/use-toast";
 import { pretripWeekStart, pretripWeekEnd } from "@/lib/pretripDates";
 import { cn } from "@/lib/utils";
+import { groupPretripPhotosByForm } from "@/lib/pretripPhotoGroups";
 
-type Photo = { id: string; truck_id: string; file_path: string; file_name: string | null; photo_category?: string | null };
+type Photo = { id: string; truck_id: string; file_path: string; file_name: string | null; photo_category?: string | null; form_submission_id?: string | null };
 
 export const usePretripPhotos = (date: string) =>
   useQuery({
@@ -19,7 +20,7 @@ export const usePretripPhotos = (date: string) =>
       for (let offset = 0; ; offset += 1000) {
         const { data: page, error } = await (supabase as any)
           .from("pretrip_photos")
-          .select("id, truck_id, file_path, file_name, photo_category")
+          .select("id, truck_id, file_path, file_name, photo_category, form_submission_id")
           .gte("inspection_date", pretripWeekStart(date))
           .lte("inspection_date", pretripWeekEnd(date))
           .order("created_at").order("id")
@@ -34,7 +35,7 @@ export const usePretripPhotos = (date: string) =>
     },
   });
 
-export const PretripPhotosCell = ({ truckId, photos, userId, date }: { truckId: string; photos: Photo[]; userId?: string; date: string }) => {
+export const PretripPhotosCell = ({ truckId, photos, userId, date, submissions = [] }: { truckId: string; photos: Photo[]; userId?: string; date: string; submissions?: { id: string; driver_name: string; submitted_at: string }[] }) => {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -43,8 +44,12 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date }: { truckId: 
   const [previewReady, setPreviewReady] = useState(false);
   const [failedUrl, setFailedUrl] = useState<string>();
   const [uploading, setUploading] = useState(false);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const photoGroups = useMemo(() => groupPretripPhotosByForm(photos, submissions), [photos, submissions]);
+  const activeGroup = photoGroups.find((group) => group.id === activeGroupId) ?? photoGroups[0];
+  const galleryPhotos = activeGroup?.photos ?? [];
 
-  const paths = photos.map((photo) => photo.file_path);
+  const paths = galleryPhotos.map((photo) => photo.file_path);
   const { data: urls = {}, isError: urlsError, refetch: retryUrls } = useQuery({
     queryKey: ["pretrip-photo-urls", paths],
     enabled: (open || warmUrls) && paths.length > 0,
@@ -83,20 +88,20 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date }: { truckId: 
     }
   };
 
-  const current = photos[Math.min(idx, photos.length - 1)];
+  const current = galleryPhotos[Math.min(idx, galleryPhotos.length - 1)];
   const currentUrl = current ? urls[current.file_path] : undefined;
 
   // Fetch the adjacent originals after the selected photo has loaded.
   useEffect(() => {
     if (!open || !previewReady) return;
-    for (const neighbor of [photos[idx - 1], photos[idx + 1]]) {
+    for (const neighbor of [galleryPhotos[idx - 1], galleryPhotos[idx + 1]]) {
       const url = neighbor && urls[neighbor.file_path];
       if (url) {
         const image = new window.Image();
         image.src = url;
       }
     }
-  }, [open, previewReady, idx, photos, urls]);
+  }, [open, previewReady, idx, galleryPhotos, urls]);
 
   const remove = async () => {
     if (!current || !confirm("Delete this picture?")) return;
@@ -105,17 +110,23 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date }: { truckId: 
     await supabase.storage.from("pretrip-photos").remove([current.file_path]);
     qc.invalidateQueries({ queryKey: ["pretrip-photos"] });
       qc.invalidateQueries({ queryKey: ["pretrip-missing-count"] });
-    if (photos.length <= 1) setOpen(false);
+    if (galleryPhotos.length <= 1) setOpen(false);
     setIdx((i) => Math.max(0, i - 1));
   };
 
   return (
     <div className="flex items-center gap-1">
-      <Button variant="outline" size="sm" className="h-7 px-2" disabled={!photos.length}
-        onPointerEnter={() => setWarmUrls(true)} onFocus={() => setWarmUrls(true)}
-        onClick={() => { setIdx(0); setPreviewReady(false); setFailedUrl(undefined); setOpen(true); }}>
-        <ImageIcon className="h-4 w-4 mr-1" /> Pictures ({photos.length})
-      </Button>
+      <div className="flex min-w-0 flex-col items-start gap-1">
+        {photoGroups.map((group) => (
+          <Button key={group.id} variant="outline" size="sm" className="h-7 max-w-full px-2 text-[10px]" disabled={!group.photos.length}
+            title={group.title}
+            onPointerEnter={() => { setActiveGroupId(group.id); setWarmUrls(true); }}
+            onFocus={() => { setActiveGroupId(group.id); setWarmUrls(true); }}
+            onClick={() => { setActiveGroupId(group.id); setIdx(0); setPreviewReady(false); setFailedUrl(undefined); setOpen(true); }}>
+            <ImageIcon className="mr-1 h-3.5 w-3.5 shrink-0" /> {group.label} ({group.photos.length})
+          </Button>
+        ))}
+      </div>
       <Button variant="ghost" size="icon" className="h-7 w-7" disabled={uploading}
         onClick={() => fileRef.current?.click()} title="Add pictures">
         <Plus className="h-4 w-4" />
@@ -126,7 +137,7 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date }: { truckId: 
       <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) setWarmUrls(false); }}>
         <DialogContent className="w-[calc(100vw-1rem)] max-w-6xl max-h-[calc(100dvh-1rem)] overflow-hidden gap-3 p-3 sm:p-5">
           <DialogHeader className="min-w-0 pr-8 text-left">
-            <DialogTitle>Photos ({photos.length ? Math.min(idx + 1, photos.length) : 0} / {photos.length})</DialogTitle>
+            <DialogTitle>{activeGroup?.label === "Pictures" ? "Photos" : `Photos · ${activeGroup?.label}`} ({galleryPhotos.length ? Math.min(idx + 1, galleryPhotos.length) : 0} / {galleryPhotos.length})</DialogTitle>
             <p className="truncate text-sm text-muted-foreground" title={current?.photo_category ?? current?.file_name ?? ""}>
               {current?.photo_category || current?.file_name || "Inspection photo"}
             </p>
@@ -146,11 +157,11 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date }: { truckId: 
             <Button aria-label="Previous photo" variant="secondary" size="icon" className="absolute left-2 top-1/2 -translate-y-1/2 shadow-md"
               disabled={idx === 0} onClick={() => setIdx(idx - 1)}><ChevronLeft className="h-5 w-5" /></Button>
             <Button aria-label="Next photo" variant="secondary" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 shadow-md"
-              disabled={idx >= photos.length - 1} onClick={() => setIdx(idx + 1)}><ChevronRight className="h-5 w-5" /></Button>
+              disabled={idx >= galleryPhotos.length - 1} onClick={() => setIdx(idx + 1)}><ChevronRight className="h-5 w-5" /></Button>
           </div>
           <div className="min-w-0 overflow-x-auto overscroll-x-contain pb-1">
             <div className="flex w-max gap-2">
-              {photos.map((p, i) => (
+              {galleryPhotos.map((p, i) => (
                 <button key={p.id} onClick={() => setIdx(i)} aria-label={`View photo ${i + 1}`} aria-pressed={i === idx}
                   className={cn("h-14 w-14 shrink-0 rounded-md border-2 overflow-hidden bg-muted", i === idx ? "border-primary" : "border-transparent")}>
                   {previewReady && urls[p.file_path] ? <img src={urls[p.file_path]} alt="" loading="lazy" {...{ fetchpriority: "low" }} decoding="async" className="h-full w-full object-cover" />
