@@ -460,7 +460,9 @@ export const getOilChangeThresholds = (source: string | null | undefined): { yel
   const s = (source ?? "").trim().toUpperCase();
   if (s === "M&K" || s === "MK" || s === "M & K") return { yellow: 32000, red: 35000 };
   if (s === "RYDER") return { yellow: 42000, red: 45000 };
-  // BF TRUCK and default
+  // TEL follows the 30,000-mile service interval and turns red at 28,000 miles.
+  if (s === "TEL") return { yellow: 26000, red: 27999 };
+  // BF TRUCK and default (including other standard sources)
   return { yellow: 26000, red: 28000 };
 };
 
