@@ -35,7 +35,10 @@ export const usePretripPhotos = (date: string) =>
     },
   });
 
-export const PretripPhotosCell = ({ truckId, photos, userId, date, submissions = [] }: { truckId: string; photos: Photo[]; userId?: string; date: string; submissions?: { id: string; driver_name: string; submitted_at: string }[] }) => {
+type FormPictureSubmission = { id: string; driver_name: string; submitted_at: string };
+const EMPTY_FORM_PICTURE_SUBMISSIONS: FormPictureSubmission[] = [];
+
+export const PretripPhotosCell = ({ truckId, photos, userId, date, submissions }: { truckId: string; photos: Photo[]; userId?: string; date: string; submissions?: FormPictureSubmission[] }) => {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -45,7 +48,8 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date, submissions =
   const [failedUrl, setFailedUrl] = useState<string>();
   const [uploading, setUploading] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const photoGroups = useMemo(() => groupPretripPhotosByForm(photos, submissions), [photos, submissions]);
+  const formSubmissions = submissions ?? EMPTY_FORM_PICTURE_SUBMISSIONS;
+  const photoGroups = useMemo(() => groupPretripPhotosByForm(photos, formSubmissions), [photos, formSubmissions]);
   const activeGroup = photoGroups.find((group) => group.id === activeGroupId) ?? photoGroups[0];
   const galleryPhotos = activeGroup?.photos ?? [];
 
