@@ -12,7 +12,7 @@ const ACTIVE_PRETRIP_SHEET_ID="1XhvVxfi2g_cYQUJfZiAgBORbl8ciqwKFkTebBlVunBQ";
 type FormFile={category:string;drive_id:string;status:string;file_path?:string;file_name?:string;error?:string};
 export type PretripSubmission={id:string;truck_id:string|null;truck_number:string;trailer_number:string;driver_name:string;email:string;inspection_date:string|null;submitted_at:string;source_timezone:string;answers:Record<string,string>;complaints:string;files:FormFile[];status:string;import_error:string|null};
 function formChoiceLabel(submission: PretripSubmission, index: number) {
- const parts=submission.submitted_at.match(/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})/);
+ const parts=submission.submitted_at.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
  if(!parts) return `Form ${index+1} · ${submission.driver_name || "Unknown driver"} · ${submission.submitted_at || "time unavailable"}`;
  const [,year,month,day,hourText,minute]=parts;
  const date=new Intl.DateTimeFormat("en-US",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"}).format(new Date(Date.UTC(Number(year),Number(month)-1,Number(day))));
