@@ -6601,10 +6601,11 @@ export type Database = {
           has_fridge: boolean
           has_inverter: boolean
           id: string
+          insurance_company_id: string | null
           insurance_expiration_date: string | null
-          is_insured: boolean
           ipass: string | null
           is_active: boolean
+          is_insured: boolean
           last_oc_invoice: string | null
           last_oil_change_miles: number | null
           left_by_driver_id: string | null
@@ -6665,10 +6666,11 @@ export type Database = {
           has_fridge?: boolean
           has_inverter?: boolean
           id?: string
+          insurance_company_id?: string | null
           insurance_expiration_date?: string | null
-          is_insured?: boolean
           ipass?: string | null
           is_active?: boolean
+          is_insured?: boolean
           last_oc_invoice?: string | null
           last_oil_change_miles?: number | null
           left_by_driver_id?: string | null
@@ -6729,10 +6731,11 @@ export type Database = {
           has_fridge?: boolean
           has_inverter?: boolean
           id?: string
+          insurance_company_id?: string | null
           insurance_expiration_date?: string | null
-          is_insured?: boolean
           ipass?: string | null
           is_active?: boolean
+          is_insured?: boolean
           last_oc_invoice?: string | null
           last_oil_change_miles?: number | null
           left_by_driver_id?: string | null
@@ -6800,6 +6803,13 @@ export type Database = {
             columns: ["driver2_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trucks_insurance_company_id_fkey"
+            columns: ["insurance_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {

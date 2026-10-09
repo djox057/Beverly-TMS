@@ -48,6 +48,7 @@ interface TruckFormData {
   plate_expiration_date: string;
   insurance_expiration_date: string;
   is_insured: boolean;
+  insurance_company_id: string;
   oil_change_date: string;
   tires_swap_date: string;
   maintenance_check_date: string;
@@ -108,6 +109,7 @@ const Trucks = () => {
     plate_expiration_date: "",
     insurance_expiration_date: "",
     is_insured: false,
+      insurance_company_id: "",
     oil_change_date: "",
     tires_swap_date: "",
     maintenance_check_date: "",
@@ -210,6 +212,7 @@ const Trucks = () => {
       plate_expiration_date: "",
       insurance_expiration_date: "",
       is_insured: false,
+      insurance_company_id: "",
       oil_change_date: "",
       tires_swap_date: "",
       maintenance_check_date: "",
@@ -222,6 +225,9 @@ const Trucks = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      if (formData.is_insured && !formData.insurance_company_id) {
+        throw new Error("Select the company providing this truck's insurance.");
+      }
       if (formData.start_miles !== "" && (!Number.isInteger(Number(formData.start_miles)) || Number(formData.start_miles) < 0 || Number(formData.start_miles) > 2147483647)) {
         throw new Error("Start miles must be a whole number between 0 and 2,147,483,647.");
       }
@@ -264,6 +270,7 @@ const Trucks = () => {
         plate_expiration_date: formData.plate_expiration_date || null,
         insurance_expiration_date: formData.insurance_expiration_date || null,
         is_insured: formData.is_insured,
+        insurance_company_id: formData.is_insured ? formData.insurance_company_id : null,
         oil_change_date: formData.oil_change_date || null,
         tires_swap_date: formData.tires_swap_date || null,
         maintenance_check_date: formData.maintenance_check_date || null
@@ -297,6 +304,7 @@ const Trucks = () => {
       setIsAddDialogOpen(false);
       // Invalidate all related queries to sync with other pages
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['truck-insurance'] });
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
     } catch (error: any) {
@@ -428,6 +436,9 @@ const Trucks = () => {
     if (!editingTruck) return;
     setIsSubmitting(true);
     try {
+      if (formData.is_insured && !formData.insurance_company_id) {
+        throw new Error("Select the company providing this truck's insurance.");
+      }
       if (formData.start_miles !== "" && (!Number.isInteger(Number(formData.start_miles)) || Number(formData.start_miles) < 0 || Number(formData.start_miles) > 2147483647)) {
         throw new Error("Start miles must be a whole number between 0 and 2,147,483,647.");
       }
@@ -472,6 +483,7 @@ const Trucks = () => {
         plate_expiration_date: formData.plate_expiration_date || null,
         insurance_expiration_date: formData.insurance_expiration_date || null,
         is_insured: formData.is_insured,
+        insurance_company_id: formData.is_insured ? formData.insurance_company_id : null,
         oil_change_date: formData.oil_change_date || null,
         tires_swap_date: formData.tires_swap_date || null,
         maintenance_check_date: formData.maintenance_check_date || null,
@@ -542,6 +554,7 @@ const Trucks = () => {
       originalAssignmentRef.current = null;
       // Invalidate all related queries to sync with other pages
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['truck-insurance'] });
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
     } catch (error: any) {
@@ -615,6 +628,7 @@ const Trucks = () => {
       toast.success("Truck deleted and archived successfully");
       // Invalidate all related queries to sync with other pages
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['truck-insurance'] });
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -641,6 +655,7 @@ const Trucks = () => {
       plate_expiration_date: truck.plate_expiration_date || "",
       insurance_expiration_date: truck.insurance_expiration_date || "",
        is_insured: truck.is_insured ?? false,
+       insurance_company_id: truck.insurance_company_id ?? "",
       oil_change_date: truck.oil_change_date || "",
       tires_swap_date: truck.tires_swap_date || "",
       maintenance_check_date: truck.maintenance_check_date || "",
@@ -719,6 +734,7 @@ const Trucks = () => {
       setEditingTruck(null);
       
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['truck-insurance'] });
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
     } catch (error: any) {
@@ -784,6 +800,7 @@ const Trucks = () => {
       "DOT Inspection": truck.dot_inspection_date || "",
       "Plate Exp.": truck.plate_expiration_date || "",
       "Insurance": truck.is_insured ? "Insured" : "Not insured",
+      "Insurance Company": companies?.find(company => company.id === truck.insurance_company_id)?.name || "",
       "Insurance Exp.": truck.insurance_expiration_date || ""
     }));
     
@@ -1001,9 +1018,22 @@ const Trucks = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <Checkbox id="is_insured" checked={formData.is_insured} onCheckedChange={checked => setFormData({ ...formData, is_insured: checked === true })} />
+                <Checkbox id="is_insured" checked={formData.is_insured} onCheckedChange={checked => setFormData({ ...formData, is_insured: checked === true, insurance_company_id: checked === true ? formData.insurance_company_id : "" })} />
                 <Label htmlFor="is_insured" className="cursor-pointer">Truck is insured</Label>
               </div>
+              {formData.is_insured && (
+                <div className="space-y-2">
+                  <Label htmlFor="is_insured_company">Insurance company*</Label>
+                  <Combobox
+                    options={companyOptions}
+                    value={formData.insurance_company_id}
+                    onValueChange={value => setFormData({ ...formData, insurance_company_id: value })}
+                    placeholder="Select insurance company"
+                    searchPlaceholder="Search companies..."
+                    emptyText="No company found."
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
@@ -1176,7 +1206,7 @@ const Trucks = () => {
                         </TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.dot_inspection_date || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.plate_expiration_date || "—"}</TableCell>
-                        <TableCell className="text-center whitespace-nowrap">{truck.is_insured ? "Insured" : "Not insured"}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">{truck.is_insured ? <span title={companies?.find(company => company.id === truck.insurance_company_id)?.name || ""}>Insured<span className="block truncate text-xs text-muted-foreground">{companies?.find(company => company.id === truck.insurance_company_id)?.name}</span></span> : "Not insured"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">{truck.insurance_expiration_date || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">
                           <div className="flex gap-2">
@@ -1504,9 +1534,22 @@ const Trucks = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Checkbox id="edit_is_insured" checked={formData.is_insured} onCheckedChange={checked => setFormData({ ...formData, is_insured: checked === true })} />
+                  <Checkbox id="edit_is_insured" checked={formData.is_insured} onCheckedChange={checked => setFormData({ ...formData, is_insured: checked === true, insurance_company_id: checked === true ? formData.insurance_company_id : "" })} />
                   <Label htmlFor="edit_is_insured" className="cursor-pointer">Truck is insured</Label>
                 </div>
+                {formData.is_insured && (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_is_insured_company">Insurance company*</Label>
+                    <Combobox
+                      options={companyOptions}
+                      value={formData.insurance_company_id}
+                      onValueChange={value => setFormData({ ...formData, insurance_company_id: value })}
+                      placeholder="Select insurance company"
+                      searchPlaceholder="Search companies..."
+                      emptyText="No company found."
+                    />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">

@@ -147,7 +147,7 @@ import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
-import { useCoiInsuredVins } from "@/hooks/useCoiInsuredVins";
+import { useTruckInsurance } from "@/hooks/useTruckInsurance";
 import { useTruckOosRealtime } from "@/hooks/useTruckOosRealtime";
 import { useTruckOosOverrides } from "@/hooks/useTruckOosOverrides";
 
@@ -498,19 +498,20 @@ const Reports = () => {
   const resolveTruckOos = useTruckOosOverrides();
 
   const { individualMode, setIndividualMode, individualOverrideDriverIds } = useIndividualMode();
-  const { isInsured: isTruckInsured, insuredCompanyForVin } = useCoiInsuredVins();
+  const { insuranceByTruckId } = useTruckInsurance();
   const navigate = useNavigate();
 
   const insuranceStatusForTruck = useCallback(
     (truck: any) => {
-      const vin = (truck as any).truckVin;
-      const insuredCompany = vin ? insuredCompanyForVin(vin) : null;
+      const saved = insuranceByTruckId?.get(truck.id);
+      if (!saved) return { insured: null, mismatch: false, company: null };
+      const insuredCompany = saved.company;
       const truckCompany = truck.companyName || "";
-      if (!insuredCompany) return { insured: false, mismatch: false, company: null };
+      if (!saved.insured || !insuredCompany) return { insured: false, mismatch: false, company: null };
       const same = truckCompany.trim().toLowerCase() === insuredCompany.trim().toLowerCase();
       return { insured: true, mismatch: !same, company: insuredCompany };
     },
-    [insuredCompanyForVin],
+    [insuranceByTruckId],
   );
 
   // Load Suggestions toggle (Reports header). Visible only when the user has
@@ -6265,9 +6266,10 @@ const Reports = () => {
                                                               )}
                                                               {(() => {
                                                                 const status = insuranceStatusForTruck(truck);
+                                                                if (status.insured === null) return <span title="Insurance status unavailable"><ShieldOff className="h-5 w-5 text-muted-foreground" /></span>;
                                                                 if (!status.insured)
                                                                   return (
-                                                                    <span title="Not Insured (VIN not on any COI)">
+                                                                    <span title="Not insured">
                                                                       <ShieldOff className="h-5 w-5 text-destructive" />
                                                                     </span>
                                                                   );
@@ -6646,9 +6648,10 @@ const Reports = () => {
                                                               )}
                                                               {(() => {
                                                                 const status = insuranceStatusForTruck(truck);
+                                                                if (status.insured === null) return <span title="Insurance status unavailable"><ShieldOff className="h-5 w-5 text-muted-foreground" /></span>;
                                                                 if (!status.insured)
                                                                   return (
-                                                                    <span title="Not Insured (VIN not on any COI)">
+                                                                    <span title="Not insured">
                                                                       <ShieldOff className="h-5 w-5 text-destructive" />
                                                                     </span>
                                                                   );
