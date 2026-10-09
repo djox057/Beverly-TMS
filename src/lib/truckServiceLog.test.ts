@@ -7,10 +7,13 @@ const entry = (overrides: Partial<ServiceEntry>): ServiceEntry => ({ id: "1", so
 describe("truck service log rules", () => {
   it("keeps existing warning thresholds separate from service intervals", () => {
     expect(getServiceInterval("BF TRUCK")).toEqual({ miles: 30000, days: 90 });
+    expect(getServiceInterval(" TEL ")).toEqual({ miles: 30000, days: 90 });
     expect(getServiceInterval(" M & K ")).toEqual({ miles: 40000, days: 120 });
     expect(getServiceInterval("ryder")).toEqual({ miles: 50000, days: 120 });
     expect(mileageTone(28000, "BF TRUCK")).toBe("yellow");
     expect(mileageTone(28001, "BF TRUCK")).toBe("red");
+    expect(mileageTone(27999, "TEL")).toBe("yellow");
+    expect(mileageTone(28000, "TEL")).toBe("red");
     expect(mileageTone(null, "BF TRUCK")).toBe("unknown");
     expect(mileageTone(-1, "BF TRUCK")).toBe("unknown");
   });
