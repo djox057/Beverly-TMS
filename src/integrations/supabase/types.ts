@@ -6602,6 +6602,7 @@ export type Database = {
           has_inverter: boolean
           id: string
           insurance_expiration_date: string | null
+          is_insured: boolean
           ipass: string | null
           is_active: boolean
           last_oc_invoice: string | null
@@ -6665,6 +6666,7 @@ export type Database = {
           has_inverter?: boolean
           id?: string
           insurance_expiration_date?: string | null
+          is_insured?: boolean
           ipass?: string | null
           is_active?: boolean
           last_oc_invoice?: string | null
@@ -6728,6 +6730,7 @@ export type Database = {
           has_inverter?: boolean
           id?: string
           insurance_expiration_date?: string | null
+          is_insured?: boolean
           ipass?: string | null
           is_active?: boolean
           last_oc_invoice?: string | null
