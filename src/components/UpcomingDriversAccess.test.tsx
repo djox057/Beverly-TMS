@@ -14,6 +14,7 @@ const auth = vi.hoisted(() => ({
   primaryRole: null as string | null,
   signedIn: true,
   loading: false,
+  isMobile: false,
 }));
 
 vi.mock("@/contexts/AuthContext", () => ({
@@ -56,7 +57,7 @@ vi.mock("@/components/ui/sidebar", () => {
     SidebarMenuButton: Container,
     SidebarMenuItem: Container,
     SidebarTrigger: () => null,
-    useSidebar: () => ({ state: "expanded", isMobile: false, setOpenMobile: vi.fn() }),
+    useSidebar: () => ({ state: "expanded", isMobile: auth.isMobile, setOpen: vi.fn(), setOpenMobile: vi.fn() }),
   };
 });
 
@@ -70,23 +71,30 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("Upcoming Drivers navigation", () => {
-  it.each(allowed)("places the link immediately after Drivers for %s", (role) => {
-    auth.primaryRole = role;
-    render(<MemoryRouter><Sidebar /></MemoryRouter>);
-    const links = screen.getAllByRole("link");
-    const drivers = screen.getByRole("link", { name: "Drivers" });
-    const upcoming = screen.getByRole("link", { name: "Upcoming Drivers" });
-    expect(upcoming).toHaveAttribute("href", "/upcoming-drivers");
-    expect(links[links.indexOf(drivers) + 1]).toBe(upcoming);
-  });
+// Navigation is hidden independently of the unchanged direct-route permissions.
+const hiddenPaths = [
+  "/trucks-map", "/upcoming-drivers", "/driver-expenses", "/stuff",
+  "/transfer-list", "/roadside-inspection", "/truck-sales", "/repairs", "/fuel-reports",
+];
 
-  it.each(denied)("hides the link for %s, regardless of inherited permissions", (role) => {
-    auth.primaryRole = role;
-    render(<MemoryRouter><Sidebar /></MemoryRouter>);
-    expect(screen.queryByRole("link", { name: "Upcoming Drivers" })).not.toBeInTheDocument();
+for (const isMobile of [false, true]) {
+  describe(`Hidden navigation (${isMobile ? "mobile" : "desktop"})`, () => {
+    it.each([...allowed, ...denied])("hides all nine page families for %s", (role) => {
+      auth.primaryRole = role;
+      auth.isMobile = isMobile;
+      render(<MemoryRouter><Sidebar /></MemoryRouter>);
+      const links = screen.getAllByRole("link");
+      for (const path of hiddenPaths) {
+        expect(links.some(link => {
+          const href = link.getAttribute("href");
+          return href === path || href?.startsWith(`${path}/`);
+        }), path).toBe(false);
+      }
+      // Guard against an empty sidebar making every absence assertion pass.
+      expect(screen.getByRole("link", { name: "Info" })).toHaveAttribute("href", "/info");
+    });
   });
-});
+}
 
 const renderRoute = () => render(
   <MemoryRouter initialEntries={["/upcoming-drivers"]}>
