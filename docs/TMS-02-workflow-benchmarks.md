@@ -23,7 +23,7 @@ were inspected and left unchanged. No database changes or deployment are needed.
 | Live Analytics structure | One rendered table, 153 body rows and 12 header cells at the observed default admin view |
 | Live Reports structure | 28 rendered tables, 143 body rows combined, 15 header cells per table at the observed default admin view |
 | Cold/warm network bytes, usable time, heap | Not captured: current browser interface does not expose Performance/CDP measurements |
-| Dispatcher, supervisor/team, manager parity | Dispatcher and manager UI checks recorded below; profiler runs, supervisor/team scope and full workflow parity remain outstanding |
+| Dispatcher, supervisor/team, manager parity | Dispatcher and manager UI checks recorded below; separate supervisor/team testing waived by the user; profiler runs and full workflow parity remain outstanding |
 
 The two live observations are transient UI structure checks, not reconciled
 business row counts or a fixed-filter performance baseline. They include no names,
@@ -95,8 +95,18 @@ realtime recovery or full in-app account-switch test is claimed.
 
 The populated manager reference removes the earlier lack of any populated
 financial-summary comparison, but full acceptance still needs profiler runs,
-supervisor/team scope, fixed data across all required workflows, photos/service
+fixed data across all required workflows, photos/service
 details and the remaining recovery/session checks. TMS-02 stays Blocked acceptance.
+
+## Accepted scope change — 9 October 2026
+
+The user explicitly waived a separate supervisor/team run, accepting the manager
+checks as sufficient for that part of Step 2 because they consider the supervisor
+a restricted manager. Record this requirement as **waived by user**, not tested
+or passed. No supervisor session was exercised, and manager observations do not
+verify supervisor-specific team filtering or access restrictions. This waiver
+removes the supervisor session as a Step 2 blocker; it does not waive performance
+measurements, remaining workflow/data parity or recovery/session checks.
 
 ## Repeatable recipe
 
@@ -156,7 +166,7 @@ Use Playwright's installed Chromium normally. If an authorized existing Chromium
 binary is supplied, `TMS_BENCHMARK_CHROMIUM=/absolute/path/to/chromium` selects it
 for both browser fixtures and the runner; record its version with the results.
 
-Repeat for supervisor/team and manager, twice with exactly the same dataset,
+Repeat for dispatcher and manager, twice with exactly the same dataset,
 filters, viewport and browser version. An optional fifth argument supplies a
 second authorized storage state for an isolated-context session-change sample.
 This does **not** test account switching in the same running app; manually verify
@@ -206,7 +216,7 @@ measurements are ignored by git. Review even redacted output before sharing.
 ## Completion and rollback
 
 Remaining acceptance: finish the private selectors/filters; capture all required
-roles and visible workflows;
+non-waived roles and visible workflows;
 repeat with row/total parity; verify reload, realtime reconnect and in-app session
 change; save redacted reference results tied to the measured application revision.
 Only then mark TMS-02 Completed. Until then the tracker remains 1/44 completed.
