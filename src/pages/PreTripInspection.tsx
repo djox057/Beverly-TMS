@@ -587,7 +587,7 @@ const PreTripInspection = () => {
                         <div className="truncate" title={t.company_name ?? ""}>{t.company_name ?? ""}</div>
                       </TableCell>
                       <TableCell className="h-[64px] px-2 py-1">
-                        <PretripPhotosCell truckId={t.id} photos={(photosByTruck as any)[t.id] ?? []} userId={profile?.user_id} date={photoDate === pretripDueDate() ? chicagoToday() : photoDate} />
+                        <PretripPhotosCell truckId={t.id} photos={(photosByTruck as any)[t.id] ?? []} submissions={formsByTruck[t.id] ?? []} userId={profile?.user_id} date={photoDate === pretripDueDate() ? chicagoToday() : photoDate} />
                       </TableCell>
                       <TableCell className="h-[64px] p-1">
                         <PretripProblemsCell
