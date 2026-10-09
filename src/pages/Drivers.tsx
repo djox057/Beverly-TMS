@@ -147,7 +147,8 @@ const Drivers = () => {
   const [recoveryFilter, setRecoveryFilter] = useState<"all" | "recovery" | "regular">("all");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [homeStateFilter, setHomeStateFilter] = useState<string>("all");
-  const [inactiveSortField, setInactiveSortField] = useState<"hire_date" | "termination_date" | null>(null);
+  // Inactive view defaults to newest termination first; headers let you re-sort.
+  const [inactiveSortField, setInactiveSortField] = useState<"hire_date" | "termination_date">("termination_date");
   const [inactiveSortDir, setInactiveSortDir] = useState<"asc" | "desc">("desc");
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [historyDriverId, setHistoryDriverId] = useState<string | null>(null);
