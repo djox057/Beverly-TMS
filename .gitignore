@@ -23,3 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# TMS-02: private sessions/recipes and redacted measurements are local-only.
+.benchmark-private/
+benchmark-results/
+test-results/
+playwright-report/

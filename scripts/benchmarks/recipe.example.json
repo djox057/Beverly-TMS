@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "reviewed": false,
+  "applicationRevision": "REPLACE_WITH_VERIFIED_DEPLOYMENT_REVISION",
+  "baseURL": "https://beverlytms.com",
+  "dataOrigin": "https://wjkbtagwgjniilmgwutb.supabase.co",
+  "datasetLabel": "reference-week-2026-10-05",
+  "timezone": "America/Chicago",
+  "roleMarkers": {
+    "dispatcher": "text=/^dispatcher$/",
+    "supervisor": "text=/^supervisor$/",
+    "manager": "text=/^manager$/",
+    "admin": "text=/^admin$/"
+  },
+  "scenarios": [
+    {
+      "id": "analytics",
+      "path": "/analytics",
+      "roles": ["dispatcher", "supervisor", "manager", "admin"],
+      "ready": "REPLACE_WITH_LOADED_ANALYTICS_SELECTOR",
+      "busy": ["text=Loading Analytics Data"],
+      "rows": "REPLACE_WITH_DISPATCHER_ROWS_SELECTOR",
+      "checkpoints": ["REPLACE_WITH_GROSS_TOTAL_SELECTOR", "REPLACE_WITH_RPM_TOTAL_SELECTOR"],
+      "filters": [],
+      "stableMs": 1000,
+      "stableTimeoutMs": 30000
+    }
+  ]
+}
