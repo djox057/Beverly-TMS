@@ -10,6 +10,9 @@ describe("pretrip form details",()=>{
  });
  it("keeps separate submissions for the same truck/day selectable",()=>{
   render(<PretripFormCell submissions={[response,{...response,id:"two",driver_name:"Second driver",submitted_at:"2026-10-05T12:00:00"}]}/>);fireEvent.click(screen.getByRole("button",{name:"Form (2)"}));
-  fireEvent.change(screen.getByRole("combobox",{name:"Select form submission"}),{target:{value:"two"}});expect(screen.getByText("Second driver")).toBeInTheDocument();
+  fireEvent.pointerDown(screen.getByRole("combobox",{name:"Select form submission"}),{button:0,ctrlKey:false,pointerType:"mouse"});
+  expect(screen.getByRole("option",{name:/Form 2 · Oct 5, 2026 · 12:00 PM · Second driver/})).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("option",{name:/Form 2 · Oct 5, 2026 · 12:00 PM · Second driver/}));
+  expect(screen.getByText("Second driver")).toBeInTheDocument();
  });
 });

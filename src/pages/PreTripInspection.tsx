@@ -587,7 +587,7 @@ const PreTripInspection = () => {
                         <div className="truncate" title={t.company_name ?? ""}>{t.company_name ?? ""}</div>
                       </TableCell>
                       <TableCell className="h-[64px] px-2 py-1">
-                        <PretripPhotosCell truckId={t.id} photos={(photosByTruck as any)[t.id] ?? []} userId={profile?.user_id} date={photoDate === pretripDueDate() ? chicagoToday() : photoDate} />
+                        <PretripPhotosCell truckId={t.id} photos={(photosByTruck as any)[t.id] ?? []} submissions={formsByTruck[t.id] ?? EMPTY_FORM_SUBMISSIONS} userId={profile?.user_id} date={photoDate === pretripDueDate() ? chicagoToday() : photoDate} />
                       </TableCell>
                       <TableCell className="h-[64px] p-1">
                         <PretripProblemsCell
@@ -598,7 +598,7 @@ const PreTripInspection = () => {
                         {!!problemsByTruck[t.id]?.earlier.length && <p className="mt-1 line-clamp-1 text-xs text-muted-foreground" title={problemsByTruck[t.id].earlier.join("\n")}>{problemsByTruck[t.id].earlier.join("; ")}</p>}
                         {formsByTruck[t.id]?.[0]?.complaints && <p className="mt-1 line-clamp-2 text-xs" title={formsByTruck[t.id][0].complaints}>Driver: {formsByTruck[t.id][0].complaints}</p>}
                       </TableCell>
-                      <TableCell className="h-[64px] px-2 py-1"><PretripFormCell submissions={formsByTruck[t.id] ?? []} /></TableCell>
+                      <TableCell className="h-[64px] px-2 py-1"><PretripFormCell submissions={formsByTruck[t.id] ?? EMPTY_FORM_SUBMISSIONS} /></TableCell>
                       <TableCell className="h-[64px] px-2 py-1 text-center">
                         <div className="flex flex-col items-center gap-0.5">
                           <Checkbox checked={!!checksByTruck[t.id]} disabled={!canCheck || checksLoading || checksError || savingCheck !== null}
