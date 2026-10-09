@@ -24,6 +24,7 @@ export const getServiceInterval = (source: string | null) => {
   const normalized = (source ?? "").trim().toUpperCase();
   if (["M&K", "MK", "M & K"].includes(normalized)) return { miles: 40000, days: 120 };
   if (normalized === "RYDER") return { miles: 50000, days: 120 };
+  if (normalized === "TEL") return { miles: 30000, days: 90 };
   return { miles: 30000, days: 90 };
 };
 export const mileageTone = (miles: number | null, source: string | null) => {
