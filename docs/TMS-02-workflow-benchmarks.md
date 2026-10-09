@@ -23,7 +23,7 @@ were inspected and left unchanged. No database changes or deployment are needed.
 | Live Analytics structure | One rendered table, 153 body rows and 12 header cells at the observed default admin view |
 | Live Reports structure | 28 rendered tables, 143 body rows combined, 15 header cells per table at the observed default admin view |
 | Cold/warm network bytes, usable time, heap | Not captured: current browser interface does not expose Performance/CDP measurements |
-| Dispatcher, supervisor/team, manager parity | Dispatcher spot checks now recorded below; populated financial parity and supervisor/team/manager sessions remain outstanding |
+| Dispatcher, supervisor/team, manager parity | Dispatcher and manager UI checks recorded below; profiler runs, supervisor/team scope and full workflow parity remain outstanding |
 
 The two live observations are transient UI structure checks, not reconciled
 business row counts or a fixed-filter performance baseline. They include no names,
@@ -66,6 +66,37 @@ record names, amounts, IDs, email addresses, passwords or session state are save
 in this record. Supervisor/team and manager sessions are still required, together
 with a reproducible populated dataset and passive profiling or the standalone
 runner in an authorized browser environment. TMS-02 remains Blocked acceptance.
+
+## Manager follow-up — 9 October 2026
+
+A fresh secure sign-in displayed primary role `manager`. The earlier dispatcher
+observation remains a record of that earlier session; no role or account change
+was made by this workflow. The previous browser session was no longer signed in.
+
+| View and scope | Observation |
+|---|---|
+| Analytics, 21–27 September 2026, default office/supervisor scope | 74 multi-cell rows and five nonzero summaries: freight, miles, rate/mile, commission and commission percentage |
+| Analytics, initial warm return with week reapplied | The five summaries matched exactly; full row text initially differed |
+| Analytics, same-page follow-up | Avg Trucks, Avg Wk Gross/Dr and Turnover cells continued updating after the table appeared; a visible table alone did not establish settled readiness |
+| Analytics, settled reference and another warm return | Reference unchanged across a 1.5-second interval; return sampled until two consecutive 1.5-second windows were unchanged. All 74 rows, including every cell, and all five summaries then matched exactly |
+| Analytics, hard reload, week reapplied and settled | Manager role retained; two unchanged sampling windows; all 74 rows and five summaries matched the settled reference |
+| Reports, default Čačak tab, All companies | 27 tables and 143 multi-cell body rows; default-view structure only, not a fixed-week reconciliation |
+| Trips, default manager page | Heading reported 45 loads on the first page; 45 edit controls. The table had 46 multi-cell body rows, so raw table-row count must not be treated as business-load count |
+| Existing load editor | Opened through an actual Trips edit control; Edit Load, pickup/delivery, amount and existing-file controls rendered, with 18 inputs. No fields changed, files opened, sends or saves performed |
+
+Comparison values were held only in temporary browser-control memory. Published
+evidence contains counts and equality outcomes, not row contents, amounts, record
+IDs, names or sessions. The manager's salary tab was absent in this observed
+session; no salary/debt parity or permission correctness is inferred. Week filters
+were explicitly reapplied because navigation/reload reset them. These are UI
+consistency observations on live data, not an immutable fixture or captured
+performance baseline. No speed measurements, deployment revision validation,
+realtime recovery or full in-app account-switch test is claimed.
+
+The populated manager reference removes the earlier lack of any populated
+financial-summary comparison, but full acceptance still needs profiler runs,
+supervisor/team scope, fixed data across all required workflows, photos/service
+details and the remaining recovery/session checks. TMS-02 stays Blocked acceptance.
 
 ## Repeatable recipe
 
@@ -170,7 +201,7 @@ separate acceptance check. Never change real users' roles to manufacture evidenc
   or row order fail parity even when a page looks faster. Live-data movement must
   be reconciled, not suppressed.
 - Browser traces/screenshots/video are disabled; private sessions, recipes and
-  measurements are ignored by git. Review even redacted output before sharing.
+measurements are ignored by git. Review even redacted output before sharing.
 
 ## Completion and rollback
 
