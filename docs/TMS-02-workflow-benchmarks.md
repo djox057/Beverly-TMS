@@ -108,6 +108,35 @@ verify supervisor-specific team filtering or access restrictions. This waiver
 removes the supervisor session as a Step 2 blocker; it does not waive performance
 measurements, remaining workflow/data parity or recovery/session checks.
 
+## Additional manager workflow checks — 9 October 2026
+
+The resumed session settled to primary role `manager` without another sign-in.
+Read-only navigation recovered from browser-control timeouts; no timeouts are
+reported as application performance measurements.
+
+| View and scope | Observation |
+|---|---|
+| Live Oil Change, default manager scope | 500 visible multi-cell rows and 500 links to existing service logs; not a reconciled full-result count |
+| Existing service log, opened through its unit link | Eleven header cells, three populated history rows and nine blank entry rows. No inline editors activated, entries added or values changed |
+| Service log, settled reference and reload | Reference unchanged over 1.5 seconds. Reload sampled until two consecutive 1.5-second windows were unchanged; all three populated rows and 16 rendered summary elements matched exactly |
+| Pre-trip, 5–11 October 2026, default all-company/dispatcher/office/truck/picture/check filters | 500 visible multi-cell rows; two observed rows offered two form submissions each. This current week is a separate workflow observation, not the closed-week Analytics fixture |
+| Pre-trip, one row's two submissions | Two choices opened different form fields. Returning to the first restored identical content in all 14 `dd` answer fields and complaint text. Whole-dialog text initially differed because it included asynchronous photo/import presentation; this is not recorded as answer-field parity failure |
+| Pre-trip, corresponding separate photo groups | Form 1 and Form 2 each exposed eight photos. Both galleries rendered their preview and eight thumbnails without a displayed photo-load error; Next photo advanced Form 1 from 1/8 to 2/8 without changing its group |
+
+The second gallery initially encountered browser action timeouts despite a
+visible enabled control. After navigation recovery it opened successfully. These
+observations neither diagnose an application bug nor establish latency. No
+pictures downloaded, uploads, checked toggles, deletes, sends or other saves were
+performed. Comparison contents stayed in temporary control memory; published
+evidence contains only structure/counts and equality outcomes.
+
+The user chose **Keep open** when asked whether to retain the unavailable live
+profiler and recovery requirements. The supervisor waiver remains in effect.
+Service-detail and multiple-form/photo navigation now have UI evidence, but
+fixed-data full-workflow benchmarks, live request/byte/time/heap, verified measured
+revision, realtime recovery and in-app account-change validation still remain.
+TMS-02 remains Blocked acceptance, with 1/44 steps completed.
+
 ## Repeatable recipe
 
 Use a stable, non-production dataset with the actual role combinations. Keep its
