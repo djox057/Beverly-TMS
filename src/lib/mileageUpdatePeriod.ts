@@ -44,8 +44,9 @@ export function filterMileageUpdateTrucks<T extends { id: string; driver1_id: st
   trucks: readonly T[], edits: readonly MileageEdit[], view: MileageUpdateView,
 ): readonly T[] {
   if (view === "all") return trucks;
+  if (view === "assigned") return trucks.filter(truck => !!truck.driver1_id);
   const updatedIds = new Set(edits.map((edit) => edit.truck_id));
   return trucks.filter((truck) => !!truck.driver1_id && (
-    view === "assigned" || (view === "updated" ? updatedIds.has(truck.id) : !updatedIds.has(truck.id))
+    view === "updated" ? updatedIds.has(truck.id) : !updatedIds.has(truck.id)
   ));
 }

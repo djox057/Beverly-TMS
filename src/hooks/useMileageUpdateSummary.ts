@@ -18,7 +18,7 @@ export function useMileageUpdateSummary(enabled = true) {
     refetchInterval: enabled ? 60000 : false,
     queryFn: async () => {
       if (!bounds) return [];
-      const edits: MileageEdit[] = [];
+      const edits = new Map<string, MileageEdit>();
       for (let offset = 0; ; offset += 1000) {
         const { data, error } = await supabase.from("truck_mileage_history")
           .select("truck_id, changed_by")
@@ -28,10 +28,11 @@ export function useMileageUpdateSummary(enabled = true) {
           .order("changed_at").order("id")
           .range(offset, offset + 999);
         if (error) throw error;
-        edits.push(...(data ?? []));
+        // Counts and filters only need each truck/editor pair once.
+        for (const edit of data ?? []) edits.set(`${edit.truck_id}:${edit.changed_by ?? ""}`, edit);
         if ((data ?? []).length < 1000) break;
       }
-      return edits;
+      return [...edits.values()];
     },
   });
   const [view, setView] = useState<MileageUpdateView>("all");

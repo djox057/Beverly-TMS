@@ -1,3 +1,4 @@
+import { MonthPicker } from "./MonthPicker";
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +20,7 @@ export function MileageUpdateSummary({ trucks, trucksLoading, trucksError, summa
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
           <Label htmlFor="mileage-period-month">Month</Label>
-          <Input id="mileage-period-month" type="month" className="w-44" value={month} onChange={(event) => setMonth(event.target.value)} />
+          <MonthPicker id="mileage-period-month" value={month} onChange={value => { setMonth(value); if (preset === "custom") setPreset("first"); }} />
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant={preset === "first" ? "default" : "outline"} aria-pressed={preset === "first"} onClick={() => setPreset("first")}>1st–7th</Button>

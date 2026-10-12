@@ -1,6 +1,6 @@
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { Link } from "react-router-dom";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, memo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid } from "date-fns";
 import { Droplet, Search, Upload, Eye, RefreshCcw, ChevronDown, Calendar as CalendarIcon } from "lucide-react";
@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { hasMaintenanceOverride } from "@/hooks/useAuth";
 import { getOilChangeThresholds } from "@/pages/Reports/helpers";
-import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { MileageHistoryPopover } from "@/components/liveOilChange/MileageHistoryPopover";
 import { OdometerHistoryPopover } from "@/components/liveOilChange/OdometerHistoryPopover";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
@@ -167,6 +166,316 @@ const MaintenanceDateCell = ({
   );
 };
 
+const PAGE_SIZE = 50;
+const EMPTY_ODOMETER_FILES: Record<string, string | null> = {};
+type TruckUpdate = { id: string; patch: Partial<TruckRow> };
+
+// The period controls must not rebuild every truck's input and popover tree.
+const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, errorMessage, canEditAll, isDispatcher,
+  odometerFileMap, onUpdate, updatePending, onUpload, onView }: {
+  rows: readonly TruckRow[];
+  isLoading: boolean;
+  errorMessage: string | null;
+  canEditAll: boolean;
+  isDispatcher: boolean;
+  odometerFileMap: Record<string, string | null>;
+  onUpdate: (update: TruckUpdate) => void;
+  updatePending: boolean;
+  onUpload: (truckId: string, file: File) => Promise<void>;
+  onView: (truckId: string, fileName: string) => Promise<void>;
+}) {
+  return (
+          <Table className="table-fixed">
+            <TableHeader className="sticky top-0 z-20 bg-background">
+              <TableRow>
+                <TableHead className="sticky top-0 z-20 w-[120px] bg-background">Source</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[80px] bg-background">Unit</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[170px] bg-background">Last oil change date</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[110px] whitespace-normal leading-tight bg-background">Last oil change mileage</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[170px] bg-background">Last Update</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[130px] bg-background">Total mileage - last update</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">Miles since last oil change</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[130px] whitespace-normal leading-tight bg-background">Odometer</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Note</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">last OC<br/>invoice</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[110px] bg-background">AIR FILTER</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">mil since<br/>last AF</TableHead>
+              </TableRow>
+            </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                      Loading...
+                    </TableCell>
+                  </TableRow>
+                ) : errorMessage ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center text-destructive py-8">
+                      {errorMessage}
+                    </TableCell>
+                  </TableRow>
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                      No trucks found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((t) => {
+                    const milesSinceOil =
+                      t.miles != null && t.last_oil_change_miles != null
+                        ? t.miles - t.last_oil_change_miles
+                        : null;
+                    const milesSinceAF =
+                      t.miles != null && t.air_filter != null
+                        ? t.miles - t.air_filter
+                        : null;
+                    const { yellow: yThr, red: rThr } = getOilChangeThresholds(t.source);
+                    // Mileage-update freshness (1st / 15th, grace to 5th / 20th)
+                    // overrides the miles-since-oil-change coloring.
+                    const updateStatus = getMileageUpdateStatus(t.miles_updated_at);
+                    const redTone = "bg-red-100 hover:bg-red-200 dark:bg-red-950/40 dark:hover:bg-red-950/60";
+                    const yellowTone = "bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-950/40 dark:hover:bg-yellow-950/60";
+                    const rowTone =
+                      updateStatus === "red"
+                        ? redTone
+                        : updateStatus === "yellow"
+                        ? yellowTone
+                        : milesSinceOil != null && milesSinceOil > rThr
+                        ? redTone
+                        : milesSinceOil != null && milesSinceOil > yThr
+                        ? yellowTone
+                        : "";
+
+                    return (
+                      <TableRow key={t.id} className={rowTone}>
+                        <TableCell>
+                          {canEditAll ? <TruckSourceSelect
+                            ariaLabel={`Source for truck ${t.truck_number}`}
+                            value={t.source}
+                            onChange={source => {
+                              if (source !== t.source) onUpdate({ id: t.id, patch: { source } });
+                            }}
+                            className={cn(bareInput, "w-full text-xs")}
+                            disabled={updatePending}
+                          /> : <span>{t.source ?? ""}</span>}
+                        </TableCell>
+                        <TableCell className="font-medium"><Link to={`/live-oil-change/${t.id}`} className="hover:underline focus-visible:underline" aria-label={`Open service log for truck ${t.truck_number}`}>{t.truck_number}</Link></TableCell>
+                        <TableCell>
+                          {canEditAll ? (
+                            <MaintenanceDateCell
+                              value={t.oil_change_date}
+                              onChange={(v) => {
+                                if (v !== (t.oil_change_date ?? null)) {
+                                  onUpdate({ id: t.id, patch: { oil_change_date: v as any } });
+                                }
+                              }}
+                            />
+                          ) : (
+                          <Input
+                            key={t.oil_change_date ?? "empty"}
+                            defaultValue={fmtDate(t.oil_change_date)}
+                            placeholder="MM/DD/YYYY"
+                            onBlur={(e) => {
+                              const parsed = parseDateInput(e.target.value);
+                              if (parsed === "__invalid__") {
+                                toast({ title: "Invalid date", description: "Use MM/DD/YYYY", variant: "destructive" });
+                                e.target.value = fmtDate(t.oil_change_date);
+                                return;
+                              }
+                              if (parsed !== (t.oil_change_date ?? null)) {
+                                onUpdate({ id: t.id, patch: { oil_change_date: parsed } });
+                              }
+                            }}
+                            className={bareInput}
+                            readOnly={!canEditAll}
+                          />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Input
+                              key={t.last_oil_change_miles ?? "empty-locm"}
+                              type="number"
+                              defaultValue={t.last_oil_change_miles ?? ""}
+                              onBlur={(e) => {
+                                const raw = e.target.value.trim();
+                                const v = raw === "" ? null : Number(raw);
+                                if (v !== (t.last_oil_change_miles ?? null)) {
+                                  onUpdate({ id: t.id, patch: { last_oil_change_miles: v as any } });
+                                }
+                              }}
+                              className={cn(bareInput, "no-spinner")}
+                              readOnly={!canEditAll}
+                            />
+                            <MileageHistoryPopover
+                              truckId={t.id}
+                              field="last_oil_change_miles"
+                              label="Last oil change mileage"
+                            />
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          {canEditAll ? (
+                            <MaintenanceDateCell
+                              value={t.miles_updated_at ? t.miles_updated_at.slice(0, 10) : null}
+                              onChange={(v) => {
+                                const currentDate = t.miles_updated_at
+                                  ? t.miles_updated_at.slice(0, 10)
+                                  : null;
+                                if (v !== currentDate) {
+                                  onUpdate({ id: t.id, patch: { miles_updated_at: v as any } });
+                                }
+                              }}
+                            />
+                          ) : (
+                            <span className="text-muted-foreground">{fmtDate(t.miles_updated_at)}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Input
+                              key={t.miles ?? "empty-miles"}
+                              type="number"
+                              defaultValue={t.miles ?? ""}
+                              onBlur={(e) => {
+                                const raw = e.target.value.trim();
+                                const v = raw === "" ? null : Number(raw);
+                                if (v !== (t.miles ?? null)) {
+                                  onUpdate({ id: t.id, patch: { miles: v as any } });
+                                }
+                              }}
+                              className={cn(bareInput, "no-spinner")}
+                            />
+                            <MileageHistoryPopover
+                              truckId={t.id}
+                              field="miles"
+                              label="Odometer"
+                            />
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          {fmtNum(milesSinceOil)}
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const fileName = odometerFileMap[t.id] ?? null;
+                            const inputId = `odom-${t.id}`;
+                            return (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  id={inputId}
+                                  type="file"
+                                  accept="image/*,application/pdf"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) onUpload(t.id, f);
+                                    e.target.value = "";
+                                  }}
+                                />
+                                {fileName ? (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-1"
+                                      onClick={() => onView(t.id, fileName)}
+                                      title="View odometer"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-1"
+                                      onClick={() => document.getElementById(inputId)?.click()}
+                                      title="Replace odometer"
+                                    >
+                                      <RefreshCcw className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 px-1 text-xs"
+                                    onClick={() => document.getElementById(inputId)?.click()}
+                                    title="Upload odometer"
+                                  >
+                                    <Upload className="h-3.5 w-3.5 mr-1" /> Upload
+                                  </Button>
+                                )}
+                                <OdometerHistoryPopover truckId={t.id} />
+                              </div>
+
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell>
+                          <Textarea
+                            key={t.oil_change_note ?? "empty-note"}
+                            defaultValue={t.oil_change_note ?? ""}
+                            onBlur={(e) => {
+                              const v = e.target.value.trim() || null;
+                              if (v !== (t.oil_change_note ?? null)) {
+                                onUpdate({ id: t.id, patch: { oil_change_note: v as any } });
+                              }
+                            }}
+                            className={cn(bareInput, "min-h-7 py-1 resize-none")}
+                            placeholder="—"
+                            readOnly={!canEditAll && !isDispatcher}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            key={t.last_oc_invoice ?? "empty-inv"}
+                            defaultValue={t.last_oc_invoice ?? ""}
+                            onBlur={(e) => {
+                              const v = e.target.value.trim() || null;
+                              if (v !== (t.last_oc_invoice ?? null)) {
+                                onUpdate({ id: t.id, patch: { last_oc_invoice: v as any } });
+                              }
+                            }}
+                            className={bareInput}
+                            placeholder="—"
+                            readOnly={!canEditAll}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            key={t.air_filter ?? "empty-af"}
+                            type="number"
+                            defaultValue={t.air_filter ?? ""}
+                            onBlur={(e) => {
+                              const raw = e.target.value.trim();
+                              const v = raw === "" ? null : parseInt(raw, 10);
+                              if (v !== (t.air_filter ?? null)) {
+                                onUpdate({ id: t.id, patch: { air_filter: v as any } });
+                              }
+                            }}
+                            className={cn(bareInput, "no-spinner")}
+                            readOnly={!canEditAll}
+                          />
+                        </TableCell>
+                        <TableCell className={cn(milesSinceAF != null && milesSinceAF > 60000 && "text-destructive font-semibold")}>
+                          {fmtNum(milesSinceAF)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+  );
+});
+
 const LiveOilChange = () => {
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -182,7 +491,12 @@ const LiveOilChange = () => {
           const oldRec = payload.old as any;
           const id = newRec?.id || oldRec?.id;
           if (!id) return;
-          if (payload.eventType === "UPDATE") queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] });
+          const mileageChanged = payload.eventType === "UPDATE" && queryClient.getQueriesData<TruckRow[]>({ queryKey: ["live-oil-change-trucks"] })
+            .some(([, rows]) => {
+              const previous = rows?.find(row => row.id === id);
+              return previous && newRec.miles !== undefined && newRec.miles !== previous.miles;
+            });
+          if (mileageChanged) queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] });
           // Directly patch cached rows so all connected clients see the update
           // immediately (including note / oil_change_note) without a refetch race.
           queryClient.setQueriesData<any[]>(
@@ -216,7 +530,7 @@ const LiveOilChange = () => {
 
   // One database lookup for the newest odometer file of every truck.
   // Previously this listed Storage once per active truck (~476 requests per load).
-  const { data: odometerFileMap = {}, refetch: refetchOdometer } = useQuery({
+  const { data: odometerFileMap = EMPTY_ODOMETER_FILES, refetch: refetchOdometer } = useQuery({
     queryKey: ["odometer-file-map"],
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("get_latest_odometer_files");
@@ -232,7 +546,7 @@ const LiveOilChange = () => {
   });
 
 
-  const uploadOdometer = async (truckId: string, file: File) => {
+  const uploadOdometer = useCallback(async (truckId: string, file: File) => {
     const allowed = file.type.startsWith("image/") || file.type === "application/pdf";
     if (!allowed) {
       toast({ title: "Invalid file", description: "Only images or PDF are allowed", variant: "destructive" });
@@ -251,10 +565,10 @@ const LiveOilChange = () => {
     toast({ title: "Odometer uploaded" });
     refetchOdometer();
     queryClient.invalidateQueries({ queryKey: ["odometer-file-history", truckId] });
-  };
+  }, [refetchOdometer, queryClient]);
 
 
-  const viewOdometer = async (truckId: string, fileName: string) => {
+  const viewOdometer = useCallback(async (truckId: string, fileName: string) => {
     const { data, error } = await supabase.storage
       .from("truck-odometer-files")
       .createSignedUrl(`${truckId}/${fileName}`, 300);
@@ -263,13 +577,27 @@ const LiveOilChange = () => {
       return;
     }
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-  };
+  }, []);
 
   const { getPrimaryRole, profile, user } = useAuthContext();
   const primaryRole = getPrimaryRole();
   const isDispatcher = isDispatcherRole(primaryRole);
   const isMaintenance = primaryRole === 'maintenance' || hasMaintenanceOverride(user?.email);
-  const { allDispatchers } = useFleetManagement();
+  // This page only needs dispatcher names/offices, not the full fleet allocator.
+  const { data: allDispatchers = [] } = useQuery({
+    queryKey: ["oil-change-dispatchers"],
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const roles = await supabase.from("user_roles").select("user_id").in("role", ["dispatch", "manager", "supervisor", "admin"]);
+      if (roles.error) throw roles.error;
+      const ids = [...new Set((roles.data ?? []).map(role => role.user_id))];
+      if (!ids.length) return [];
+      const profiles = await supabase.from("profiles").select("user_id, full_name, email, office").in("user_id", ids).order("full_name");
+      if (profiles.error) throw profiles.error;
+      return (profiles.data ?? []).map(profile => ({ ...profile, id: profile.user_id }));
+    },
+  });
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
   const canEditAll = !isDispatcherRole(primaryRole);
   const canEditMiles = true;
@@ -277,6 +605,8 @@ const LiveOilChange = () => {
 
   const { data: trucks = [], isLoading, isError: trucksError } = useQuery({
     queryKey: ["live-oil-change-trucks", isDispatcher ? profile?.user_id : "all"],
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
@@ -431,6 +761,16 @@ const LiveOilChange = () => {
   const displayedTrucks = useMemo(() => filterMileageUpdateTrucks(filtered, mileageSummary.edits, mileageSummary.view),
     [filtered, mileageSummary.edits, mileageSummary.view]);
 
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(displayedTrucks.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  useEffect(() => { setPage(previous => Math.min(previous, pageCount)); }, [pageCount]);
+  const pageTrucks = useMemo(() => displayedTrucks.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), [displayedTrucks, currentPage]);
+  useEffect(() => { setPage(1); }, [search, companyFilter, sourceFilter, milesFilter, dispatcherFilter, officeFilter, mileageSummary.view, mileageSummary.period.start, mileageSummary.period.end]);
+  const tableLoading = isLoading || !!(periodView && mileageSummary.bounds && mileageSummary.isPending);
+  const tableError = periodView && !mileageSummary.bounds ? "Select a valid mileage update period."
+    : trucksError || (periodView && mileageSummary.isError) ? "Could not load trucks or mileage updates. Refresh the page and try again." : null;
+
   return (
     <div className="py-6 px-2 space-y-6">
       <div className="flex items-center gap-3 px-2">
@@ -515,294 +855,17 @@ const LiveOilChange = () => {
           <div id="mileage-updates-panel" hidden={!showMileageUpdates}>
             {showMileageUpdates && <MileageUpdateSummary summary={mileageSummary} trucks={filtered} trucksLoading={isLoading} trucksError={trucksError} />}
           </div>
-          <Table className="table-fixed">
-            <TableHeader className="sticky top-0 z-20 bg-background">
-              <TableRow>
-                <TableHead className="sticky top-0 z-20 w-[120px] bg-background">Source</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[80px] bg-background">Unit</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[170px] bg-background">Last oil change date</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[110px] whitespace-normal leading-tight bg-background">Last oil change mileage</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[170px] bg-background">Last Update</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[130px] bg-background">Total mileage - last update</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">Miles since last oil change</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[130px] whitespace-normal leading-tight bg-background">Odometer</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[180px] bg-background">Note</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">last OC<br/>invoice</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[110px] bg-background">AIR FILTER</TableHead>
-                <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">mil since<br/>last AF</TableHead>
-              </TableRow>
-            </TableHeader>
-              <TableBody>
-                {isLoading || (periodView && mileageSummary.bounds && mileageSummary.isPending) ? (
-                  <TableRow>
-                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
-                      Loading...
-                    </TableCell>
-                  </TableRow>
-                ) : trucksError || (periodView && (mileageSummary.isError || !mileageSummary.bounds)) ? (
-                  <TableRow>
-                    <TableCell colSpan={12} className="text-center text-destructive py-8">
-                      {periodView && !mileageSummary.bounds ? "Select a valid mileage update period." : "Could not load trucks or mileage updates. Refresh the page and try again."}
-                    </TableCell>
-                  </TableRow>
-                ) : displayedTrucks.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
-                      No trucks found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  displayedTrucks.map((t) => {
-                    const milesSinceOil =
-                      t.miles != null && t.last_oil_change_miles != null
-                        ? t.miles - t.last_oil_change_miles
-                        : null;
-                    const milesSinceAF =
-                      t.miles != null && t.air_filter != null
-                        ? t.miles - t.air_filter
-                        : null;
-                    const { yellow: yThr, red: rThr } = getOilChangeThresholds(t.source);
-                    // Mileage-update freshness (1st / 15th, grace to 5th / 20th)
-                    // overrides the miles-since-oil-change coloring.
-                    const updateStatus = getMileageUpdateStatus(t.miles_updated_at);
-                    const redTone = "bg-red-100 hover:bg-red-200 dark:bg-red-950/40 dark:hover:bg-red-950/60";
-                    const yellowTone = "bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-950/40 dark:hover:bg-yellow-950/60";
-                    const rowTone =
-                      updateStatus === "red"
-                        ? redTone
-                        : updateStatus === "yellow"
-                        ? yellowTone
-                        : milesSinceOil != null && milesSinceOil > rThr
-                        ? redTone
-                        : milesSinceOil != null && milesSinceOil > yThr
-                        ? yellowTone
-                        : "";
-
-                    return (
-                      <TableRow key={t.id} className={rowTone}>
-                        <TableCell>
-                          {canEditAll ? <TruckSourceSelect
-                            ariaLabel={`Source for truck ${t.truck_number}`}
-                            value={t.source}
-                            onChange={source => {
-                              if (source !== t.source) updateTruck.mutate({ id: t.id, patch: { source } });
-                            }}
-                            className={cn(bareInput, "w-full text-xs")}
-                            disabled={updateTruck.isPending}
-                          /> : <span>{t.source ?? ""}</span>}
-                        </TableCell>
-                        <TableCell className="font-medium"><Link to={`/live-oil-change/${t.id}`} className="hover:underline focus-visible:underline" aria-label={`Open service log for truck ${t.truck_number}`}>{t.truck_number}</Link></TableCell>
-                        <TableCell>
-                          {canEditAll ? (
-                            <MaintenanceDateCell
-                              value={t.oil_change_date}
-                              onChange={(v) => {
-                                if (v !== (t.oil_change_date ?? null)) {
-                                  updateTruck.mutate({ id: t.id, patch: { oil_change_date: v as any } });
-                                }
-                              }}
-                            />
-                          ) : (
-                          <Input
-                            key={t.oil_change_date ?? "empty"}
-                            defaultValue={fmtDate(t.oil_change_date)}
-                            placeholder="MM/DD/YYYY"
-                            onBlur={(e) => {
-                              const parsed = parseDateInput(e.target.value);
-                              if (parsed === "__invalid__") {
-                                toast({ title: "Invalid date", description: "Use MM/DD/YYYY", variant: "destructive" });
-                                e.target.value = fmtDate(t.oil_change_date);
-                                return;
-                              }
-                              if (parsed !== (t.oil_change_date ?? null)) {
-                                updateTruck.mutate({ id: t.id, patch: { oil_change_date: parsed } });
-                              }
-                            }}
-                            className={bareInput}
-                            readOnly={!canEditAll}
-                          />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Input
-                              key={t.last_oil_change_miles ?? "empty-locm"}
-                              type="number"
-                              defaultValue={t.last_oil_change_miles ?? ""}
-                              onBlur={(e) => {
-                                const raw = e.target.value.trim();
-                                const v = raw === "" ? null : Number(raw);
-                                if (v !== (t.last_oil_change_miles ?? null)) {
-                                  updateTruck.mutate({ id: t.id, patch: { last_oil_change_miles: v as any } });
-                                }
-                              }}
-                              className={cn(bareInput, "no-spinner")}
-                              readOnly={!canEditAll}
-                            />
-                            <MileageHistoryPopover
-                              truckId={t.id}
-                              field="last_oil_change_miles"
-                              label="Last oil change mileage"
-                            />
-                          </div>
-                        </TableCell>
-
-                        <TableCell>
-                          {canEditAll ? (
-                            <MaintenanceDateCell
-                              value={t.miles_updated_at ? t.miles_updated_at.slice(0, 10) : null}
-                              onChange={(v) => {
-                                const currentDate = t.miles_updated_at
-                                  ? t.miles_updated_at.slice(0, 10)
-                                  : null;
-                                if (v !== currentDate) {
-                                  updateTruck.mutate({ id: t.id, patch: { miles_updated_at: v as any } });
-                                }
-                              }}
-                            />
-                          ) : (
-                            <span className="text-muted-foreground">{fmtDate(t.miles_updated_at)}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Input
-                              key={t.miles ?? "empty-miles"}
-                              type="number"
-                              defaultValue={t.miles ?? ""}
-                              onBlur={(e) => {
-                                const raw = e.target.value.trim();
-                                const v = raw === "" ? null : Number(raw);
-                                if (v !== (t.miles ?? null)) {
-                                  updateTruck.mutate({ id: t.id, patch: { miles: v as any } });
-                                }
-                              }}
-                              className={cn(bareInput, "no-spinner")}
-                            />
-                            <MileageHistoryPopover
-                              truckId={t.id}
-                              field="miles"
-                              label="Odometer"
-                            />
-                          </div>
-                        </TableCell>
-
-                        <TableCell>
-                          {fmtNum(milesSinceOil)}
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const fileName = odometerFileMap[t.id] ?? null;
-                            const inputId = `odom-${t.id}`;
-                            return (
-                              <div className="flex items-center gap-1">
-                                <input
-                                  id={inputId}
-                                  type="file"
-                                  accept="image/*,application/pdf"
-                                  className="hidden"
-                                  onChange={(e) => {
-                                    const f = e.target.files?.[0];
-                                    if (f) uploadOdometer(t.id, f);
-                                    e.target.value = "";
-                                  }}
-                                />
-                                {fileName ? (
-                                  <>
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-6 px-1"
-                                      onClick={() => viewOdometer(t.id, fileName)}
-                                      title="View odometer"
-                                    >
-                                      <Eye className="h-3.5 w-3.5" />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-6 px-1"
-                                      onClick={() => document.getElementById(inputId)?.click()}
-                                      title="Replace odometer"
-                                    >
-                                      <RefreshCcw className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 px-1 text-xs"
-                                    onClick={() => document.getElementById(inputId)?.click()}
-                                    title="Upload odometer"
-                                  >
-                                    <Upload className="h-3.5 w-3.5 mr-1" /> Upload
-                                  </Button>
-                                )}
-                                <OdometerHistoryPopover truckId={t.id} />
-                              </div>
-
-                            );
-                          })()}
-                        </TableCell>
-                        <TableCell>
-                          <Textarea
-                            key={t.oil_change_note ?? "empty-note"}
-                            defaultValue={t.oil_change_note ?? ""}
-                            onBlur={(e) => {
-                              const v = e.target.value.trim() || null;
-                              if (v !== (t.oil_change_note ?? null)) {
-                                updateTruck.mutate({ id: t.id, patch: { oil_change_note: v as any } });
-                              }
-                            }}
-                            className={cn(bareInput, "min-h-7 py-1 resize-none")}
-                            placeholder="—"
-                            readOnly={!canEditAll && !isDispatcher}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            key={t.last_oc_invoice ?? "empty-inv"}
-                            defaultValue={t.last_oc_invoice ?? ""}
-                            onBlur={(e) => {
-                              const v = e.target.value.trim() || null;
-                              if (v !== (t.last_oc_invoice ?? null)) {
-                                updateTruck.mutate({ id: t.id, patch: { last_oc_invoice: v as any } });
-                              }
-                            }}
-                            className={bareInput}
-                            placeholder="—"
-                            readOnly={!canEditAll}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            key={t.air_filter ?? "empty-af"}
-                            type="number"
-                            defaultValue={t.air_filter ?? ""}
-                            onBlur={(e) => {
-                              const raw = e.target.value.trim();
-                              const v = raw === "" ? null : parseInt(raw, 10);
-                              if (v !== (t.air_filter ?? null)) {
-                                updateTruck.mutate({ id: t.id, patch: { air_filter: v as any } });
-                              }
-                            }}
-                            className={cn(bareInput, "no-spinner")}
-                            readOnly={!canEditAll}
-                          />
-                        </TableCell>
-                        <TableCell className={cn(milesSinceAF != null && milesSinceAF > 60000 && "text-destructive font-semibold")}>
-                          {fmtNum(milesSinceAF)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+          <LiveOilChangeTable rows={pageTrucks} isLoading={tableLoading} errorMessage={tableError}
+            canEditAll={canEditAll} isDispatcher={isDispatcher} odometerFileMap={odometerFileMap}
+            onUpdate={updateTruck.mutate} updatePending={updateTruck.isPending} onUpload={uploadOdometer} onView={viewOdometer} />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm" aria-label="Truck pagination">
+            <span className="text-muted-foreground">{displayedTrucks.length ? `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, displayedTrucks.length)} of ${displayedTrucks.length} trucks` : "0 trucks"}</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>Previous</Button>
+              <span>Page {currentPage} of {pageCount}</span>
+              <Button variant="outline" size="sm" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>Next</Button>
+            </div>
+          </div>
           <p className="text-xs text-muted-foreground mt-3">
             Miles since last oil change and mil since last AF are computed from current mileage.
           </p>

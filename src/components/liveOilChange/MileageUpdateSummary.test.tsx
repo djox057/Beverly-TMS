@@ -56,7 +56,8 @@ it("fetches beyond the first 1000 history entries", async () => {
 
 it("applies presets in another month and allows an inclusive custom period", async () => {
   show();
-  fireEvent.change(screen.getByLabelText("Month"), { target: { value: "2026-09" } });
+  fireEvent.click(screen.getByLabelText("Month"));
+  fireEvent.click(screen.getByRole("button", { name: "September" }));
   fireEvent.click(screen.getByRole("button", { name: "15th–22nd" }));
   expect(screen.getByLabelText("From")).toHaveValue("2026-09-15");
   expect(screen.getByLabelText("To")).toHaveValue("2026-09-22");
@@ -94,4 +95,18 @@ it("filters assigned trucks by the selected period without changing the completi
   expect(screen.getByRole("list", { name: "Visible trucks" })).toHaveTextContent(/^ab$/);
   fireEvent.click(screen.getByRole("button", { name: "All trucks" }));
   expect(screen.getByRole("list", { name: "Visible trucks" })).toHaveTextContent("hidden");
+});
+
+it("picks months and years from buttons and resets a custom range to the selected month", async () => {
+  show();
+  fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-24" } });
+  fireEvent.click(screen.getByLabelText("Month"));
+  expect(screen.getByRole("dialog", { name: "Choose month" })).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: "Month" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Previous year" }));
+  fireEvent.click(screen.getByRole("button", { name: "February" }));
+  expect(screen.getByLabelText("Month")).toHaveTextContent("February 2025");
+  expect(screen.getByLabelText("From")).toHaveValue("2025-02-01");
+  expect(screen.getByLabelText("To")).toHaveValue("2025-02-07");
+  expect(screen.queryByRole("dialog", { name: "Choose month" })).not.toBeInTheDocument();
 });

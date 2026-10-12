@@ -11,14 +11,16 @@ export type MileageUpdateStatus = "none" | "yellow" | "red";
 
 const CHICAGO = "America/Chicago";
 
+// Reuse the formatter across truck rows rather than constructing one per cell.
+const chicagoDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: CHICAGO,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 /** YYYY-MM-DD for "today" in Chicago. */
-export const chicagoTodayISO = (now: Date = new Date()): string =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: CHICAGO,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
+export const chicagoTodayISO = (now: Date = new Date()): string => chicagoDateFormatter.format(now);
 
 const toDays = (iso: string): number => Date.parse(`${iso}T00:00:00Z`) / 86400000;
 
