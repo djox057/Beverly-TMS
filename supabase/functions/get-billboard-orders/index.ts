@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
           truck:trucks!orders_truck_id_fkey (
             id,
             truck_number,
-            company:companies (
+            company:companies!trucks_company_id_fkey (
               id,
               name
             )
