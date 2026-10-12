@@ -29,9 +29,14 @@ export async function validatePhotoFile(file: File): Promise<{ bytes: ArrayBuffe
   const bytes = await file.arrayBuffer();
   const detected = imageMimeFromBytes(new Uint8Array(bytes));
   const declared = file.type.toLowerCase().split(";")[0].trim();
-  // Preserve support for image formats already accepted by the integration.
-  const contentType = detected ?? (declared.startsWith("image/") ? declared : null);
-  if (!contentType) throw new Error(`Unsupported photo type: ${declared || "not provided"}. Upload a JPG, PNG or another image file`);
+  const header = new Uint8Array(bytes,0,Math.min(bytes.byteLength,24));
+  const text=(start:number,end:number)=>String.fromCharCode(...header.subarray(start,end));
+  const ftyp=text(4,8)==="ftyp";
+  const brand=text(8,12);
+  const videoType=ftyp&&brand==="qt  "?"video/quicktime":ftyp&&["isom","iso2","mp41","mp42","avc1","M4V "].includes(brand)?"video/mp4":null;
+  // Preserve images and import the MOV/MP4 clips drivers actually submit.
+  const contentType = detected ?? videoType ?? (declared.startsWith("image/")||["video/mp4","video/quicktime","video/webm"].includes(declared)?declared:null);
+  if (!contentType) throw new Error(`Unsupported file type: ${declared || "not provided"}. Upload an image or MOV/MP4 video`);
   return { bytes, contentType };
 }
 

@@ -66,10 +66,10 @@ export async function receivePretripForm(req:Request, createDatabase:()=>any) {
   if(!old.data){
    const upload=await db.storage.from("pretrip-photos").upload(path,new Blob([bytes],{type:contentType}),{contentType,upsert:false});
    if(upload.error&&String((upload.error as {statusCode?:string}).statusCode)!=="409")throw new Error("TMS photo upload failed");
-   const saved=await db.from("pretrip_photos").insert({truck_id:submission.truck_id,inspection_date:submission.inspection_date,file_path:path,file_name:blob.name,photo_category:category,google_file_id:drive_id,form_submission_id:id,content_sha256});
+   const saved=await db.from("pretrip_photos").insert({truck_id:submission.truck_id,inspection_date:submission.inspection_date,file_path:path,file_name:blob.name,photo_category:category,google_file_id:drive_id,form_submission_id:id,content_sha256,content_type:contentType});
    if(saved.error&&saved.error.code!=="23505")throw new Error("TMS photo record failed");
   }
-  check(await db.rpc("update_pretrip_form_file",{_id:id,_drive_id:drive_id,_category:category,_patch:{status:"imported",file_path:path,file_name:old.data?.file_name??blob.name,error:null,error_source:null}}));
+  check(await db.rpc("update_pretrip_form_file",{_id:id,_drive_id:drive_id,_category:category,_patch:{status:"imported",file_path:path,file_name:old.data?.file_name??blob.name,content_type:contentType,error:null,error_source:null}}));
   return Response.json({ok:true});
  } catch(e){
   const error=(e as Error).message;

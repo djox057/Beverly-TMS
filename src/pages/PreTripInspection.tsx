@@ -189,7 +189,7 @@ const PreTripInspection = () => {
     queryClient.invalidateQueries({ queryKey: ["pretrip-photos", photoDate] });
   }, [formSubmissions, photoDate, queryClient]);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const { data: photosByTruck = {}, isPending: photosLoading, isError: photosError } = usePretripPhotos(photoDate);
+  const { data: photosByTruck = {}, isPending: photosLoading, isError: photosError } = usePretripPhotos(photoDate, formError ? undefined : formSubmissions, !formsLoading);
   const { data: checksByTruck = {} as Record<string, { checked_by: string | null; checked_at: string }>, isPending: checksLoading, isError: checksError } = useQuery({
     queryKey: ["pretrip-checks", photoDate],
     queryFn: async () => {

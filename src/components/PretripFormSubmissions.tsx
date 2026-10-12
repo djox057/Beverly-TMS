@@ -6,10 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { pretripWeekStart, pretripWeekEnd } from "@/lib/pretripDates";
 import { PHOTO_CATEGORIES, normalize } from "../../supabase/functions/receive-pretrip-form/mapping";
+import { latestDailyPretripSubmissions } from "@/lib/pretripSubmissions";
+import { isPretripVideo } from "@/lib/pretripMedia";
 
 export const PRETRIP_FORM_URL="https://docs.google.com/forms/d/e/1FAIpQLSdas-2jAuWm6_ihsVgpayT_pPACcO_CdBCjzHyBsJmdZJ38hg/viewform";
 const ACTIVE_PRETRIP_SHEET_ID="1XhvVxfi2g_cYQUJfZiAgBORbl8ciqwKFkTebBlVunBQ";
-type FormFile={category:string;drive_id:string;status:string;file_path?:string;file_name?:string;error?:string};
+type FormFile={category:string;drive_id:string;status:string;file_path?:string;file_name?:string;content_type?:string;error?:string};
 export type PretripSubmission={id:string;truck_id:string|null;truck_number:string;trailer_number:string;driver_name:string;email:string;inspection_date:string|null;submitted_at:string;source_timezone:string;answers:Record<string,string>;complaints:string;files:FormFile[];status:string;import_error:string|null};
 function formChoiceLabel(submission: PretripSubmission, index: number) {
  const parts=submission.submitted_at.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
@@ -23,8 +25,12 @@ function formChoiceLabel(submission: PretripSubmission, index: number) {
 
 export function usePretripSubmissions(date:string) {
  return useQuery({queryKey:["pretrip-form-submissions",pretripWeekStart(date)],refetchInterval:30000,queryFn:async()=>{
-  const {data,error}=await (supabase as any).from("pretrip_form_submissions").select("*").eq("sheet_id",ACTIVE_PRETRIP_SHEET_ID).gte("inspection_date",pretripWeekStart(date)).lte("inspection_date",pretripWeekEnd(date)).neq("status","superseded").order("submitted_at",{ascending:false});
-  if(error) throw error; return (data??[]) as PretripSubmission[];
+  const all: PretripSubmission[]=[];
+  for(let offset=0;;offset+=1000){
+   const {data,error}=await (supabase as any).from("pretrip_form_submissions").select("*").eq("sheet_id",ACTIVE_PRETRIP_SHEET_ID).gte("inspection_date",pretripWeekStart(date)).lte("inspection_date",pretripWeekEnd(date)).neq("status","superseded").order("submitted_at",{ascending:false}).order("id").range(offset,offset+999);
+   if(error) throw error; all.push(...(data??[])); if((data??[]).length<1000)break;
+  }
+  return latestDailyPretripSubmissions(all);
  }});
 }
 function SubmissionDetails({submission:s}:{submission:PretripSubmission}) {
@@ -43,13 +49,14 @@ function SubmissionDetails({submission:s}:{submission:PretripSubmission}) {
   {[...new Set(s.files.map(f=>f.category))].map(category=><section key={category}>
    <h3 className="mb-2 font-medium">{category}</h3>
    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{s.files.filter(f=>f.category===category).map(f=><div key={f.drive_id} className="rounded border p-2">
-    {f.file_path&&urls[f.file_path]?<a href={urls[f.file_path]} target="_blank" rel="noreferrer"><img src={urls[f.file_path]} alt={category} className="h-32 w-full object-contain"/><p className="truncate text-xs">{f.file_name||"Open photo"}</p></a>:<p className="text-xs text-muted-foreground">{f.error||"Photo import pending"}</p>}
+    {f.file_path&&urls[f.file_path]?(isPretripVideo(f)?<div><video src={urls[f.file_path]} controls playsInline preload="metadata" aria-label={category} className="h-32 w-full object-contain"/><a href={urls[f.file_path]} target="_blank" rel="noreferrer" className="block truncate text-xs underline">{f.file_name||"Open video"}</a></div>:<a href={urls[f.file_path]} target="_blank" rel="noreferrer"><img src={urls[f.file_path]} alt={category} className="h-32 w-full object-contain"/><p className="truncate text-xs">{f.file_name||"Open photo"}</p></a>):<p className="text-xs text-muted-foreground">{f.error||"Photo import pending"}</p>}
    </div>)}</div>
   </section>)}
   <details><summary className="cursor-pointer text-sm font-medium">All submitted answers</summary><dl className="mt-3 space-y-3">{Object.entries(s.answers).filter(([question]) => !PHOTO_CATEGORIES.some(([, prefix]) => normalize(question).startsWith(normalize(prefix)))).map(([question,answer])=><div key={question}><dt className="text-sm font-medium">{question}</dt><dd className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{answer||"—"}</dd></div>)}</dl></details>
  </div>;
 }
 export function PretripFormCell({submissions}:{submissions:PretripSubmission[]}) {
+ submissions=latestDailyPretripSubmissions(submissions);
  const [open,setOpen]=useState(false);
  const [selected,setSelected]=useState("");
  const current=submissions.find(s=>s.id===selected)??submissions[0];

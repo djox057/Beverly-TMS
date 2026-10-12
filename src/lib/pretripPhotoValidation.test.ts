@@ -25,8 +25,8 @@ describe("pretrip photo validation", () => {
     expect(imageMimeFromBytes(box("mp42"))).toBeNull();
   });
   it("rejects non-images without treating filenames as evidence", async () => {
-    await expect(validatePhotoFile(asFile("%PDF-1.7", "application/pdf"))).rejects.toThrow("Unsupported photo type: application/pdf");
-    await expect(validatePhotoFile(asFile("random bytes", "application/octet-stream"))).rejects.toThrow("Unsupported photo type");
+    await expect(validatePhotoFile(asFile("%PDF-1.7", "application/pdf"))).rejects.toThrow("Unsupported file type: application/pdf");
+    await expect(validatePhotoFile(asFile("random bytes", "application/octet-stream"))).rejects.toThrow("Unsupported file type");
   });
   it("reports empty and oversized files precisely", async () => {
     await expect(validatePhotoFile(asFile("", "image/jpeg"))).rejects.toThrow("empty");
@@ -38,4 +38,12 @@ describe("pretrip photo validation", () => {
     expect(shouldKeepPhotoResult({ category: "Front", drive_id: "id", status: "error", error: "Drive unavailable" })).toBe(false);
     expect(shouldKeepPhotoResult({ category: "Front", drive_id: "id", status: "pending" })).toBe(false);
   });
+});
+
+it("imports MOV and MP4 clips using their original bytes",async()=>{
+ for(const [brand,declared,expected] of [["qt  ","video/quicktime","video/quicktime"],["mp42","application/octet-stream","video/mp4"]]){
+  const bytes=new Uint8Array([0,0,0,20,...new TextEncoder().encode(`ftyp${brand}0000${brand}`)]);
+  const result=await validatePhotoFile(asFile(bytes,declared));
+  expect(result.contentType).toBe(expected);expect(new Uint8Array(result.bytes)).toEqual(bytes);
+ }
 });

@@ -99,3 +99,24 @@ it("shows an unavailable comparison instead of claiming the photo is fresh", asy
   await screen.findByAltText("Front");
   expect(screen.getByRole("status")).toHaveTextContent("Photo reuse check unavailable");
 });
+
+it("hides older same-day photos from the count and gallery",async()=>{
+ const queryClient=new QueryClient();
+ render(<QueryClientProvider client={queryClient}><PretripPhotosCell truckId="3528" date="2026-10-12"
+ submissions={[{id:"old",driver_name:"Michael",submitted_at:"2026-10-12T08:15:00"},{id:"latest",driver_name:"Michael",submitted_at:"2026-10-12T08:23:00"}]}
+ photos={[{id:"a",truck_id:"3528",file_path:"old.jpg",file_name:"Old",form_submission_id:"old"},{id:"b",truck_id:"3528",file_path:"new.jpg",file_name:"Latest",form_submission_id:"latest"}]}/></QueryClientProvider>);
+ fireEvent.click(screen.getByRole("button",{name:"Pictures (1)"}));
+ await screen.findByAltText("Latest");expect(screen.queryByAltText("Old")).not.toBeInTheDocument();
+ expect(screen.queryByRole("group",{name:"Photo submissions"})).not.toBeInTheDocument();
+ expect(sign).toHaveBeenCalledWith(["new.jpg"],3600);
+});
+
+it("plays an imported video instead of treating it as a broken photo",async()=>{
+ const queryClient=new QueryClient();
+ render(<QueryClientProvider client={queryClient}><PretripPhotosCell truckId="2154" date="2026-10-12"
+ photos={[{id:"video",truck_id:"2154",file_path:"front.mov",file_name:"Front.mov",content_type:"video/quicktime",content_sha256:"hash"}]}/></QueryClientProvider>);
+ fireEvent.click(screen.getByRole("button",{name:"Pictures (1)"}));
+ await waitFor(()=>expect(document.querySelector("video")).toHaveAttribute("src","https://example.com/front.mov"));
+ expect(document.querySelector("video")).toHaveAttribute("controls");expect(document.querySelector("video")).toHaveAttribute("playsinline");
+ expect(document.querySelector("img")).toBeNull();
+});

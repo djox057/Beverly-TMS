@@ -60,6 +60,17 @@ it("imports a mislabeled JPEG, stores the correct MIME type and fingerprints ori
   expect(fixture.file.status).toBe("imported");
 });
 
+it("imports the MOV and MP4 files that previously failed image-only validation",async()=>{
+ for(const [brand,type] of [["qt  ","video/quicktime"],["mp42","video/mp4"]]){
+  const bytes=new Uint8Array([0,0,0,20,...new TextEncoder().encode(`ftyp${brand}0000${brand}`)]);
+  const fixture=database();
+  expect((await receivePretripForm(photoRequest(bytes,type),()=>fixture.db)).status).toBe(200);
+  expect(fixture.uploads[0].type).toBe(type);
+  expect(fixture.photos[0]).toMatchObject({content_type:type,content_sha256:createHash("sha256").update(bytes).digest("hex")});
+  expect(fixture.file).toMatchObject({status:"imported",content_type:type,error:null});
+ }
+});
+
 it("replays an imported photo without another storage upload or database record", async () => {
   const fixture = database();
   for (let attempt = 0; attempt < 2; attempt++) {
