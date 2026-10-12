@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Edit, ExternalLink, Loader2, Send } from "lucide-react";
+import { ChevronLeft, ChevronRight, Edit, ExternalLink, Loader2, Send, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,6 +63,8 @@ function PodMessageContent({ loadId, onSent, onSendingChange }: {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [zoom, setZoom] = useState(100);
+  const previewViewport = useRef<HTMLDivElement>(null);
   const submitting = useRef(false);
   const attempt = useRef<{ payload: string; id: string } | null>(null);
   useEffect(() => {
@@ -77,7 +79,21 @@ function PodMessageContent({ loadId, onSent, onSendingChange }: {
     return () => { cancelled = true; };
   }, [loadId, retry]);
   const file = preview?.files[index];
-  useEffect(() => { setImageError(false); }, [file?.id]);
+  useEffect(() => {
+    setImageError(false);
+    setZoom(100);
+    if (previewViewport.current) {
+      previewViewport.current.scrollLeft = 0;
+      previewViewport.current.scrollTop = 0;
+    }
+  }, [file?.id]);
+  const resetZoom = () => {
+    setZoom(100);
+    if (previewViewport.current) {
+      previewViewport.current.scrollLeft = 0;
+      previewViewport.current.scrollTop = 0;
+    }
+  };
   const send = async () => {
     if (submitting.current || !preview?.recipients || !selected.length || !message.trim()) return;
     submitting.current = true;
@@ -102,6 +118,7 @@ function PodMessageContent({ loadId, onSent, onSendingChange }: {
   if (!preview) return <div role="status" className="flex h-64 items-center justify-center gap-2"><Loader2 className="h-5 w-5 animate-spin" />Loading PODs…</div>;
   const isPdf = file?.content_type === "application/pdf" || /\.pdf$/i.test(file?.file_name || "");
   const isImage = file?.content_type?.startsWith("image/") || /\.(jpe?g|png|webp|gif)$/i.test(file?.file_name || "");
+  const canZoom = Boolean(file?.url && !imageError && (isPdf || isImage));
   return <div className="space-y-4">
     <p className="text-sm font-medium">Load {preview.loadNumber}</p>
     {file ? <>
@@ -110,10 +127,21 @@ function PodMessageContent({ loadId, onSent, onSendingChange }: {
         <div className="min-w-0 text-center text-sm"><p>POD {index + 1} of {preview.files.length}</p><p className="truncate" title={file.file_name}>{file.file_name}</p></div>
         <Button variant="outline" size="icon" aria-label="Next POD" disabled={index === preview.files.length - 1 || sending} onClick={() => setIndex(value => value + 1)}><ChevronRight /></Button>
       </div>
-      <div className="flex h-[min(45dvh,400px)] items-center justify-center overflow-hidden rounded-md border bg-muted/30">
+      <div className="flex items-center justify-center gap-2" aria-label="POD zoom controls">
+        <Button variant="outline" size="icon" aria-label="Zoom out POD" title="Zoom out" disabled={!canZoom || zoom <= 50} onClick={() => setZoom(value => Math.max(50, value - 25))}><ZoomOut /></Button>
+        <output className="w-14 text-center text-sm tabular-nums" aria-label="POD zoom">{zoom}%</output>
+        <Button variant="outline" size="icon" aria-label="Zoom in POD" title="Zoom in" disabled={!canZoom || zoom >= 300} onClick={() => setZoom(value => Math.min(300, value + 25))}><ZoomIn /></Button>
+        <Button variant="outline" size="sm" aria-label="Reset POD zoom" disabled={!canZoom} onClick={resetZoom}>Reset</Button>
+      </div>
+      <div ref={previewViewport} className="h-[min(45dvh,400px)] overflow-auto rounded-md border bg-muted/30">
         {!file.url || imageError ? <p role="alert" className="p-4 text-sm">The preview could not be loaded. {file.url ? "Use Open POD to view the document." : "Reopen the popup to retry."}</p>
-          : isPdf ? <iframe src={file.url} title="POD PDF preview" className="h-full w-full" />
-          : isImage ? <img src={file.url} alt={`POD ${index + 1}: ${file.file_name}`} className="h-full w-full object-contain" onError={() => setImageError(true)} />
+          : isPdf || isImage ? <div className="relative" style={{ width: `${Math.max(100, zoom)}%`, height: `${Math.max(100, zoom)}%` }}>
+            {/* Keep the document's layout size stable; the larger canvas makes every zoomed edge scrollable. */}
+            <div className="absolute left-0 top-0" style={{ width: `${10000 / Math.max(100, zoom)}%`, height: `${10000 / Math.max(100, zoom)}%`, transform: `scale(${zoom / 100})`, transformOrigin: zoom > 100 ? "top left" : "center" }}>
+              {isPdf ? <iframe src={file.url} title="POD PDF preview" className="h-full w-full" />
+                : <img src={file.url} alt={`POD ${index + 1}: ${file.file_name}`} className="h-full w-full object-contain" onError={() => setImageError(true)} />}
+            </div>
+          </div>
           : <p className="p-4 text-sm">Use Open POD to view this document.</p>}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
