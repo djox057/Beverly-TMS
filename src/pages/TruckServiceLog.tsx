@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ArrowLeft, Pencil, Plus, Save, X } from "lucide-react";
@@ -11,6 +11,7 @@ import { chicagoTodayISO, getMileageUpdateStatus } from "@/lib/mileageUpdateStat
 import { buildServiceEntries, calculateServiceLog, entryTypes, mileageTone, serviceSummary, type EntryType, type ServiceEntry, type ServiceTruck } from "@/lib/truckServiceLog";
 import type { Database } from "@/integrations/supabase/types";
 import { ServiceLogCell } from "@/components/ServiceLogCell";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +36,7 @@ async function readAllRows<T>(makeQuery: () => { range: (from: number, to: numbe
 
 export default function TruckServiceLog() {
   const { truckId } = useParams();
+  const navigate = useNavigate();
   const { getPrimaryRole, user } = useAuthContext();
   const role = getPrimaryRole();
   const dispatch = isDispatcherRole(role);
@@ -44,7 +46,25 @@ export default function TruckServiceLog() {
   const [editing, setEditing] = useState<ServiceEntry | "new" | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [draftRows, setDraftRows] = useState<Record<number, ReturnType<typeof emptyForm>>>({});
-  useEffect(() => { setDraftRows({}); }, [truckId, user?.id]);
+  useEffect(() => { setDraftRows({}); setEditing(null); setForm(emptyForm()); }, [truckId, user?.id]);
+  const { data: searchableTrucks = [], isLoading: loadingTrucks, error: truckSearchError, refetch: refetchTrucks } = useQuery({
+    queryKey: ["oil-change-truck-search", user?.id, role],
+    enabled: !!user && !!role,
+    staleTime: 60000,
+    queryFn: async () => {
+      const trucks = await readAllRows(() => supabase.from("trucks")
+        .select("id,truck_number,is_active,dispatcher_id,driver1_id")
+        .order("truck_number").order("id"));
+      if (!dispatch) return trucks;
+      // Match the service page's assignment rule, including driver fallback.
+      const drivers = await readAllRows(() => supabase.from("drivers")
+        .select("id").eq("dispatcher_id", user!.id).order("id"));
+      const assignedDrivers = new Set(drivers.map(driver => driver.id));
+      return trucks.filter(truck => truck.dispatcher_id
+        ? truck.dispatcher_id === user!.id
+        : !!truck.driver1_id && assignedDrivers.has(truck.driver1_id));
+    },
+  });
   const queryKey = ["truck-service-log", truckId, user?.id];
   const { data, isLoading, error, refetch } = useQuery({
     queryKey, enabled: !!truckId && !!user,
@@ -177,7 +197,18 @@ export default function TruckServiceLog() {
   ];
   return <div className="px-2 py-6 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><Link to="/live-oil-change" className="inline-flex items-center gap-2 text-sm hover:underline"><ArrowLeft className="h-4 w-4" />Live Oil Change</Link>
-      {canEdit && <Button onClick={() => openEditor("new")}><Plus className="h-4 w-4 mr-2" />Add log entry</Button>}</div>
+      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <SearchableSelect
+          value={truckId ?? ""}
+          onValueChange={id => { if (id !== truckId) navigate(`/live-oil-change/${id}`); }}
+          options={searchableTrucks.map(truck => ({ value: truck.id, label: `Truck ${truck.truck_number.trim()}${truck.is_active ? "" : " (inactive)"}` }))}
+          placeholder={loadingTrucks ? "Loading trucks…" : "Search truck number…"}
+          searchPlaceholder="Type truck number…"
+          className="w-full sm:w-64"
+        />
+        {canEdit && <Button onClick={() => openEditor("new")}><Plus className="h-4 w-4 mr-2" />Add log entry</Button>}
+      </div></div>
+    {truckSearchError && <p role="alert" className="text-sm text-destructive">Could not load truck search. <button type="button" className="underline" onClick={() => refetchTrucks()}>Try again</button></p>}
     <div className="rounded-sm border-2 border-[#233c85] bg-white text-slate-900 overflow-hidden shadow-sm">
       <h1 className="bg-[#233c85] px-4 py-3 text-center text-base font-bold tracking-wide text-white">{makeModel ? `${makeModel.toUpperCase()} · ` : ""}TRUCK {truck.truck_number} · FLEET MAINTENANCE & OIL CHANGE SYSTEM</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 bg-[#f5f7fb] text-xs">{meta.map(([label, value]) => <div key={label} className={`${cell} relative h-10 overflow-hidden flex items-center gap-2 [&:has([data-cell-editor])]:shadow-[inset_0_0_0_2px_#217346]`}><span className="font-semibold text-slate-500 shrink-0">{label}:</span><span className="relative h-full min-w-0 font-semibold truncate flex-1">{metadataKeys[String(label)] ? <ServiceLogCell compact label={String(label)} value={String(truck[metadataKeys[String(label)]] ?? "")} display={value} type={label === "Baseline Start" ? "date" : label === "Baseline Odometer" ? "number" : "text"} editable={canEditTruck} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ key: metadataKeys[String(label)], value })} /> : value}</span></div>)}</div>
