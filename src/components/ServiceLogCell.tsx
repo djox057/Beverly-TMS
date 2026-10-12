@@ -23,7 +23,7 @@ export function ServiceLogCell({ label, value, display, type = "text", options, 
     if (e.key === "Escape") { cancelled.current = true; setActive(false); e.preventDefault(); }
     if (e.key === "Enter") { e.preventDefault(); void commit(); }
   };
-  const padding = compact ? "p-0" : "px-3 py-2";
+  const padding = compact ? "p-0" : "px-3 py-1";
   const content = display ?? value ?? "";
   if (!editable) return <span className={`absolute inset-0 flex items-center ${padding}`}><span className="block w-full truncate [text-align:inherit]" title={value}>{content}</span></span>;
   if (!active) return <button type="button" aria-label={`Edit ${label}`} title={value} disabled={disabled} className={`absolute inset-0 w-full cursor-text truncate text-inherit [font:inherit] [text-align:inherit] outline-none ${padding}`} onClick={() => { cancelled.current = false; setDraft(value); setError(""); setActive(true); }}>{content}</button>;

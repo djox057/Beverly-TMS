@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Pencil, Plus, Save, X } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
@@ -21,8 +21,8 @@ import { toast } from "@/hooks/use-toast";
 const num = (value: number | null | undefined) => value == null ? "" : value.toLocaleString("en-US");
 const date = (value: string | null) => value ? format(new Date(`${value.slice(0, 10)}T12:00:00`), "M/d/yyyy") : "";
 const emptyForm = () => ({ log_date: chicagoTodayISO(), entry_type: "Mileage Check" as EntryType, odometer: "", oil_spec: "", facility: "", invoice: "", notes: "" });
-const cell = "border border-[#dce3f3] px-3 py-2";
-const editableCell = "relative h-10 overflow-hidden border border-[#dce3f3] p-0 [&:has([data-cell-editor])]:shadow-[inset_0_0_0_2px_#217346]";
+const cell = "border border-[#dce3f3] px-3 py-1";
+const editableCell = "relative h-7 overflow-hidden border border-[#dce3f3] p-0 [&:has([data-cell-editor])]:shadow-[inset_0_0_0_2px_#217346]";
 const db = supabase;
 async function readAllRows<T>(makeQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }> }) {
   const rows: T[] = [];
@@ -44,9 +44,10 @@ export default function TruckServiceLog() {
   const canEditTruck = !!role && ["admin", "manager", "maintenance", "supervisor"].includes(role);
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<ServiceEntry | "new" | null>(null);
+  const [deleting, setDeleting] = useState<ServiceEntry | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [draftRows, setDraftRows] = useState<Record<number, ReturnType<typeof emptyForm>>>({});
-  useEffect(() => { setDraftRows({}); setEditing(null); setForm(emptyForm()); }, [truckId, user?.id]);
+  useEffect(() => { setDraftRows({}); setEditing(null); setDeleting(null); setForm(emptyForm()); }, [truckId, user?.id]);
   const { data: searchableTrucks = [], isLoading: loadingTrucks, error: truckSearchError, refetch: refetchTrucks } = useQuery({
     queryKey: ["oil-change-truck-search", user?.id, role],
     enabled: !!user && !!role,
@@ -184,6 +185,26 @@ export default function TruckServiceLog() {
       setDraftRows(current => { const next = { ...current }; delete next[index]; return next; });
     },
   });
+  const deleteEntry = useMutation({
+    mutationFn: async (row: ServiceEntry) => {
+      if (!canEdit || !truckId || !user || (dispatch && row.entry_type !== "Mileage Check") || (row.source_key === "truck:baseline" && !canEditTruck)) throw new Error("No permission to delete this entry.");
+      const existing = row.source_key ? data?.saved.find(entry => entry.source_key === row.source_key) : row;
+      // Persist a deletion marker so generated live/history rows cannot reappear.
+      const result = existing
+        ? await db.from("truck_service_log_entries").update({ is_deleted: true }).eq("id", existing.id).select("id")
+        : await db.from("truck_service_log_entries").insert({ truck_id: truckId, source_key: row.source_key,
+          log_date: row.log_date, entry_type: row.entry_type, odometer: row.odometer, oil_spec: row.oil_spec,
+          facility: row.facility, invoice: row.invoice, notes: row.notes, is_deleted: true }).select("id");
+      if (result.error) throw result.error;
+      if (!result.data?.length) throw new Error("Entry was not deleted. Check your permissions and retry.");
+    },
+    onSuccess: async () => {
+      setDeleting(null);
+      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] });
+      toast({ title: "Log entry deleted" });
+    },
+    onError: (error: Error) => toast({ title: "Could not delete entry", description: error.message, variant: "destructive" }),
+  });
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading truck service log…</div>;
   if (error || !data || !summary) return <div className="p-8 space-y-4"><Link to="/live-oil-change">← Live Oil Change</Link><p role="alert">{error instanceof Error ? error.message : "Truck not found."}</p><Button onClick={() => refetch()}>Try again</Button></div>;
   const truck = data.truck;
@@ -214,7 +235,7 @@ export default function TruckServiceLog() {
     {truckSearchError && <p role="alert" className="text-sm text-destructive">Could not load truck search. <button type="button" className="underline" onClick={() => refetchTrucks()}>Try again</button></p>}
     <div className="rounded-sm border-2 border-[#233c85] bg-white text-slate-900 overflow-hidden shadow-sm">
       <h1 className="bg-[#233c85] px-4 py-3 text-center text-base font-bold tracking-wide text-white">{makeModel ? `${makeModel.toUpperCase()} · ` : ""}TRUCK {truck.truck_number} · FLEET MAINTENANCE & OIL CHANGE SYSTEM</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 bg-[#f5f7fb] text-xs">{meta.map(([label, value]) => <div key={label} className={`${cell} relative h-10 overflow-hidden flex items-center gap-2 [&:has([data-cell-editor])]:shadow-[inset_0_0_0_2px_#217346]`}><span className="font-semibold text-slate-500 shrink-0">{label}:</span><span className="relative h-full min-w-0 font-semibold truncate flex-1">{metadataKeys[String(label)] ? <ServiceLogCell compact label={String(label)} value={String(truck[metadataKeys[String(label)]] ?? "")} display={value} type={label === "Baseline Start" ? "date" : label === "Baseline Odometer" ? "number" : "text"} editable={canEditTruck} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ key: metadataKeys[String(label)], value })} /> : value}</span></div>)}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 bg-[#f5f7fb] text-xs">{meta.map(([label, value]) => <div key={label} className={`${cell} relative h-10 overflow-hidden flex items-center gap-2 [&:has([data-cell-editor])]:shadow-[inset_0_0_0_2px_#217346]`}><span className="font-semibold text-slate-500 shrink-0">{label}:</span><span className="relative h-full min-w-0 font-semibold truncate flex flex-1 items-center">{metadataKeys[String(label)] ? <ServiceLogCell compact label={String(label)} value={String(truck[metadataKeys[String(label)]] ?? "")} display={value} type={label === "Baseline Start" ? "date" : label === "Baseline Odometer" ? "number" : "text"} editable={canEditTruck} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ key: metadataKeys[String(label)], value })} /> : value}</span></div>)}</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 border-y border-[#dce3f3] my-4 text-center">
         <div className={`${cell} bg-[#edf3ff]`}><p className="text-xs font-bold text-blue-800">CURRENT ODOMETER</p><p className="my-2 text-2xl font-bold text-[#233c85]">{num(summary.current)}{summary.current != null && " mi"}</p><p className="text-xs text-slate-500">Baseline: {num(summary.baseline?.odometer)}</p><p className="text-xs text-slate-500">Last update: {date(summary.currentDate)}</p></div>
         <div className={`${cell} ${toneClass(summary.tone)}`}><p className="text-xs font-bold">MILES SINCE LAST OIL CHANGE</p><p className="my-2 text-2xl font-bold">{num(summary.sinceOil)}{summary.sinceOil != null && " mi"}</p><p className="text-xs">Last change: {date(summary.oilDate)}</p><p className="text-xs">PM interval target: {num(summary.interval.miles)} mi</p></div>
@@ -222,16 +243,19 @@ export default function TruckServiceLog() {
         <div className={`${cell} ${summary.status.includes("OVERDUE") || summary.status === "CHECK ODOMETER" || summary.tone === "red" || (summary.sinceFilter != null && summary.sinceFilter > 60000) ? toneClass("red") : summary.status.includes("DUE") ? toneClass("yellow") : summary.status === "MISSING SERVICE DATA" ? toneClass("unknown") : "bg-emerald-50 text-emerald-900"}`}><p className="text-xs font-bold text-[#233c85]">FLEET PM READINESS</p><p className="my-2 text-xl font-bold">{summary.status}</p><p className="text-xs">{summary.daysLeft == null ? "" : summary.daysLeft < 0 ? `${-summary.daysLeft} days overdue` : `${summary.daysLeft} days remaining`}</p><p className="text-xs">Air filter: {num(summary.sinceFilter)}{summary.sinceFilter != null && " mi since change"} · 80,000 mi interval</p></div>
       </div>
       {freshness !== "none" && <div className={`mx-3 mb-4 rounded border px-3 py-2 text-xs ${freshness === "red" ? "border-red-200 bg-red-50 text-red-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>Mileage update warning: {freshness === "red" ? "Last update is missing or more than 30 days old." : "The current mileage update cycle has not been completed."}</div>}
-      <div className="overflow-x-auto"><table className="w-full min-w-[1563px] table-fixed border-collapse text-xs"><colgroup>{[120, 185, 104, 112, 100, 140, 175, 130, 280, 175, 42].map((width, i) => <col key={i} style={{ width }} />)}</colgroup><thead className="bg-[#233c85] text-white"><tr>{["Log Date", "Entry Type", "Total Odometer", "Miles Since Service", "Next Due (mi)", "Oil Grade / Spec", "Service Facility", "Invoice", "Notes / Telematics", "Added By", ""].map((name, i) => <th key={i} className={`${cell} py-3 text-left font-semibold`}>{name}</th>)}</tr></thead><tbody>
+      <div className="overflow-x-auto"><table className="w-full min-w-[1585px] table-fixed border-collapse text-xs"><colgroup>{[120, 185, 104, 112, 100, 140, 175, 130, 280, 175, 64].map((width, i) => <col key={i} style={{ width }} />)}</colgroup><thead className="bg-[#233c85] text-white"><tr>{["Log Date", "Entry Type", "Total Odometer", "Miles Since Service", "Next Due (mi)", "Oil Grade / Spec", "Service Facility", "Invoice", "Notes / Telematics", "Added By", ""].map((name, i) => <th key={i} className={`${cell} py-2 text-left font-semibold`}>{name}</th>)}</tr></thead><tbody>
         {rows.map(row => <tr key={row.id} className={row.entry_type === "Baseline Start" ? "bg-[#abc6f0]" : row.entry_type !== "Mileage Check" ? "bg-[#effbf4] text-emerald-900 font-semibold" : "even:bg-[#f7f9fd]"}>
           {(["log_date", "entry_type", "odometer"] as const).map(key => <td key={key} className={`${editableCell} ${key === "odometer" ? "text-right tabular-nums" : "whitespace-nowrap"}`}><ServiceLogCell label={`${key} ${row.id}`} value={String(row[key] ?? "")} display={key === "log_date" ? date(row.log_date) : key === "odometer" ? num(row.odometer) : row.entry_type} type={key === "log_date" ? "date" : key === "odometer" ? "number" : "text"} options={key === "entry_type" ? entryTypes.filter(type => type !== "Baseline Start" && (!dispatch || type === "Mileage Check")) : undefined} editable={row.source_key === "truck:baseline" ? key !== "entry_type" && canEditTruck : canEdit && (!dispatch || row.entry_type === "Mileage Check")} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ row, key, value })} /></td>)}
-          <td className={`${cell} h-10 overflow-hidden whitespace-nowrap text-right tabular-nums ${mileageTone(row.miles_since_service, truck.source) === "red" ? "bg-red-50 text-red-800 font-bold" : mileageTone(row.miles_since_service, truck.source) === "yellow" ? "bg-amber-50 text-amber-800 font-bold" : ""}`}>{num(row.miles_since_service)}</td><td className={`${cell} h-10 overflow-hidden whitespace-nowrap text-right`}>{num(row.next_due)}</td>
+          <td className={`${cell} h-7 overflow-hidden whitespace-nowrap text-right tabular-nums ${mileageTone(row.miles_since_service, truck.source) === "red" ? "bg-red-50 text-red-800 font-bold" : mileageTone(row.miles_since_service, truck.source) === "yellow" ? "bg-amber-50 text-amber-800 font-bold" : ""}`}>{num(row.miles_since_service)}</td><td className={`${cell} h-7 overflow-hidden whitespace-nowrap text-right`}>{num(row.next_due)}</td>
           {(["oil_spec", "facility", "invoice", "notes"] as const).map(key => <td key={key} className={`${editableCell} ${key === "notes" ? "whitespace-nowrap" : ""}`}><ServiceLogCell label={`${key} ${row.id}`} value={row[key] ?? ""} editable={row.source_key === "truck:baseline" && key === "notes" ? canEditTruck : canEdit && (!dispatch || row.entry_type === "Mileage Check")} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ row, key, value })} /></td>)}
-          <td className={`${cell} h-10 overflow-hidden whitespace-nowrap truncate`}>{row.created_by ? data.authors.get(row.created_by) ?? "" : ""}</td>
-          <td className={cell}>{canEdit && row.source_key !== "truck:baseline" && (!dispatch || row.entry_type === "Mileage Check") && <button type="button" title="Edit log details" aria-label={`Edit ${row.entry_type} ${date(row.log_date)}`} onClick={() => openEditor(row)} className="p-1 hover:bg-blue-100 rounded"><Pencil className="h-3.5 w-3.5" /></button>}</td>
+          <td className={`${cell} h-7 overflow-hidden whitespace-nowrap truncate`}>{row.created_by ? data.authors.get(row.created_by) ?? "" : ""}</td>
+          <td className="h-7 border border-[#dce3f3] px-1 py-0"><div className="flex items-center justify-center gap-1">
+            {canEdit && row.source_key !== "truck:baseline" && (!dispatch || row.entry_type === "Mileage Check") && <button type="button" title="Edit log details" aria-label={`Edit ${row.entry_type} ${date(row.log_date)}`} onClick={() => openEditor(row)} className="p-1 hover:bg-blue-100 rounded"><Pencil className="h-3.5 w-3.5" /></button>}
+            {canEdit && (!dispatch || row.entry_type === "Mileage Check") && (row.source_key !== "truck:baseline" || canEditTruck) && <button type="button" title="Delete log entry" aria-label={`Delete ${row.entry_type} ${date(row.log_date)}`} disabled={deleteEntry.isPending || inlineSave.isPending || addInlineRow.isPending} onClick={() => setDeleting(row)} className="p-1 text-red-700 hover:bg-red-100 rounded disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>}
+          </div></td>
         </tr>)}
         {Array.from({ length: Math.max(3, 12 - rows.length, ...Object.keys(draftRows).map(index => Number(index) + 1)) }, (_, i) => <tr key={`blank:${i}`} className="even:bg-[#f7f9fd]">
-          {(["log_date", "entry_type", "odometer", null, null, "oil_spec", "facility", "invoice", "notes", null, null] as const).map((key, j) => <td key={j} className={`${key ? editableCell : `${cell} h-10`} ${key === "odometer" ? "text-right tabular-nums" : ""}`}>
+          {(["log_date", "entry_type", "odometer", null, null, "oil_spec", "facility", "invoice", "notes", null, null] as const).map((key, j) => <td key={j} className={`${key ? editableCell : `${cell} h-7`} ${key === "odometer" ? "text-right tabular-nums" : ""}`}>
             {key && <ServiceLogCell label={`New row ${i + 1} ${key}`} value={draftRows[i]?.[key] ?? ""} display={key === "log_date" ? date(draftRows[i]?.log_date ?? null) : key === "odometer" ? num(draftRows[i]?.odometer ? Number(draftRows[i].odometer) : null) : draftRows[i]?.[key] ?? ""} type={key === "log_date" ? "date" : key === "odometer" ? "number" : "text"} options={key === "entry_type" ? ["", ...entryTypes.filter(type => type !== "Baseline Start" && (!dispatch || type === "Mileage Check"))] : undefined} editable={canEdit} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => addInlineRow.mutateAsync({ index: i, key, value })} />}
           </td>)}
         </tr>)}
@@ -240,6 +264,10 @@ export default function TruckServiceLog() {
     </div>
     {Object.keys(draftRows).length > 0 && <p className="text-xs text-muted-foreground">Complete the log date and total odometer to save the new row. Incomplete rows are not saved.</p>}
 
+    <Dialog open={deleting != null} onOpenChange={open => { if (!open && !deleteEntry.isPending) setDeleting(null); }}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>Delete log entry?</DialogTitle></DialogHeader>
+      <p className="text-sm">Delete {deleting?.entry_type} {date(deleting?.log_date ?? null)} from truck {truck.truck_number}'s service log?</p>
+      <div className="flex justify-end gap-2"><Button variant="outline" disabled={deleteEntry.isPending} onClick={() => setDeleting(null)}>Cancel</Button><Button variant="destructive" disabled={deleteEntry.isPending} onClick={() => { if (deleting) deleteEntry.mutate(deleting); }}>{deleteEntry.isPending ? "Deleting…" : "Delete entry"}</Button></div>
+    </DialogContent></Dialog>
     <Dialog open={editing != null} onOpenChange={open => { if (!open && !save.isPending) setEditing(null); }}><DialogContent className="max-w-xl"><DialogHeader><DialogTitle>{editing === "new" ? "Add log entry" : "Edit log details"} · Truck {truck.truck_number}</DialogTitle></DialogHeader>
       <form onSubmit={e => { e.preventDefault(); save.mutate(); }} className="space-y-4">
         <div className="grid grid-cols-2 gap-3"><label className="text-sm">Log date<Input type="date" value={form.log_date} max={chicagoTodayISO()} disabled={!editable} required={editable} onChange={e => field("log_date", e.target.value)} /></label><label className="text-sm">Entry type<select className="flex h-10 w-full rounded-md border bg-background px-3 text-sm" value={form.entry_type} disabled={!editable} onChange={e => field("entry_type", e.target.value)}>{entryTypes.filter(type => type !== "Baseline Start" && (!dispatch || type === "Mileage Check")).map(type => <option key={type}>{type}</option>)}</select></label>

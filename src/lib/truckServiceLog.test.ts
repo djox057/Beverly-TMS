@@ -106,3 +106,23 @@ describe("truck service log rules", () => {
   });
 
 });
+
+describe("deleted service log rows", () => {
+  it("keeps generated rows deleted after rebuilding without changing live truck readings", () => {
+    const history = [{ id: "h1", field: "miles", new_value: truck.miles!, changed_at: truck.miles_updated_at! }];
+    const original = buildServiceEntries(truck, history, []);
+    const reading = original.find(row => row.source_key === "history:h1")!;
+    const saved = [entry({ ...reading, id: "deleted1", is_deleted: true })];
+    const remaining = buildServiceEntries(truck, history, saved);
+    expect(remaining.some(row => row.entry_type === "Mileage Check")).toBe(false);
+    expect(remaining.filter(row => row.entry_type === "Oil Change")).toHaveLength(1);
+    expect(serviceSummary(truck, remaining).current).toBe(truck.miles);
+    expect(history).toHaveLength(1);
+  });
+  it("excludes deleted manual/imported entries and keeps unrelated rows", () => {
+    const saved = [entry({ id: "manual", is_deleted: true }), entry({ id: "imported", source_key: "xlsx:old", is_deleted: true }), entry({ id: "kept" })];
+    const remaining = buildServiceEntries(truck, [], saved);
+    expect(remaining.some(row => row.id === "manual" || row.id === "imported")).toBe(false);
+    expect(remaining.some(row => row.id === "kept")).toBe(true);
+  });
+});

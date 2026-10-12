@@ -2,9 +2,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ServiceEntry } from "@/lib/truckServiceLog";
 import TruckServiceLog from "./TruckServiceLog";
 
-const mocks = vi.hoisted(() => ({ role: "maintenance", searchTrucks: [] as Array<{ id: string; truck_number: string; is_active: boolean; dispatcher_id: string | null; driver1_id: string | null }>, history: [] as Array<{ id: string; field: string; new_value: number; changed_at: string; changed_by: string }>, insert: vi.fn(), update: vi.fn(), truck: {
+const mocks = vi.hoisted(() => ({ role: "maintenance", saved: [] as ServiceEntry[], searchTrucks: [] as Array<{ id: string; truck_number: string; is_active: boolean; dispatcher_id: string | null; driver1_id: string | null }>, history: [] as Array<{ id: string; field: string; new_value: number; changed_at: string; changed_by: string }>, insert: vi.fn(), update: vi.fn(), truck: {
   id: "truck1", truck_number: "157", source: "BF TRUCK", make: "Freightliner", model: "Cascadia", year: 2026,
   vin: "VIN157", engine: "DD15", is_active: true, miles: 168624, miles_updated_at: "2026-09-30T12:00:00Z",
   last_oil_change_miles: 148108, oil_change_date: "2026-07-30", air_filter: null, last_oc_invoice: "INV-3338",
@@ -17,8 +18,8 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: (table: str
   const query = {
     select: () => query, eq: (column: string, value: string) => { if (column === "id") selectedId = value; return query; }, order: () => query, in: () => table === "drivers" ? query : Promise.resolve({ data: [{ user_id: "user1", full_name: "Jane Maintenance" }], error: null }),
     single: async () => ({ data: selectedId === "truck1" ? mocks.truck : { ...mocks.truck, ...mocks.searchTrucks.find(truck => truck.id === selectedId) }, error: null }),
-    range: async () => ({ data: table === "trucks" ? mocks.searchTrucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: "user1" }, { id: "driver2", first_name: "Adil", last_name: "El Filali", dispatcher_id: "other" }] : table === "truck_mileage_history" ? mocks.history : [], error: null }),
-    insert: (payload: unknown) => { mocks.insert(table, payload); return { select: async () => ({ data: [{ id: "entry1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }; },
+    range: async () => ({ data: table === "trucks" ? mocks.searchTrucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: "user1" }, { id: "driver2", first_name: "Adil", last_name: "El Filali", dispatcher_id: "other" }] : table === "truck_mileage_history" ? mocks.history : table === "truck_service_log_entries" ? mocks.saved : [], error: null }),
+    insert: (payload: unknown) => { mocks.insert(table, payload); if (table === "truck_service_log_entries" && (payload as ServiceEntry).is_deleted) mocks.saved.push({ ...payload as ServiceEntry, id: "entry1", created_at: "2026-10-12T12:00:00Z" }); return { select: async () => ({ data: [{ id: "entry1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }; },
     update: (payload: unknown) => { mocks.update(table, payload); return { eq: () => ({ select: async () => ({ data: [{ id: "truck1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }) }; },
   }; return query;
 } } }));
@@ -33,7 +34,7 @@ beforeEach(() => { mocks.searchTrucks = [
   { id: "truck2", truck_number: "0984", is_active: true, dispatcher_id: "other", driver1_id: "driver2" },
   { id: "truck3", truck_number: "460", is_active: false, dispatcher_id: null, driver1_id: "driver1" },
   { id: "truck4", truck_number: "555", is_active: true, dispatcher_id: "other", driver1_id: "driver1" },
-]; mocks.role = "maintenance"; mocks.history = []; mocks.insert.mockClear(); mocks.update.mockClear(); });
+]; mocks.role = "maintenance"; mocks.history = []; mocks.saved = []; mocks.insert.mockClear(); mocks.update.mockClear(); });
 afterEach(cleanup);
 describe("truck service log page", () => {
   it("searches a unit with leading zeros and opens its oil change page", async () => {
@@ -164,4 +165,36 @@ describe("truck service log page", () => {
     mount(); expect(await screen.findByRole("alert")).toHaveTextContent("not assigned to you");
     mocks.truck.dispatcher_id = old;
   });
+});
+
+it("requires confirmation and persistently deletes a generated row without modifying live mileage", async () => {
+  mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+  fireEvent.click(screen.getByRole("button", { name: "Delete Mileage Check 9/30/2026" }));
+  expect(mocks.insert).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(mocks.insert).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Delete Mileage Check 9/30/2026" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete entry" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Delete Mileage Check 9/30/2026" })).not.toBeInTheDocument());
+  expect(mocks.insert).toHaveBeenCalledWith("truck_service_log_entries", expect.objectContaining({ truck_id: "truck1", source_key: "live:mileage:2026-09-30T12:00:00Z:168624", is_deleted: true }));
+  expect(mocks.update).not.toHaveBeenCalled();
+  expect(screen.getByText("168,624 mi")).toBeInTheDocument();
+});
+it("limits dispatcher deletion to mileage entries and hides deletion for read-only users", async () => {
+  mocks.role = "dispatch";
+  mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+  expect(screen.getByRole("button", { name: "Delete Mileage Check 9/30/2026" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Delete Oil Change 7/30/2026" })).not.toBeInTheDocument();
+  cleanup(); mocks.role = "safety";
+  mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+  expect(screen.queryByRole("button", { name: /^Delete / })).not.toBeInTheDocument();
+});
+
+it("deletes a saved/imported log row by updating its own record", async () => {
+  mocks.saved = [{ id: "saved1", source_key: "xlsx:pilot:row1", log_date: "2026-09-01", entry_type: "Mileage Check", odometer: 160000, oil_spec: null, facility: null, invoice: null, notes: null, created_at: "2026-09-01T12:00:00Z", created_by: "user1" }];
+  mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+  fireEvent.click(screen.getByRole("button", { name: "Delete Mileage Check 9/1/2026" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete entry" }));
+  await waitFor(() => expect(mocks.update).toHaveBeenCalledWith("truck_service_log_entries", { is_deleted: true }));
+  expect(mocks.insert).not.toHaveBeenCalled();
 });

@@ -6462,6 +6462,7 @@ export type Database = {
           facility: string | null
           id: string
           invoice: string | null
+          is_deleted: boolean
           log_date: string | null
           notes: string | null
           odometer: number | null
@@ -6476,6 +6477,7 @@ export type Database = {
           facility?: string | null
           id?: string
           invoice?: string | null
+          is_deleted?: boolean
           log_date?: string | null
           notes?: string | null
           odometer?: number | null
@@ -6490,6 +6492,7 @@ export type Database = {
           facility?: string | null
           id?: string
           invoice?: string | null
+          is_deleted?: boolean
           log_date?: string | null
           notes?: string | null
           odometer?: number | null

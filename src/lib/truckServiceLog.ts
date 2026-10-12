@@ -7,7 +7,7 @@ export type EntryType = typeof entryTypes[number];
 export type ServiceEntry = {
   id: string; source_key: string | null; log_date: string | null; entry_type: EntryType;
   odometer: number | null; oil_spec: string | null; facility: string | null;
-  invoice: string | null; notes: string | null; created_at: string; created_by?: string | null; imported?: boolean; current_reading?: boolean; original_odometer?: number | null;
+  invoice: string | null; notes: string | null; created_at: string; created_by?: string | null; imported?: boolean; current_reading?: boolean; original_odometer?: number | null; is_deleted?: boolean;
 };
 export type ServiceTruck = {
   start_miles?: number | null; baseline_start_date?: string | null; baseline_note?: string | null; oil_spec?: string | null; baseline_created_by?: string | null;
@@ -64,7 +64,7 @@ export function buildServiceEntries(truck: ServiceTruck, history: Array<{ id: st
   return [...automatic.map(e => {
     const extra = overrides.get(e.source_key!);
     return extra ? { ...e, ...extra, ...(e.source_key === "truck:baseline" ? { odometer: e.odometer, log_date: e.log_date, notes: e.notes, entry_type: e.entry_type } : {}), id: e.id, created_by: e.created_by, imported: true } : e;
-  }), ...saved.filter(e => !e.source_key || !automatic.some(a => a.source_key === e.source_key)).map(e => ({ ...e, created_by: e.source_key ? null : e.created_by, imported: !!e.source_key }))].sort((a, b) => {
+  }), ...saved.filter(e => !e.source_key || !automatic.some(a => a.source_key === e.source_key)).map(e => ({ ...e, created_by: e.source_key ? null : e.created_by, imported: !!e.source_key }))].filter(e => !e.is_deleted).sort((a, b) => {
     // Dates take priority; for the same date an earlier odometer comes first.
     if (!a.log_date || !b.log_date) return a.log_date ? -1 : b.log_date ? 1 : 0;
     return a.log_date.localeCompare(b.log_date) || (a.odometer ?? 0) - (b.odometer ?? 0) || a.created_at.localeCompare(b.created_at);
