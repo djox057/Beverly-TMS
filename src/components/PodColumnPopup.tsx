@@ -46,8 +46,8 @@ function PodPopup({ loadId }: { loadId: string }) {
       </Button>
     </DialogTrigger>
     <DialogContent className="max-h-[95dvh] max-w-3xl overflow-y-auto">
-      <DialogTitle>POD preview &amp; message</DialogTitle>
-      <DialogDescription>Review the PODs, select attachments, and send a message to the user who booked this load.</DialogDescription>
+      <DialogTitle>POD preview &amp; rejection</DialogTitle>
+      <DialogDescription>Select the rejected PODs and explain the reason. The booking user will receive the selected documents and your message.</DialogDescription>
       {open && <PodMessageContent loadId={loadId} onSent={() => setOpen(false)} onSendingChange={setSending} />}
     </DialogContent>
   </Dialog>;
@@ -104,7 +104,7 @@ function PodMessageContent({ loadId, onSent, onSendingChange }: {
     try {
       const result = await invokePodMessage({ action: "send", orderId: loadId, message: message.trim(), selectedFileIds: selected, requestId: attempt.current.id });
       if (!result?.success) throw new Error("Email delivery was not confirmed.");
-      toast.success("POD message sent");
+      toast.success("PODs rejected and message sent");
       onSent();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to send POD message");
@@ -155,15 +155,15 @@ function PodMessageContent({ loadId, onSent, onSendingChange }: {
       <p className="text-xs text-muted-foreground">{selected.length} of {preview.files.length} PODs selected</p>
     </> : <p className="rounded-md border p-6 text-center text-muted-foreground">No PODs uploaded for this load.</p>}
     <div className="space-y-2">
-      <Label htmlFor={`pod-message-${loadId}`}>Message</Label>
-      <Textarea id={`pod-message-${loadId}`} placeholder="Write a message…" value={message} maxLength={5000} disabled={sending} onChange={event => setMessage(event.target.value)} rows={4} />
+      <Label htmlFor={`pod-message-${loadId}`}>Reason / message</Label>
+      <Textarea id={`pod-message-${loadId}`} placeholder="Explain why these PODs are rejected…" value={message} maxLength={5000} disabled={sending} onChange={event => setMessage(event.target.value)} rows={4} />
     </div>
     {preview.recipients ? <div className="break-words text-xs text-muted-foreground">
       <p>To: {preview.recipients.bookerName} ({preview.recipients.to})</p>
       <p>Reply-To: {preview.recipients.replyTo.join(", ")}</p>
     </div> : <p role="alert" className="text-sm text-destructive">{preview.recipientError || "Unable to identify the recipient."}</p>}
     <div className="flex justify-end"><Button onClick={send} disabled={sending || !message.trim() || !selected.length || !preview.recipients}>
-      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{sending ? "Sending…" : "Send message"}
+      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}{sending ? "Sending…" : "Reject PODs & send"}
     </Button></div>
   </div>;
 }

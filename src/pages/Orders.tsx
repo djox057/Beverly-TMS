@@ -1,3 +1,4 @@
+import { RejectedPodsDialog } from "@/components/RejectedPodsDialog";
 import { PodColumnPopup } from "@/components/PodColumnPopup";
 import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
@@ -1707,6 +1708,7 @@ const Orders = () => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Loads</h1>
           <div className="flex flex-wrap gap-2">
+            <RejectedPodsDialog excludedCompanyIds={MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS} />
             {(primaryRole === "admin" || primaryRole === "accounting" || primaryRole === "manager") && (
               <>
                 <Button

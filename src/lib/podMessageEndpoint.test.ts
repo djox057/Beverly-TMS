@@ -10,6 +10,7 @@ const compiled = transpileModule(source, { compilerOptions: { target: ScriptTarg
 let rows: Record<string, Record<string, unknown>[]>;
 let role = "accounting";
 let authenticated = true;
+let failSave = false;
 const sendEmail = vi.fn();
 const download = vi.fn();
 const tableRead = vi.fn();
@@ -23,13 +24,27 @@ function endpoint() {
     from: (table: string) => {
       tableRead(table);
       const filters: ((row: Record<string, unknown>) => boolean)[] = [];
+      let updatePayload: Record<string, unknown> | null = null;
       const data = () => ({ data: (table === "user_roles" ? [{ user_id: "sender", role }, { user_id: "manager", role: "manager" }] : rows[table] || []).filter(row => filters.every(filter => filter(row))), error: null });
       const query = {
         select: () => query, order: () => query,
+        upsert: async (value: Record<string, unknown>) => {
+          if (failSave) return { error: new Error("Database unavailable") };
+          const reports = rows[table] || (rows[table] = []);
+          if (!reports.some(row => row.reporter_id === value.reporter_id && row.order_id === value.order_id && row.request_id === value.request_id)) {
+            reports.push({ id: "rejection1", notification_status: "pending", email_id: null, ...value });
+          }
+          return { error: null };
+        },
+        update: (value: Record<string, unknown>) => { updatePayload = value; return query; },
+        neq: (column: string, value: unknown) => { filters.push(row => row[column] !== value); return query; },
         eq: (column: string, value: unknown) => { filters.push(row => row[column] === value); return query; },
         in: (column: string, values: unknown[]) => { filters.push(row => values.includes(row[column])); return query; },
         maybeSingle: async () => ({ data: data().data[0] || null, error: null }),
-        then: (resolve: (value: ReturnType<typeof data>) => unknown) => Promise.resolve(data()).then(resolve),
+        then: (resolve: (value: ReturnType<typeof data>) => unknown) => {
+          if (updatePayload) data().data.forEach(row => Object.assign(row, updatePayload));
+          return Promise.resolve(data()).then(resolve);
+        },
       };
       return query;
     },
@@ -44,12 +59,12 @@ const request = (body: Record<string, unknown>, auth = true) => new Request("htt
   method: "POST", headers: { "Content-Type": "application/json", ...(auth ? { Authorization: "Bearer user-token" } : {}) }, body: JSON.stringify(body),
 });
 beforeEach(() => {
-  authenticated = true; role = "accounting"; tableRead.mockClear(); sendEmail.mockReset(); download.mockReset();
+  authenticated = true; failSave = false; role = "accounting"; tableRead.mockClear(); sendEmail.mockReset(); download.mockReset();
   sendEmail.mockResolvedValue(new Response(JSON.stringify({ id: "email1" }), { status: 200 }));
   download.mockResolvedValue({ data: new Blob(["bytes"]), error: null });
   rows = {
-    orders: [{ id: orderId, booked_by: "Jane Booker", internal_load_number: "LOAD-123", load_number: "BROKER-123" }],
-    profiles: [{ user_id: "booker", full_name: "Jane Booker", office: "Čačak", email: "editable@example.test" }, { user_id: "manager", full_name: "Manager", office: "Čačak", email: "editable-manager@example.test" }],
+    orders: [{ id: orderId, booked_by: "Jane Booker", internal_load_number: "LOAD-123", load_number: "OTHER-NUMBER", broker_load_number: "BROKER-123", booked_by_company_id: "company1" }],
+    profiles: [{ user_id: "sender", full_name: "Reporter Name", office: "Čačak", email: "sender@example.test" }, { user_id: "booker", full_name: "Jane Booker", office: "Čačak", email: "editable@example.test" }, { user_id: "manager", full_name: "Manager", office: "Čačak", email: "editable-manager@example.test" }],
     order_files: ["pod1", "pod2"].map(id => ({ id, order_id: orderId, file_category: "POD", file_name: `${id}.jpg`, file_path: `${orderId}/${id}.jpg`, file_size: 5, content_type: "image/jpeg" })),
   };
 });
@@ -71,6 +86,7 @@ describe("POD message endpoint boundaries", () => {
     expect(body.recipients).toEqual({ to: "booker@verified.test", bookerName: "Jane Booker", replyTo: ["sender@example.test", "manager@verified.test"] });
     expect(body.files).toHaveLength(2); expect(body.files[0].url).toContain(orderId);
     expect(download).not.toHaveBeenCalled(); expect(sendEmail).not.toHaveBeenCalled();
+    expect(rows.pod_rejections).toBeUndefined();
   });
   it("sends only the selected POD, ignores forged recipients, and sets Reply-To plus idempotency", async () => {
     const response = await endpoint()(request({ action: "send", orderId, requestId, message: "Check <signature>", selectedFileIds: ["pod2"], to: "attacker@example.test", replyTo: ["attacker@example.test"] }));
@@ -79,6 +95,8 @@ describe("POD message endpoint boundaries", () => {
     expect(payload.to).toEqual(["booker@verified.test"]); expect(payload.reply_to).toEqual(["sender@example.test", "manager@verified.test"]);
     expect(payload.attachments).toEqual([{ filename: "1-pod2.jpg", content: "Ynl0ZXM=" }]);
     expect(payload.html).toContain("Check &lt;signature&gt;"); expect(options.headers["Idempotency-Key"]).toContain(requestId);
+    expect(rows.pod_rejections[0]).toMatchObject({ reporter_id: "sender", reporter_name: "Reporter Name", broker_load_number: "BROKER-123", reason: "Check <signature>", notification_status: "sent", email_id: "email1" });
+    expect((rows.pod_rejections[0].pods as { id: string }[]).map(file => file.id)).toEqual(["pod2"]);
   });
   it("rejects files belonging to another load before download or send", async () => {
     rows.order_files.push({ ...rows.order_files[0], id: "foreign", order_id: "other-load" });
@@ -97,4 +115,26 @@ describe("POD message endpoint boundaries", () => {
     sendEmail.mockResolvedValueOnce(new Response(JSON.stringify({ message: "Rate limited" }), { status: 429 }));
     expect((await endpoint()(request({ action: "send", orderId, requestId, message: "Review", selectedFileIds: ["pod1"] }))).status).toBe(502);
   });
+  it("preserves the report after email failure and records a successful retry once", async () => {
+    sendEmail.mockResolvedValueOnce(new Response(JSON.stringify({ message: "Rate limited" }), { status: 429 }));
+    const body = { action: "send", orderId, requestId, message: "Unreadable signature", selectedFileIds: ["pod1"] };
+    expect((await endpoint()(request(body))).status).toBe(502);
+    expect(rows.pod_rejections).toHaveLength(1); expect(rows.pod_rejections[0].notification_status).toBe("failed");
+    expect((await endpoint()(request(body))).status).toBe(200);
+    expect(rows.pod_rejections).toHaveLength(1); expect(rows.pod_rejections[0].notification_status).toBe("sent");
+    expect(sendEmail.mock.calls[1][1].headers["Idempotency-Key"]).toBe(sendEmail.mock.calls[0][1].headers["Idempotency-Key"]);
+    expect((await endpoint()(request(body))).status).toBe(200); expect(sendEmail).toHaveBeenCalledTimes(2);
+  });
+  it("does not send when rejection history cannot be saved", async () => {
+    failSave = true;
+    const response = await endpoint()(request({ action: "send", orderId, requestId, message: "Review", selectedFileIds: ["pod1"] }));
+    expect(response.status).toBe(503); expect(sendEmail).not.toHaveBeenCalled(); expect(rows.pod_rejections).toBeUndefined();
+  });
+  it("rejects attempts to reuse a report request ID with a different reason", async () => {
+    const body = { action: "send", orderId, requestId, message: "Unreadable signature", selectedFileIds: ["pod1"] };
+    expect((await endpoint()(request(body))).status).toBe(200);
+    expect((await endpoint()(request({ ...body, message: "Different reason" }))).status).toBe(409);
+    expect(rows.pod_rejections[0].reason).toBe(body.message); expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+
 });

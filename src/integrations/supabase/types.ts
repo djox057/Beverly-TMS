@@ -4695,6 +4695,72 @@ export type Database = {
           },
         ]
       }
+      pod_rejections: {
+        Row: {
+          id: string
+          request_id: string
+          order_id: string
+          reporter_id: string | null
+          reporter_name: string
+          reporter_email: string
+          broker_load_number: string | null
+          booked_by_company_id: string | null
+          reason: string
+          pods: Json
+          notification_status: string
+          email_id: string | null
+          created_at: string
+          notified_at: string | null
+        }
+        Insert: {
+          id?: string
+          request_id: string
+          order_id: string
+          reporter_id?: string | null
+          reporter_name: string
+          reporter_email: string
+          broker_load_number?: string | null
+          booked_by_company_id?: string | null
+          reason: string
+          pods: Json
+          notification_status?: string
+          email_id?: string | null
+          created_at?: string
+          notified_at?: string | null
+        }
+        Update: {
+          id?: string
+          request_id?: string
+          order_id?: string
+          reporter_id?: string | null
+          reporter_name?: string
+          reporter_email?: string
+          broker_load_number?: string | null
+          booked_by_company_id?: string | null
+          reason?: string
+          pods?: Json
+          notification_status?: string
+          email_id?: string | null
+          created_at?: string
+          notified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pod_rejections_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pod_rejections_booked_by_company_id_fkey"
+            columns: ["booked_by_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

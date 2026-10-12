@@ -37,9 +37,10 @@ Deno.serve(async req => {
     if (body.action === "send" && (typeof body.message !== "string" || !body.message.trim() || body.message.length > 5000 || !uuid.test(body.requestId || ""))) {
       return json({ error: "Enter a message of up to 5,000 characters." }, 400);
     }
+    const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { global: { fetch: timedFetch }, auth: { persistSession: false, autoRefreshToken: false } });
     // User-scoped queries preserve order and document RLS even for privileged callers.
     const { data: order, error: orderError } = await client.from("orders")
-      .select("id, booked_by, load_number, internal_load_number").eq("id", body.orderId).maybeSingle();
+      .select("id, booked_by, load_number, internal_load_number, broker_load_number, booked_by_company_id").eq("id", body.orderId).maybeSingle();
     if (orderError) throw orderError;
     if (!order) return json({ error: "Load not found or access denied." }, 404);
     const { data: files, error: filesError } = await client.from("order_files")
@@ -63,7 +64,6 @@ Deno.serve(async req => {
       if (managersError) throw managersError;
       const manager = resolveManager(booker, (managers || []) as RecipientProfile[]);
       // Use Auth's verified identity addresses rather than editable profile email fields.
-      const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { global: { fetch: timedFetch }, auth: { persistSession: false, autoRefreshToken: false } });
       const [bookerAuth, managerAuth] = await Promise.all([admin.auth.admin.getUserById(booker.user_id), admin.auth.admin.getUserById(manager.user_id)]);
       if (bookerAuth.error || managerAuth.error || !bookerAuth.data.user?.email || !managerAuth.data.user?.email || !auth.user.email) {
         throw new Error("A booking user, sender, or manager email address is missing.");
@@ -97,16 +97,47 @@ Deno.serve(async req => {
     }
     const loadNumber = String(order.internal_load_number || order.load_number || order.id).replace(/[\r\n]/g, " ").slice(0, 120);
     const message = body.message.trim();
-    const response = await timedFetch("https://api.resend.com/emails", {
+    // Save the rejection before attempting email; retries reuse this immutable report.
+    const { data: reporter, error: reporterError } = await client.from("profiles").select("full_name").eq("user_id", auth.user.id).maybeSingle();
+    if (reporterError) throw reporterError;
+    const reportKey = { reporter_id: auth.user.id, order_id: order.id, request_id: body.requestId };
+    const { error: saveError } = await admin.from("pod_rejections").upsert({
+      ...reportKey, broker_load_number: order.broker_load_number, booked_by_company_id: order.booked_by_company_id,
+      reporter_name: reporter?.full_name || auth.user.email!, reporter_email: auth.user.email!, reason: message,
+      pods: selected.map(file => ({ id: file.id, file_name: file.file_name, file_path: file.file_path, content_type: file.content_type })),
+    }, { onConflict: "reporter_id,order_id,request_id", ignoreDuplicates: true });
+    if (saveError) return json({ error: "The rejection could not be saved. No email was sent." }, 503);
+    const { data: report, error: reportError } = await admin.from("pod_rejections").select("id,reason,pods,notification_status,email_id")
+      .eq("reporter_id", auth.user.id).eq("order_id", order.id).eq("request_id", body.requestId).maybeSingle();
+    if (reportError || !report) return json({ error: "The rejection could not be confirmed. No email was sent." }, 503);
+    const storedIds = (report.pods as { id: string }[]).map(file => file.id).sort();
+    if (report.reason !== message || JSON.stringify(storedIds) !== JSON.stringify(selected.map(file => file.id).sort())) {
+      return json({ error: "This request was already used for a different rejection. Reopen the popup and try again." }, 409);
+    }
+    if (report.notification_status === "sent" && report.email_id) return json({ success: true, emailId: report.email_id, rejectionId: report.id });
+    const markFailed = async () => {
+      await admin.from("pod_rejections").update({ notification_status: "failed" }).eq("id", report.id).neq("notification_status", "sent");
+    };
+    let response: Response;
+    try { response = await timedFetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json", "Idempotency-Key": `pod-${auth.user.id}-${order.id}-${body.requestId}` },
       body: JSON.stringify({ from: "Beverly TMS <jon@bfprime.net>", to: [recipients.to], reply_to: recipients.replyTo,
-        subject: `POD message — Load ${loadNumber}`, text: `Load ${loadNumber}\n\n${message}\n\nSent by ${auth.user.email}`,
-        html: `<h2>POD message — Load ${escapeHtml(loadNumber)}</h2><div style="white-space:pre-wrap">${escapeHtml(message)}</div><p>Sent by ${escapeHtml(auth.user.email!)}</p>`, attachments }),
-    });
-    const result = await response.json();
-    if (!response.ok || !result.id) return json({ error: "Email delivery was not confirmed. Please retry." }, 502);
-    return json({ success: true, emailId: result.id });
+        subject: `Rejected POD — Load ${loadNumber}`, text: `Load ${loadNumber}\n\n${message}\n\nSent by ${auth.user.email}`,
+        html: `<h2>Rejected POD — Load ${escapeHtml(loadNumber)}</h2><div style="white-space:pre-wrap">${escapeHtml(message)}</div><p>Sent by ${escapeHtml(auth.user.email!)}</p>`, attachments }),
+    }); } catch {
+      await markFailed();
+      return json({ error: "PODs were rejected, but email delivery was not confirmed. Retry to notify the booking user." }, 502);
+    }
+    let result;
+    try { result = await response.json(); } catch { result = null; }
+    if (!response.ok || !result?.id) {
+      await markFailed();
+      return json({ error: "PODs were rejected, but email delivery was not confirmed. Retry to notify the booking user." }, 502);
+    }
+    const { error: confirmError } = await admin.from("pod_rejections").update({ notification_status: "sent", email_id: result.id, notified_at: new Date().toISOString() }).eq("id", report.id);
+    if (confirmError) return json({ error: "PODs were rejected and the email was accepted, but its status could not be saved. Retry to confirm without sending a duplicate." }, 503);
+    return json({ success: true, emailId: result.id, rejectionId: report.id });
   } catch {
     // Do not log message bodies, POD documents, tokens, or recipient details.
     return json({ error: "Unable to process the POD message. Please retry." }, 500);
