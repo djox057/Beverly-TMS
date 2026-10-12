@@ -29,6 +29,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useTruckOosRealtime } from "@/hooks/useTruckOosRealtime";
 import { useTruckOosOverrides } from "@/hooks/useTruckOosOverrides";
 import { useChangedTrucks } from "@/hooks/useChangedTrucks";
+import { TruckSourceSelect } from "@/components/TruckSourceSelect";
+import { normalizeTruckSource } from "@/lib/truckSources";
 
 
 interface TruckFormData {
@@ -225,6 +227,7 @@ const Trucks = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      const source = normalizeTruckSource(formData.source);
       if (formData.is_insured && !formData.insurance_company_id) {
         throw new Error("Select the company providing this truck's insurance.");
       }
@@ -252,7 +255,7 @@ const Trucks = () => {
         error
       } = await supabase.from('trucks').insert({
         truck_number: formData.truck_number?.trim(),
-        source: formData.source.trim() || null,
+        source,
         start_miles: formData.start_miles === "" ? null : Number(formData.start_miles),
         baseline_created_by: formData.start_miles === "" ? null : user?.id,
         vin: formData.vin || null,
@@ -436,6 +439,7 @@ const Trucks = () => {
     if (!editingTruck) return;
     setIsSubmitting(true);
     try {
+      const source = normalizeTruckSource(formData.source);
       if (formData.is_insured && !formData.insurance_company_id) {
         throw new Error("Select the company providing this truck's insurance.");
       }
@@ -465,7 +469,7 @@ const Trucks = () => {
         error
       } = await supabase.from('trucks').update({
         truck_number: formData.truck_number,
-        source: formData.source.trim() || null,
+        source,
         start_miles: formData.start_miles === "" ? null : Number(formData.start_miles),
         baseline_created_by: editingTruck.baseline_created_by ?? (editingTruck.start_miles == null && formData.start_miles !== "" ? user?.id : null),
         vin: formData.vin || null,
@@ -877,10 +881,7 @@ const Trucks = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="source">Source</Label>
-                  <Input id="source" list="truck-source-options" value={formData.source} onChange={e => setFormData({ ...formData, source: e.target.value })} placeholder="BF TRUCK, M&K, Ryder, TEL" />
-                  <datalist id="truck-source-options">
-                    {Array.from(new Set(["BF TRUCK", "M&K", "Ryder", "TEL", ...(trucks || []).map(t => t.source).filter((source): source is string => Boolean(source))])).sort().map(source => <option key={source} value={source} />)}
-                  </datalist>
+                  <TruckSourceSelect id="source" value={formData.source} onChange={source => setFormData({ ...formData, source: source ?? "" })} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="start_miles">Start miles</Label>
@@ -1380,10 +1381,7 @@ const Trucks = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_source">Source</Label>
-                    <Input id="edit_source" list="edit_truck-source-options" value={formData.source} onChange={e => setFormData({ ...formData, source: e.target.value })} placeholder="BF TRUCK, M&K, Ryder, TEL" />
-                    <datalist id="edit_truck-source-options">
-                      {Array.from(new Set(["BF TRUCK", "M&K", "Ryder", "TEL", ...(trucks || []).map(t => t.source).filter((source): source is string => Boolean(source))])).sort().map(source => <option key={source} value={source} />)}
-                    </datalist>
+                    <TruckSourceSelect id="edit_source" value={formData.source} onChange={source => setFormData({ ...formData, source: source ?? "" })} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit_start_miles">Start miles</Label>

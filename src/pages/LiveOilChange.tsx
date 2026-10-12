@@ -27,6 +27,8 @@ import { MileageHistoryPopover } from "@/components/liveOilChange/MileageHistory
 import { OdometerHistoryPopover } from "@/components/liveOilChange/OdometerHistoryPopover";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 import { getMileageUpdateStatus } from "@/lib/mileageUpdateStatus";
+import { TruckSourceSelect } from "@/components/TruckSourceSelect";
+import { TRUCK_SOURCES, normalizeTruckSource } from "@/lib/truckSources";
 
 
 
@@ -311,6 +313,7 @@ const LiveOilChange = () => {
 
   const updateTruck = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<TruckRow> }) => {
+      if ("source" in patch) patch = { ...patch, source: normalizeTruckSource(patch.source) };
       // Dispatchers cannot UPDATE the trucks table directly (RLS). Route
       // miles-only updates through a security-definer RPC that scopes to
       // trucks assigned to the dispatcher's drivers.
@@ -373,12 +376,6 @@ const LiveOilChange = () => {
     const map = new Map<string, string>();
     enrichedTrucks.forEach(t => { if (t.company_id && t.company_name) map.set(t.company_id, t.company_name); });
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-  }, [enrichedTrucks]);
-
-  const sources = useMemo(() => {
-    const set = new Set<string>();
-    enrichedTrucks.forEach(t => { if (t.source) set.add(t.source); });
-    return Array.from(set).sort();
   }, [enrichedTrucks]);
 
   const dispatcherOptions = useMemo(() => {
@@ -449,7 +446,7 @@ const LiveOilChange = () => {
               <SelectTrigger className="w-40"><SelectValue placeholder="Source" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All sources</SelectItem>
-                {sources.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                {TRUCK_SOURCES.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
               </SelectContent>
             </Select>
             <Select value={dispatcherFilter} onValueChange={setDispatcherFilter}>
@@ -555,18 +552,15 @@ const LiveOilChange = () => {
                     return (
                       <TableRow key={t.id} className={rowTone}>
                         <TableCell>
-                          <Input
-                            key={t.source ?? "empty-src"}
-                            defaultValue={t.source ?? ""}
-                            onBlur={(e) => {
-                              const v = e.target.value.trim() || null;
-                              if (v !== (t.source ?? null)) {
-                                updateTruck.mutate({ id: t.id, patch: { source: v } });
-                              }
+                          {canEditAll ? <TruckSourceSelect
+                            ariaLabel={`Source for truck ${t.truck_number}`}
+                            value={t.source}
+                            onChange={source => {
+                              if (source !== t.source) updateTruck.mutate({ id: t.id, patch: { source } });
                             }}
-                            className={bareInput}
-                            readOnly={!canEditAll}
-                          />
+                            className={cn(bareInput, "w-full text-xs")}
+                            disabled={updateTruck.isPending}
+                          /> : <span>{t.source ?? ""}</span>}
                         </TableCell>
                         <TableCell className="font-medium"><Link to={`/live-oil-change/${t.id}`} className="hover:underline focus-visible:underline" aria-label={`Open service log for truck ${t.truck_number}`}>{t.truck_number}</Link></TableCell>
                         <TableCell>
