@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import TruckServiceLog from "./TruckServiceLog";
 
-const mocks = vi.hoisted(() => ({ role: "maintenance", history: [] as Array<{ id: string; field: string; new_value: number; changed_at: string; changed_by: string }>, insert: vi.fn(), update: vi.fn(), truck: {
+const mocks = vi.hoisted(() => ({ role: "maintenance", searchTrucks: [] as Array<{ id: string; truck_number: string; is_active: boolean; dispatcher_id: string | null; driver1_id: string | null }>, history: [] as Array<{ id: string; field: string; new_value: number; changed_at: string; changed_by: string }>, insert: vi.fn(), update: vi.fn(), truck: {
   id: "truck1", truck_number: "157", source: "BF TRUCK", make: "Freightliner", model: "Cascadia", year: 2026,
   vin: "VIN157", engine: "DD15", is_active: true, miles: 168624, miles_updated_at: "2026-09-30T12:00:00Z",
   last_oil_change_miles: 148108, oil_change_date: "2026-07-30", air_filter: null, last_oc_invoice: "INV-3338",
@@ -13,19 +13,55 @@ const mocks = vi.hoisted(() => ({ role: "maintenance", history: [] as Array<{ id
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ getPrimaryRole: () => mocks.role, user: { id: "user1" } }) }));
 vi.mock("@/hooks/realtimeBus", () => ({ busChannel: () => { const channel = { on: () => channel, subscribe: () => channel, unsubscribe: vi.fn() }; return channel; } }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: (table: string) => {
+  let selectedId = "truck1";
   const query = {
-    select: () => query, eq: () => query, order: () => query, in: () => Promise.resolve({ data: [{ user_id: "user1", full_name: "Jane Maintenance" }], error: null }),
-    single: async () => ({ data: mocks.truck, error: null }),
-    range: async () => ({ data: table === "truck_mileage_history" ? mocks.history : [], error: null }),
+    select: () => query, eq: (column: string, value: string) => { if (column === "id") selectedId = value; return query; }, order: () => query, in: () => Promise.resolve({ data: [{ user_id: "user1", full_name: "Jane Maintenance" }], error: null }),
+    single: async () => ({ data: selectedId === "truck1" ? mocks.truck : { ...mocks.truck, ...mocks.searchTrucks.find(truck => truck.id === selectedId) }, error: null }),
+    range: async () => ({ data: table === "trucks" ? mocks.searchTrucks : table === "drivers" ? [{ id: "driver1" }] : table === "truck_mileage_history" ? mocks.history : [], error: null }),
     insert: (payload: unknown) => { mocks.insert(table, payload); return { select: async () => ({ data: [{ id: "entry1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }; },
     update: (payload: unknown) => { mocks.update(table, payload); return { eq: () => ({ select: async () => ({ data: [{ id: "truck1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }) }; },
   }; return query;
 } } }));
 const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={["/live-oil-change/truck1"]}><Routes><Route path="/live-oil-change/:truckId" element={<TruckServiceLog />} /></Routes></MemoryRouter></QueryClientProvider>);
 
-beforeEach(() => { mocks.role = "maintenance"; mocks.history = []; mocks.insert.mockClear(); mocks.update.mockClear(); });
+beforeAll(() => {
+  Element.prototype.scrollIntoView = () => {};
+  globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
+});
+beforeEach(() => { mocks.searchTrucks = [
+  { id: "truck1", truck_number: "157", is_active: true, dispatcher_id: "user1", driver1_id: null },
+  { id: "truck2", truck_number: "0984", is_active: true, dispatcher_id: "other", driver1_id: null },
+  { id: "truck3", truck_number: "460", is_active: false, dispatcher_id: null, driver1_id: "driver1" },
+  { id: "truck4", truck_number: "555", is_active: true, dispatcher_id: "other", driver1_id: "driver1" },
+]; mocks.role = "maintenance"; mocks.history = []; mocks.insert.mockClear(); mocks.update.mockClear(); });
 afterEach(cleanup);
 describe("truck service log page", () => {
+  it("searches a unit with leading zeros and opens its oil change page", async () => {
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.change(screen.getByPlaceholderText("Type truck number…"), { target: { value: "0984" } });
+    expect(screen.queryByRole("option", { name: /Truck 157/ })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("option", { name: /Truck 0984/ }));
+    expect(await screen.findByRole("heading", { name: /TRUCK 0984/ })).toBeInTheDocument();
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+  it.each(["dispatch", "supervisor"])("scopes %s search to assigned trucks including driver fallback", async role => {
+    mocks.role = role;
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    fireEvent.click(screen.getByRole("combobox"));
+    expect(await screen.findByRole("option", { name: /Truck 460 \(inactive\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Truck 157/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Truck 0984/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Truck 555/ })).not.toBeInTheDocument();
+  });
+  it("shows an empty result for an unknown unit", async () => {
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.change(screen.getByPlaceholderText("Type truck number…"), { target: { value: "nonexistent" } });
+    expect(await screen.findByText("No options found.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /TRUCK 157/ })).toBeInTheDocument();
+  });
   it("renders live readings in the spreadsheet layout and leaves missing fields blank", async () => {
     mount();
     expect(await screen.findByRole("heading", { name: /TRUCK 157/ })).toBeInTheDocument();
