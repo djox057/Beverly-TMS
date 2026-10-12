@@ -15,9 +15,9 @@ vi.mock("@/hooks/realtimeBus", () => ({ busChannel: () => { const channel = { on
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: (table: string) => {
   let selectedId = "truck1";
   const query = {
-    select: () => query, eq: (column: string, value: string) => { if (column === "id") selectedId = value; return query; }, order: () => query, in: () => Promise.resolve({ data: [{ user_id: "user1", full_name: "Jane Maintenance" }], error: null }),
+    select: () => query, eq: (column: string, value: string) => { if (column === "id") selectedId = value; return query; }, order: () => query, in: () => table === "drivers" ? query : Promise.resolve({ data: [{ user_id: "user1", full_name: "Jane Maintenance" }], error: null }),
     single: async () => ({ data: selectedId === "truck1" ? mocks.truck : { ...mocks.truck, ...mocks.searchTrucks.find(truck => truck.id === selectedId) }, error: null }),
-    range: async () => ({ data: table === "trucks" ? mocks.searchTrucks : table === "drivers" ? [{ id: "driver1" }] : table === "truck_mileage_history" ? mocks.history : [], error: null }),
+    range: async () => ({ data: table === "trucks" ? mocks.searchTrucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: "user1" }, { id: "driver2", first_name: "Adil", last_name: "El Filali", dispatcher_id: "other" }] : table === "truck_mileage_history" ? mocks.history : [], error: null }),
     insert: (payload: unknown) => { mocks.insert(table, payload); return { select: async () => ({ data: [{ id: "entry1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }; },
     update: (payload: unknown) => { mocks.update(table, payload); return { eq: () => ({ select: async () => ({ data: [{ id: "truck1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }) }; },
   }; return query;
@@ -30,7 +30,7 @@ beforeAll(() => {
 });
 beforeEach(() => { mocks.searchTrucks = [
   { id: "truck1", truck_number: "157", is_active: true, dispatcher_id: "user1", driver1_id: null },
-  { id: "truck2", truck_number: "0984", is_active: true, dispatcher_id: "other", driver1_id: null },
+  { id: "truck2", truck_number: "0984", is_active: true, dispatcher_id: "other", driver1_id: "driver2" },
   { id: "truck3", truck_number: "460", is_active: false, dispatcher_id: null, driver1_id: "driver1" },
   { id: "truck4", truck_number: "555", is_active: true, dispatcher_id: "other", driver1_id: "driver1" },
 ]; mocks.role = "maintenance"; mocks.history = []; mocks.insert.mockClear(); mocks.update.mockClear(); });
@@ -40,8 +40,8 @@ describe("truck service log page", () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
     fireEvent.click(screen.getByRole("combobox"));
     fireEvent.change(screen.getByPlaceholderText("Type truck number…"), { target: { value: "0984" } });
-    expect(screen.queryByRole("option", { name: /Truck 157/ })).not.toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("option", { name: /Truck 0984/ }));
+    expect(screen.queryByRole("option", { name: /157 - No driver/ })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("option", { name: /0984 - Adil El Filali/ }));
     expect(await screen.findByRole("heading", { name: /TRUCK 0984/ })).toBeInTheDocument();
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(mocks.update).not.toHaveBeenCalled();
@@ -50,10 +50,10 @@ describe("truck service log page", () => {
     mocks.role = role;
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
     fireEvent.click(screen.getByRole("combobox"));
-    expect(await screen.findByRole("option", { name: /Truck 460 \(inactive\)/ })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /Truck 157/ })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: /Truck 0984/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: /Truck 555/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /460 - Jane Driver \(inactive\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /157 - No driver/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /0984 - Adil El Filali/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /555 - Jane Driver/ })).not.toBeInTheDocument();
   });
   it("shows an empty result for an unknown unit", async () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });

@@ -55,14 +55,17 @@ export default function TruckServiceLog() {
       const trucks = await readAllRows(() => supabase.from("trucks")
         .select("id,truck_number,is_active,dispatcher_id,driver1_id")
         .order("truck_number").order("id"));
-      if (!dispatch) return trucks;
+      const driverIds = Array.from(new Set(trucks.map(truck => truck.driver1_id).filter((id): id is string => !!id)));
+      const drivers = driverIds.length ? await readAllRows(() => supabase.from("drivers")
+        .select("id,first_name,last_name,dispatcher_id").in("id", driverIds).order("id")) : [];
+      const driverById = new Map(drivers.map(driver => [driver.id, driver]));
+      const namedTrucks = trucks.map(truck => {
+        const driver = truck.driver1_id ? driverById.get(truck.driver1_id) : undefined;
+        return { ...truck, driver_name: [driver?.first_name, driver?.last_name].filter(Boolean).join(" ").trim() };
+      });
       // Match the service page's assignment rule, including driver fallback.
-      const drivers = await readAllRows(() => supabase.from("drivers")
-        .select("id").eq("dispatcher_id", user!.id).order("id"));
-      const assignedDrivers = new Set(drivers.map(driver => driver.id));
-      return trucks.filter(truck => truck.dispatcher_id
-        ? truck.dispatcher_id === user!.id
-        : !!truck.driver1_id && assignedDrivers.has(truck.driver1_id));
+      return dispatch ? namedTrucks.filter(truck => (truck.dispatcher_id
+        ?? (truck.driver1_id ? driverById.get(truck.driver1_id)?.dispatcher_id : null)) === user!.id) : namedTrucks;
     },
   });
   const queryKey = ["truck-service-log", truckId, user?.id];
@@ -201,7 +204,7 @@ export default function TruckServiceLog() {
         <SearchableSelect
           value={truckId ?? ""}
           onValueChange={id => { if (id !== truckId) navigate(`/live-oil-change/${id}`); }}
-          options={searchableTrucks.map(truck => ({ value: truck.id, label: `Truck ${truck.truck_number.trim()}${truck.is_active ? "" : " (inactive)"}` }))}
+          options={searchableTrucks.map(truck => ({ value: truck.id, label: `${truck.truck_number.trim()} - ${truck.driver_name || "No driver"}${truck.is_active ? "" : " (inactive)"}` }))}
           placeholder={loadingTrucks ? "Loading trucks…" : "Search truck number…"}
           searchPlaceholder="Type truck number…"
           className="w-full sm:w-64"
