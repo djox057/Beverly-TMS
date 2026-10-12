@@ -149,3 +149,6 @@ verify_jwt = false
 
 [functions.backfill-pretrip-photo-hashes]
 verify_jwt = false
+
+[functions.send-pod-message]
+verify_jwt = true
