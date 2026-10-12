@@ -29,6 +29,7 @@ import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 import { getMileageUpdateStatus } from "@/lib/mileageUpdateStatus";
 import { TruckSourceSelect } from "@/components/TruckSourceSelect";
 import { TRUCK_SOURCES, normalizeTruckSource } from "@/lib/truckSources";
+import { MileageUpdateSummary } from "@/components/liveOilChange/MileageUpdateSummary";
 
 
 
@@ -169,6 +170,7 @@ const LiveOilChange = () => {
   useEffect(() => {
     const channel = busChannel(() => {
       queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] });
     })
       .on(
         "postgres_changes",
@@ -178,6 +180,7 @@ const LiveOilChange = () => {
           const oldRec = payload.old as any;
           const id = newRec?.id || oldRec?.id;
           if (!id) return;
+          if (payload.eventType === "UPDATE") queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] });
           // Directly patch cached rows so all connected clients see the update
           // immediately (including note / oil_change_note) without a refetch race.
           queryClient.setQueriesData<any[]>(
@@ -347,6 +350,7 @@ const LiveOilChange = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] });
       queryClient.invalidateQueries({ queryKey: ["trucks", "v2"] });
     },
     onError: (e: any) => {
@@ -486,6 +490,7 @@ const LiveOilChange = () => {
           </div>
         </CardHeader>
         <CardContent className="px-2">
+          <MileageUpdateSummary trucks={filtered} trucksLoading={isLoading} trucksError={trucksError} />
           <Table className="table-fixed">
             <TableHeader className="sticky top-0 z-20 bg-background">
               <TableRow>
