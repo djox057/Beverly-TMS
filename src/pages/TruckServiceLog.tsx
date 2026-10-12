@@ -3,7 +3,7 @@ import "./TruckServiceLog.css";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, ChevronDown, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
@@ -45,11 +45,10 @@ export default function TruckServiceLog() {
   const canEditTruck = !!role && ["admin", "manager", "maintenance", "supervisor"].includes(role);
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<ServiceEntry | "new" | null>(null);
-  const [showTruckDetails, setShowTruckDetails] = useState(false);
   const [deleting, setDeleting] = useState<ServiceEntry | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [draftRows, setDraftRows] = useState<Record<number, ReturnType<typeof emptyForm>>>({});
-  useEffect(() => { setDraftRows({}); setEditing(null); setDeleting(null); setShowTruckDetails(false); setForm(emptyForm()); }, [truckId, user?.id]);
+  useEffect(() => { setDraftRows({}); setEditing(null); setDeleting(null); setForm(emptyForm()); }, [truckId, user?.id]);
   const { data: searchableTrucks = [], isLoading: loadingTrucks, error: truckSearchError, refetch: refetchTrucks } = useQuery({
     queryKey: ["oil-change-truck-search", user?.id, role],
     enabled: !!user && !!role,
@@ -224,13 +223,6 @@ export default function TruckServiceLog() {
   ];
   return <div className="truck-service-log px-2 py-6 space-y-4">
     <div className="service-log-toolbar flex flex-wrap items-center justify-between gap-3"><Link to="/live-oil-change" className="inline-flex items-center gap-2 text-sm hover:underline"><ArrowLeft className="h-4 w-4" />Live Oil Change</Link>
-      <div className="service-log-dark-title hidden dark:flex">
-        <h1>Truck {truck.truck_number}{makeModel && ` · ${makeModel}`}</h1>
-        <span className="service-log-active" data-active={truck.is_active}>{truck.is_active ? "ACTIVE" : "INACTIVE"}</span>
-        <Button type="button" variant="ghost" size="sm" className="service-log-details-toggle" aria-expanded={showTruckDetails} aria-controls="service-log-truck-details" onClick={() => setShowTruckDetails(shown => !shown)}>
-          Truck details<ChevronDown className={`ml-1 h-3.5 w-3.5 ${showTruckDetails ? "rotate-180" : ""}`} />
-        </Button>
-      </div>
       <div className="service-log-controls flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <SearchableSelect
           value={truckId ?? ""}
@@ -245,7 +237,7 @@ export default function TruckServiceLog() {
     {truckSearchError && <p role="alert" className="text-sm text-destructive">Could not load truck search. <button type="button" className="underline" onClick={() => refetchTrucks()}>Try again</button></p>}
     <div className="service-log-sheet rounded-sm border-2 border-[#233c85] bg-white text-slate-900 overflow-hidden shadow-sm">
       <h1 className="service-log-light-title bg-[#233c85] px-4 py-3 text-center text-base font-bold tracking-wide text-white">{makeModel ? `${makeModel.toUpperCase()} · ` : ""}TRUCK {truck.truck_number} · FLEET MAINTENANCE & OIL CHANGE SYSTEM</h1>
-      <div id="service-log-truck-details" data-expanded={showTruckDetails} className="service-log-metadata grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 bg-[#f5f7fb] text-xs">{meta.map(([label, value]) => <div key={label} data-meta={label} className={`${cell} relative h-10 overflow-hidden flex items-center gap-2 [&:has([data-cell-editor])]:shadow-[inset_0_0_0_2px_#217346]`}><span className="font-semibold text-slate-500 shrink-0">{label}:</span><span className="relative h-full min-w-0 font-semibold truncate flex flex-1 items-center">{metadataKeys[String(label)] ? <ServiceLogCell compact label={String(label)} value={String(truck[metadataKeys[String(label)]] ?? "")} display={value} type={label === "Baseline Start" ? "date" : label === "Baseline Odometer" ? "number" : "text"} editable={canEditTruck} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ key: metadataKeys[String(label)], value })} /> : value}</span></div>)}</div>
+      <div className="service-log-metadata grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 bg-[#f5f7fb] text-xs">{meta.map(([label, value]) => <div key={label} data-meta={label} className={`${cell} relative h-10 overflow-hidden flex items-center gap-2 [&:has([data-cell-editor])]:shadow-[inset_0_0_0_2px_#217346]`}><span className="font-semibold text-slate-500 shrink-0">{label}:</span><span className="relative h-full min-w-0 font-semibold truncate flex flex-1 items-center">{metadataKeys[String(label)] ? <ServiceLogCell compact label={String(label)} value={String(truck[metadataKeys[String(label)]] ?? "")} display={value} type={label === "Baseline Start" ? "date" : label === "Baseline Odometer" ? "number" : "text"} editable={canEditTruck} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ key: metadataKeys[String(label)], value })} /> : value}</span></div>)}</div>
       <div className="service-log-summary grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 border-y border-[#dce3f3] my-4 text-center">
         <div className={`${cell} service-log-stat service-log-current bg-[#edf3ff]`}><p className="text-xs font-bold text-blue-800">CURRENT ODOMETER</p><p className="my-2 text-2xl font-bold text-[#233c85]">{num(summary.current)}{summary.current != null && " mi"}</p><p className="text-xs text-slate-500">Baseline: {num(summary.baseline?.odometer)}</p><p className="text-xs text-slate-500">Last update: {date(summary.currentDate)}</p></div>
         <div data-tone={summary.tone} className={`${cell} service-log-stat service-log-miles ${toneClass(summary.tone)}`}><p className="text-xs font-bold">MILES SINCE LAST OIL CHANGE</p><p className="my-2 text-2xl font-bold">{num(summary.sinceOil)}{summary.sinceOil != null && " mi"}</p><p className="text-xs">Last change: {date(summary.oilDate)}</p><p className="text-xs">PM interval target: {num(summary.interval.miles)} mi</p></div>

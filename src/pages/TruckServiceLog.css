@@ -1,130 +1,53 @@
-/* This stylesheet only changes the service page when the app is in dark mode. */
+/* Dark mode shares every field and dimension with light mode.
+   Only colors and decorative effects change; the JSX/Tailwind layout is shared. */
 .dark .truck-service-log {
   background: radial-gradient(ellipse at top left, #111d31 0%, #101827 65%);
   color: #e5eaf3;
-  border-radius: 10px;
-  padding: 20px;
 }
-.dark .truck-service-log .service-log-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "back back" "title controls";
-  gap: 16px 12px;
-}
-.dark .truck-service-log .service-log-toolbar > a { grid-area: back; color: #b7c3d5; font-size: 12px; }
-.dark .truck-service-log .service-log-dark-title { grid-area: title; align-items: center; flex-wrap: wrap; gap: 8px; }
-.dark .truck-service-log .service-log-dark-title h1 { font-size: 24px; line-height: 1.25; font-weight: 700; color: #f3f6fc; }
-.dark .truck-service-log .service-log-active {
-  border: 1px solid #316449;
-  border-radius: 4px;
-  background: #1c3b2d;
-  color: #aae4be;
-  padding: 3px 6px;
-  font-size: 10px;
-}
-.dark .truck-service-log .service-log-active[data-active="false"] { background: #303746; border-color: #485163; color: #c7d0df; }
-.dark .truck-service-log .service-log-details-toggle { color: #aab7cc; font-size: 11px; height: 28px; padding: 0 6px; }
-.dark .truck-service-log .service-log-controls { grid-area: controls; width: auto; }
+.dark .truck-service-log .service-log-toolbar > a { color: #b7c3d5; }
 .dark .truck-service-log .service-log-controls > button:last-child { box-shadow: 0 0 14px #508ff72e; }
-.dark .truck-service-log .service-log-sheet { border: 0; border-radius: 0; background: transparent; color: #e5eaf3; box-shadow: none; overflow: visible; }
-.dark .truck-service-log .service-log-light-title { display: none; }
-.dark .truck-service-log .service-log-metadata {
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, .85fr) minmax(0, .8fr) minmax(0, 1.05fr) minmax(0, 1.5fr);
-  border: 1px solid #334054;
-  border-radius: 8px;
-  background: linear-gradient(120deg, #1a2536, #192232);
-  padding: 10px 12px;
-  gap: 8px 16px;
-}
-.dark .truck-service-log .service-log-metadata > div {
-  border: 0;
-  height: 38px;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  box-shadow: none;
-}
-.dark .truck-service-log .service-log-metadata > div > span:first-child { color: #9cabc1; font-size: 11px; font-weight: 400; }
-.dark .truck-service-log .service-log-metadata > div > span:last-child { flex: none; width: 100%; height: 20px; color: #e9edf5; }
-.dark .truck-service-log .service-log-metadata > div { order: 6; }
-/* Explicit metadata order wins over the general extra-details order. */
-.dark .truck-service-log .service-log-metadata > [data-meta="VIN"] { order: 1; }
-.dark .truck-service-log .service-log-metadata > [data-meta="Engine Type"] { order: 2; }
-.dark .truck-service-log .service-log-metadata > [data-meta="Model Year"] { order: 3; }
-.dark .truck-service-log .service-log-metadata > [data-meta="Service Interval"] { order: 4; }
-.dark .truck-service-log .service-log-metadata > [data-meta="Telematics / ELD"] { order: 5; }
-.dark .truck-service-log .service-log-metadata > :is([data-meta="Truck Unit"], [data-meta="Make / Model"], [data-meta="Status"]) { display: none; }
-.dark .truck-service-log .service-log-metadata[data-expanded="false"] > :is([data-meta="Oil Specification"], [data-meta="Baseline Start"], [data-meta="Baseline Odometer"], [data-meta="Baseline Note"]) { display: none; }
-.dark .truck-service-log .service-log-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); border: 0; gap: 12px; margin: 12px 0; }
+.dark .truck-service-log .service-log-sheet { border-color: #34465f; background: #172132; color: #e5eaf3; box-shadow: 0 0 16px #4f8fdc12; }
+.dark .truck-service-log .service-log-light-title { background: linear-gradient(110deg, #223a58, #202c42); color: #f1f5fc; text-shadow: 0 0 14px #9dcaff28; }
+.dark .truck-service-log .service-log-metadata { background: linear-gradient(120deg, #1a2536, #192232); }
+.dark .truck-service-log .service-log-metadata > div { border-color: #334054; }
+.dark .truck-service-log .service-log-metadata > div > span:first-child { color: #9cabc1; }
+.dark .truck-service-log .service-log-metadata > div > span:last-child { color: #e9edf5; }
+.dark .truck-service-log .service-log-summary { border-color: #35465c; }
 .dark .truck-service-log .service-log-stat {
-  position: relative;
-  overflow: hidden;
-  min-height: 118px;
-  border: 1px solid #35465c;
-  border-radius: 9px;
-  padding: 12px 10px;
+  border-color: #35465c;
   background: linear-gradient(145deg, #253143, #192232);
   color: #c4cedf;
-  box-shadow: inset 0 0 15px #91baff0b, 0 3px 8px #0002;
+  box-shadow: inset 0 0 15px #91baff0b;
 }
-.dark .truck-service-log .service-log-stat > p:first-child { color: #dce4f1; font-size: 10px; font-weight: 500; }
-.dark .truck-service-log .service-log-stat > p:not(:first-child):not(.my-2) { color: #adbad0; font-size: 11px; }
-.dark .truck-service-log .service-log-stat > .my-2 { color: #edf2fc; margin: 8px 0 10px; }
+.dark .truck-service-log .service-log-stat > p:first-child { color: #dce4f1; }
+.dark .truck-service-log .service-log-stat > p:not(:first-child):not(.my-2) { color: #adbad0; }
+.dark .truck-service-log .service-log-stat > .my-2 { color: #edf2fc; }
 .dark .truck-service-log .service-log-current { background: linear-gradient(135deg, #1e3b53, #182739); box-shadow: inset 0 0 20px #65b6ff12; }
 .dark .truck-service-log .service-log-current > .my-2 { color: #a0caff; text-shadow: 0 0 15px #539cff35; }
 .dark .truck-service-log .service-log-miles { background: linear-gradient(135deg, #1d413b, #182838); }
-.dark .truck-service-log .service-log-miles > .my-2 { color: #9fe2bd; }
+.dark .truck-service-log .service-log-miles > .my-2 { color: #9fe2bd; text-shadow: 0 0 14px #61d59b30; }
 .dark .truck-service-log .service-log-miles[data-tone="red"] { background: linear-gradient(135deg, #432735, #1d2636); }
-.dark .truck-service-log .service-log-miles[data-tone="red"] > .my-2 { color: #f0a5ad; }
-.dark .truck-service-log .service-log-miles[data-tone="yellow"] > .my-2 { color: #efd18f; }
-.dark .truck-service-log .service-log-miles[data-tone="good"]::after {
-  content: ""; position: absolute; left: 12px; right: 12px; top: 68px; height: 1px;
-  background: linear-gradient(90deg, #65dc9b, #65dc9b30, transparent); box-shadow: -2px 0 7px #5ee29370;
-}
+.dark .truck-service-log .service-log-miles[data-tone="red"] > .my-2 { color: #f0a5ad; text-shadow: 0 0 14px #e55c7935; }
+.dark .truck-service-log .service-log-miles[data-tone="yellow"] > .my-2 { color: #efd18f; text-shadow: 0 0 14px #dbae5b30; }
 .dark .truck-service-log .service-log-readiness[data-tone="red"] { background: linear-gradient(135deg, #452634, #242634); }
-.dark .truck-service-log .service-log-readiness > .my-2 { display: inline-block; border-radius: 999px; font-size: 16px; padding: 4px 10px; background: #275540; color: #b4e9c6; box-shadow: 0 0 16px #49c78c20; }
-.dark .truck-service-log .service-log-readiness[data-tone="red"] > .my-2 { background: #702d3d; color: #ffb5bc; box-shadow: 0 0 20px #e55c7950; }
-.dark .truck-service-log .service-log-readiness[data-tone="yellow"] > .my-2 { background: #594325; color: #f7d695; }
-.dark .truck-service-log .service-log-readiness[data-tone="unknown"] > .my-2 { background: #354054; color: #d4ddeb; }
-.dark .truck-service-log .service-log-warning { margin: 0 0 12px; border-radius: 6px; border-color: #84602d; background: #3d2c17; color: #ecd19f; padding: 6px 10px; }
-.dark .truck-service-log .service-log-table { border: 1px solid #344156; border-radius: 8px; background: #172132; }
-.dark .truck-service-log .service-log-table table { min-width: 900px; font-size: 11px; }
+.dark .truck-service-log .service-log-readiness > .my-2 { color: #b4e9c6; text-shadow: 0 0 14px #49c78c70; }
+.dark .truck-service-log .service-log-readiness[data-tone="red"] > .my-2 { color: #ffb5bc; text-shadow: 0 0 16px #e55c7980; }
+.dark .truck-service-log .service-log-readiness[data-tone="yellow"] > .my-2 { color: #f7d695; text-shadow: 0 0 14px #dbae5b55; }
+.dark .truck-service-log .service-log-readiness[data-tone="unknown"] > .my-2 { color: #d4ddeb; text-shadow: none; }
+.dark .truck-service-log .service-log-warning { border-color: #84602d; background: #3d2c17; color: #ecd19f; box-shadow: inset 0 0 8px #d9a14b10; }
+.dark .truck-service-log .service-log-table { background: #172132; }
 .dark .truck-service-log .service-log-table thead { background: #222e40; color: #e7edf7; }
 .dark .truck-service-log .service-log-table :is(td, th) { border-color: #303c50; }
-.dark .truck-service-log .service-log-table tbody tr { background: #161f30; color: #e0e7f2; font-weight: 400; }
+.dark .truck-service-log .service-log-table tbody tr { background: #161f30; color: #e0e7f2; }
 .dark .truck-service-log .service-log-table tbody tr:nth-child(even) { background: #192334; }
 .dark .truck-service-log .service-log-table td[data-mileage-tone="red"] { background: #462936; color: #f6a7b4; }
 .dark .truck-service-log .service-log-table td[data-mileage-tone="yellow"] { background: #403524; color: #f1d292; }
-.dark .truck-service-log .service-log-table col:nth-child(1) { width: 8% !important; }
-.dark .truck-service-log .service-log-table col:nth-child(2) { width: 10% !important; }
-.dark .truck-service-log .service-log-table col:nth-child(3) { width: 9% !important; }
-.dark .truck-service-log .service-log-table col:nth-child(4) { width: 11% !important; }
-.dark .truck-service-log .service-log-table col:nth-child(5) { width: 9% !important; }
-.dark .truck-service-log .service-log-table col:nth-child(6) { width: 10% !important; }
-.dark .truck-service-log .service-log-table col:nth-child(7) { width: 10% !important; }
-.dark .truck-service-log .service-log-table col:nth-child(8) { width: 8% !important; }
-.dark .truck-service-log .service-log-table col:nth-child(9) { width: 11% !important; }
-.dark .truck-service-log .service-log-table col:nth-child(10) { width: 8% !important; }
-.dark .truck-service-log .service-log-table col:nth-child(11) { width: 6% !important; }
-.dark .truck-service-log .service-entry-type { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; border-radius: 4px; padding: 1px 5px; line-height: 14px; border: 1px solid #355d85; background: #233e5c; color: #a5d1fc; }
+.dark .truck-service-log .service-entry-type { border-radius: 3px; background: #233e5c; color: #a5d1fc; outline: 1px solid #355d85; outline-offset: 2px; text-shadow: 0 0 8px #70b6ef25; }
 .dark .truck-service-log .service-entry-type[data-type="Oil Change"],
-.dark .truck-service-log .service-entry-type[data-type="Air Filter + Oil change"] { border-color: #3c7457; background: #214331; color: #abe2ba; }
-.dark .truck-service-log .service-entry-type[data-type="Air Filter"] { border-color: #834452; background: #4b2935; color: #f4b1bd; }
-.dark .truck-service-log .service-entry-type[data-type="Baseline Start"] { border-color: #665485; background: #362d4d; color: #d0bdee; }
+.dark .truck-service-log .service-entry-type[data-type="Air Filter + Oil change"] { outline-color: #3c7457; background: #214331; color: #abe2ba; text-shadow: 0 0 8px #5ed59330; }
+.dark .truck-service-log .service-entry-type[data-type="Air Filter"] { outline-color: #834452; background: #4b2935; color: #f4b1bd; text-shadow: 0 0 8px #e55c7930; }
+.dark .truck-service-log .service-entry-type[data-type="Baseline Start"] { outline-color: #665485; background: #362d4d; color: #d0bdee; text-shadow: 0 0 8px #ac8fe530; }
 .dark .truck-service-log .service-log-table button[title="Edit log details"] { color: #a1aec3; }
 .dark .truck-service-log .service-log-table button[title="Edit log details"]:hover { background: #2b3c54; color: #dae6fa; }
 .dark .truck-service-log .service-log-table button[title="Delete log entry"] { color: #d693a5; }
 .dark .truck-service-log .service-log-table button[title="Delete log entry"]:hover { background: #452b3b; }
-@media (max-width: 900px) {
-  .dark .truck-service-log .service-log-toolbar { grid-template-columns: 1fr; grid-template-areas: "back" "title" "controls"; }
-  .dark .truck-service-log .service-log-metadata { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dark .truck-service-log .service-log-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 540px) {
-  .dark .truck-service-log { padding: 12px; }
-  .dark .truck-service-log .service-log-dark-title h1 { font-size: 20px; }
-  .dark .truck-service-log .service-log-metadata { grid-template-columns: 1fr; }
-  .dark .truck-service-log .service-log-summary { grid-template-columns: 1fr; }
-}
