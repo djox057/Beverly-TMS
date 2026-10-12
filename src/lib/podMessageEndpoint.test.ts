@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as rules from "../../supabase/functions/send-pod-message/model";
 
 const orderId = "11111111-1111-1111-1111-111111111111";
+const rejectionId = "33333333-3333-3333-3333-333333333333";
 const requestId = "22222222-2222-2222-2222-222222222222";
 const source = readFileSync("supabase/functions/send-pod-message/index.ts", "utf8").replace(/^import .*\n/gm, "");
 const compiled = transpileModule(source, { compilerOptions: { target: ScriptTarget.ES2022, module: ModuleKind.None } }).outputText;
@@ -32,15 +33,16 @@ function endpoint() {
           if (failSave) return { error: new Error("Database unavailable") };
           const reports = rows[table] || (rows[table] = []);
           if (!reports.some(row => row.reporter_id === value.reporter_id && row.order_id === value.order_id && row.request_id === value.request_id)) {
-            reports.push({ id: "rejection1", notification_status: "pending", email_id: null, ...value });
+            reports.push({ id: rejectionId, deleted_at: null, deleted_by: null, notification_status: "pending", email_id: null, ...value });
           }
           return { error: null };
         },
         update: (value: Record<string, unknown>) => { updatePayload = value; return query; },
         neq: (column: string, value: unknown) => { filters.push(row => row[column] !== value); return query; },
+        is: (column: string, value: unknown) => { filters.push(row => row[column] === value); return query; },
         eq: (column: string, value: unknown) => { filters.push(row => row[column] === value); return query; },
         in: (column: string, values: unknown[]) => { filters.push(row => values.includes(row[column])); return query; },
-        maybeSingle: async () => ({ data: data().data[0] || null, error: null }),
+        maybeSingle: async () => { const matched = data().data; if (updatePayload) matched.forEach(row => Object.assign(row, updatePayload)); return { data: matched[0] || null, error: null }; },
         then: (resolve: (value: ReturnType<typeof data>) => unknown) => {
           if (updatePayload) data().data.forEach(row => Object.assign(row, updatePayload));
           return Promise.resolve(data()).then(resolve);
@@ -95,7 +97,7 @@ describe("POD message endpoint boundaries", () => {
     expect(payload.to).toEqual(["booker@verified.test"]); expect(payload.reply_to).toEqual(["sender@example.test", "manager@verified.test"]);
     expect(payload.attachments).toEqual([{ filename: "1-pod2.jpg", content: "Ynl0ZXM=" }]);
     expect(payload.html).toContain("Check &lt;signature&gt;"); expect(options.headers["Idempotency-Key"]).toContain(requestId);
-    expect(rows.pod_rejections[0]).toMatchObject({ reporter_id: "sender", reporter_name: "Reporter Name", broker_load_number: "BROKER-123", reason: "Check <signature>", notification_status: "sent", email_id: "email1" });
+    expect(rows.pod_rejections[0]).toMatchObject({ reporter_id: "sender", reporter_name: "Reporter Name", broker_load_number: "BROKER-123", reason: "Check <signature>", dispatcher_name: "Jane Booker", notification_status: "sent", email_id: "email1" });
     expect((rows.pod_rejections[0].pods as { id: string }[]).map(file => file.id)).toEqual(["pod2"]);
   });
   it("rejects files belonging to another load before download or send", async () => {
@@ -135,6 +137,31 @@ describe("POD message endpoint boundaries", () => {
     expect((await endpoint()(request(body))).status).toBe(200);
     expect((await endpoint()(request({ ...body, message: "Different reason" }))).status).toBe(409);
     expect(rows.pod_rejections[0].reason).toBe(body.message); expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("restricts rejection deletion to the same authorized roles", async () => {
+    role = "dispatch";
+    expect((await endpoint()(request({ action: "delete-rejection", rejectionId }))).status).toBe(403);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+  it("marks a visible report deleted without touching documents or sending email", async () => {
+    rows.pod_rejections = [{ id: rejectionId, deleted_at: null, deleted_by: null }];
+    expect((await endpoint()(request({ action: "delete-rejection", rejectionId }))).status).toBe(200);
+    expect(rows.pod_rejections[0]).toMatchObject({ deleted_by: "sender", deleted_at: expect.any(String) });
+    expect(rows.order_files).toHaveLength(2); expect(download).not.toHaveBeenCalled(); expect(sendEmail).not.toHaveBeenCalled();
+    expect((await endpoint()(request({ action: "delete-rejection", rejectionId }))).status).toBe(404);
+  });
+  it("does not delete absent or inaccessible reports", async () => {
+    expect((await endpoint()(request({ action: "delete-rejection", rejectionId }))).status).toBe(404);
+    expect((await endpoint()(request({ action: "delete-rejection", rejectionId: "invalid" }))).status).toBe(400);
+  });
+  it("does not recreate a deleted report if its original send request is retried", async () => {
+    const body = { action: "send", orderId, requestId, message: "Unreadable signature", selectedFileIds: ["pod1"] };
+    expect((await endpoint()(request(body))).status).toBe(200);
+    expect((await endpoint()(request({ action: "delete-rejection", rejectionId }))).status).toBe(200);
+    expect((await endpoint()(request(body))).status).toBe(409);
+    expect(rows.pod_rejections).toHaveLength(1); expect(rows.pod_rejections[0].deleted_by).toBe("sender");
+    expect(sendEmail).toHaveBeenCalledTimes(1);
   });
 
 });

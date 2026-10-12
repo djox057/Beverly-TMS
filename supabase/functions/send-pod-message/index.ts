@@ -33,6 +33,20 @@ Deno.serve(async req => {
     if (!canSendPodMessage((roles || []).map(r => r.role))) return json({ error: "Only accounting, manager, and admin can use the POD popup." }, 403);
     let body;
     try { body = await req.json(); } catch { return json({ error: "Invalid request" }, 400); }
+    if (body?.action === "delete-rejection") {
+      if (!uuid.test(body.rejectionId || "")) return json({ error: "Invalid rejection report" }, 400);
+      const { data: report, error: readError } = await client.from("pod_rejections").select("id")
+        .eq("id", body.rejectionId).is("deleted_at", null).maybeSingle();
+      if (readError) throw readError;
+      if (!report) return json({ error: "Rejection report not found or access denied." }, 404);
+      const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { global: { fetch: timedFetch }, auth: { persistSession: false, autoRefreshToken: false } });
+      const { data: deleted, error: deleteError } = await admin.from("pod_rejections")
+        .update({ deleted_at: new Date().toISOString(), deleted_by: auth.user.id })
+        .eq("id", report.id).is("deleted_at", null).select("id").maybeSingle();
+      if (deleteError) throw deleteError;
+      if (!deleted) return json({ error: "The rejection report was already deleted." }, 404);
+      return json({ success: true });
+    }
     if (!body || !uuid.test(body.orderId || "") || !["preview", "send"].includes(body.action)) return json({ error: "Invalid request" }, 400);
     if (body.action === "send" && (typeof body.message !== "string" || !body.message.trim() || body.message.length > 5000 || !uuid.test(body.requestId || ""))) {
       return json({ error: "Enter a message of up to 5,000 characters." }, 400);
@@ -104,12 +118,14 @@ Deno.serve(async req => {
     const { error: saveError } = await admin.from("pod_rejections").upsert({
       ...reportKey, broker_load_number: order.broker_load_number, booked_by_company_id: order.booked_by_company_id,
       reporter_name: reporter?.full_name || auth.user.email!, reporter_email: auth.user.email!, reason: message,
+      dispatcher_name: recipients.bookerName,
       pods: selected.map(file => ({ id: file.id, file_name: file.file_name, file_path: file.file_path, content_type: file.content_type })),
     }, { onConflict: "reporter_id,order_id,request_id", ignoreDuplicates: true });
     if (saveError) return json({ error: "The rejection could not be saved. No email was sent." }, 503);
-    const { data: report, error: reportError } = await admin.from("pod_rejections").select("id,reason,pods,notification_status,email_id")
+    const { data: report, error: reportError } = await admin.from("pod_rejections").select("id,reason,pods,notification_status,email_id,deleted_at")
       .eq("reporter_id", auth.user.id).eq("order_id", order.id).eq("request_id", body.requestId).maybeSingle();
     if (reportError || !report) return json({ error: "The rejection could not be confirmed. No email was sent." }, 503);
+    if (report.deleted_at) return json({ error: "This rejection report was deleted. Reopen the popup to create a new report." }, 409);
     const storedIds = (report.pods as { id: string }[]).map(file => file.id).sort();
     if (report.reason !== message || JSON.stringify(storedIds) !== JSON.stringify(selected.map(file => file.id).sort())) {
       return json({ error: "This request was already used for a different rejection. Reopen the popup and try again." }, 409);

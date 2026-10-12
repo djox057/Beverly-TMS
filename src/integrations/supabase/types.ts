@@ -4697,6 +4697,9 @@ export type Database = {
       }
       pod_rejections: {
         Row: {
+          deleted_by: string | null
+          deleted_at: string | null
+          dispatcher_name: string | null
           id: string
           request_id: string
           order_id: string
@@ -4713,6 +4716,9 @@ export type Database = {
           notified_at: string | null
         }
         Insert: {
+          deleted_by?: string | null
+          deleted_at?: string | null
+          dispatcher_name?: string | null
           id?: string
           request_id: string
           order_id: string
@@ -4729,6 +4735,9 @@ export type Database = {
           notified_at?: string | null
         }
         Update: {
+          deleted_by?: string | null
+          deleted_at?: string | null
+          dispatcher_name?: string | null
           id?: string
           request_id?: string
           order_id?: string
