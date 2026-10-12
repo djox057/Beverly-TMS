@@ -69,6 +69,12 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date, submissions }
   const photoGroups = useMemo(() => groupPretripPhotosByForm(photos, formSubmissions), [photos, formSubmissions]);
   const activeGroup = photoGroups.find((group) => group.id === activeGroupId) ?? photoGroups[0];
   const galleryPhotos = activeGroup?.photos ?? [];
+  const selectGroup = (groupId: string) => {
+    setActiveGroupId(groupId);
+    setIdx(0);
+    setPreviewReady(false);
+    setFailedUrl(undefined);
+  };
 
   const paths = galleryPhotos.map((photo) => photo.file_path);
   const { data: urls = {}, isError: urlsError, refetch: retryUrls } = useQuery({
@@ -138,24 +144,20 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date, submissions }
 
   return (
     <div className="flex items-center gap-1">
-      <div className="flex min-w-0 flex-col items-start gap-1">
-        {photoGroups.map((group) => (
-          <div key={group.id} className="flex max-w-full items-center gap-1">
-            <Button variant="outline" size="sm" className="h-7 max-w-full px-2 text-[10px]" disabled={!group.photos.length}
-              title={group.title}
-              onPointerEnter={() => { setActiveGroupId(group.id); setWarmUrls(true); }}
-              onFocus={() => { setActiveGroupId(group.id); setWarmUrls(true); }}
-              onClick={() => { setActiveGroupId(group.id); setIdx(0); setPreviewReady(false); setFailedUrl(undefined); setOpen(true); }}>
-              <ImageIcon className="mr-1 h-3.5 w-3.5 shrink-0" /> {group.label} ({group.photos.length})
-            </Button>
-            {group.photos.some((photo) => photo.reuse) && (
-              <span role="img" aria-label="Reused photo warning" className="shrink-0 text-amber-600 dark:text-amber-400"
-                title={group.photos.filter((photo) => photo.reuse).map((photo) => photoReuseMessage(photo.reuse!)).join("\n")}>
-                <AlertTriangle className="h-4 w-4" />
-              </span>
-            )}
-          </div>
-        ))}
+      <div className="flex min-w-0 items-center gap-1">
+        <Button variant="outline" size="sm" className="h-7 max-w-full px-2 text-[10px]" disabled={!photos.length}
+          title="Open inspection pictures"
+          onPointerEnter={() => { if (!open) setActiveGroupId(photoGroups[0]?.id ?? null); setWarmUrls(true); }}
+          onFocus={() => { if (!open) setActiveGroupId(photoGroups[0]?.id ?? null); setWarmUrls(true); }}
+          onClick={() => { selectGroup(photoGroups[0].id); setOpen(true); }}>
+          <ImageIcon className="mr-1 h-3.5 w-3.5 shrink-0" /> Pictures ({photos.length})
+        </Button>
+        {photos.some((photo) => photo.reuse) && (
+          <span role="img" aria-label="Reused photo warning" className="shrink-0 text-amber-600 dark:text-amber-400"
+            title={photos.filter((photo) => photo.reuse).map((photo) => photoReuseMessage(photo.reuse!)).join("\n")}>
+            <AlertTriangle className="h-4 w-4" />
+          </span>
+        )}
       </div>
       <Button variant="ghost" size="icon" className="h-7 w-7" disabled={uploading}
         onClick={() => fileRef.current?.click()} title="Add pictures">
@@ -172,6 +174,20 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date, submissions }
               {current?.photo_category || current?.file_name || "Inspection photo"}
             </p>
           </DialogHeader>
+          {photoGroups.length > 1 && (
+            <div className="min-w-0 overflow-x-auto overscroll-x-contain pb-1" role="group" aria-label="Photo submissions">
+              <div className="flex w-max gap-2">
+                {photoGroups.map((group) => (
+                  <Button key={group.id} variant={group.id === activeGroup?.id ? "default" : "outline"} size="sm"
+                    aria-pressed={group.id === activeGroup?.id} aria-label={`${group.label} (${group.photos.length})`}
+                    title={group.title} onClick={() => selectGroup(group.id)}>
+                    {group.label} ({group.photos.length})
+                    {group.photos.some((photo) => photo.reuse) && <AlertTriangle className="ml-1 h-4 w-4" aria-label="Contains reused photos" />}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
           {current?.reuse ? (
             <div role="alert" className="flex items-start gap-2 rounded-md border border-amber-400/50 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
