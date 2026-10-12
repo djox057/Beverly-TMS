@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Download, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,8 +8,9 @@ import { toast } from "@/hooks/use-toast";
 import { pretripWeekStart, pretripWeekEnd } from "@/lib/pretripDates";
 import { cn } from "@/lib/utils";
 import { groupPretripPhotosByForm } from "@/lib/pretripPhotoGroups";
+import { photoReuseMessage, pretripPhotoHash, type PretripPhotoReuse } from "@/lib/pretripPhotoReuse";
 
-type Photo = { id: string; truck_id: string; file_path: string; file_name: string | null; photo_category?: string | null; form_submission_id?: string | null };
+type Photo = { id: string; truck_id: string; file_path: string; file_name: string | null; photo_category?: string | null; form_submission_id?: string | null; content_sha256?: string | null; reuse?: PretripPhotoReuse; reuse_check_failed?: boolean };
 
 export const usePretripPhotos = (date: string) =>
   useQuery({
@@ -20,7 +21,7 @@ export const usePretripPhotos = (date: string) =>
       for (let offset = 0; ; offset += 1000) {
         const { data: page, error } = await (supabase as any)
           .from("pretrip_photos")
-          .select("id, truck_id, file_path, file_name, photo_category, form_submission_id")
+          .select("id, truck_id, file_path, file_name, photo_category, form_submission_id, content_sha256")
           .gte("inspection_date", pretripWeekStart(date))
           .lte("inspection_date", pretripWeekEnd(date))
           .order("created_at").order("id")
@@ -29,8 +30,24 @@ export const usePretripPhotos = (date: string) =>
         data.push(...(page ?? []));
         if ((page ?? []).length < 1000) break;
       }
+      const reused = new Map<string, PretripPhotoReuse>();
+      let reuseCheckFailed = false;
+      // Query prior weeks on the server under the viewer's existing RLS policies.
+      // A failed comparison must not hide the successfully loaded photos.
+      try {
+        for (let offset = 0; data.length; offset += 1000) {
+          const { data: matches, error } = await (supabase as any)
+            .rpc("get_pretrip_photo_reuse", { _week_start: pretripWeekStart(date) })
+            .range(offset, offset + 999);
+          if (error) throw error;
+          for (const match of (matches ?? []) as PretripPhotoReuse[]) reused.set(match.photo_id, match);
+          if ((matches ?? []).length < 1000) break;
+        }
+      } catch {
+        reuseCheckFailed = true;
+      }
       const map: Record<string, Photo[]> = {};
-      (data ?? []).forEach((p: Photo) => { (map[p.truck_id] ||= []).push(p); });
+      data.forEach((p) => { (map[p.truck_id] ||= []).push({ ...p, reuse: reused.get(p.id), reuse_check_failed: reuseCheckFailed }); });
       return map;
     },
   });
@@ -72,13 +89,14 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date, submissions }
     setUploading(true);
     try {
       for (const f of Array.from(files)) {
+        const content_sha256 = await pretripPhotoHash(await f.arrayBuffer());
         const safe = f.name.replace(/[\s-]+/g, "_");
         const path = `${truckId}/${date}/${Date.now()}_${safe}`;
         const { error } = await supabase.storage.from("pretrip-photos").upload(path, f);
         if (error) throw error;
         const { error: e2 } = await (supabase as any)
           .from("pretrip_photos")
-          .insert({ truck_id: truckId, file_path: path, file_name: f.name, uploaded_by: userId, inspection_date: date });
+          .insert({ truck_id: truckId, file_path: path, file_name: f.name, uploaded_by: userId, inspection_date: date, content_sha256 });
         if (e2) throw e2;
       }
       qc.invalidateQueries({ queryKey: ["pretrip-photos"] });
@@ -122,13 +140,21 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date, submissions }
     <div className="flex items-center gap-1">
       <div className="flex min-w-0 flex-col items-start gap-1">
         {photoGroups.map((group) => (
-          <Button key={group.id} variant="outline" size="sm" className="h-7 max-w-full px-2 text-[10px]" disabled={!group.photos.length}
-            title={group.title}
-            onPointerEnter={() => { setActiveGroupId(group.id); setWarmUrls(true); }}
-            onFocus={() => { setActiveGroupId(group.id); setWarmUrls(true); }}
-            onClick={() => { setActiveGroupId(group.id); setIdx(0); setPreviewReady(false); setFailedUrl(undefined); setOpen(true); }}>
-            <ImageIcon className="mr-1 h-3.5 w-3.5 shrink-0" /> {group.label} ({group.photos.length})
-          </Button>
+          <div key={group.id} className="flex max-w-full items-center gap-1">
+            <Button variant="outline" size="sm" className="h-7 max-w-full px-2 text-[10px]" disabled={!group.photos.length}
+              title={group.title}
+              onPointerEnter={() => { setActiveGroupId(group.id); setWarmUrls(true); }}
+              onFocus={() => { setActiveGroupId(group.id); setWarmUrls(true); }}
+              onClick={() => { setActiveGroupId(group.id); setIdx(0); setPreviewReady(false); setFailedUrl(undefined); setOpen(true); }}>
+              <ImageIcon className="mr-1 h-3.5 w-3.5 shrink-0" /> {group.label} ({group.photos.length})
+            </Button>
+            {group.photos.some((photo) => photo.reuse) && (
+              <span role="img" aria-label="Reused photo warning" className="shrink-0 text-amber-600 dark:text-amber-400"
+                title={group.photos.filter((photo) => photo.reuse).map((photo) => photoReuseMessage(photo.reuse!)).join("\n")}>
+                <AlertTriangle className="h-4 w-4" />
+              </span>
+            )}
+          </div>
         ))}
       </div>
       <Button variant="ghost" size="icon" className="h-7 w-7" disabled={uploading}
@@ -146,6 +172,16 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date, submissions }
               {current?.photo_category || current?.file_name || "Inspection photo"}
             </p>
           </DialogHeader>
+          {current?.reuse ? (
+            <div role="alert" className="flex items-start gap-2 rounded-md border border-amber-400/50 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div><p className="font-semibold">Photo reused from an earlier week</p><p>{photoReuseMessage(current.reuse)}</p></div>
+            </div>
+          ) : current?.reuse_check_failed ? (
+            <p role="status" className="text-sm text-muted-foreground">Photo reuse check unavailable. Refresh to try again.</p>
+          ) : current && !current.content_sha256 ? (
+            <p role="status" className="text-sm text-muted-foreground">Photo reuse check pending.</p>
+          ) : null}
           <div className="relative min-w-0 h-[min(60dvh,640px)] overflow-hidden rounded-lg bg-black/30">
             {currentUrl ? (
               <img key={currentUrl} src={currentUrl} alt={current?.photo_category || current?.file_name || "Inspection photo"}
@@ -167,9 +203,11 @@ export const PretripPhotosCell = ({ truckId, photos, userId, date, submissions }
             <div className="flex w-max gap-2">
               {galleryPhotos.map((p, i) => (
                 <button key={p.id} onClick={() => setIdx(i)} aria-label={`View photo ${i + 1}`} aria-pressed={i === idx}
-                  className={cn("h-14 w-14 shrink-0 rounded-md border-2 overflow-hidden bg-muted", i === idx ? "border-primary" : "border-transparent")}>
+                  title={p.reuse ? photoReuseMessage(p.reuse) : undefined}
+                  className={cn("relative h-14 w-14 shrink-0 rounded-md border-2 overflow-hidden bg-muted", i === idx ? "border-primary" : p.reuse ? "border-amber-500" : "border-transparent")}>
                   {previewReady && urls[p.file_path] ? <img src={urls[p.file_path]} alt="" loading="lazy" {...{ fetchpriority: "low" }} decoding="async" className="h-full w-full object-cover" />
                     : <span className="text-xs text-muted-foreground">{i + 1}</span>}
+                  {p.reuse && <AlertTriangle className="absolute right-0.5 top-0.5 h-4 w-4 rounded-sm bg-amber-50 text-amber-700" />}
                 </button>
               ))}
             </div>

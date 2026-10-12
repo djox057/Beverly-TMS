@@ -41,3 +41,20 @@ The backend and TMS setup UI can be deployed independently. The integration is n
 Source: `1XhvVxfi2g_cYQUJfZiAgBORbl8ciqwKFkTebBlVunBQ`, tab `Form Responses 1`. Its driver column is `Driver name and last name`, and it has no separate inspection-date question. The bridge supplies the submission timestamp’s Chicago calendar date as the inspection date. All comma-separated file IDs are preserved in their original photo categories; do not split these into unnamed columns. Google OAuth approval and an actual private-photo transfer must be verified before claiming the new connection is active.
 
 Live verification on 2026-10-07: truck 4662’s response imported all 26 submitted photos across all eight categories. Two transient failures succeeded on replay without duplicate photo records. Submission status is `imported` with no import error.
+
+## Photo reuse warnings
+
+Original photo bytes are fingerprinted with SHA-256 in both `receive-pretrip-form` and manual TMS uploads. `get_pretrip_photo_reuse(date)` compares the selected Chicago Monday–Sunday week with all earlier inspection weeks, including other units visible to the viewer. The same Google file ID also matches while fingerprints are pending. New names or Google IDs do not prevent a content match. Same-week repeats, future weeks and superseded form versions are excluded. Warnings are informational and do not change the imported status, weekly completion or reviewer checkmark.
+
+The Pictures cell shows an amber warning per affected form. Its tooltip and the selected photo's gallery banner identify the earlier inspection date, unit and original form driver when available. Manual historical uploads have no original driver snapshot and show the unit/date. A failed comparison preserves the gallery and reports that checking is unavailable. Unfingerprinted photos show a pending message. Edited, cropped, reencoded or screenshot copies are outside exact-file matching.
+
+| Operation | Input | Authentication | Output / consumer |
+|---|---|---|---|
+| Existing photo receipt | Original image bytes | Existing Google bridge token | `pretrip_photos.content_sha256` |
+| Existing manual upload | Original image bytes | Existing signed-in upload policy | `pretrip_photos.content_sha256` |
+| `rpc/get_pretrip_photo_reuse` | Selected inspection week | Authenticated, security invoker; existing RLS | Earlier photo/date/driver/unit; Pictures warnings |
+| `functions/v1/backfill-pretrip-photo-hashes` | Empty POST | Backend-only `CRON_SECRET` | Up to 40 original stored images per run; processed/failed counts |
+
+The backfill downloads only signed URLs generated for recorded private Storage paths, with four concurrent reads, 15-second request timeouts and a 55-second batch budget. Failed files rotate to the end for retry. This endpoint is invoked manually for a one-time historical backfill; there is no scheduled job. No Google credentials or service keys are exposed. Stop invoking the backfill endpoint to pause it; normal upload hashing remains active. Frontend rollback can remove warnings without deleting photo history or fingerprints.
+
+Validation on 2026-10-12: 20 focused pretrip tests, TypeScript checks and the production build passed. Rolled-back SQL fixtures verified Sunday/Monday boundaries, renamed reuploads, Google-ID fallback, same-week/future/superseded exclusions and RLS denial for an unauthorized caller. Both deployed functions reject missing credentials with HTTP 401. The one-time backfill finished without failures: all 392 existing photos have fingerprints, with zero pending. The current-week query identifies 22 earlier-week matches. Database and receiver changes are deployed; the warning UI awaits publication of the frontend commit.

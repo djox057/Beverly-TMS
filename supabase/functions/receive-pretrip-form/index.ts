@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { mapResponse, matchTruck, type FormFile } from "./mapping.ts";
+import { pretripPhotoHash } from "../_shared/pretripPhotoHash.ts";
 const hash=async(s:string)=>Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s))),b=>b.toString(16).padStart(2,"0")).join("");
 const check=(r:{error:unknown})=>{if(r.error)throw new Error("TMS database operation failed");};
 Deno.serve(async req=>{
@@ -53,12 +54,13 @@ Deno.serve(async req=>{
   }
   const blob=get("file");
   if(!(blob instanceof File)||!blob.type.startsWith("image/")||blob.size>10485760)throw new Error("Photo must be an image no larger than 10 MB");
+  const content_sha256=await pretripPhotoHash(await blob.arrayBuffer());
   const path=`${submission.truck_id}/${submission.inspection_date}/google/${id}/${drive_id}`;
   const old=await db.from("pretrip_photos").select("file_path,file_name").eq("form_submission_id",id).eq("google_file_id",drive_id).eq("photo_category",category).maybeSingle();check(old);
   if(!old.data){
    const upload=await db.storage.from("pretrip-photos").upload(path,blob,{contentType:blob.type,upsert:false});
    if(upload.error&&String((upload.error as {statusCode?:string}).statusCode)!=="409")throw new Error("TMS photo upload failed");
-   const saved=await db.from("pretrip_photos").insert({truck_id:submission.truck_id,inspection_date:submission.inspection_date,file_path:path,file_name:blob.name,photo_category:category,google_file_id:drive_id,form_submission_id:id});
+   const saved=await db.from("pretrip_photos").insert({truck_id:submission.truck_id,inspection_date:submission.inspection_date,file_path:path,file_name:blob.name,photo_category:category,google_file_id:drive_id,form_submission_id:id,content_sha256});
    if(saved.error&&saved.error.code!=="23505")throw new Error("TMS photo record failed");
   }
   check(await db.rpc("update_pretrip_form_file",{_id:id,_drive_id:drive_id,_category:category,_patch:{status:"imported",file_path:path,file_name:old.data?.file_name??blob.name,error:null}}));

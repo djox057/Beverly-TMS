@@ -146,3 +146,6 @@ verify_jwt = false
 
 [functions.receive-pretrip-form]
 verify_jwt = false
+
+[functions.backfill-pretrip-photo-hashes]
+verify_jwt = false
