@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid } from "date-fns";
-import { Droplet, Search, Upload, Eye, RefreshCcw, Calendar as CalendarIcon } from "lucide-react";
+import { Droplet, Search, Upload, Eye, RefreshCcw, ChevronDown, Calendar as CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -425,7 +425,8 @@ const LiveOilChange = () => {
     });
   }, [enrichedTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
 
-  const mileageSummary = useMileageUpdateSummary();
+  const [showMileageUpdates, setShowMileageUpdates] = useState(false);
+  const mileageSummary = useMileageUpdateSummary(showMileageUpdates);
   const periodView = mileageSummary.view === "updated" || mileageSummary.view === "remaining";
   const displayedTrucks = useMemo(() => filterMileageUpdateTrucks(filtered, mileageSummary.edits, mileageSummary.view),
     [filtered, mileageSummary.edits, mileageSummary.view]);
@@ -497,7 +498,23 @@ const LiveOilChange = () => {
           </div>
         </CardHeader>
         <CardContent className="px-2">
-          <MileageUpdateSummary summary={mileageSummary} trucks={filtered} trucksLoading={isLoading} trucksError={trucksError} />
+          <Button
+            variant="outline"
+            size="sm"
+            className="mb-3"
+            aria-expanded={showMileageUpdates}
+            aria-controls="mileage-updates-panel"
+            onClick={() => {
+              setShowMileageUpdates((shown) => !shown);
+              if (showMileageUpdates) mileageSummary.setView("all");
+            }}
+          >
+            Mileage updates
+            <ChevronDown className={cn("ml-2 h-4 w-4 transition-transform", showMileageUpdates && "rotate-180")} />
+          </Button>
+          <div id="mileage-updates-panel" hidden={!showMileageUpdates}>
+            {showMileageUpdates && <MileageUpdateSummary summary={mileageSummary} trucks={filtered} trucksLoading={isLoading} trucksError={trucksError} />}
+          </div>
           <Table className="table-fixed">
             <TableHeader className="sticky top-0 z-20 bg-background">
               <TableRow>

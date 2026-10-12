@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { chicagoTodayISO } from "@/lib/mileageUpdateStatus";
 import { mileagePeriodBounds, mileagePresetPeriod, type MileageEdit, type MileagePeriodPreset, type MileageUpdateView } from "@/lib/mileageUpdatePeriod";
 
-export function useMileageUpdateSummary() {
+export function useMileageUpdateSummary(enabled = true) {
   const today = chicagoTodayISO();
   const [month, setMonth] = useState(() => today.slice(0, 7));
   const [preset, setPreset] = useState<MileagePeriodPreset>(() => Number(today.slice(8, 10)) >= 15 ? "second" : "first");
@@ -13,9 +13,9 @@ export function useMileageUpdateSummary() {
   const bounds = mileagePeriodBounds(period);
   const { data: edits = [], isPending, isError } = useQuery({
     queryKey: ["oil-change-mileage-update-summary", bounds?.start, bounds?.endExclusive],
-    enabled: !!bounds,
+    enabled: enabled && !!bounds,
     staleTime: 30000,
-    refetchInterval: 60000,
+    refetchInterval: enabled ? 60000 : false,
     queryFn: async () => {
       if (!bounds) return [];
       const edits: MileageEdit[] = [];
