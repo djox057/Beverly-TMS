@@ -1,3 +1,4 @@
+import { PodColumnPopup } from "@/components/PodColumnPopup";
 import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { DateRange } from "react-day-picker";
@@ -1843,7 +1844,7 @@ const LaleLoads = () => {
                       RC
                     </TableHead>
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">
-                      POD
+                      <PodColumnPopup />
                     </TableHead>
                     <TableHead className="w-[160px] min-w-[160px] max-w-[160px] whitespace-nowrap text-center">
                       Actions
