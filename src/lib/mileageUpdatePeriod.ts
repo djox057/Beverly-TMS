@@ -36,3 +36,16 @@ export function countMileageUpdates(trucks: readonly { id: string }[], edits: re
   }
   return { updated: updated.size, total: visible.size, remaining: visible.size - updated.size, people: people.size };
 }
+
+export type MileageUpdateView = "all" | "assigned" | "updated" | "remaining";
+
+/** Restrict period views to trucks that currently have a driver assigned. */
+export function filterMileageUpdateTrucks<T extends { id: string; driver1_id: string | null }>(
+  trucks: readonly T[], edits: readonly MileageEdit[], view: MileageUpdateView,
+): readonly T[] {
+  if (view === "all") return trucks;
+  const updatedIds = new Set(edits.map((edit) => edit.truck_id));
+  return trucks.filter((truck) => !!truck.driver1_id && (
+    view === "assigned" || (view === "updated" ? updatedIds.has(truck.id) : !updatedIds.has(truck.id))
+  ));
+}

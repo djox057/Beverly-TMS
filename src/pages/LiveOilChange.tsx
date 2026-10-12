@@ -29,6 +29,8 @@ import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 import { getMileageUpdateStatus } from "@/lib/mileageUpdateStatus";
 import { TruckSourceSelect } from "@/components/TruckSourceSelect";
 import { TRUCK_SOURCES, normalizeTruckSource } from "@/lib/truckSources";
+import { filterMileageUpdateTrucks } from "@/lib/mileageUpdatePeriod";
+import { useMileageUpdateSummary } from "@/hooks/useMileageUpdateSummary";
 import { MileageUpdateSummary } from "@/components/liveOilChange/MileageUpdateSummary";
 
 
@@ -423,6 +425,11 @@ const LiveOilChange = () => {
     });
   }, [enrichedTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
 
+  const mileageSummary = useMileageUpdateSummary();
+  const periodView = mileageSummary.view === "updated" || mileageSummary.view === "remaining";
+  const displayedTrucks = useMemo(() => filterMileageUpdateTrucks(filtered, mileageSummary.edits, mileageSummary.view),
+    [filtered, mileageSummary.edits, mileageSummary.view]);
+
   return (
     <div className="py-6 px-2 space-y-6">
       <div className="flex items-center gap-3 px-2">
@@ -490,7 +497,7 @@ const LiveOilChange = () => {
           </div>
         </CardHeader>
         <CardContent className="px-2">
-          <MileageUpdateSummary trucks={filtered} trucksLoading={isLoading} trucksError={trucksError} />
+          <MileageUpdateSummary summary={mileageSummary} trucks={filtered} trucksLoading={isLoading} trucksError={trucksError} />
           <Table className="table-fixed">
             <TableHeader className="sticky top-0 z-20 bg-background">
               <TableRow>
@@ -509,26 +516,26 @@ const LiveOilChange = () => {
               </TableRow>
             </TableHeader>
               <TableBody>
-                {isLoading ? (
+                {isLoading || (periodView && mileageSummary.bounds && mileageSummary.isPending) ? (
                   <TableRow>
                     <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
-                ) : trucksError ? (
+                ) : trucksError || (periodView && (mileageSummary.isError || !mileageSummary.bounds)) ? (
                   <TableRow>
                     <TableCell colSpan={12} className="text-center text-destructive py-8">
-                      Could not load trucks. Refresh the page and try again.
+                      {periodView && !mileageSummary.bounds ? "Select a valid mileage update period." : "Could not load trucks or mileage updates. Refresh the page and try again."}
                     </TableCell>
                   </TableRow>
-                ) : filtered.length === 0 ? (
+                ) : displayedTrucks.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                       No trucks found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((t) => {
+                  displayedTrucks.map((t) => {
                     const milesSinceOil =
                       t.miles != null && t.last_oil_change_miles != null
                         ? t.miles - t.last_oil_change_miles
