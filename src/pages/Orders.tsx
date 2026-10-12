@@ -2163,11 +2163,11 @@ const Orders = () => {
                     <TableHead className="w-[80px] min-w-[80px] max-w-[80px] whitespace-nowrap">T Company</TableHead>
 
                     <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap">Booked By</TableHead>
-                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">
+                    <TableHead className="w-[112px] min-w-[112px] max-w-[112px] whitespace-nowrap text-center">
                       RC
                     </TableHead>
-                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] whitespace-nowrap text-center">
-                      <PodColumnPopup />
+                    <TableHead className="w-[112px] min-w-[112px] max-w-[112px] whitespace-nowrap text-center">
+                      POD
                     </TableHead>
                     <TableHead className="w-[160px] min-w-[160px] max-w-[160px] whitespace-nowrap text-center">
                       Actions
@@ -2709,13 +2709,13 @@ const Orders = () => {
                           <TableCell className="w-24">
                             <div className="line-clamp-2">{order.bookedBy}</div>
                           </TableCell>
-                          <TableCell className="w-24 text-center">
-                            <div className="flex gap-1 flex-wrap justify-center">
+                          <TableCell className="w-28 text-center">
+                            <div className="relative mx-auto h-8 w-24">
                               {order.rcFiles && order.rcFiles.length > 0 ? (
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="text-xs"
+                                  className="h-8 w-24 justify-center rounded-md px-1 text-xs"
                                   onClick={async () => {
                                     const file = order.rcFiles[0];
                                     const { data, error } = await supabase.storage
@@ -2744,19 +2744,21 @@ const Orders = () => {
                                     }
                                   }}
                                 >
-                                  {order.rcFiles[0].file_name.length > 8
-                                    ? order.rcFiles[0].file_name.substring(0, 8) + "..."
-                                    : order.rcFiles[0].file_name}
+                                  <span className="truncate" title={order.rcFiles[0].file_name}>
+                                    {order.rcFiles[0].file_name.length > 8
+                                      ? order.rcFiles[0].file_name.substring(0, 8) + "..."
+                                      : order.rcFiles[0].file_name}
+                                  </span>
                                 </Button>
                               ) : (
-                                <Badge variant="destructive" className="text-xs">
+                                <Badge variant="destructive" className="h-8 w-24 justify-center rounded-md px-1 text-xs">
                                   Missing
                                 </Badge>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="w-24 text-center">
-                            <div className="flex gap-1 flex-wrap justify-center">
+                          <TableCell className="w-28 text-center">
+                            <div className="relative mx-auto h-8 w-24">
                               {(() => {
                                 const deliveryCount =
                                   order.pickup_drops?.filter((pd: any) => pd.type === "delivery").length || 1;
@@ -2767,7 +2769,7 @@ const Orders = () => {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      className={`text-xs ${!isComplete ? "border-warning text-warning" : ""}`}
+                                      className={`h-8 w-24 justify-center rounded-md pl-1 pr-7 text-xs ${!isComplete ? "border-warning text-warning" : ""}`}
                                       onClick={async () => {
                                         const file = order.podFiles[0];
                                         const { data, error } = await supabase.storage
@@ -2796,21 +2798,26 @@ const Orders = () => {
                                         }
                                       }}
                                     >
-                                      {deliveryCount > 1
-                                        ? `POD ${podCount}/${deliveryCount}`
-                                        : order.podFiles[0].file_name.length > 8
-                                          ? order.podFiles[0].file_name.substring(0, 8) + "..."
-                                          : order.podFiles[0].file_name}
+                                      <span className="truncate" title={order.podFiles[0].file_name}>
+                                        {deliveryCount > 1
+                                          ? `POD ${podCount}/${deliveryCount}`
+                                          : order.podFiles[0].file_name.length > 8
+                                            ? order.podFiles[0].file_name.substring(0, 8) + "..."
+                                            : order.podFiles[0].file_name}
+                                      </span>
                                     </Button>
                                   );
                                 } else {
                                   return (
-                                    <Badge variant="destructive" className="text-xs">
-                                      {deliveryCount > 1 ? `Missing 0/${deliveryCount}` : "Missing"}
+                                    <Badge variant="destructive" className="h-8 w-24 justify-center rounded-md pl-1 pr-7 text-xs">
+                                      <span className="truncate" title={deliveryCount > 1 ? `Missing 0/${deliveryCount}` : "Missing"}>
+                                        {deliveryCount > 1 ? `Missing 0/${deliveryCount}` : "Missing"}
+                                      </span>
                                     </Badge>
                                   );
                                 }
                               })()}
+                              <PodColumnPopup loadId={order.id} />
                             </div>
                           </TableCell>
                           <TableCell className="w-32 text-center">

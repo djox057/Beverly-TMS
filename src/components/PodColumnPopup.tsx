@@ -2,12 +2,19 @@ import { Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-/** Shared POD column heading for all load tables. The popup is intentionally empty. */
-export function PodColumnPopup() {
+/** An independent popup action on each row's POD rectangle. */
+export function PodColumnPopup({ loadId }: { loadId: string }) {
   return <Dialog>
     <DialogTrigger asChild>
-      <Button type="button" variant="outline" size="sm" className="gap-1 text-xs" title="Open POD popup" aria-label="Open POD popup">
-        <Edit className="h-4 w-4" />POD
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="absolute right-0 top-0 h-8 w-6 rounded-l-none px-0"
+        title="Open POD popup"
+        aria-label={`Open POD popup for load ${loadId}`}
+      >
+        <Edit className="h-4 w-4" />
       </Button>
     </DialogTrigger>
     <DialogContent className="min-h-72 max-w-xl">
