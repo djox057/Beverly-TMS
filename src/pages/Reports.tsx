@@ -322,7 +322,7 @@ const EditableNoteField = ({
     }
   }, [value, isEditing, isSaving]);
   const hasContent = localValue && localValue.trim().length > 0 && localValue.trim() !== "Add note...";
-  // Gold during final-update window unless already sent today; otherwise purple if has content
+  // Gold during final-update window unless already recorded today; otherwise purple if has content
   const showGold = !!isFinalUpdateWindow && !isFinalUpdateSent;
   const bgClass = showGold ? "bg-yellow-400/30" : hasContent ? "bg-purple-500/20" : "bg-transparent";
   const handleBlur = async () => {
@@ -994,7 +994,7 @@ const Reports = () => {
     return () => clearInterval(i);
   }, []);
 
-  // Load already-sent records for today so cell stays purple after a refresh
+  // Load recorded final updates for today so cell stays purple after a refresh
   useEffect(() => {
     if (!finalUpdateDate) return;
     let cancelled = false;
@@ -4416,33 +4416,33 @@ const Reports = () => {
         note: newValue.trim(),
         restoreOnly,
       });
-      // Final Update: if we're in the 15:45-16:30 Chicago window and there's a note, send email
+      // Record the final update during the Chicago window for completion colors.
       if (isFinalUpdateWindow && newValue.trim() && !finalUpdateSentTruckIds.has(truckId)) {
         try {
-          // Look up truck info for subject/body
+          // Look up truck info for the saved final update
           const truckInfo = (Object.values(groupedReports || {}) as any[])
             .flatMap((g: any) => g.trucks || [])
             .find((t: any) => t.id === truckId);
           const truckNumber = truckInfo?.truckNumber || "";
           const driverName =
             (truckInfo?.driver1Name || "") + (truckInfo?.driver2Name ? ` / ${truckInfo.driver2Name}` : "");
-          // Optimistically mark as sent so cell turns purple
+          // Optimistically mark as recorded so cell turns purple
           setFinalUpdateSentTruckIds((prev) => {
             const n = new Set(prev);
             n.add(truckId);
             return n;
           });
-          const { error: fnErr } = await supabase.functions.invoke("send-final-update", {
-            body: {
-              truckId,
-              driverId: driverId || null,
-              truckNumber,
-              driverName: driverName.trim(),
-              note: newValue.trim(),
-            },
+          const { error: saveError } = await supabase.from("final_update_sends").insert({
+            truck_id: truckId,
+            driver_id: driverId || null,
+            send_date: finalUpdateDate,
+            truck_number: truckNumber || null,
+            driver_name: driverName.trim() || null,
+            note: newValue.trim(),
           });
-          if (fnErr) throw fnErr;
-          toast({ title: "Final update sent", description: `Truck ${truckNumber}` });
+          // Another session may have recorded this truck's update already.
+          if (saveError && saveError.code !== "23505") throw saveError;
+          toast({ title: "Final update saved", description: `Truck ${truckNumber}` });
         } catch (e: any) {
           // Roll back optimistic mark on failure
           setFinalUpdateSentTruckIds((prev) => {
@@ -4451,8 +4451,8 @@ const Reports = () => {
             return n;
           });
           toast({
-            title: "Final update email failed",
-            description: e?.message || "Could not send final update email.",
+            title: "Final update save failed",
+            description: e?.message || "Could not save final update.",
             variant: "destructive",
           });
         }
