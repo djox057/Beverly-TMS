@@ -13,18 +13,20 @@ export function RecoveryDrugTestSection({
   isRecovery,
   companies,
   canManage,
+  canView = canManage,
 }: {
   driverId?: string;
   isRecovery: boolean;
   companies: CompanyOption[];
   canManage: boolean;
+  canView?: boolean;
 }) {
   const queryClient = useQueryClient();
   const companyIds = companies.map((company) => company.id);
-  const queryKey = ["recovery-drug-test-companies", driverId, companyIds];
+  const queryKey = ["recovery-drug-test-companies", driverId, companyIds, canManage];
   const { data: rows = [], isLoading, isError } = useQuery({
     queryKey,
-    enabled: !!driverId && isRecovery && canManage,
+    enabled: !!driverId && isRecovery && canView,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("recovery_driver_drug_test_companies")
@@ -34,7 +36,7 @@ export function RecoveryDrugTestSection({
 
       const existing = new Set((data ?? []).map((row: DrugTestCompanyRow) => row.company_id));
       const missing = companies.filter((company) => !existing.has(company.id));
-      if (missing.length) {
+      if (canManage && missing.length) {
         const { error: seedError } = await supabase
           .from("recovery_driver_drug_test_companies")
           .upsert(missing.map((company) => ({ driver_id: driverId, company_id: company.id, is_tested: false })));
@@ -46,6 +48,7 @@ export function RecoveryDrugTestSection({
   });
   const updateTest = useMutation({
     mutationFn: async ({ companyId, isTested }: { companyId: string; isTested: boolean }) => {
+      if (!canManage) throw new Error("You do not have permission to update company drug tests.");
       const { error } = await supabase
         .from("recovery_driver_drug_test_companies")
         .upsert({ driver_id: driverId, company_id: companyId, is_tested: isTested });
@@ -64,23 +67,23 @@ export function RecoveryDrugTestSection({
     if (isError) toast({ title: "Could not load company drug tests", variant: "destructive" });
   }, [isError]);
 
-  if (!driverId || !isRecovery || !canManage) return null;
+  if (!driverId || !isRecovery || !canView) return null;
 
   const checked = new Map(rows.map((row) => [row.company_id, row.is_tested]));
   return (
     <section className="space-y-3 rounded-md border p-4">
       <div>
         <h3 className="font-semibold">Drug Tests by Company</h3>
-        <p className="text-sm text-muted-foreground">Check each company where this recovery driver completed a drug test.</p>
+        <p className="text-sm text-muted-foreground">{canManage ? "Check each company where this recovery driver completed a drug test." : "Companies where this recovery driver completed a drug test."}</p>
       </div>
-      {isLoading ? <p className="text-sm text-muted-foreground">Loading company drug tests…</p> : (
+      {isError ? <p className="text-sm text-destructive">Could not load company drug tests.</p> : isLoading ? <p className="text-sm text-muted-foreground">Loading company drug tests…</p> : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {companies.map((company) => (
             <div key={company.id} className="flex items-center gap-2">
               <Checkbox
                 id={`recovery-drug-test-${driverId}-${company.id}`}
                 checked={checked.get(company.id) ?? false}
-                disabled={updateTest.isPending}
+                disabled={!canManage || updateTest.isPending}
                 onCheckedChange={(value) => updateTest.mutate({ companyId: company.id, isTested: value === true })}
               />
               <Label htmlFor={`recovery-drug-test-${driverId}-${company.id}`} className="cursor-pointer">{company.name}</Label>
@@ -88,7 +91,7 @@ export function RecoveryDrugTestSection({
           ))}
         </div>
       )}
-      {companies.length === 0 && !isLoading && <p className="text-sm text-muted-foreground">No companies found.</p>}
+      {companies.length === 0 && !isLoading && !isError && <p className="text-sm text-muted-foreground">No companies found.</p>}
     </section>
   );
 }

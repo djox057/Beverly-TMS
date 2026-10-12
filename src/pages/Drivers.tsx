@@ -73,6 +73,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
 import { RecoveryDrugTestSection } from "@/components/RecoveryDrugTestSection";
+import { canEditRecoveryCompanyDrugTests } from "@/lib/recoveryDrugTestsAccess";
 interface DriverFormData {
   first_name: string;
   last_name: string;
@@ -128,7 +129,7 @@ const Drivers = () => {
   const { hasRole, profile } = useAuthContext();
   const canViewSensitiveData = hasRole("manager") || hasRole("admin") || hasRole("accounting");
   const canDelete = hasRole("admin") || hasRole("manager") || hasRole("safety") || hasRole("maintenance");
-  const canManageRecoveryDrugTests = hasRole("admin") || hasRole("manager") || hasRole("safety") || hasRole("maintenance");
+  const canManageRecoveryDrugTests = canEditRecoveryCompanyDrugTests(hasRole, profile?.is_recovery);
   const { upsertDrugTest } = useDriverDrugTests();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -3067,6 +3068,7 @@ const Drivers = () => {
                   isRecovery={Boolean(editingDriver?.is_recovery && formData.is_recovery)}
                   companies={(companies ?? []).map((company: any) => ({ id: company.id, name: company.name }))}
                   canManage={canManageRecoveryDrugTests}
+                  canView={canManageRecoveryDrugTests || hasRole("dispatch")}
                 />
 
                 {canViewSensitiveData && (

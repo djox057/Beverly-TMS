@@ -35,6 +35,7 @@ import { format } from "date-fns";
 import { formatPhoneNumber } from "@/lib/utils";
 import { AssignmentReasonDialog } from "@/components/AssignmentReasonDialog";
 import { RecoveryDrugTestSection } from "@/components/RecoveryDrugTestSection";
+import { canEditRecoveryCompanyDrugTests } from "@/lib/recoveryDrugTestsAccess";
 
 interface DriverFormData {
   first_name: string;
@@ -98,7 +99,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   const queryClient = useQueryClient();
   const { hasRole, profile } = useAuthContext();
   const canViewSensitiveData = hasRole("manager") || hasRole("admin") || hasRole("accounting");
-  const canManageRecoveryDrugTests = hasRole("admin") || hasRole("manager") || hasRole("safety") || hasRole("maintenance");
+  const canManageRecoveryDrugTests = canEditRecoveryCompanyDrugTests(hasRole, profile?.is_recovery);
   // Mirrors the trucks UPDATE policy — dispatch-only users cannot change truck/trailer assignment
   const canChangeAssignment =
     hasRole("admin") ||
@@ -1236,6 +1237,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                   isRecovery={Boolean(driver?.is_recovery && formData.is_recovery)}
                   companies={(companies ?? []).map((company: any) => ({ id: company.id, name: company.name }))}
                   canManage={canManageRecoveryDrugTests}
+                  canView={canManageRecoveryDrugTests || hasRole("dispatch")}
                 />
 
                 <div className="flex items-center gap-4">
