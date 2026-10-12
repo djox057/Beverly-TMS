@@ -93,7 +93,8 @@ function sendPretripRow_(sheet, rowNumber) {
         failed = true;
         console.warn(item.category + ": " + String(error.message || error).slice(0, 300));
         // No private URLs or Google credentials are sent to TMS.
-        tmsRequest_({action:'photo_error', submission_id:submission.id, drive_id:item.drive_id, category:item.category, error:'Google photo could not be forwarded. Check the trigger owner has access and the image is at most 10 MB.'});
+        const reason = String(error.message || error).replace(/https?:\/\/\S+/g, '[link]').replace(/\b[a-f0-9]{64}\b/gi, '[redacted]').slice(0,250);
+        tmsRequest_({action:'photo_error', submission_id:submission.id, drive_id:item.drive_id, category:item.category, error:reason});
 
       }
     }

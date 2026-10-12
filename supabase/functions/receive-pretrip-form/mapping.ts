@@ -30,7 +30,7 @@ export function fileIds(value: string): string[] {
   const ids=[...value.matchAll(/(?:[?&]id=|\/d\/)([a-zA-Z0-9_-]{10,})/g)].map(m=>m[1]);
   return [...new Set(ids)];
 }
-export type FormFile = { category: string; drive_id: string; status: "pending" | "imported" | "error"; file_path?: string; file_name?: string; error?: string };
+export type FormFile = { category: string; drive_id: string; status: "pending" | "imported" | "error"; file_path?: string; file_name?: string; error?: string; error_source?: "tms" | null };
 export function mapResponse(headers: string[], row: unknown[]) {
   const answers: Record<string,string>={};
   headers.forEach((h,i)=> { if (h.trim()) answers[h]=String(row[i]??""); });
