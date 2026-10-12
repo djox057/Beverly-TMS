@@ -23,6 +23,7 @@ import { PretripPhotosCell, usePretripPhotos } from "@/components/PretripPhotosC
 import { PretripFormCell, usePretripSubmissions } from "@/components/PretripFormSubmissions";
 import { PretripProblemsCell } from "@/components/PretripProblemsCell";
 import { SearchableSelect } from "@/components/SearchableSelect";
+import { isAssignedPretripTruck, pretripCompletionCount } from "@/lib/pretripCompletion";
 
 type TruckRow = {
   id: string;
@@ -32,6 +33,7 @@ type TruckRow = {
   pretrip_note: string | null;
   is_active: boolean;
   driver1_id: string | null;
+  driver2_id: string | null;
   driver_name?: string | null;
   dispatcher_id?: string | null;
   dispatcher_name?: string | null;
@@ -177,7 +179,7 @@ const PreTripInspection = () => {
   const { allDispatchers } = useFleetManagement();
   const [search, setSearch] = useState("");
   const [photoDate, setPhotoDate] = useState<string>(() => pretripDueDate());
-  const { data: formSubmissions = EMPTY_FORM_SUBMISSIONS, isError: formError } = usePretripSubmissions(photoDate);
+  const { data: formSubmissions = EMPTY_FORM_SUBMISSIONS, isPending: formsLoading, isError: formError } = usePretripSubmissions(photoDate);
   const formsByTruck = useMemo(() => {
     const map: Record<string, typeof formSubmissions> = {};
     for (const s of formSubmissions) if (s.truck_id) (map[s.truck_id] ||= []).push(s);
@@ -187,7 +189,7 @@ const PreTripInspection = () => {
     queryClient.invalidateQueries({ queryKey: ["pretrip-photos", photoDate] });
   }, [formSubmissions, photoDate, queryClient]);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const { data: photosByTruck = {}, isPending: photosLoading } = usePretripPhotos(photoDate);
+  const { data: photosByTruck = {}, isPending: photosLoading, isError: photosError } = usePretripPhotos(photoDate);
   const { data: checksByTruck = {} as Record<string, { checked_by: string | null; checked_at: string }>, isPending: checksLoading, isError: checksError } = useQuery({
     queryKey: ["pretrip-checks", photoDate],
     queryFn: async () => {
@@ -252,12 +254,13 @@ const PreTripInspection = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, pretrip_date, pretrip_note, is_active, driver1_id, dispatcher_id, company_id")
+        .select("id, truck_number, source, pretrip_date, pretrip_note, is_active, driver1_id, driver2_id, dispatcher_id, company_id")
         .eq("is_active", true)
+        .or("driver1_id.not.is.null,driver2_id.not.is.null")
         .order("truck_number");
       if (error) throw error;
       const rows = (data ?? []) as TruckRow[];
-      const driverIds = Array.from(new Set(rows.map((truck) => truck.driver1_id).filter(Boolean))) as string[];
+      const driverIds = Array.from(new Set(rows.map((truck) => truck.driver1_id ?? truck.driver2_id).filter(Boolean))) as string[];
 
       // Keep truck visibility independent from optional driver/company lookups. A blocked
       // embedded relationship must not make the entire inspection report appear empty.
@@ -273,15 +276,17 @@ const PreTripInspection = () => {
         ? await supabase.from("companies").select("id, name").in("id", companyIds)
         : { data: [], error: null };
       const companyNames = new Map((companiesResult.data ?? []).map((company) => [company.id, company.name]));
-      const enrichedRows = rows.map((truck) => ({
-        ...truck,
-        dispatcher_id: truck.dispatcher_id ?? (truck.driver1_id ? driverById.get(truck.driver1_id)?.dispatcher_id : null),
-        company_id: truck.company_id ?? (truck.driver1_id ? driverById.get(truck.driver1_id)?.company_id : null),
-        driver_name: truck.driver1_id ? `${driverById.get(truck.driver1_id)?.first_name ?? ""} ${driverById.get(truck.driver1_id)?.last_name ?? ""}`.trim() || null : null,
-        company_name: (truck.company_id ?? (truck.driver1_id ? driverById.get(truck.driver1_id)?.company_id : null))
-          ? companyNames.get((truck.company_id ?? driverById.get(truck.driver1_id!)?.company_id)!) ?? null
-          : null,
-      }));
+      const enrichedRows = rows.map((truck) => {
+        const driver = driverById.get((truck.driver1_id ?? truck.driver2_id)!);
+        const companyId = truck.company_id ?? driver?.company_id;
+        return {
+          ...truck,
+          dispatcher_id: truck.dispatcher_id ?? driver?.dispatcher_id ?? null,
+          company_id: companyId ?? null,
+          driver_name: driver ? `${driver.first_name ?? ""} ${driver.last_name ?? ""}`.trim() || null : null,
+          company_name: companyId ? companyNames.get(companyId) ?? null : null,
+        };
+      });
       if (isDispatcher && profile?.user_id) {
         return enrichedRows.filter((t) => t.dispatcher_id === profile.user_id);
       }
@@ -343,7 +348,7 @@ const PreTripInspection = () => {
 
   const enrichedTrucks = useMemo(() => {
     const dispatcherMap = new Map(allDispatchers.map((d: any) => [d.id, d]));
-    return trucks.map((t) => {
+    return trucks.filter(isAssignedPretripTruck).map((t) => {
       const d = t.dispatcher_id ? dispatcherMap.get(t.dispatcher_id) : undefined;
       return {
         ...t,
@@ -412,6 +417,8 @@ const PreTripInspection = () => {
       return true;
     });
   }, [enrichedTrucks, search, companyFilter, dispatcherFilter, officeFilter, problemsFilter, problemsByTruck, formsByTruck, picturesFilter, photosByTruck, checkedFilter, checksByTruck]);
+
+  const completion = useMemo(() => pretripCompletionCount(filtered, formsByTruck, photosByTruck), [filtered, formsByTruck, photosByTruck]);
 
   return (
     <div className="py-6 px-2 space-y-6">
@@ -519,6 +526,20 @@ const PreTripInspection = () => {
             <Button variant="outline" size="icon" className="h-8 w-8" disabled={photoDate >= pretripDueDate()} onClick={() => setPhotoDate(stepPretripDate(photoDate, 1))} title="Next inspection week">
               <ChevronRight className="h-4 w-4" />
             </Button>
+          </div>
+          <div className="mb-3 flex flex-wrap items-center justify-center gap-2 text-sm" role="status" aria-live="polite">
+            {trucksError || formError || photosError || (checkedFilter !== "all" && checksError) ? (
+              <span className="text-destructive">Could not load completion count.</span>
+            ) : isLoading || formsLoading || photosLoading || (checkedFilter !== "all" && checksLoading) ? (
+              <span className="text-muted-foreground">Loading completion count…</span>
+            ) : (
+              <>
+                <span className="rounded-md border bg-muted/30 px-3 py-1.5" title="Trucks in the current filters with a submitted Google Form or inspection pictures during the selected week. Each truck counts once.">
+                  Completed <strong>{completion.completed} / {completion.total}</strong> trucks
+                </span>
+                <span className="text-muted-foreground">{completion.remaining} remaining</span>
+              </>
+            )}
           </div>
           <div className="overflow-x-auto">
           <Table className="w-full min-w-[1240px] table-fixed">
