@@ -1,6 +1,6 @@
 # POD preview and message
 
-Manual action for accounting, manager, and admin on Loads, BG Loads, LALE Loads, and UES Loads. Opening a row loads current POD records and signed previews; sending attaches the selected original documents and the user's message. Images and PDFs are supported. A sole POD is selected automatically; multiple PODs require explicit selection. Rejections are saved in `pod_rejections`; original documents are unchanged.
+Manual action for accounting, manager, and admin on Loads, BG Loads, LALE Loads, and UES Loads. Opening a row loads current POD records and signed previews; sending attaches the selected original documents and the user's message. The email identifies the broker load number, credits the sender by full profile name, and warns that money from the load will be withheld until a correct POD is uploaded. This is message wording; this endpoint does not change payroll or payment records. Images and PDFs are supported. A sole POD is selected automatically; multiple PODs require explicit selection. Rejections are saved in `pod_rejections`; original documents are unchanged.
 
 | Operation | Input | Result | Authentication |
 | --- | --- | --- | --- |

@@ -96,6 +96,15 @@ describe("POD message endpoint boundaries", () => {
     const options = sendEmail.mock.calls[0][1]; const payload = JSON.parse(options.body);
     expect(payload.to).toEqual(["booker@verified.test"]); expect(payload.reply_to).toEqual(["sender@example.test", "manager@verified.test"]);
     expect(payload.attachments).toEqual([{ filename: "1-pod2.jpg", content: "Ynl0ZXM=" }]);
+    expect(payload.subject).toBe("Rejected POD — Broker load # BROKER-123");
+    expect(payload.text).toContain("Broker load # BROKER-123");
+    expect(payload.text).toContain("Sent by Reporter Name");
+    expect(payload.html).toContain("Sent by Reporter Name");
+    expect(payload.text).not.toContain("sender@example.test");
+    expect(payload.text).not.toContain("LOAD-123");
+    expect(payload.html).not.toContain("LOAD-123");
+    const warning = "Money from this load will be withheld until a correct POD is uploaded.";
+    expect(payload.text).toContain(warning); expect(payload.html).toContain(warning);
     expect(payload.html).toContain("Check &lt;signature&gt;"); expect(options.headers["Idempotency-Key"]).toContain(requestId);
     expect(rows.pod_rejections[0]).toMatchObject({ reporter_id: "sender", reporter_name: "Reporter Name", broker_load_number: "BROKER-123", reason: "Check <signature>", dispatcher_name: "Jane Booker", notification_status: "sent", email_id: "email1" });
     expect((rows.pod_rejections[0].pods as { id: string }[]).map(file => file.id)).toEqual(["pod2"]);

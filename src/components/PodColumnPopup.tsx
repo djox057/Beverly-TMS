@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 
 interface PodPreview {
   loadNumber: string;
+  brokerLoadNumber: string | null;
   files: { id: string; file_name: string; content_type: string | null; url: string | null }[];
   recipients: { to: string; bookerName: string; replyTo: string[] } | null;
   recipientError: string | null;
@@ -120,7 +121,7 @@ function PodMessageContent({ loadId, onSent, onSendingChange }: {
   const isImage = file?.content_type?.startsWith("image/") || /\.(jpe?g|png|webp|gif)$/i.test(file?.file_name || "");
   const canZoom = Boolean(file?.url && !imageError && (isPdf || isImage));
   return <div className="space-y-4">
-    <p className="text-sm font-medium">Load {preview.loadNumber}</p>
+    <p className="text-sm font-medium">Broker load # {preview.brokerLoadNumber || "Not provided"}</p>
     {file ? <>
       <div className="flex items-center justify-between gap-2">
         <Button variant="outline" size="icon" aria-label="Previous POD" disabled={index === 0 || sending} onClick={() => setIndex(value => value - 1)}><ChevronLeft /></Button>
@@ -158,6 +159,7 @@ function PodMessageContent({ loadId, onSent, onSendingChange }: {
       <Label htmlFor={`pod-message-${loadId}`}>Reason / message</Label>
       <Textarea id={`pod-message-${loadId}`} placeholder="Explain why these PODs are rejected…" value={message} maxLength={5000} disabled={sending} onChange={event => setMessage(event.target.value)} rows={4} />
     </div>
+    <p className="rounded-md border border-warning/50 bg-warning/10 p-3 text-sm font-medium">Money from this load will be withheld until a correct POD is uploaded.</p>
     {preview.recipients ? <div className="break-words text-xs text-muted-foreground">
       <p>To: {preview.recipients.bookerName} ({preview.recipients.to})</p>
       <p>Reply-To: {preview.recipients.replyTo.join(", ")}</p>

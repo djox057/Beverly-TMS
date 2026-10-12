@@ -14,6 +14,7 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 const timedFetch: typeof fetch = (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(30000) });
+const paymentWarning = "Money from this load will be withheld until a correct POD is uploaded.";
 
 Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -92,7 +93,7 @@ Deno.serve(async req => {
         ? await client.storage.from("order-files").createSignedUrls(pods.map(file => file.file_path), 3600)
         : { data: [], error: null };
       if (urlsError) throw urlsError;
-      return json({ loadNumber: String(order.internal_load_number || order.load_number || order.id), recipients, recipientError,
+      return json({ loadNumber: String(order.internal_load_number || order.load_number || order.id), brokerLoadNumber: order.broker_load_number, recipients, recipientError,
         files: pods.map((file, index) => ({ id: file.id, file_name: file.file_name, content_type: file.content_type, url: urls?.[index]?.signedUrl || null })) });
     }
     if (!recipients) return json({ error: recipientError }, 422);
@@ -109,15 +110,16 @@ Deno.serve(async req => {
       if (totalBytes > MAX_ATTACHMENT_BYTES) return json({ error: "Selected PODs exceed the 25 MB email attachment limit." }, 400);
       attachments.push({ filename: attachmentFilename(file.file_name, index), content: encodeBase64(await blob.arrayBuffer()) });
     }
-    const loadNumber = String(order.internal_load_number || order.load_number || order.id).replace(/[\r\n]/g, " ").slice(0, 120);
+    const brokerLoadNumber = String(order.broker_load_number?.trim() || "Not provided").replace(/[\r\n]/g, " ").slice(0, 120);
     const message = body.message.trim();
     // Save the rejection before attempting email; retries reuse this immutable report.
     const { data: reporter, error: reporterError } = await client.from("profiles").select("full_name").eq("user_id", auth.user.id).maybeSingle();
     if (reporterError) throw reporterError;
+    const senderName = reporter?.full_name?.trim() || "Beverly TMS user";
     const reportKey = { reporter_id: auth.user.id, order_id: order.id, request_id: body.requestId };
     const { error: saveError } = await admin.from("pod_rejections").upsert({
       ...reportKey, broker_load_number: order.broker_load_number, booked_by_company_id: order.booked_by_company_id,
-      reporter_name: reporter?.full_name || auth.user.email!, reporter_email: auth.user.email!, reason: message,
+      reporter_name: senderName, reporter_email: auth.user.email!, reason: message,
       dispatcher_name: recipients.bookerName,
       pods: selected.map(file => ({ id: file.id, file_name: file.file_name, file_path: file.file_path, content_type: file.content_type })),
     }, { onConflict: "reporter_id,order_id,request_id", ignoreDuplicates: true });
@@ -139,8 +141,9 @@ Deno.serve(async req => {
       method: "POST",
       headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json", "Idempotency-Key": `pod-${auth.user.id}-${order.id}-${body.requestId}` },
       body: JSON.stringify({ from: "Beverly TMS <jon@bfprime.net>", to: [recipients.to], reply_to: recipients.replyTo,
-        subject: `Rejected POD — Load ${loadNumber}`, text: `Load ${loadNumber}\n\n${message}\n\nSent by ${auth.user.email}`,
-        html: `<h2>Rejected POD — Load ${escapeHtml(loadNumber)}</h2><div style="white-space:pre-wrap">${escapeHtml(message)}</div><p>Sent by ${escapeHtml(auth.user.email!)}</p>`, attachments }),
+        subject: `Rejected POD — Broker load # ${brokerLoadNumber}`,
+        text: `Broker load # ${brokerLoadNumber}\n\n${message}\n\nIMPORTANT: ${paymentWarning}\n\nSent by ${senderName}`,
+        html: `<h2>Rejected POD — Broker load # ${escapeHtml(brokerLoadNumber)}</h2><div style="white-space:pre-wrap">${escapeHtml(message)}</div><div style="margin:20px 0;padding:16px;background:#fff7ed;border:1px solid #f97316;border-radius:8px;color:#9a3412"><strong>${paymentWarning}</strong></div><p>Sent by ${escapeHtml(senderName)}</p>`, attachments }),
     }); } catch {
       await markFailed();
       return json({ error: "PODs were rejected, but email delivery was not confirmed. Retry to notify the booking user." }, 502);

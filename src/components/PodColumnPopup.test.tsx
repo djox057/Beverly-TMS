@@ -9,13 +9,13 @@ const files = [
   { id: "pod1", file_name: "first.jpg", content_type: "image/jpeg", url: "https://example.test/first.jpg" },
   { id: "pod2", file_name: "second.pdf", content_type: "application/pdf", url: "https://example.test/second.pdf" },
 ];
-const preview = (pods = files) => ({ loadNumber: "LOAD-123", files: pods,
+const preview = (pods = files) => ({ loadNumber: "LOAD-123", brokerLoadNumber: "BROKER-123", files: pods,
   recipients: { bookerName: "Booker", to: "booker@example.test", replyTo: ["sender@example.test", "manager@example.test"] }, recipientError: null });
 const open = async () => {
   render(<PodColumnPopup loadId="load1" />);
   expect(mocks.invoke).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Preview PODs for load load1" }));
-  await screen.findByText("Load LOAD-123");
+  await screen.findByText("Broker load # BROKER-123");
 };
 beforeEach(() => {
   mocks.roles = ["accounting"]; mocks.invoke.mockReset(); mocks.success.mockReset(); mocks.error.mockReset();
