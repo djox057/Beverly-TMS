@@ -97,7 +97,13 @@ export function serviceSummary(truck: ServiceTruck, entries: ServiceEntry[], tod
   const interval = getServiceInterval(truck.source);
   const dated = entries.filter(e => e.log_date && e.log_date <= today);
   const latestOil = dated.filter(e => isOilService(e.entry_type)).slice(-1)[0] ?? entries.filter(e => isOilService(e.entry_type) && !e.log_date).slice(-1)[0];
-  const latestFilter = dated.filter(e => isFilterService(e.entry_type)).slice(-1)[0] ?? entries.filter(e => isFilterService(e.entry_type) && !e.log_date).slice(-1)[0];
+  const datedFilter = dated.filter(e => isFilterService(e.entry_type)).slice(-1)[0];
+  const undatedFilter = entries.filter(e => isFilterService(e.entry_type) && !e.log_date).slice(-1)[0];
+  // A newer live filter reading can lack a service date. Older imported
+  // services must not replace it merely because their dates are known.
+  const latestFilter = undatedFilter?.odometer != null
+    && (datedFilter?.odometer == null || undatedFilter.odometer >= datedFilter.odometer)
+    ? undatedFilter : datedFilter ?? undatedFilter;
   const baseline = truck.start_miles != null || truck.baseline_start_date || truck.baseline_note
     ? { odometer: truck.start_miles ?? null, log_date: truck.baseline_start_date ?? null, notes: truck.baseline_note ?? null }
     : dated.filter(e => e.entry_type === "Baseline Start").slice(-1)[0];

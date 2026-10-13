@@ -80,6 +80,25 @@ describe("truck service log rules", () => {
     expect(result.current).toBe(168624);
     expect(result.currentDate).toBe("2026-09-30");
   });
+  it("older imported filter services do not replace a newer undated live filter", () => {
+    const live = { ...truck, miles: 513773, air_filter: 475212, last_oil_change_miles: 502721, oil_change_date: "2026-09-03" };
+    const saved = [entry({ source_key: "xlsx:older-filter", entry_type: "Air Filter + Oil change", log_date: "2026-04-08", odometer: 442342 })];
+    const summary = serviceSummary(live, buildServiceEntries(live, [], saved), "2026-10-13");
+    expect(summary.sinceFilter).toBe(38561);
+    expect(summary.sinceOil).toBe(11052);
+    expect(summary.status).toBe("READY / GOOD");
+  });
+  it("a newer dated filter service supersedes the older live filter reading", () => {
+    const saved = [entry({ source_key: "xlsx:newer-filter", entry_type: "Air Filter", log_date: "2026-09-01", odometer: 160000 })];
+    const summary = serviceSummary(truck, buildServiceEntries(truck, [], saved), "2026-10-08");
+    expect(summary.sinceFilter).toBe(8624);
+  });
+  it("preserves an inline edit to the undated live filter reading", () => {
+    const original = buildServiceEntries(truck, [], []);
+    const filter = original.find(e => e.source_key?.startsWith("live:filter:"))!;
+    const saved = [entry({ ...filter, id: "edited-filter", odometer: 160000 }), entry({ source_key: "xlsx:older-filter", entry_type: "Air Filter", odometer: 150000 })];
+    expect(serviceSummary(truck, buildServiceEntries(truck, [], saved), "2026-10-08").sinceFilter).toBe(8624);
+  });
   it("uses truck start miles, baseline date and note without inventing a date", () => {
     const base = { ...truck, start_miles: 0, baseline_start_date: null, baseline_note: "Start", baseline_created_by: "author1" };
     const entries = buildServiceEntries(base, [], []);
