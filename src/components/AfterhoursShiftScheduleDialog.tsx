@@ -232,7 +232,7 @@ export const AfterhoursShiftScheduleDialog = ({ open, onOpenChange }: Props) => 
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
             Pick a day, then choose who works the night shift (10 PM – 6 AM next day) and the morning shift (6 AM – 2
-            PM). Multiple people can be scheduled per shift.
+            PM), Serbia time. Multiple people can be scheduled per shift.
           </DialogDescription>
         </DialogHeader>
 

@@ -45,7 +45,7 @@ const flush = async () => { await act(async () => { await vi.advanceTimersByTime
 
 beforeEach(() => {
   vi.useFakeTimers();
-  at('2026-10-03T10:30:00Z'); // 05:30 Chicago
+  at('2026-10-03T03:30:00Z'); // 05:30 Serbia
   mock.userId = 'admin';
   mock.shifts = [morning, night];
   mock.weekend = [];
@@ -64,13 +64,13 @@ describe('Reports afterhours assignment labels', () => {
   });
   it('shows the morning dispatcher even to the previous night dispatcher', async () => {
     mock.userId = 'matthew';
-    at('2026-10-03T11:30:00Z'); // 06:30 Chicago
+    at('2026-10-03T06:18:00Z'); // 08:18 Serbia
     const { result } = mount();
     await flush();
     expect(result.current.driverAfterhoursMap.get('truck-driver')?.userName).toBe('Sandy');
   });
   it.each([false, true])('picks the live morning shift regardless of row order (reverse=%s)', async reverse => {
-    at('2026-10-03T11:30:00Z');
+    at('2026-10-03T06:18:00Z');
     if (reverse) mock.shifts.reverse();
     const { result } = mount();
     await flush();
@@ -79,20 +79,20 @@ describe('Reports afterhours assignment labels', () => {
   it('does not fall back to the previous night when the morning has no assignment', async () => {
     mock.userId = 'matthew';
     mock.shifts = [night];
-    at('2026-10-03T11:30:00Z'); // 06:30 Chicago
+    at('2026-10-03T06:18:00Z'); // 08:18 Serbia
     const { result } = mount();
     await flush();
     expect(result.current.driverAfterhoursMap.has('truck-driver')).toBe(false);
   });
-  it('switches from last night to morning without remounting at 06:00 Chicago', async () => {
+  it('switches from last night to morning without remounting at 06:00 Serbia', async () => {
     const { result } = mount();
     await flush();
     expect(result.current.driverAfterhoursMap.get('truck-driver')?.userName).toBe('Matthew');
-    at('2026-10-03T11:00:00Z');
+    at('2026-10-03T04:00:00Z');
     await act(async () => { await vi.advanceTimersByTimeAsync(60_010); });
     expect(result.current.driverAfterhoursMap.get('truck-driver')?.userName).toBe('Sandy');
   });
-  it('clears shift tags when their existing display window closes at 07:00', async () => {
+  it('clears shift tags when their existing display window closes at 14:00', async () => {
     const { result } = mount();
     await flush();
     at('2026-10-03T12:00:00Z');
@@ -128,8 +128,8 @@ describe('Reports afterhours assignment labels', () => {
     expect(result.current.driverAfterhoursMap.get('truck-driver')?.userName).toBe('Sandy');
     expect(result.current.isWeekendWindow).toBe(true);
   });
-  it('uses tonight for evening preview and ignores yesterday', async () => {
-    at('2026-10-03T02:00:00Z'); // Oct 2, 21:00 Chicago
+  it('uses tonight after 22:00 and ignores yesterday', async () => {
+    at('2026-10-02T20:00:00Z'); // Oct 2, 21:00 Serbia
     mock.shifts = [night, { ...morning, scheduled_date: date }, { ...night, driver_id: 'old', scheduled_date: '2026-10-01' }];
     const { result } = mount();
     await flush();

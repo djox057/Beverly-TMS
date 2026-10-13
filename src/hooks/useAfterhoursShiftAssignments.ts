@@ -58,11 +58,11 @@ export const useAfterhoursShiftAssignments = () => {
     try {
       setLoading(true);
 
-      const chiNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+      const serbiaNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Belgrade' }));
       const fmt = (d: Date) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const todayStr = fmt(chiNow);
-      const endWindow = new Date(chiNow);
+      const todayStr = fmt(serbiaNow);
+      const endWindow = new Date(serbiaNow);
       endWindow.setDate(endWindow.getDate() + 9);
       const endStr = fmt(endWindow);
 

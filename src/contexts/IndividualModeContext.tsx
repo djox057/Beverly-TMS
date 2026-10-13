@@ -1,3 +1,4 @@
+import { getAfterhoursShiftTime } from '@/lib/afterhoursShiftTime';
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuthContext } from './AuthContext';
@@ -46,17 +47,10 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
     const load = async () => {
       const fmt = (d: Date) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      // Work in Chicago time so the day boundary matches the schedules.
+      // Weekend coverage keeps Chicago dates; afterhours shifts use Serbia time.
       const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
-      const hour = today.getHours();
       const todayStr = fmt(today);
-      const yesterday = new Date(today);
-      yesterday.setDate(today.getDate() - 1);
-      const yesterdayStr = fmt(yesterday);
-
-      // Only coverage that is live right now counts — never a future weekend or
-      // an expired shift, otherwise removed drivers appear to stick around.
-      const inShiftWindow = hour >= 16 || hour < 7;
+      const shiftTime = getAfterhoursShiftTime();
 
       const [weekendRes, shiftRes] = await Promise.all([
         supabase
@@ -65,12 +59,12 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
           .eq('afterhours_user_id', profile.user_id)
           .eq('scheduled_date', todayStr)
           .range(0, 4999),
-        inShiftWindow
+        shiftTime.shift
           ? supabase
               .from('afterhours_shift_assignments')
               .select('driver_id, scheduled_date, shift')
               .eq('afterhours_user_id', profile.user_id)
-              .in('scheduled_date', [yesterdayStr, todayStr])
+              .in('scheduled_date', [shiftTime.yesterday, shiftTime.today])
               .range(0, 4999)
           : Promise.resolve({ data: [], error: null } as any),
       ]);
@@ -83,14 +77,8 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
           weekendRes.error || shiftRes.error
         );
       }
-      const shiftRows = ((shiftRes.data || []) as any[]).filter((r) => {
-        if (hour >= 16) return r.scheduled_date === todayStr;
-        // early morning: last night's night shift + this morning's shift
-        return (
-          (r.scheduled_date === yesterdayStr && r.shift === 'night') ||
-          (r.scheduled_date === todayStr && r.shift === 'morning')
-        );
-      });
+      const shiftRows = ((shiftRes.data || []) as any[]).filter(r =>
+        r.shift === shiftTime.shift && r.scheduled_date === shiftTime.scheduledDate);
       const ids = Array.from(
         new Set(
           [...(weekendRes.data || []), ...shiftRows]
@@ -102,7 +90,8 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
     };
 
     load();
-    return () => { cancelled = true; };
+    const refresh = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(refresh); };
   }, [isAfterhours, profile?.user_id]);
 
   // Tracks whether the user changed the toggle themselves in this session

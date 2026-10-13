@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { fetchAllRows } from '@/lib/fetchAllRows';
+import { getAfterhoursShiftTime } from '@/lib/afterhoursShiftTime';
 
 interface AfterhoursDriverInfo {
   userName: string;
@@ -20,7 +21,7 @@ const fmt = (d: Date) =>
 
 const EMPTY_MAP = new Map<string, AfterhoursDriverInfo>();
 
-/** Reports labels only: keep the existing weekend and 16:00–07:00 tag windows.
+/** Reports labels: weekend dates use Chicago; shifts use Serbia 22:00–14:00.
  * Shift labels always come from the active shift; personal assignment history
  * must not override the morning/night handoff. Refresh while Reports stays open.
  */
@@ -36,14 +37,8 @@ export const useAfterhoursDriverMap = () => {
     queryFn: async () => {
       // Calculate on every refresh, not only when the component mounts.
       const chicagoNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
-      const hour = chicagoNow.getHours();
       const todayStr = fmt(chicagoNow);
-      const yesterday = new Date(chicagoNow);
-      yesterday.setDate(chicagoNow.getDate() - 1);
-      const yesterdayStr = fmt(yesterday);
-      const inAfterhoursTagWindow = hour >= 16 || hour < 7;
-      const activeShift = hour >= 16 || hour < 6 ? 'night' : 'morning';
-      const activeShiftDate = hour < 6 ? yesterdayStr : todayStr;
+      const shiftTime = getAfterhoursShiftTime();
       const rows: CoverageRow[] = [];
 
       const { data: scheduleData, error: scheduleErr } = await supabase
@@ -63,16 +58,16 @@ export const useAfterhoursDriverMap = () => {
             .range(from, to)));
       }
 
-      if (inAfterhoursTagWindow) {
+      if (shiftTime.shift) {
         const shiftData = await fetchAllRows<CoverageRow>((from, to) =>
           supabase
             .from('afterhours_shift_assignments')
             .select('afterhours_user_id, driver_id, scheduled_date, shift')
-            .in('scheduled_date', [yesterdayStr, todayStr])
+            .in('scheduled_date', [shiftTime.yesterday, shiftTime.today])
             .order('id')
             .range(from, to));
         rows.push(...shiftData.filter(r =>
-          r.shift === activeShift && r.scheduled_date === activeShiftDate));
+          r.shift === shiftTime.shift && r.scheduled_date === shiftTime.scheduledDate));
       }
 
       const map = new Map<string, AfterhoursDriverInfo>();
@@ -89,7 +84,8 @@ export const useAfterhoursDriverMap = () => {
       // Resolve duplicate assignments consistently instead of depending on
       // database return order. For shift coverage, only the active shift was
       // included above, so a night dispatcher cannot win during the morning.
-      rows.sort((a, b) => a.afterhours_user_id.localeCompare(b.afterhours_user_id));
+      rows.sort((a, b) => Number(Boolean(a.shift)) - Number(Boolean(b.shift)) ||
+        a.afterhours_user_id.localeCompare(b.afterhours_user_id));
       for (const r of rows) {
         const userName = profileMap.get(r.afterhours_user_id);
         if (userName && r.driver_id) {
