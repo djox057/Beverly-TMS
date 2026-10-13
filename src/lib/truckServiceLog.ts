@@ -34,7 +34,7 @@ export const mileageTone = (miles: number | null, source: string | null) => {
 };
 
 // Local cell edits override the display by stable source key, never the original live readings.
-export function buildServiceEntries(truck: ServiceTruck, history: Array<{ id: string; field: string; new_value: number | null; changed_at: string; changed_by?: string | null }>, saved: ServiceEntry[]) {
+export function buildServiceEntries(truck: ServiceTruck, history: Array<{ id: string; field: string; old_value?: number | null; new_value: number | null; changed_at: string; changed_by?: string | null }>, saved: ServiceEntry[]) {
   const overrides = new Map(saved.filter(e => e.source_key).map(e => [e.source_key, e]));
   const mileageHistory = history.filter(e => e.field === "miles" && e.new_value != null);
   const chronological = [...mileageHistory].sort((a, b) => Date.parse(a.changed_at) - Date.parse(b.changed_at));
@@ -44,6 +44,8 @@ export function buildServiceEntries(truck: ServiceTruck, history: Array<{ id: st
   // reading and is corrected by the same author within a minute.
   for (let i = 1; i < chronological.length - 1; i++) {
     const [previous, partial, corrected] = chronological.slice(i - 1, i + 2);
+    // When both audit values are available, require their explicit links below.
+    if (partial.old_value != null && corrected.old_value != null) continue;
     const previousMiles = Number(previous.new_value), partialMiles = Number(partial.new_value), correctedMiles = Number(corrected.new_value);
     const elapsed = Date.parse(corrected.changed_at) - Date.parse(partial.changed_at);
     const endpointEdited = [previous, corrected].some(e => {
@@ -56,6 +58,34 @@ export function buildServiceEntries(truck: ServiceTruck, history: Array<{ id: st
       && partial.changed_by && partial.changed_by === corrected.changed_by
       && partial.changed_at.slice(0, 10) === corrected.changed_at.slice(0, 10) && elapsed >= 0 && elapsed <= 60000
       && !overrides.has(`history:${partial.id}`) && !endpointEdited) superseded.add(partial.id);
+  }
+  // Audited old/new links also establish the baseline for the first update
+  // and multi-step corrections. Keep every value within the restored range.
+  for (let i = 0; i < chronological.length;) {
+    const start = chronological[i];
+    let end = i;
+    while (end + 1 < chronological.length) {
+      const current = chronological[end], next = chronological[end + 1];
+      const elapsed = Date.parse(next.changed_at) - Date.parse(start.changed_at);
+      if (!start.changed_by || next.changed_by !== start.changed_by
+        || next.changed_at.slice(0, 10) !== start.changed_at.slice(0, 10) || elapsed < 0 || elapsed > 60000
+        || next.old_value == null || Number(next.old_value) !== Number(current.new_value)) break;
+      end++;
+    }
+    const corrected = chronological[end];
+    const baseline = start.old_value == null ? null : Number(start.old_value), finalMiles = Number(corrected.new_value);
+    const endpointEdited = [corrected, ...(i > 0 ? [chronological[i - 1]] : [])].some(e => {
+      const extra = overrides.get(`history:${e.id}`);
+      return extra && (extra.is_deleted || extra.entry_type !== "Mileage Check"
+        || extra.odometer !== Number(e.new_value) || extra.log_date !== e.changed_at.slice(0, 10));
+    });
+    if (end > i && baseline != null && baseline >= 0 && finalMiles >= baseline && !endpointEdited) {
+      for (const e of chronological.slice(i, end)) {
+        const miles = Number(e.new_value);
+        if ((miles < baseline || miles > finalMiles) && !overrides.has(`history:${e.id}`)) superseded.add(e.id);
+      }
+    }
+    i = end + 1;
   }
   const automatic: ServiceEntry[] = mileageHistory.filter(e => !superseded.has(e.id)).map(e => ({
     id: `history:${e.id}`, source_key: `history:${e.id}`, log_date: e.changed_at.slice(0, 10),
