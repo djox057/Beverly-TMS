@@ -96,7 +96,12 @@ export function calculateServiceLog(entries: ServiceEntry[], source: string | nu
 export function serviceSummary(truck: ServiceTruck, entries: ServiceEntry[], today = chicagoTodayISO()) {
   const interval = getServiceInterval(truck.source);
   const dated = entries.filter(e => e.log_date && e.log_date <= today);
-  const latestOil = dated.filter(e => isOilService(e.entry_type)).slice(-1)[0] ?? entries.filter(e => isOilService(e.entry_type) && !e.log_date).slice(-1)[0];
+  const datedOil = dated.filter(e => isOilService(e.entry_type)).slice(-1)[0];
+  const undatedOil = entries.filter(e => isOilService(e.entry_type) && !e.log_date).slice(-1)[0];
+  // A missing live date must not let older imported service mileage take over.
+  const latestOil = undatedOil?.odometer != null
+    && (datedOil?.odometer == null || undatedOil.odometer >= datedOil.odometer)
+    ? undatedOil : datedOil ?? undatedOil;
   const datedFilter = dated.filter(e => isFilterService(e.entry_type)).slice(-1)[0];
   const undatedFilter = entries.filter(e => isFilterService(e.entry_type) && !e.log_date).slice(-1)[0];
   // A newer live filter reading can lack a service date. Older imported
@@ -109,8 +114,11 @@ export function serviceSummary(truck: ServiceTruck, entries: ServiceEntry[], tod
     : dated.filter(e => e.entry_type === "Baseline Start").slice(-1)[0];
   const readings = dated.filter(e => e.odometer != null && e.entry_type === "Mileage Check");
   const currentReading = readings.slice(-1)[0];
-  const useLoggedReading = currentReading && (!truck.miles_updated_at || currentReading.log_date! > truck.miles_updated_at.slice(0, 10) || (currentReading.log_date === truck.miles_updated_at.slice(0, 10) && currentReading.created_at > truck.miles_updated_at));
   const linkedCurrent = entries.find(e => e.current_reading && e.original_odometer === truck.miles);
+  const liveCurrent = linkedCurrent ? linkedCurrent.odometer : truck.miles;
+  const useLoggedReading = currentReading && (truck.miles_updated_at
+    ? currentReading.log_date! > truck.miles_updated_at.slice(0, 10) || (currentReading.log_date === truck.miles_updated_at.slice(0, 10) && currentReading.created_at > truck.miles_updated_at)
+    : liveCurrent == null || currentReading.odometer! > liveCurrent);
   const current = useLoggedReading ? currentReading.odometer : linkedCurrent ? linkedCurrent.odometer : truck.miles;
   const currentDate = useLoggedReading ? currentReading.log_date : linkedCurrent ? linkedCurrent.log_date : truck.miles_updated_at?.slice(0, 10) ?? null;
   const oilMiles = latestOil ? latestOil.odometer : (entries.some(e => e.source_key?.startsWith("live:oil:")) ? baseline?.odometer ?? null : truck.last_oil_change_miles ?? baseline?.odometer ?? null);

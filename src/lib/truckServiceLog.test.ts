@@ -88,6 +88,53 @@ describe("truck service log rules", () => {
     expect(summary.sinceOil).toBe(11052);
     expect(summary.status).toBe("READY / GOOD");
   });
+  it("older imported oil services do not replace newer live oil mileage without a date", () => {
+    const live = { ...truck, miles: 434002, last_oil_change_miles: 416603, oil_change_date: null, air_filter: 416603 };
+    const saved = [entry({ source_key: "xlsx:older-oil", log_date: "2025-09-09", odometer: 275225 })];
+    const result = serviceSummary(live, buildServiceEntries(live, [], saved), "2026-10-13");
+    expect(result.sinceOil).toBe(17399);
+    expect(result.nextDue).toBe(446603);
+    expect(result.oilDate).toBeNull();
+    expect(result.status).toBe("MISSING SERVICE DATA");
+  });
+  it("newer dated oil mileage supersedes older undated live service", () => {
+    const live = { ...truck, oil_change_date: null };
+    const saved = [entry({ source_key: "xlsx:newer-oil", log_date: "2026-09-01", odometer: 160000 })];
+    const result = serviceSummary(live, buildServiceEntries(live, [], saved), "2026-10-08");
+    expect(result.sinceOil).toBe(8624);
+    expect(result.oilDate).toBe("2026-09-01");
+  });
+  it("preserves an edited undated oil reading and does not invent its date on an equal match", () => {
+    const live = { ...truck, oil_change_date: null };
+    const oil = buildServiceEntries(live, [], []).find(e => e.source_key?.startsWith("live:oil:"))!;
+    const saved = [entry({ ...oil, id: "edited-oil", odometer: 160000 }), entry({ source_key: "xlsx:equal-oil", log_date: "2026-09-01", odometer: 160000 })];
+    const result = serviceSummary(live, buildServiceEntries(live, [], saved), "2026-10-08");
+    expect(result.sinceOil).toBe(8624);
+    expect(result.oilDate).toBeNull();
+  });
+  it("older mileage checks cannot roll back a live mileage value whose date is missing", () => {
+    const live = { ...truck, miles: 125000, miles_updated_at: null };
+    const saved = [entry({ source_key: "xlsx:older-mileage", entry_type: "Mileage Check", log_date: "2025-07-16", odometer: 12601 })];
+    const result = serviceSummary(live, buildServiceEntries(live, [], saved), "2026-10-08");
+    expect(result.current).toBe(125000);
+    expect(result.currentDate).toBeNull();
+  });
+  it("uses a higher dated mileage check when the live date is missing and fills absent live mileage", () => {
+    const saved = [entry({ source_key: "xlsx:newer-mileage", entry_type: "Mileage Check", log_date: "2026-10-01", odometer: 170000 })];
+    const live = { ...truck, miles_updated_at: null };
+    const result = serviceSummary(live, buildServiceEntries(live, [], saved), "2026-10-08");
+    expect(result.current).toBe(170000);
+    expect(result.currentDate).toBe("2026-10-01");
+    expect(serviceSummary({ ...live, miles: null }, buildServiceEntries({ ...live, miles: null }, [], saved), "2026-10-08").current).toBe(170000);
+  });
+  it("respects an inline edit to undated live mileage when considering older history", () => {
+    const live = { ...truck, miles: 125000, miles_updated_at: null };
+    const current = buildServiceEntries(live, [], []).find(e => e.current_reading)!;
+    const saved = [entry({ ...current, id: "edited-current", odometer: 150000 }), entry({ source_key: "xlsx:older-mileage", entry_type: "Mileage Check", log_date: "2026-09-01", odometer: 140000 })];
+    const result = serviceSummary(live, buildServiceEntries(live, [], saved), "2026-10-08");
+    expect(result.current).toBe(150000);
+    expect(result.currentDate).toBeNull();
+  });
   it("a newer dated filter service supersedes the older live filter reading", () => {
     const saved = [entry({ source_key: "xlsx:newer-filter", entry_type: "Air Filter", log_date: "2026-09-01", odometer: 160000 })];
     const summary = serviceSummary(truck, buildServiceEntries(truck, [], saved), "2026-10-08");
