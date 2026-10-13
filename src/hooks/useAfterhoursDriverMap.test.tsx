@@ -56,18 +56,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); clients.forEach(c => c.clear()); vi.useRealTimers(); });
 
 describe('Reports afterhours assignment labels', () => {
-  it('shows Sandy on her covered trucks even when Matthew covers the same driver', async () => {
+  it('shows the active night dispatcher even to the upcoming morning dispatcher', async () => {
     mock.userId = 'sandy';
     const { result } = mount();
     await flush();
-    expect(result.current.driverAfterhoursMap.get('truck-driver')?.userName).toBe('Sandy');
+    expect(result.current.driverAfterhoursMap.get('truck-driver')?.userName).toBe('Matthew');
   });
-  it('shows Matthew on his own covered trucks', async () => {
+  it('shows the morning dispatcher even to the previous night dispatcher', async () => {
     mock.userId = 'matthew';
     at('2026-10-03T11:30:00Z'); // 06:30 Chicago
     const { result } = mount();
     await flush();
-    expect(result.current.driverAfterhoursMap.get('truck-driver')?.userName).toBe('Matthew');
+    expect(result.current.driverAfterhoursMap.get('truck-driver')?.userName).toBe('Sandy');
   });
   it.each([false, true])('picks the live morning shift regardless of row order (reverse=%s)', async reverse => {
     at('2026-10-03T11:30:00Z');
@@ -75,6 +75,14 @@ describe('Reports afterhours assignment labels', () => {
     const { result } = mount();
     await flush();
     expect(result.current.driverAfterhoursMap.get('truck-driver')?.userName).toBe('Sandy');
+  });
+  it('does not fall back to the previous night when the morning has no assignment', async () => {
+    mock.userId = 'matthew';
+    mock.shifts = [night];
+    at('2026-10-03T11:30:00Z'); // 06:30 Chicago
+    const { result } = mount();
+    await flush();
+    expect(result.current.driverAfterhoursMap.has('truck-driver')).toBe(false);
   });
   it('switches from last night to morning without remounting at 06:00 Chicago', async () => {
     const { result } = mount();
@@ -107,7 +115,7 @@ describe('Reports afterhours assignment labels', () => {
     const { result } = mount();
     await flush();
     expect(result.current.driverAfterhoursMap.get('truck-driver')?.userName).toBe('Matthew');
-    mock.shifts = [night, morning];
+    mock.shifts = [{ ...night, afterhours_user_id: 'sandy' }, morning];
     await act(async () => { await vi.advanceTimersByTimeAsync(60_010); });
     expect(result.current.driverAfterhoursMap.get('truck-driver')?.userName).toBe('Sandy');
   });

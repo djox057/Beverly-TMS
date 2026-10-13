@@ -21,8 +21,8 @@ const fmt = (d: Date) =>
 const EMPTY_MAP = new Map<string, AfterhoursDriverInfo>();
 
 /** Reports labels only: keep the existing weekend and 16:00–07:00 tag windows.
- * Own coverage wins; otherwise prefer the live shift (tonight's night shift
- * during evening preview). Refresh while Reports stays open across shifts.
+ * Shift labels always come from the active shift; personal assignment history
+ * must not override the morning/night handoff. Refresh while Reports stays open.
  */
 export const useAfterhoursDriverMap = () => {
   const { profile } = useAuthContext();
@@ -42,8 +42,8 @@ export const useAfterhoursDriverMap = () => {
       yesterday.setDate(chicagoNow.getDate() - 1);
       const yesterdayStr = fmt(yesterday);
       const inAfterhoursTagWindow = hour >= 16 || hour < 7;
-      const preferredShift = hour < 6 || hour >= 16 ? 'night' : 'morning';
-      const preferredDate = hour < 6 ? yesterdayStr : todayStr;
+      const activeShift = hour >= 16 || hour < 6 ? 'night' : 'morning';
+      const activeShiftDate = hour < 6 ? yesterdayStr : todayStr;
       const rows: CoverageRow[] = [];
 
       const { data: scheduleData, error: scheduleErr } = await supabase
@@ -71,10 +71,8 @@ export const useAfterhoursDriverMap = () => {
             .in('scheduled_date', [yesterdayStr, todayStr])
             .order('id')
             .range(from, to));
-        rows.push(...shiftData.filter(r => hour >= 16
-          ? r.scheduled_date === todayStr
-          : (r.scheduled_date === yesterdayStr && r.shift === 'night') ||
-            (r.scheduled_date === todayStr && r.shift === 'morning')));
+        rows.push(...shiftData.filter(r =>
+          r.shift === activeShift && r.scheduled_date === activeShiftDate));
       }
 
       const map = new Map<string, AfterhoursDriverInfo>();
@@ -88,13 +86,10 @@ export const useAfterhoursDriverMap = () => {
       if (profilesErr) throw profilesErr;
       const profileMap = new Map((profiles || []).map(p => [p.user_id, p.full_name || p.email]));
 
-      const priority = (r: CoverageRow) =>
-        (currentUserId && r.afterhours_user_id === currentUserId ? 4 : 0) +
-        (r.shift === preferredShift && r.scheduled_date === preferredDate ? 2 : r.shift ? 1 : 0);
-      // Lowest priority first: Map.set deliberately overwrites it. Resolve ties
-      // consistently instead of depending on the database's return order.
-      rows.sort((a, b) => priority(a) - priority(b) ||
-        a.afterhours_user_id.localeCompare(b.afterhours_user_id));
+      // Resolve duplicate assignments consistently instead of depending on
+      // database return order. For shift coverage, only the active shift was
+      // included above, so a night dispatcher cannot win during the morning.
+      rows.sort((a, b) => a.afterhours_user_id.localeCompare(b.afterhours_user_id));
       for (const r of rows) {
         const userName = profileMap.get(r.afterhours_user_id);
         if (userName && r.driver_id) {
