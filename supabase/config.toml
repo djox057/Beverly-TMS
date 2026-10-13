@@ -152,3 +152,6 @@ verify_jwt = false
 
 [functions.send-pod-message]
 verify_jwt = true
+
+[functions.check-vehicle-document]
+verify_jwt = true

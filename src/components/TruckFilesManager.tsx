@@ -19,6 +19,7 @@ import {
   getTruckDocumentTypeById,
 } from "@/lib/truckDocumentKeywords";
 import { searchTruckFiles } from "@/lib/truckFileSearch";
+import { useVehiclePlateUploadCheck } from "@/hooks/useVehiclePlateUploadCheck";
 
 interface PendingUpload {
   id: string;
@@ -69,6 +70,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
   const [isDragOver, setIsDragOver] = useState(false);
   const { toast } = useToast();
   const { profile, hasRole } = useAuthContext();
+  const plateCheck = useVehiclePlateUploadCheck("truck", truckId, truckNumber);
   const canDelete = hasRole('admin') || hasRole('accounting') || hasRole('safety') || hasRole('maintenance');
 
   useEffect(() => {
@@ -187,6 +189,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
   };
 
   const addPendingFiles = (list: FileList | null) => {
+    if (isUploading) return;
     if (!list || list.length === 0) return;
     const next: PendingUpload[] = Array.from(list).map((file) => {
       const detected = detectTruckDocumentType(file.name);
@@ -218,6 +221,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
     setIsUploading(true);
 
     try {
+      if (!(await plateCheck.reviewFiles(pendingUploads.map((upload) => upload.file)))) return;
       const uploadPromises = pendingUploads.map(async ({ file, docId }) => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${truckId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -464,6 +468,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
         <CardTitle>Truck Files {truckNumber && `- ${truckNumber}`}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {plateCheck.dialog}
         <div className="space-y-1">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -613,6 +618,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
               <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row">
                 <Input
                   id="truck-file-input"
+                  disabled={isUploading}
                   type="file"
                   multiple
                   onChange={(e) => {
@@ -628,7 +634,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
                   {isUploading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Uploading...
+                      {plateCheck.progress || "Uploading..."}
                     </>
                   ) : (
                     <>
@@ -664,7 +670,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
                           modal={false}
                         >
                           <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 w-[200px] justify-between">
+                            <Button disabled={isUploading} variant="outline" size="sm" className="h-8 w-[200px] justify-between">
                               <span className="truncate">{doc ? doc.label : 'Other'}</span>
                               <ChevronsUpDown className="ml-2 h-3 w-3 opacity-50" />
                             </Button>
@@ -722,6 +728,7 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
                           size="icon"
                           className="h-8 w-8"
                           title="Remove"
+                          disabled={isUploading}
                           onClick={() =>
                             setPendingUploads((prev) => prev.filter((p) => p.id !== pending.id))
                           }
