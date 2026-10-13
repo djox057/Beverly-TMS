@@ -36,7 +36,28 @@ export const mileageTone = (miles: number | null, source: string | null) => {
 // Local cell edits override the display by stable source key, never the original live readings.
 export function buildServiceEntries(truck: ServiceTruck, history: Array<{ id: string; field: string; new_value: number | null; changed_at: string; changed_by?: string | null }>, saved: ServiceEntry[]) {
   const overrides = new Map(saved.filter(e => e.source_key).map(e => [e.source_key, e]));
-  const automatic: ServiceEntry[] = history.filter(e => e.field === "miles" && e.new_value != null).map(e => ({
+  const mileageHistory = history.filter(e => e.field === "miles" && e.new_value != null);
+  const chronological = [...mileageHistory].sort((a, b) => Date.parse(a.changed_at) - Date.parse(b.changed_at));
+  const superseded = new Set<string>();
+  // Rapid partial input can be audited before its full corrected value.
+  // Omit only an unedited numeric prefix that drops below the previous
+  // reading and is corrected by the same author within a minute.
+  for (let i = 1; i < chronological.length - 1; i++) {
+    const [previous, partial, corrected] = chronological.slice(i - 1, i + 2);
+    const previousMiles = Number(previous.new_value), partialMiles = Number(partial.new_value), correctedMiles = Number(corrected.new_value);
+    const elapsed = Date.parse(corrected.changed_at) - Date.parse(partial.changed_at);
+    const endpointEdited = [previous, corrected].some(e => {
+      const extra = overrides.get(`history:${e.id}`);
+      return extra && (extra.is_deleted || extra.entry_type !== "Mileage Check"
+        || extra.odometer !== Number(e.new_value) || extra.log_date !== e.changed_at.slice(0, 10));
+    });
+    if (partialMiles > 0 && partialMiles < previousMiles && correctedMiles >= previousMiles
+      && correctedMiles >= partialMiles * 10 && String(correctedMiles).startsWith(String(partialMiles))
+      && partial.changed_by && partial.changed_by === corrected.changed_by
+      && partial.changed_at.slice(0, 10) === corrected.changed_at.slice(0, 10) && elapsed >= 0 && elapsed <= 60000
+      && !overrides.has(`history:${partial.id}`) && !endpointEdited) superseded.add(partial.id);
+  }
+  const automatic: ServiceEntry[] = mileageHistory.filter(e => !superseded.has(e.id)).map(e => ({
     id: `history:${e.id}`, source_key: `history:${e.id}`, log_date: e.changed_at.slice(0, 10),
     entry_type: "Mileage Check", odometer: Number(e.new_value), oil_spec: null, facility: null,
     invoice: null, notes: null, created_at: e.changed_at, created_by: e.changed_by, imported: true, original_odometer: e.new_value, current_reading: e.field === "miles" && e.new_value === truck.miles && e.changed_at === truck.miles_updated_at,
