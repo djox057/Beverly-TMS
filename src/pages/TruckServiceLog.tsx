@@ -85,7 +85,7 @@ export default function TruckServiceLog() {
       }
       if (dispatch && dispatcherId !== user?.id) throw new Error("This truck is not assigned to you.");
       const [history, saved] = await Promise.all([
-        readAllRows(() => supabase.from("truck_mileage_history").select("id,field,new_value,changed_at,changed_by").eq("truck_id", truckId!).order("changed_at", { ascending: true }).order("id", { ascending: true })),
+        readAllRows(() => supabase.from("truck_mileage_history").select("id,field,old_value,new_value,changed_at,changed_by").eq("truck_id", truckId!).order("changed_at", { ascending: true }).order("id", { ascending: true })),
         readAllRows(() => db.from("truck_service_log_entries").select("*").eq("truck_id", truckId).order("log_date", { ascending: true }).order("id", { ascending: true })),
       ]);
       const authorIds = Array.from(new Set([truck.baseline_created_by, ...history.map(e => e.changed_by), ...saved.map(e => e.created_by)].filter((id): id is string => !!id)));

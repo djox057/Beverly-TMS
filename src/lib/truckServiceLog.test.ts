@@ -116,6 +116,45 @@ describe("truck service log rules", () => {
     expect(entries.find(e => e.source_key === "history:corrected")?.notes).toBe("Source invoice checked");
     expect(buildServiceEntries(truck, history, [entry({ ...saved[0], odometer: 488000 })]).some(e => e.source_key === "history:partial")).toBe(true);
   });
+  it("uses an audited prior value to recognize a correction in the first mileage update", () => {
+    const history = [
+      { id: "partial", field: "miles", old_value: 133300, new_value: 13827, changed_at: "2026-09-14T14:10:49Z", changed_by: "author1" },
+      { id: "corrected", field: "miles", old_value: 13827, new_value: 138274, changed_at: "2026-09-14T14:10:59Z", changed_by: "author1" },
+    ];
+    const entries = buildServiceEntries(truck, history, []);
+    expect(entries.some(e => e.source_key === "history:partial")).toBe(false);
+    expect(entries.find(e => e.source_key === "history:corrected")?.created_by).toBe("author1");
+    expect(history).toHaveLength(2);
+    expect(history[0].new_value).toBe(13827);
+  });
+  it("omits out-of-range steps in a linked audit correction and retains valid intermediate readings", () => {
+    const history = [
+      { id: "valid", field: "miles", old_value: 139231, new_value: 139250, changed_at: "2026-10-01T15:37:10Z", changed_by: "author1" },
+      { id: "partial1", field: "miles", old_value: 139250, new_value: 1392, changed_at: "2026-10-01T15:37:15Z", changed_by: "author1" },
+      { id: "partial2", field: "miles", old_value: 1392, new_value: 13925, changed_at: "2026-10-01T15:37:23Z", changed_by: "author1" },
+      { id: "overshoot", field: "miles", old_value: 13925, new_value: 1392864, changed_at: "2026-10-01T15:37:35Z", changed_by: "author1" },
+      { id: "corrected", field: "miles", old_value: 1392864, new_value: 139286, changed_at: "2026-10-01T15:37:53Z", changed_by: "author1" },
+    ];
+    const entries = buildServiceEntries(truck, history, []);
+    expect(entries.some(e => ["history:partial1", "history:partial2", "history:overshoot"].includes(e.source_key!))).toBe(false);
+    expect(entries.some(e => e.source_key === "history:valid")).toBe(true);
+    expect(entries.some(e => e.source_key === "history:corrected")).toBe(true);
+    expect(history).toHaveLength(5);
+  });
+  it("preserves linked audit corrections when the chain, author, time, or restored baseline is uncertain", () => {
+    const history = [
+      { id: "partial", field: "miles", old_value: 133300, new_value: 13827, changed_at: "2026-09-14T14:10:49Z", changed_by: "author1" },
+      { id: "corrected", field: "miles", old_value: 13827, new_value: 138274, changed_at: "2026-09-14T14:10:59Z", changed_by: "author1" },
+    ];
+    const keepsPartial = (h: typeof history) => buildServiceEntries(truck, h, []).some(e => e.source_key === "history:partial");
+    expect(keepsPartial(history.map(e => e.id === "corrected" ? { ...e, old_value: 13826 } : e))).toBe(true);
+    expect(keepsPartial([{ id: "previous", field: "miles", old_value: 127000, new_value: 133300, changed_at: "2026-09-10T12:00:00Z", changed_by: "author1" }, ...history.map(e => e.id === "corrected" ? { ...e, old_value: 13826 } : e)])).toBe(true);
+    expect(keepsPartial(history.map(e => e.id === "corrected" ? { ...e, changed_by: "author2" } : e))).toBe(true);
+    expect(keepsPartial(history.map(e => e.id === "corrected" ? { ...e, changed_at: "2026-09-14T14:11:50Z" } : e))).toBe(true);
+    expect(keepsPartial(history.map(e => e.id === "corrected" ? { ...e, new_value: 120000 } : e))).toBe(true);
+    const edited = [entry({ source_key: "history:partial", entry_type: "Mileage Check", log_date: "2026-09-14", odometer: 133310, notes: "Verified" })];
+    expect(buildServiceEntries(truck, history, edited).find(e => e.source_key === "history:partial")?.notes).toBe("Verified");
+  });
   it("separates air-filter warning at 60k from actual replacement at 80k", () => {
     const base = { ...truck, air_filter: truck.miles! - 60000 };
     expect(serviceSummary(base, [], "2026-10-08").status).toBe("READY / GOOD");
