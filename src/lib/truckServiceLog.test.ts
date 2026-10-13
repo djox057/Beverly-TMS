@@ -67,6 +67,55 @@ describe("truck service log rules", () => {
     expect(entries.filter(e => e.entry_type === "Mileage Check")).toHaveLength(1);
     expect(entries.filter(e => e.entry_type === "Oil Change")).toHaveLength(1);
   });
+  it("omits a rapidly corrected partial mileage value from the detail page while retaining its audit", () => {
+    const live = { ...truck, miles: 491683, miles_updated_at: "2026-09-18T18:35:35Z" };
+    const history = [
+      { id: "previous", field: "miles", new_value: 489877, changed_at: "2026-09-10T18:49:17Z", changed_by: "author1" },
+      { id: "partial", field: "miles", new_value: 489, changed_at: "2026-09-15T14:47:39Z", changed_by: "author1" },
+      { id: "corrected", field: "miles", new_value: 489896, changed_at: "2026-09-15T14:47:43Z", changed_by: "author1" },
+    ];
+    const saved = [entry({ source_key: "xlsx:historical-oil", log_date: "2026-09-01", odometer: 470000 })];
+    const rows = calculateServiceLog(buildServiceEntries(live, history, saved), live.source);
+    expect(rows.some(e => e.source_key === "history:partial")).toBe(false);
+    expect(rows.find(e => e.source_key === "history:corrected")?.miles_since_service).toBe(19896);
+    expect(rows.find(e => e.source_key === "history:corrected")?.created_by).toBe("author1");
+    expect(history).toHaveLength(3);
+    expect(history[1].new_value).toBe(489);
+    expect(live.miles).toBe(491683);
+  });
+  it("retains saved edits to automatic readings even when a raw value looks partial", () => {
+    const history = [
+      { id: "previous", field: "miles", new_value: 489877, changed_at: "2026-09-10T18:49:17Z", changed_by: "author1" },
+      { id: "partial", field: "miles", new_value: 489, changed_at: "2026-09-15T14:47:39Z", changed_by: "author1" },
+      { id: "corrected", field: "miles", new_value: 489896, changed_at: "2026-09-15T14:47:43Z", changed_by: "author1" },
+    ];
+    const saved = [entry({ source_key: "history:partial", entry_type: "Mileage Check", log_date: "2026-09-15", odometer: 489880, notes: "Verified manually" })];
+    expect(buildServiceEntries(truck, history, saved).find(e => e.source_key === "history:partial")?.notes).toBe("Verified manually");
+  });
+  it("retains uncertain mileage drops, corrections by other authors, and later corrections", () => {
+    const history = [
+      { id: "previous", field: "miles", new_value: 489877, changed_at: "2026-09-10T18:49:17Z", changed_by: "author1" },
+      { id: "partial", field: "miles", new_value: 489, changed_at: "2026-09-15T14:47:39Z", changed_by: "author1" },
+      { id: "corrected", field: "miles", new_value: 489896, changed_at: "2026-09-15T14:47:43Z", changed_by: "author2" },
+    ];
+    const hasPartial = (h: typeof history) => buildServiceEntries(truck, h, []).some(e => e.source_key === "history:partial");
+    expect(hasPartial(history)).toBe(true);
+    expect(hasPartial(history.map(e => e.id === "corrected" ? { ...e, changed_by: "author1", changed_at: "2026-09-15T14:48:40Z" } : e))).toBe(true);
+    expect(hasPartial(history.map(e => e.id === "partial" ? { ...e, new_value: 488 } : { ...e, changed_by: "author1" }))).toBe(true);
+    expect(hasPartial(history.slice(1).map(e => ({ ...e, changed_by: "author1" })))).toBe(true);
+  });
+  it("keeps a partial reading omitted when metadata is added to its corrected event", () => {
+    const history = [
+      { id: "previous", field: "miles", new_value: 489877, changed_at: "2026-09-10T18:49:17Z", changed_by: "author1" },
+      { id: "partial", field: "miles", new_value: 489, changed_at: "2026-09-15T14:47:39Z", changed_by: "author1" },
+      { id: "corrected", field: "miles", new_value: 489896, changed_at: "2026-09-15T14:47:43Z", changed_by: "author1" },
+    ];
+    const saved = [entry({ source_key: "history:corrected", entry_type: "Mileage Check", log_date: "2026-09-15", odometer: 489896, notes: "Source invoice checked" })];
+    const entries = buildServiceEntries(truck, history, saved);
+    expect(entries.some(e => e.source_key === "history:partial")).toBe(false);
+    expect(entries.find(e => e.source_key === "history:corrected")?.notes).toBe("Source invoice checked");
+    expect(buildServiceEntries(truck, history, [entry({ ...saved[0], odometer: 488000 })]).some(e => e.source_key === "history:partial")).toBe(true);
+  });
   it("separates air-filter warning at 60k from actual replacement at 80k", () => {
     const base = { ...truck, air_filter: truck.miles! - 60000 };
     expect(serviceSummary(base, [], "2026-10-08").status).toBe("READY / GOOD");
