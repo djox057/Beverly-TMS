@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -246,10 +246,17 @@ export default function BeverlyHeatmapTruckClusters() {
     },
   });
 
-  const officeOptions = useMemo(() => Array.from(new Set([
-    "CACAK", "KRAGUJEVAC", "BG 1st FLOOR", "BG 4th FLOOR",
-    ...(data?.points || []).map(p => p.dispatcher_office).filter(Boolean),
-  ])).sort(), [data?.points]);
+  const officeOptions = useMemo(() => Array.from(new Set(
+    (data?.points || []).map(p => p.dispatcher_office).filter(Boolean)
+  )).sort(), [data?.points]);
+  const hasUnassignedOffice = (data?.points || []).some(p => !p.dispatcher_office);
+
+  useEffect(() => {
+    if (data && office !== "all" && (office === "unassigned" ? !hasUnassignedOffice : !officeOptions.includes(office))) {
+      setOffice("all");
+      setExpanded({});
+    }
+  }, [data, office, officeOptions, hasUnassignedOffice]);
 
   const points = useMemo(() => (data?.points || []).filter(p =>
     office === "all" || (office === "unassigned" ? !p.dispatcher_office : p.dispatcher_office === office)
@@ -321,7 +328,7 @@ export default function BeverlyHeatmapTruckClusters() {
               <SelectContent>
                 <SelectItem value="all">All offices</SelectItem>
                 {officeOptions.map(value => <SelectItem key={value} value={value}>{value === "CACAK" ? "ČAČAK" : value}</SelectItem>)}
-                <SelectItem value="unassigned">No office assigned</SelectItem>
+                {hasUnassignedOffice && <SelectItem value="unassigned">No office assigned</SelectItem>}
               </SelectContent>
             </Select>
             <div className="w-56">
