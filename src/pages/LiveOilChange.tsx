@@ -31,7 +31,7 @@ import { TRUCK_SOURCES, normalizeTruckSource } from "@/lib/truckSources";
 import { filterMileageUpdateTrucks } from "@/lib/mileageUpdatePeriod";
 import { useMileageUpdateSummary } from "@/hooks/useMileageUpdateSummary";
 import { useFleetReadiness } from "@/hooks/useFleetReadiness";
-import { OilChangeStatistics } from "@/components/liveOilChange/OilChangeStatistics";
+import { OilChangeStatistics, matchesStatisticsSelection, type StatisticsSelection } from "@/components/liveOilChange/OilChangeStatistics";
 import { MileageUpdateSummary } from "@/components/liveOilChange/MileageUpdateSummary";
 
 
@@ -768,19 +768,21 @@ const LiveOilChange = () => {
     });
   }, [readinessTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
 
+  const [statisticsSelection, setStatisticsSelection] = useState<StatisticsSelection | null>(null);
   const [showStatistics, setShowStatistics] = useState(false);
   const [showMileageUpdates, setShowMileageUpdates] = useState(false);
   const mileageSummary = useMileageUpdateSummary(showMileageUpdates);
   const periodView = mileageSummary.view === "updated" || mileageSummary.view === "remaining";
-  const displayedTrucks = useMemo(() => filterMileageUpdateTrucks(filtered, mileageSummary.edits, mileageSummary.view),
-    [filtered, mileageSummary.edits, mileageSummary.view]);
+  const categoryTrucks = useMemo(() => statisticsSelection ? filtered.filter(truck => matchesStatisticsSelection(truck, statisticsSelection)) : filtered, [filtered, statisticsSelection]);
+  const displayedTrucks = useMemo(() => filterMileageUpdateTrucks(categoryTrucks, mileageSummary.edits, mileageSummary.view),
+    [categoryTrucks, mileageSummary.edits, mileageSummary.view]);
 
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(displayedTrucks.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   useEffect(() => { setPage(previous => Math.min(previous, pageCount)); }, [pageCount]);
   const pageTrucks = useMemo(() => displayedTrucks.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), [displayedTrucks, currentPage]);
-  useEffect(() => { setPage(1); }, [search, companyFilter, sourceFilter, milesFilter, dispatcherFilter, officeFilter, mileageSummary.view, mileageSummary.period.start, mileageSummary.period.end]);
+  useEffect(() => { setPage(1); }, [statisticsSelection, search, companyFilter, sourceFilter, milesFilter, dispatcherFilter, officeFilter, mileageSummary.view, mileageSummary.period.start, mileageSummary.period.end]);
   const tableLoading = isLoading || !!(periodView && mileageSummary.bounds && mileageSummary.isPending);
   const tableError = periodView && !mileageSummary.bounds ? "Select a valid mileage update period."
     : trucksError || (periodView && mileageSummary.isError) ? "Could not load trucks or mileage updates. Refresh the page and try again." : null;
@@ -869,10 +871,11 @@ const LiveOilChange = () => {
           </Button>
           <Button variant="outline" size="sm" className="mb-3" aria-expanded={showStatistics} aria-controls="oil-change-statistics" onClick={() => setShowStatistics(shown => !shown)}>Statistics<ChevronDown className={cn("ml-2 h-4 w-4 transition-transform", showStatistics && "rotate-180")} /></Button>
           </div>
-          {showStatistics && <OilChangeStatistics trucks={filtered} loading={isLoading} error={!!trucksError} readinessLoading={readiness.loading} readinessError={readiness.error} />}
+          {showStatistics && <OilChangeStatistics selection={statisticsSelection} onSelect={setStatisticsSelection} trucks={filtered} loading={isLoading} error={!!trucksError} readinessLoading={readiness.loading} readinessError={readiness.error} />}
           <div id="mileage-updates-panel" hidden={!showMileageUpdates}>
             {showMileageUpdates && <MileageUpdateSummary summary={mileageSummary} trucks={filtered} trucksLoading={isLoading} trucksError={trucksError} />}
           </div>
+          {!showStatistics && statisticsSelection && <div className="mb-3 flex items-center gap-3 text-sm"><span>Category: {statisticsSelection.category === "oil" ? "Oil changes" : statisticsSelection.category === "air" ? "Air filters" : "Fleet PM Readiness"} · {statisticsSelection.status}</span><button type="button" className="underline" onClick={() => setStatisticsSelection(null)}>Clear category filter</button></div>}
           <LiveOilChangeTable rows={pageTrucks} isLoading={tableLoading} errorMessage={tableError}
             canEditAll={canEditAll} isDispatcher={isDispatcher} odometerFileMap={odometerFileMap}
             onUpdate={updateTruck.mutate} updatePending={updateTruck.isPending} onUpload={uploadOdometer} onView={viewOdometer} />

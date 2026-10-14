@@ -85,3 +85,22 @@ it.each([
   expect(screen.getByRole("link", { name: "Open service log for truck 0499" })).toBeInTheDocument();
   expect(screen.getByText("SERVICE OVERDUE")).toBeInTheDocument();
 });
+
+it("filters statistics categories, switches categories and clears without losing fleet counts", async () => {
+  mount(); await screen.findByRole("link", { name: "Open service log for truck 0001" });
+  fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
+  fireEvent.click(screen.getByRole("button", { name: "Filter oil changes: Due" }));
+  await screen.findByRole("link", { name: "Open service log for truck 0499" });
+  expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(1);
+  expect(screen.getByRole("button", { name: "Filter oil changes: Due" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Filter oil changes: Good" })).toHaveTextContent("498");
+  fireEvent.click(screen.getByRole("button", { name: "Filter fleet readiness: SERVICE OVERDUE" }));
+  expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "Filter air filters: Missing / invalid" }));
+  await waitFor(() => expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(50));
+  fireEvent.click(screen.getByRole("button", { name: "Filter oil changes: Overdue" }));
+  await waitFor(() => expect(screen.queryByRole("link", { name: /Open service log/ })).not.toBeInTheDocument());
+  fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
+  fireEvent.click(screen.getByRole("button", { name: "Clear category filter" }));
+  await waitFor(() => expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(50));
+}, 15000);
