@@ -92,6 +92,12 @@ export function buildServiceEntries(truck: ServiceTruck, history: Array<{ id: st
     entry_type: "Mileage Check", odometer: Number(e.new_value), oil_spec: null, facility: null,
     invoice: null, notes: null, created_at: e.changed_at, created_by: e.changed_by, imported: true, original_odometer: e.new_value, current_reading: e.field === "miles" && e.new_value === truck.miles && e.changed_at === truck.miles_updated_at,
   }));
+  const filterHistory = history.filter(e => e.field === "air_filter" && e.new_value != null);
+  automatic.push(...filterHistory.map(e => ({
+    id: `history:${e.id}`, source_key: `history:${e.id}`, log_date: e.changed_at.slice(0, 10),
+    entry_type: "Air Filter" as const, odometer: Number(e.new_value), oil_spec: null, facility: null,
+    invoice: null, notes: null, created_at: e.changed_at, created_by: e.changed_by, imported: true,
+  })));
   const author = (field: string, value: number | null) => history.filter(e => e.field === field && e.new_value === value).slice(-1)[0]?.changed_by ?? null;
   if (truck.start_miles != null || truck.baseline_start_date || truck.baseline_note) automatic.push({
     id: "truck:baseline", source_key: "truck:baseline", log_date: truck.baseline_start_date ?? null,
@@ -109,7 +115,7 @@ export function buildServiceEntries(truck: ServiceTruck, history: Array<{ id: st
     entry_type: "Oil Change", odometer: truck.last_oil_change_miles, oil_spec: null, facility: null,
     invoice: truck.last_oc_invoice, notes: truck.oil_change_note, created_at: "", created_by: author("last_oil_change_miles", truck.last_oil_change_miles), imported: true,
   });
-  if (truck.air_filter != null) automatic.push({ id: `live:filter:${truck.air_filter}`, source_key: `live:filter:${truck.air_filter}`, log_date: null,
+  if (truck.air_filter != null && !filterHistory.some(e => Number(e.new_value) === truck.air_filter)) automatic.push({ id: `live:filter:${truck.air_filter}`, source_key: `live:filter:${truck.air_filter}`, log_date: null,
     entry_type: "Air Filter", odometer: truck.air_filter, oil_spec: null, facility: null, invoice: null,
     notes: null, created_at: "", created_by: author("air_filter", truck.air_filter), imported: true });
   return [...automatic.map(e => {

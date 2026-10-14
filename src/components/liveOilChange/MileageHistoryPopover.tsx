@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 type Props = {
   truckId: string;
-  field: "last_oil_change_miles" | "miles";
+  field: "last_oil_change_miles" | "miles" | "air_filter";
   label: string;
 };
 

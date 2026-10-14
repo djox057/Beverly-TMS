@@ -280,3 +280,19 @@ describe("deleted service log rows", () => {
     expect(remaining.some(row => row.id === "kept")).toBe(true);
   });
 });
+
+ it("keeps air filter history with authors and avoids duplicating the current reading", () => {
+  const history = [
+    { id: "af1", field: "air_filter", new_value: 100000, changed_at: "2026-08-01T12:00:00Z", changed_by: "user1" },
+    { id: "af2", field: "air_filter", new_value: 112797, changed_at: "2026-09-01T12:00:00Z", changed_by: "user2" },
+    { id: "af3", field: "air_filter", new_value: null, changed_at: "2026-09-02T12:00:00Z", changed_by: "user2" },
+  ];
+  const filters = buildServiceEntries(truck, history, []).filter(e => e.entry_type === "Air Filter");
+  expect(filters).toHaveLength(2);
+  expect(filters.map(e => [e.odometer, e.log_date, e.created_by])).toEqual([
+    [100000, "2026-08-01", "user1"], [112797, "2026-09-01", "user2"],
+  ]);
+  const changed = buildServiceEntries({ ...truck, air_filter: 160000 }, history, []).filter(e => e.entry_type === "Air Filter");
+  expect(changed).toHaveLength(3);
+  expect(changed.find(e => e.odometer === 160000)?.log_date).toBeNull();
+ });

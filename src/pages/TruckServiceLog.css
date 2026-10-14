@@ -1,3 +1,14 @@
+.truck-service-log .service-log-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: #fff;
+  box-shadow: 0 4px 8px #00000014;
+}
+.dark .truck-service-log .service-log-sticky-header { background: #172132; }
+
 /* Dark mode shares every field and dimension with light mode.
    Only colors and decorative effects change; the JSX/Tailwind layout is shared. */
 .dark .truck-service-log {

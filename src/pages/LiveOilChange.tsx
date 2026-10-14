@@ -449,20 +449,23 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
                           />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            key={t.air_filter ?? "empty-af"}
-                            type="number"
-                            defaultValue={t.air_filter ?? ""}
-                            onBlur={(e) => {
-                              const raw = e.target.value.trim();
-                              const v = raw === "" ? null : parseInt(raw, 10);
-                              if (v !== (t.air_filter ?? null)) {
-                                onUpdate({ id: t.id, patch: { air_filter: v as any } });
-                              }
-                            }}
-                            className={cn(bareInput, "no-spinner")}
-                            readOnly={!canEditAll}
-                          />
+                          <div className="flex items-center gap-1">
+                            <Input
+                              key={t.air_filter ?? "empty-af"}
+                              type="number"
+                              defaultValue={t.air_filter ?? ""}
+                              onBlur={(e) => {
+                                const raw = e.target.value.trim();
+                                const v = raw === "" ? null : parseInt(raw, 10);
+                                if (v !== (t.air_filter ?? null)) {
+                                  onUpdate({ id: t.id, patch: { air_filter: v as any } });
+                                }
+                              }}
+                              className={cn(bareInput, "no-spinner")}
+                              readOnly={!canEditAll}
+                            />
+                            <MileageHistoryPopover truckId={t.id} field="air_filter" label="Air filter" />
+                          </div>
                         </TableCell>
                         <TableCell className={cn(milesSinceAF != null && milesSinceAF > 60000 && "text-destructive font-semibold")}>
                           {fmtNum(milesSinceAF)}
@@ -684,6 +687,8 @@ const LiveOilChange = () => {
       queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
       queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] });
       queryClient.invalidateQueries({ queryKey: ["trucks", "v2"] });
+      queryClient.invalidateQueries({ queryKey: ["truck-mileage-history"] });
+      queryClient.invalidateQueries({ queryKey: ["truck-service-log"] });
     },
     onError: (e: any) => {
       toast({ title: "Update failed", description: e.message, variant: "destructive" });
