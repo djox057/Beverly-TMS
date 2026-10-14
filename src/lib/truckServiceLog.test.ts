@@ -37,10 +37,10 @@ describe("truck service log rules", () => {
     expect(result.sinceOil).toBe(8624);
     expect(result.sinceFilter).toBe(8624);
   });
-  it("time alone can make service overdue and boundaries are due", () => {
+  it("ignores elapsed days and uses mileage boundaries for service status", () => {
     const entries = buildServiceEntries(truck, [], []);
-    expect(serviceSummary(truck, entries, "2026-10-28").status).toBe("SERVICE DUE");
-    expect(serviceSummary(truck, entries, "2026-10-29").status).toBe("SERVICE OVERDUE");
+    expect(serviceSummary(truck, entries, "2026-10-28").status).toBe("READY / GOOD");
+    expect(serviceSummary(truck, entries, "2026-10-29").status).toBe("READY / GOOD");
     expect(serviceSummary({ ...truck, miles: 178108 }, entries, "2026-10-08").status).toBe("SERVICE DUE");
     expect(serviceSummary({ ...truck, miles: 178109 }, entries, "2026-10-08").remaining).toBe(-1);
   });
@@ -296,3 +296,14 @@ describe("deleted service log rows", () => {
   expect(changed).toHaveLength(3);
   expect(changed.find(e => e.odometer === 160000)?.log_date).toBeNull();
  });
+
+it("uses miles alone for oil due and overdue regardless of elapsed months", () => {
+  const base = { ...truck, miles: 110000, last_oil_change_miles: 100000, oil_change_date: "2025-01-01", air_filter: 100000 };
+  for (const today of ["2025-04-01", "2026-10-14"]) {
+    expect(serviceSummary(base, buildServiceEntries(base, [], []), today).status).toBe("READY / GOOD");
+  }
+  const due = { ...base, miles: 130000 };
+  expect(serviceSummary(due, buildServiceEntries(due, [], []), "2026-10-14").status).toBe("SERVICE DUE");
+  const overdue = { ...base, miles: 130001 };
+  expect(serviceSummary(overdue, buildServiceEntries(overdue, [], []), "2026-10-14").status).toBe("SERVICE OVERDUE");
+});

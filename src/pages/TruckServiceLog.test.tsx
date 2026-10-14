@@ -91,7 +91,8 @@ describe("truck service log page", () => {
     expect(screen.getByText("20,516 mi")).toBeInTheDocument();
     expect(screen.getByText("178,108 mi")).toBeInTheDocument();
     expect(screen.getByText("INV-3338")).toBeInTheDocument();
-    expect(screen.getByText("30,000 mi / 90 Days")).toBeInTheDocument();
+    expect(screen.getByText("30,000 mi")).toBeInTheDocument();
+    expect(screen.queryByText(/days overdue|days remaining|Target date:/)).not.toBeInTheDocument();
   });
   it("saves additional mileage details only into the new log", async () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });

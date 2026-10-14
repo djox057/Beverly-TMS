@@ -189,8 +189,8 @@ export function serviceSummary(truck: ServiceTruck, entries: ServiceEntry[], tod
   const remaining = current == null || nextDue == null ? null : nextDue - current;
   const tone = mileageTone(sinceOil, truck.source);
   const invalid = (sinceOil != null && sinceOil < 0) || (sinceFilter != null && sinceFilter < 0);
-  const overdue = (remaining != null && remaining < 0) || (daysLeft != null && daysLeft < 0) || (sinceFilter != null && sinceFilter > 80000);
-  const due = remaining === 0 || daysLeft === 0 || sinceFilter === 80000;
+  const overdue = (remaining != null && remaining < 0) || (sinceFilter != null && sinceFilter > 80000);
+  const due = remaining === 0 || sinceFilter === 80000;
   const status = invalid ? "CHECK ODOMETER" : overdue ? "SERVICE OVERDUE" : due ? "SERVICE DUE" : tone === "red" || tone === "yellow" || (sinceFilter != null && sinceFilter > 60000) ? "DUE SOON" : sinceOil == null || oilDate == null ? "MISSING SERVICE DATA" : "READY / GOOD";
   return { interval, current, currentDate, sinceOil, sinceFilter, oilDate, targetDate, daysLeft, nextDue, remaining, status, baseline, tone };
 }
