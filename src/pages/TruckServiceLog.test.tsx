@@ -37,6 +37,27 @@ beforeEach(() => { mocks.searchTrucks = [
 ]; mocks.role = "maintenance"; mocks.history = []; mocks.saved = []; mocks.insert.mockClear(); mocks.update.mockClear(); });
 afterEach(cleanup);
 describe("truck service log page", () => {
+  it("navigates to adjacent trucks and disables the first/last boundaries", async () => {
+    mocks.searchTrucks = mocks.searchTrucks.slice(0, 2);
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Next truck" })).toBeEnabled());
+    expect(screen.getByRole("button", { name: "Previous truck" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next truck" }));
+    await screen.findByRole("heading", { name: /TRUCK 0984/ });
+    expect(screen.getByRole("button", { name: "Next truck" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Previous truck" }));
+    await screen.findByRole("heading", { name: /TRUCK 157/ });
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+  it("previous/next navigation stays within the dispatcher's assigned trucks", async () => {
+    mocks.role = "dispatch";
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Next truck" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Next truck" }));
+    await screen.findByRole("heading", { name: /TRUCK 460/ });
+    expect(screen.getByRole("button", { name: "Next truck" })).toBeDisabled();
+  });
   it("searches a unit with leading zeros and opens its oil change page", async () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
     fireEvent.click(screen.getByRole("combobox"));
@@ -111,6 +132,19 @@ describe("truck service log page", () => {
     expect(screen.getByText("Added By")).toBeInTheDocument();
     expect(screen.getByText("Jane Maintenance")).toBeInTheDocument();
     expect(screen.getAllByText("Live Oil Change")).toHaveLength(1); // navigation link only
+  });
+  it("keeps baseline metadata out of history while retaining its mileage calculation", async () => {
+    const original = { ...mocks.truck };
+    Object.assign(mocks.truck, { start_miles: 140000, baseline_start_date: "2026-07-01", baseline_note: "Starting baseline", last_oil_change_miles: null, oil_change_date: null });
+    try {
+      mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+      expect(screen.queryByText("Baseline Start", { selector: "[data-type]" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Edit Baseline Odometer" })).toHaveTextContent("140,000");
+      expect(screen.getAllByText("28,624").length).toBeGreaterThan(0);
+      expect(mocks.insert).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(mocks.truck, { start_miles: null, baseline_start_date: null, baseline_note: null }, original);
+    }
   });
   it("saves baseline date, note and oil specification into separate truck fields", async () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });

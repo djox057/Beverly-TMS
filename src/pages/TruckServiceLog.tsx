@@ -3,7 +3,7 @@ import "./TruckServiceLog.css";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
@@ -104,7 +104,8 @@ export default function TruckServiceLog() {
     return () => { channel?.unsubscribe(); };
   }, [truckId, queryClient]);
   const entries = useMemo(() => data ? buildServiceEntries(data.truck, data.history, data.saved) : [], [data]);
-  const rows = useMemo(() => calculateServiceLog(entries, data?.truck.source ?? null), [entries, data?.truck.source]);
+  // Baseline metadata participates in calculations without becoming a visible history row.
+  const rows = useMemo(() => calculateServiceLog(entries, data?.truck.source ?? null).filter(row => row.source_key !== "truck:baseline"), [entries, data?.truck.source]);
   const summary = data ? serviceSummary(data.truck, entries) : null;
 
   const openEditor = (entry: ServiceEntry | "new") => {
@@ -208,6 +209,10 @@ export default function TruckServiceLog() {
   });
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading truck service log…</div>;
   if (error || !data || !summary) return <div className="p-8 space-y-4"><Link to="/live-oil-change">← Live Oil Change</Link><p role="alert">{error instanceof Error ? error.message : "Truck not found."}</p><Button onClick={() => refetch()}>Try again</Button></div>;
+  const truckIndex = searchableTrucks.findIndex(truck => truck.id === truckId);
+  const previousTruck = truckIndex > 0 ? searchableTrucks[truckIndex - 1] : null;
+  const nextTruck = truckIndex >= 0 ? searchableTrucks[truckIndex + 1] : null;
+  const navigationBusy = loadingTrucks || !!truckSearchError || inlineSave.isPending || addInlineRow.isPending || save.isPending || deleteEntry.isPending;
   const truck = data.truck;
   const makeModel = [truck.make, truck.model].filter(Boolean).join(" ");
   const freshness = getMileageUpdateStatus(truck.miles_updated_at);
@@ -224,6 +229,10 @@ export default function TruckServiceLog() {
   return <div className="truck-service-log px-2 py-6 space-y-4">
     <div className="service-log-toolbar flex flex-wrap items-center justify-between gap-3"><Link to="/live-oil-change" className="inline-flex items-center gap-2 text-sm hover:underline"><ArrowLeft className="h-4 w-4" />Live Oil Change</Link>
       <div className="service-log-controls flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" aria-label="Previous truck" title={previousTruck ? `Previous truck: ${previousTruck.truck_number}` : "First truck"} disabled={navigationBusy || !previousTruck} onClick={() => { if (previousTruck) navigate(`/live-oil-change/${previousTruck.id}`); }}><ChevronLeft className="mr-1 h-4 w-4" />Prev</Button>
+          <Button variant="outline" size="sm" aria-label="Next truck" title={nextTruck ? `Next truck: ${nextTruck.truck_number}` : "Last truck"} disabled={navigationBusy || !nextTruck} onClick={() => { if (nextTruck) navigate(`/live-oil-change/${nextTruck.id}`); }}>Next<ChevronRight className="ml-1 h-4 w-4" /></Button>
+        </div>
         <SearchableSelect
           value={truckId ?? ""}
           onValueChange={id => { if (id !== truckId) navigate(`/live-oil-change/${id}`); }}
