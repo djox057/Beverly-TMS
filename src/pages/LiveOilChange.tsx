@@ -30,6 +30,7 @@ import { TruckSourceSelect } from "@/components/TruckSourceSelect";
 import { TRUCK_SOURCES, normalizeTruckSource } from "@/lib/truckSources";
 import { filterMileageUpdateTrucks } from "@/lib/mileageUpdatePeriod";
 import { useMileageUpdateSummary } from "@/hooks/useMileageUpdateSummary";
+import { OilChangeStatistics } from "@/components/liveOilChange/OilChangeStatistics";
 import { MileageUpdateSummary } from "@/components/liveOilChange/MileageUpdateSummary";
 
 
@@ -760,6 +761,7 @@ const LiveOilChange = () => {
     });
   }, [enrichedTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
 
+  const [showStatistics, setShowStatistics] = useState(false);
   const [showMileageUpdates, setShowMileageUpdates] = useState(false);
   const mileageSummary = useMileageUpdateSummary(showMileageUpdates);
   const periodView = mileageSummary.view === "updated" || mileageSummary.view === "remaining";
@@ -843,6 +845,7 @@ const LiveOilChange = () => {
           </div>
         </CardHeader>
         <CardContent className="px-2">
+          <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -857,6 +860,9 @@ const LiveOilChange = () => {
             Mileage updates
             <ChevronDown className={cn("ml-2 h-4 w-4 transition-transform", showMileageUpdates && "rotate-180")} />
           </Button>
+          <Button variant="outline" size="sm" className="mb-3" aria-expanded={showStatistics} aria-controls="oil-change-statistics" onClick={() => setShowStatistics(shown => !shown)}>Statistics<ChevronDown className={cn("ml-2 h-4 w-4 transition-transform", showStatistics && "rotate-180")} /></Button>
+          </div>
+          {showStatistics && <OilChangeStatistics trucks={filtered} loading={isLoading} error={!!trucksError} />}
           <div id="mileage-updates-panel" hidden={!showMileageUpdates}>
             {showMileageUpdates && <MileageUpdateSummary summary={mileageSummary} trucks={filtered} trucksLoading={isLoading} trucksError={trucksError} />}
           </div>
