@@ -255,12 +255,14 @@ export default function BeverlyHeatmapTruckClusters() {
     office === "all" || (office === "unassigned" ? !p.dispatcher_office : p.dispatcher_office === office)
   ), [data?.points, office]);
 
+  const minTrucksPerArea = office === "all" ? MIN_TRUCKS_PER_AREA : 2;
+
   // Filter before clustering so each area's count and center use only the selected office.
   const clusters = useMemo(() => {
       // 6) greedy clustering (100mi)
       const remaining = new Set(points.map((_, i) => i));
       const clusters: Cluster[] = [];
-      while (remaining.size >= MIN_TRUCKS_PER_AREA) {
+      while (remaining.size >= minTrucksPerArea) {
         let bestIdx = -1;
         let bestMembers: number[] = [];
         for (const i of remaining) {
@@ -275,7 +277,7 @@ export default function BeverlyHeatmapTruckClusters() {
             bestIdx = i;
           }
         }
-        if (bestIdx < 0 || bestMembers.length < MIN_TRUCKS_PER_AREA) break;
+        if (bestIdx < 0 || bestMembers.length < minTrucksPerArea) break;
         // centroid
         let lat = 0, lng = 0;
         for (const m of bestMembers) { lat += points[m].lat; lng += points[m].lng; }
@@ -300,7 +302,7 @@ export default function BeverlyHeatmapTruckClusters() {
       }
       clusters.sort((a, b) => b.trucks.length - a.trucks.length);
     return clusters;
-  }, [points]);
+  }, [points, minTrucksPerArea]);
   const totalPoints = points.length;
 
   return (
@@ -343,18 +345,18 @@ export default function BeverlyHeatmapTruckClusters() {
       <CardContent>
         {!runDate && (
           <div className="text-center py-12 text-muted-foreground">
-            Select a date and click Search to find clusters of 3+ trucks within a 100-mile area.
+            Select a date and click Search to find clusters of {minTrucksPerArea}+ trucks within a 100-mile area.
           </div>
         )}
         {runDate && !isFetching && clusters.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
-            No areas with {MIN_TRUCKS_PER_AREA}+ trucks found on {runDate}. ({totalPoints} eligible trucks scanned.)
+            No areas with {minTrucksPerArea}+ trucks found on {runDate}. ({totalPoints} eligible trucks scanned.)
           </div>
         )}
         {clusters.length > 0 && (
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground">
-              Found {clusters.length} area{clusters.length === 1 ? "" : "s"} with {MIN_TRUCKS_PER_AREA}+ trucks (100mi radius) — {totalPoints} eligible trucks total.
+              Found {clusters.length} area{clusters.length === 1 ? "" : "s"} with {minTrucksPerArea}+ trucks (100mi radius) — {totalPoints} eligible trucks total.
             </div>
             {clusters.map((cl, idx) => (
               <Card key={idx}>
