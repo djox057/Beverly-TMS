@@ -146,6 +146,23 @@ describe("truck service log page", () => {
       Object.assign(mocks.truck, { start_miles: null, baseline_start_date: null, baseline_note: null }, original);
     }
   });
+  it.each(["maintenance", "manager", "admin"])("saves truck year, make, model and engine directly for %s", async role => {
+    mocks.role = role;
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    for (const [label, value, key, parsed] of [["Model Year", "2025", "year", 2025], ["Make", "Volvo", "make", "Volvo"], ["Model", "VNL 860", "model", "VNL 860"], ["Engine Type", "D13", "engine", "D13"]] as const) {
+      fireEvent.click(screen.getByRole("button", { name: `Edit ${label}` }));
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+      fireEvent.keyDown(screen.getByLabelText(label), { key: "Enter" });
+      await waitFor(() => expect(screen.queryByLabelText(label)).not.toBeInTheDocument());
+      expect(mocks.update).toHaveBeenCalledWith("trucks", { [key]: parsed });
+    }
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+  it.each(["dispatch", "supervisor", "chicago_management", "recruiting"])("does not expose specification editing to %s", async role => {
+    mocks.role = role;
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    for (const label of ["Model Year", "Make", "Model", "Engine Type"]) expect(screen.queryByRole("button", { name: `Edit ${label}` })).not.toBeInTheDocument();
+  });
   it("saves baseline date, note and oil specification into separate truck fields", async () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
     for (const [label, value, key] of [["Baseline Start", "2026-07-01", "baseline_start_date"], ["Baseline Note", "Starting service record", "baseline_note"], ["Oil Specification", "15W40", "oil_spec"]]) {

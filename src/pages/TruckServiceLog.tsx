@@ -42,6 +42,7 @@ export default function TruckServiceLog() {
   const role = getPrimaryRole();
   const dispatch = isDispatcherRole(role);
   const canEdit = !!role && ["admin", "manager", "maintenance", "chicago_management", "yard", "recruiting", "dispatch", "supervisor"].includes(role);
+  const canEditSpecs = !!role && ["admin", "manager", "maintenance"].includes(role);
   const canEditTruck = !!role && ["admin", "manager", "maintenance", "supervisor"].includes(role);
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<ServiceEntry | "new" | null>(null);
@@ -135,14 +136,17 @@ export default function TruckServiceLog() {
   });
   const inlineSave = useMutation({
     mutationFn: async ({ row, key, value }: { row?: ServiceEntry; key: string; value: string }) => {
-      const numeric = key === "odometer" || key === "start_miles";
+      const numeric = key === "odometer" || key === "start_miles" || key === "year";
       const parsed = numeric ? value === "" ? null : Number(value) : value.trim() || null;
+      if (key === "year" && parsed != null && (!Number.isInteger(parsed) || Number(parsed) < 1000 || Number(parsed) > 9999)) throw new Error("Enter a valid four-digit model year.");
       if (numeric && parsed != null && (!Number.isSafeInteger(parsed) || Number(parsed) < 0 || Number(parsed) > (key === "start_miles" || row?.source_key === "truck:baseline" ? 2147483647 : Number.MAX_SAFE_INTEGER))) throw new Error("Enter a whole, non-negative odometer reading.");
       if ((key === "log_date" || key === "baseline_start_date") && value && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value > chicagoTodayISO())) throw new Error("Enter a valid date that is not in the future.");
       const baselineKey: Record<string, string> = { odometer: "start_miles", log_date: "baseline_start_date", notes: "baseline_note" };
       if (!row || (row.source_key === "truck:baseline" && baselineKey[key])) {
         if (!canEditTruck) throw new Error("No permission to edit truck details.");
         const truckKey = row ? baselineKey[key] : key;
+        if (["year", "make", "model", "engine"].includes(truckKey) && !canEditSpecs) throw new Error("No permission to edit truck specifications.");
+        if (!["year", "make", "model", "engine", "start_miles", "baseline_start_date", "baseline_note", "oil_spec"].includes(truckKey)) throw new Error("Invalid truck field.");
         const payload = { [truckKey]: parsed, ...(["start_miles", "baseline_start_date", "baseline_note"].includes(truckKey) && !data?.truck.baseline_created_by && data?.truck.start_miles == null && !data?.truck.baseline_start_date && !data?.truck.baseline_note && parsed != null ? { baseline_created_by: user?.id } : {}) };
         const result = await supabase.from("trucks").update(payload).eq("id", truckId!).select("id");
         if (result.error) throw result.error;
@@ -220,7 +224,7 @@ export default function TruckServiceLog() {
   const readinessTone = summary.status.includes("OVERDUE") || summary.status === "CHECK ODOMETER" || summary.tone === "red" || (summary.sinceFilter != null && summary.sinceFilter > 60000) ? "red" : summary.status.includes("DUE") ? "yellow" : summary.status === "MISSING SERVICE DATA" ? "unknown" : "good";
   const editable = true;
   const field = (key: keyof ReturnType<typeof emptyForm>, value: string) => setForm(current => ({ ...current, [key]: value }));
-  const metadataKeys: Record<string, "oil_spec" | "baseline_start_date" | "start_miles" | "baseline_note"> = { "Oil Specification": "oil_spec", "Baseline Start": "baseline_start_date", "Baseline Odometer": "start_miles", "Baseline Note": "baseline_note" };
+  const metadataKeys: Record<string, "oil_spec" | "baseline_start_date" | "start_miles" | "baseline_note" | "year" | "engine"> = { "Model Year": "year", "Engine Type": "engine", "Oil Specification": "oil_spec", "Baseline Start": "baseline_start_date", "Baseline Odometer": "start_miles", "Baseline Note": "baseline_note" };
   const meta = [
     ["Truck Unit", truck.truck_number], ["Model Year", truck.year ?? ""], ["Make / Model", makeModel], ["Status", truck.is_active ? "ACTIVE" : "INACTIVE"],
     ["VIN", truck.vin], ["Engine Type", truck.engine], ["Oil Specification", truck.oil_spec ?? ""], ["Service Interval", `${num(summary.interval.miles)} mi / ${summary.interval.days} Days`],
@@ -247,7 +251,7 @@ export default function TruckServiceLog() {
     <div className="service-log-sheet rounded-sm border-2 border-[#233c85] bg-white text-slate-900 shadow-sm">
       <div className="service-log-sticky-header">
       <h1 className="service-log-light-title bg-[#233c85] px-4 py-3 text-center text-base font-bold tracking-wide text-white">{makeModel ? `${makeModel.toUpperCase()} · ` : ""}TRUCK {truck.truck_number} · FLEET MAINTENANCE & OIL CHANGE SYSTEM</h1>
-      <div className="service-log-metadata grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 bg-[#f5f7fb] text-xs">{meta.map(([label, value]) => <div key={label} data-meta={label} className={`${cell} relative h-10 overflow-hidden flex items-center gap-2 [&:has([data-cell-editor])]:shadow-[inset_0_0_0_2px_#217346]`}><span className="font-semibold text-slate-500 shrink-0">{label}:</span><span className="relative h-full min-w-0 font-semibold truncate flex flex-1 items-center">{metadataKeys[String(label)] ? <ServiceLogCell compact label={String(label)} value={String(truck[metadataKeys[String(label)]] ?? "")} display={value} type={label === "Baseline Start" ? "date" : label === "Baseline Odometer" ? "number" : "text"} editable={canEditTruck} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ key: metadataKeys[String(label)], value })} /> : value}</span></div>)}</div>
+      <div className="service-log-metadata grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 bg-[#f5f7fb] text-xs">{meta.map(([label, value]) => <div key={label} data-meta={label} className={`${cell} relative h-10 overflow-hidden flex items-center gap-2 [&:has([data-cell-editor])]:shadow-[inset_0_0_0_2px_#217346]`}><span className="font-semibold text-slate-500 shrink-0">{label}:</span><span className="relative h-full min-w-0 font-semibold truncate flex flex-1 items-center">{label === "Make / Model" && canEditSpecs ? <span className="flex h-full min-w-0 w-full items-center gap-1"><span className="relative h-full min-w-0 flex-1"><ServiceLogCell compact label="Make" value={truck.make ?? ""} editable={canEditSpecs} disabled={inlineSave.isPending} onSave={value => inlineSave.mutateAsync({ key: "make", value })} /></span><span>/</span><span className="relative h-full min-w-0 flex-1"><ServiceLogCell compact label="Model" value={truck.model ?? ""} editable={canEditSpecs} disabled={inlineSave.isPending} onSave={value => inlineSave.mutateAsync({ key: "model", value })} /></span></span> : metadataKeys[String(label)] ? <ServiceLogCell compact label={String(label)} value={String(truck[metadataKeys[String(label)]] ?? "")} display={value} type={label === "Baseline Start" ? "date" : label === "Baseline Odometer" || label === "Model Year" ? "number" : "text"} editable={label === "Model Year" || label === "Engine Type" ? canEditSpecs : canEditTruck} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ key: metadataKeys[String(label)], value })} /> : value}</span></div>)}</div>
       <div className="service-log-summary grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 border-y border-[#dce3f3] my-4 text-center">
         <div className={`${cell} service-log-stat service-log-current bg-[#edf3ff]`}><p className="text-xs font-bold text-blue-800">CURRENT ODOMETER</p><p className="my-2 text-2xl font-bold text-[#233c85]">{num(summary.current)}{summary.current != null && " mi"}</p><p className="text-xs text-slate-500">Baseline: {num(summary.baseline?.odometer)}</p><p className="text-xs text-slate-500">Last update: {date(summary.currentDate)}</p></div>
         <div data-tone={summary.tone} className={`${cell} service-log-stat service-log-miles ${toneClass(summary.tone)}`}><p className="text-xs font-bold">MILES SINCE LAST OIL CHANGE</p><p className="my-2 text-2xl font-bold">{num(summary.sinceOil)}{summary.sinceOil != null && " mi"}</p><p className="text-xs">Last change: {date(summary.oilDate)}</p><p className="text-xs">PM interval target: {num(summary.interval.miles)} mi</p></div>
