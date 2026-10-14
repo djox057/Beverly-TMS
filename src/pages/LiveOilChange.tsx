@@ -30,6 +30,7 @@ import { TruckSourceSelect } from "@/components/TruckSourceSelect";
 import { TRUCK_SOURCES, normalizeTruckSource } from "@/lib/truckSources";
 import { filterMileageUpdateTrucks } from "@/lib/mileageUpdatePeriod";
 import { useMileageUpdateSummary } from "@/hooks/useMileageUpdateSummary";
+import { useFleetReadiness } from "@/hooks/useFleetReadiness";
 import { OilChangeStatistics } from "@/components/liveOilChange/OilChangeStatistics";
 import { MileageUpdateSummary } from "@/components/liveOilChange/MileageUpdateSummary";
 
@@ -45,6 +46,7 @@ type TruckRow = {
   miles: number | null;
   miles_updated_at: string | null;
   air_filter: number | null;
+  fleet_pm_readiness?: string;
   last_oc_invoice: string | null;
   oil_change_note: string | null;
   is_active: boolean;
@@ -201,24 +203,25 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
                 <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">last OC<br/>invoice</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[110px] bg-background">AIR FILTER</TableHead>
                 <TableHead className="sticky top-0 z-20 w-[90px] whitespace-normal leading-tight bg-background">mil since<br/>last AF</TableHead>
+                <TableHead className="sticky top-0 z-20 w-[160px] bg-background">FLEET PM READINESS</TableHead>
               </TableRow>
             </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : errorMessage ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center text-destructive py-8">
+                    <TableCell colSpan={13} className="text-center text-destructive py-8">
                       {errorMessage}
                     </TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                       No trucks found
                     </TableCell>
                   </TableRow>
@@ -471,6 +474,7 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
                         <TableCell className={cn(milesSinceAF != null && milesSinceAF > 60000 && "text-destructive font-semibold")}>
                           {fmtNum(milesSinceAF)}
                         </TableCell>
+                        <TableCell className={cn("font-semibold text-xs", t.fleet_pm_readiness === "READY / GOOD" ? "text-emerald-600" : t.fleet_pm_readiness === "DUE SOON" ? "text-amber-600" : t.fleet_pm_readiness?.includes("OVERDUE") || t.fleet_pm_readiness === "SERVICE DUE" || t.fleet_pm_readiness === "CHECK ODOMETER" ? "text-destructive" : "text-muted-foreground")}>{t.fleet_pm_readiness ?? "Loading…"}</TableCell>
                       </TableRow>
                     );
                   })
@@ -690,6 +694,7 @@ const LiveOilChange = () => {
       queryClient.invalidateQueries({ queryKey: ["trucks", "v2"] });
       queryClient.invalidateQueries({ queryKey: ["truck-mileage-history"] });
       queryClient.invalidateQueries({ queryKey: ["truck-service-log"] });
+      queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] });
     },
     onError: (e: any) => {
       toast({ title: "Update failed", description: e.message, variant: "destructive" });
@@ -736,9 +741,11 @@ const LiveOilChange = () => {
     return Array.from(set).sort();
   }, [enrichedTrucks]);
 
+  const readiness = useFleetReadiness(trucks);
+  const readinessTrucks = useMemo(() => enrichedTrucks.map(t => ({ ...t, fleet_pm_readiness: readiness.error ? "Unavailable" : readiness.statuses.get(t.id) })), [enrichedTrucks, readiness.statuses, readiness.error]);
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return enrichedTrucks.filter(t => {
+    return readinessTrucks.filter(t => {
       if (q) {
         const matches =
           (t.truck_number ?? "").toLowerCase().includes(q) ||
@@ -759,7 +766,7 @@ const LiveOilChange = () => {
       }
       return true;
     });
-  }, [enrichedTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
+  }, [readinessTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
 
   const [showStatistics, setShowStatistics] = useState(false);
   const [showMileageUpdates, setShowMileageUpdates] = useState(false);
@@ -862,7 +869,7 @@ const LiveOilChange = () => {
           </Button>
           <Button variant="outline" size="sm" className="mb-3" aria-expanded={showStatistics} aria-controls="oil-change-statistics" onClick={() => setShowStatistics(shown => !shown)}>Statistics<ChevronDown className={cn("ml-2 h-4 w-4 transition-transform", showStatistics && "rotate-180")} /></Button>
           </div>
-          {showStatistics && <OilChangeStatistics trucks={filtered} loading={isLoading} error={!!trucksError} />}
+          {showStatistics && <OilChangeStatistics trucks={filtered} loading={isLoading} error={!!trucksError} readinessLoading={readiness.loading} readinessError={readiness.error} />}
           <div id="mileage-updates-panel" hidden={!showMileageUpdates}>
             {showMileageUpdates && <MileageUpdateSummary summary={mileageSummary} trucks={filtered} trucksLoading={isLoading} trucksError={trucksError} />}
           </div>

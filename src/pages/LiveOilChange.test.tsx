@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import LiveOilChange from "./LiveOilChange";
 
+vi.mock("@/hooks/useFleetReadiness", () => { const statuses = new Map([["truck498", "SERVICE OVERDUE"]]); return { useFleetReadiness: () => ({ statuses, loading: false, error: false }) }; });
 const mocks = vi.hoisted(() => ({ cellRender: vi.fn(), tables: [] as string[], historyRequests: 0 }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ getPrimaryRole: () => "maintenance", profile: { user_id: "user1" }, user: { email: "test@example.com" } }) }));
 vi.mock("@/hooks/realtimeBus", () => ({ busChannel: () => { const c = { on: () => c, subscribe: () => c, unsubscribe: vi.fn() }; return c; } }));
@@ -57,4 +58,13 @@ it("does not rebuild truck cells when opening mileage updates or changing the mo
   await screen.findByRole("link", { name: "Open service log for truck 0499" });
   expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(1);
   expect(screen.getByRole("status")).toHaveTextContent("1 / 499");
+});
+
+it("shows truck readiness and counts the same value in statistics", async () => {
+  mount(); await screen.findByText("1–50 of 499 trucks");
+  fireEvent.change(screen.getByPlaceholderText("Search unit or driver..."), { target: { value: "0499" } });
+  await screen.findByText("SERVICE OVERDUE");
+  fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
+  const heading = screen.getByRole("heading", { name: "Fleet PM Readiness" });
+  expect(heading.parentElement).toHaveTextContent("1SERVICE OVERDUE");
 });
