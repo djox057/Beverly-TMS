@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { DateRange } from "react-day-picker";
-import { format } from "date-fns";
+import { format, parseISO, isValid } from "date-fns";
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Route, CalendarIcon } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -44,6 +44,8 @@ interface TriHaulCombo {
   combined_rpm: number;
 }
 
+type OrderSortKey = "pickup_datetime" | "freight_amount" | "loaded_miles" | "dh_miles" | "rpm";
+
 type TriSortKey = "intermediate" | "leg1_freight" | "leg1_rpm" | "leg2_freight" | "leg2_rpm" | "total_freight" | "total_miles" | "combined_rpm";
 
 export default function BeverlyHeatmapLane() {
@@ -59,6 +61,7 @@ export default function BeverlyHeatmapLane() {
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "order_count", dir: "desc",
   });
+  const [orderSort, setOrderSort] = useState<{ key: OrderSortKey; dir: "asc" | "desc" }>({ key: "pickup_datetime", dir: "desc" });
   const [selectedBroker, setSelectedBroker] = useState<BrokerStat | null>(null);
   const [triHaulMode, setTriHaulMode] = useState(false);
   const [weekendsOnly, setWeekendsOnly] = useState(false);
@@ -237,12 +240,12 @@ export default function BeverlyHeatmapLane() {
     queryKey: ["heatmap-lane-orders", dialogOrderIds],
     queryFn: async () => {
       if (dialogOrderIds.length === 0) return [];
-      const allDetails: { id: string; broker_load_number: string | null; freight_amount: number | null; loaded_miles: number | null; pickup_drops: { city: string | null; state: string | null; stop_type: string | null }[] }[] = [];
+      const allDetails: { id: string; broker_load_number: string | null; freight_amount: number | null; loaded_miles: number | null; dh_miles: number | null; pickup_datetime: string | null; pickup_drops: { city: string | null; state: string | null; stop_type: string | null }[] }[] = [];
       for (let i = 0; i < dialogOrderIds.length; i += 200) {
         const chunk = dialogOrderIds.slice(i, i + 200);
         const { data: orders } = await supabase
           .from("orders")
-          .select("id, broker_load_number, freight_amount, loaded_miles")
+          .select("id, broker_load_number, freight_amount, loaded_miles, dh_miles, pickup_datetime")
           .in("id", chunk);
         if (!orders) continue;
         const ids = orders.map((o: any) => o.id);
@@ -265,6 +268,35 @@ export default function BeverlyHeatmapLane() {
     enabled: dialogOrderIds.length > 0,
     staleTime: 0,
   });
+
+  const sortedOrders = useMemo(() => {
+    const value = (order: (typeof orderDetails)[number]): number | null => {
+      if (orderSort.key === "pickup_datetime") {
+        const timestamp = order.pickup_datetime ? Date.parse(order.pickup_datetime) : NaN;
+        return Number.isFinite(timestamp) ? timestamp : null;
+      }
+      if (orderSort.key === "rpm") {
+        return order.loaded_miles && order.loaded_miles > 0 && order.freight_amount != null
+          ? order.freight_amount / order.loaded_miles : null;
+      }
+      return order[orderSort.key];
+    };
+    return [...orderDetails].sort((a, b) => {
+      const av = value(a), bv = value(b);
+      if (av == null) return bv == null ? 0 : 1;
+      if (bv == null) return -1;
+      return (av - bv) * (orderSort.dir === "asc" ? 1 : -1);
+    });
+  }, [orderDetails, orderSort]);
+
+  const OrderSortHead = ({ columnKey, label, width }: { columnKey: OrderSortKey; label: string; width: string }) => (
+    <TableHead className={cn("text-right", width)} aria-sort={orderSort.key === columnKey ? (orderSort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" className="inline-flex items-center justify-end w-full whitespace-nowrap" onClick={() => setOrderSort(prev => ({ key: columnKey, dir: prev.key === columnKey && prev.dir === "desc" ? "asc" : "desc" }))}>
+        {label}
+        {orderSort.key !== columnKey ? <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-40" /> : orderSort.dir === "asc" ? <ArrowUp className="h-3.5 w-3.5 ml-1" /> : <ArrowDown className="h-3.5 w-3.5 ml-1" />}
+      </button>
+    </TableHead>
+  );
 
   const sorted = useMemo(() => {
     if (!laneData?.brokerStats) return [];
@@ -615,7 +647,7 @@ export default function BeverlyHeatmapLane() {
 
       {/* Orders Dialog */}
       <Dialog open={!!selectedBroker} onOpenChange={(open) => { if (!open) setSelectedBroker(null); }}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedBroker?.broker_name} — {selectedBroker?.order_ids.length} Orders
@@ -628,18 +660,20 @@ export default function BeverlyHeatmapLane() {
             <div className="flex items-center justify-center py-8 text-muted-foreground">No orders found.</div>
           ) : (
             <div className="overflow-x-auto border rounded-lg">
-              <Table className="table-fixed">
+              <Table className="table-fixed min-w-[940px]">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="w-[130px]">Broker Load #</TableHead>
                     <TableHead className="w-[280px]">Lane</TableHead>
-                    <TableHead className="text-right w-[100px]">Freight</TableHead>
-                    <TableHead className="text-right w-[80px]">Miles</TableHead>
-                    <TableHead className="text-right w-[70px]">RPM</TableHead>
+                    <OrderSortHead columnKey="pickup_datetime" label="Pickup Date" width="w-[130px]" />
+                    <OrderSortHead columnKey="freight_amount" label="Rate" width="w-[100px]" />
+                    <OrderSortHead columnKey="loaded_miles" label="Miles" width="w-[90px]" />
+                    <OrderSortHead columnKey="dh_miles" label="DH Miles" width="w-[110px]" />
+                    <OrderSortHead columnKey="rpm" label="RPM" width="w-[90px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orderDetails.map(order => {
+                  {sortedOrders.map(order => {
                     const miles = Number(order.loaded_miles) || 0;
                     const freight = Number(order.freight_amount) || 0;
                     const pickups = order.pickup_drops.filter(s => s.stop_type === "pickup");
@@ -651,8 +685,10 @@ export default function BeverlyHeatmapLane() {
                       <TableRow key={order.id} className="hover:bg-transparent">
                         <TableCell className="font-mono text-sm">{order.broker_load_number || "—"}</TableCell>
                         <TableCell className="text-sm whitespace-nowrap">{lane}</TableCell>
+                        <TableCell className="text-right text-sm font-mono">{order.pickup_datetime && isValid(parseISO(order.pickup_datetime)) ? format(parseISO(order.pickup_datetime), "MM/dd/yyyy") : "—"}</TableCell>
                         <TableCell className="text-right text-sm font-mono">{fmt(freight)}</TableCell>
                         <TableCell className="text-right text-sm font-mono">{fmtMiles(miles)}</TableCell>
+                        <TableCell className="text-right text-sm font-mono">{order.dh_miles == null ? "—" : order.dh_miles.toLocaleString("en-US", { maximumFractionDigits: 0 })}</TableCell>
                         <TableCell className="text-right text-sm font-mono">{fmtRpm(miles > 0 ? freight / miles : 0)}</TableCell>
                       </TableRow>
                     );
