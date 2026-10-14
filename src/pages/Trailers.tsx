@@ -1,3 +1,4 @@
+import { useVinAutofill } from "@/hooks/useVinAutofill";
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,9 @@ interface TrailerFormData {
   trailer_number: string;
   trailer_type: string;
   vin: string;
+  make: string;
+  model: string;
+  year: string;
   plate: string;
   truck_id: string;
   dot_inspection_date: string;
@@ -67,6 +71,9 @@ const Trailers = () => {
     trailer_number: "",
     trailer_type: "",
     vin: "",
+    make: "",
+    model: "",
+    year: "",
     plate: "",
     truck_id: "",
     dot_inspection_date: "",
@@ -77,6 +84,7 @@ const Trailers = () => {
 
   const itemsPerPage = 100;
   const { toast } = useToast();
+  const vinStatus = useVinAutofill(formData, setFormData, isAddDialogOpen, false);
   const { user } = useAuth();
   const { hasRole } = useAuthContext();
   const canDelete = hasRole('admin') || hasRole('manager') || hasRole('safety') || hasRole('maintenance');
@@ -172,6 +180,9 @@ const Trailers = () => {
       trailer_number: "",
       trailer_type: "",
       vin: "",
+      make: "",
+      model: "",
+      year: "",
       plate: "",
       truck_id: "",
       dot_inspection_date: "",
@@ -192,6 +203,9 @@ const Trailers = () => {
         trailer_number: formData.trailer_number?.trim(),
         trailer_type: formData.trailer_type || null,
         vin: formData.vin || null,
+        make: formData.make || null,
+        model: formData.model || null,
+        year: formData.year ? parseInt(formData.year, 10) : null,
         plate: formData.plate || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
@@ -242,6 +256,9 @@ const Trailers = () => {
         trailer_number: formData.trailer_number,
         trailer_type: formData.trailer_type || null,
         vin: formData.vin || null,
+        make: formData.make || null,
+        model: formData.model || null,
+        year: formData.year ? parseInt(formData.year, 10) : null,
         plate: formData.plate || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
@@ -381,6 +398,9 @@ const Trailers = () => {
       trailer_number: trailer.trailer_number || "",
       trailer_type: trailer.trailer_type || "",
       vin: trailer.vin || "",
+      make: trailer.make || "",
+      model: trailer.model || "",
+      year: String(trailer.year ?? ""),
       plate: trailer.plate || "",
       truck_id: trailer.trucks?.[0]?.id || "",
       dot_inspection_date: trailer.dot_inspection_date || "",
@@ -603,11 +623,24 @@ const Trailers = () => {
                 <Label htmlFor="vin">VIN Number</Label>
                 <Input id="vin" value={formData.vin} onChange={e => setFormData({
                 ...formData,
-                vin: e.target.value
+                vin: e.target.value.toUpperCase().trim()
               })} placeholder="Enter VIN" maxLength={17} />
+                  <p role="status" className="text-xs text-muted-foreground">{vinStatus}</p>
               </div>
 
               <div className="space-y-2">
+                  <Label htmlFor="make">Make</Label>
+                  <Input id="make" value={formData.make} onChange={e => setFormData({ ...formData, make: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="model">Model</Label>
+                  <Input id="model" value={formData.model} onChange={e => setFormData({ ...formData, model: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="year">Year</Label>
+                  <Input id="year" type="number" value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} />
+                </div>
+                <div className="space-y-2">
                 <Label htmlFor="plate">Plate</Label>
                 <Input id="plate" value={formData.plate} onChange={e => setFormData({
                 ...formData,
@@ -959,6 +992,18 @@ const Trailers = () => {
                 })} placeholder="Enter VIN" maxLength={17} />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="edit_make">Make</Label>
+                  <Input id="edit_make" value={formData.make} onChange={e => setFormData({ ...formData, make: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_model">Model</Label>
+                  <Input id="edit_model" value={formData.model} onChange={e => setFormData({ ...formData, model: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_year">Year</Label>
+                  <Input id="edit_year" type="number" value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_plate">Plate</Label>
                   <Input id="edit_plate" value={formData.plate} onChange={e => setFormData({

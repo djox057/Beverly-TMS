@@ -1,3 +1,4 @@
+import { useVinAutofill } from "@/hooks/useVinAutofill";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +39,7 @@ interface TruckFormData {
   source: string;
   start_miles: string;
   vin: string;
+  engine: string;
   plate: string;
   make: string;
   model: string;
@@ -99,6 +101,7 @@ const Trucks = () => {
     source: "",
     start_miles: "",
     vin: "",
+    engine: "",
     plate: "",
     make: "",
     model: "",
@@ -119,6 +122,7 @@ const Trucks = () => {
     dispatcher_id: "",
     oos: false
   });
+  const vinStatus = useVinAutofill(formData, setFormData, isAddDialogOpen, true);
   const { user } = useAuth();
   const { hasRole } = useAuthContext();
   const canDelete = hasRole('admin') || hasRole('manager') || hasRole('safety') || hasRole('maintenance');
@@ -202,6 +206,7 @@ const Trucks = () => {
       source: "",
       start_miles: "",
       vin: "",
+      engine: "",
       plate: "",
       make: "",
       model: "",
@@ -259,6 +264,7 @@ const Trucks = () => {
         start_miles: formData.start_miles === "" ? null : Number(formData.start_miles),
         baseline_created_by: formData.start_miles === "" ? null : user?.id,
         vin: formData.vin || null,
+        engine: formData.engine || null,
         plate: formData.plate || null,
         make: formData.make || null,
         model: formData.model || null,
@@ -473,6 +479,7 @@ const Trucks = () => {
         start_miles: formData.start_miles === "" ? null : Number(formData.start_miles),
         baseline_created_by: editingTruck.baseline_created_by ?? (editingTruck.start_miles == null && formData.start_miles !== "" ? user?.id : null),
         vin: formData.vin || null,
+        engine: formData.engine || null,
         plate: formData.plate || null,
         make: formData.make || null,
         model: formData.model || null,
@@ -647,6 +654,7 @@ const Trucks = () => {
       source: truck.source ?? "",
       start_miles: truck.start_miles == null ? "" : String(truck.start_miles),
       vin: truck.vin || "",
+      engine: truck.engine || "",
       plate: truck.plate || "",
       make: truck.make || "",
       model: truck.model || "",
@@ -856,7 +864,7 @@ const Trucks = () => {
                 Add Truck
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Truck</DialogTitle>
             </DialogHeader>
@@ -873,8 +881,9 @@ const Trucks = () => {
                   <Label htmlFor="vin">VIN Number</Label>
                   <Input id="vin" value={formData.vin} onChange={e => setFormData({
                   ...formData,
-                  vin: e.target.value
+                  vin: e.target.value.toUpperCase().trim()
                 })} placeholder="1HGBH41JXMN109186" maxLength={17} />
+                  <p role="status" className="text-xs text-muted-foreground">{vinStatus}</p>
                 </div>
               </div>
 
@@ -949,6 +958,10 @@ const Trucks = () => {
                     searchPlaceholder="Search trailers..."
                     emptyText="No trailer found."
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="engine">Engine Type</Label>
+                  <Input id="engine" value={formData.engine} onChange={e => setFormData({ ...formData, engine: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="plate">Plate</Label>
@@ -1451,6 +1464,10 @@ const Trucks = () => {
                     />
                   </div>
                   <div className="space-y-2">
+                  <Label htmlFor="edit_engine">Engine Type</Label>
+                  <Input id="edit_engine" value={formData.engine} onChange={e => setFormData({ ...formData, engine: e.target.value })} />
+                </div>
+                <div className="space-y-2">
                     <Label htmlFor="edit_plate">Plate</Label>
                     <Input id="edit_plate" value={formData.plate} onChange={e => setFormData({
                       ...formData,
