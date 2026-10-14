@@ -36,7 +36,7 @@ export function useFleetReadiness(trucks: Array<{ id: string }>) {
   });
   useEffect(() => {
     const refresh = () => { client.invalidateQueries({ queryKey: ["fleet-pm-readiness"] }); };
-    const channel = busChannel(refresh);
+    const channel = busChannel(refresh, "fleet-pm-readiness");
     for (const table of ["trucks", "truck_mileage_history", "truck_service_log_entries"]) channel.on("postgres_changes", { event: "*", schema: "public", table }, refresh);
     channel.subscribe();
     return () => { channel?.unsubscribe(); };

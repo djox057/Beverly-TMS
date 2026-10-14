@@ -3,6 +3,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import LiveOilChange from "./LiveOilChange";
+HTMLElement.prototype.hasPointerCapture = () => false;
+HTMLElement.prototype.setPointerCapture = () => {};
+HTMLElement.prototype.releasePointerCapture = () => {};
+HTMLElement.prototype.scrollIntoView = () => {};
 
 vi.mock("@/hooks/useFleetReadiness", () => { const statuses = new Map([["truck498", "SERVICE OVERDUE"]]); return { useFleetReadiness: () => ({ statuses, loading: false, error: false }) }; });
 const mocks = vi.hoisted(() => ({ cellRender: vi.fn(), tables: [] as string[], historyRequests: 0 }));
@@ -15,8 +19,8 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   rpc: async () => ({ data: [], error: null }),
   from: (table: string) => {
     mocks.tables.push(table);
-    const trucks = Array.from({ length: 499 }, (_, i) => ({ id: `truck${i}`, truck_number: String(i + 1).padStart(4, "0"), source: "BF TRUCK", miles: 150000, last_oil_change_miles: 130000, miles_updated_at: "2026-10-12T12:00:00Z", is_active: true, driver1_id: "driver1", company_id: null, dispatcher_id: null }));
-    const data = table === "trucks" ? trucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: null, company_id: null }] : [];
+    const trucks = Array.from({ length: 499 }, (_, i) => ({ id: `truck${i}`, truck_number: String(i + 1).padStart(4, "0"), source: "BF TRUCK", miles: 150000, last_oil_change_miles: 130000, miles_updated_at: "2026-10-12T12:00:00Z", is_active: true, driver1_id: "driver1", company_id: i === 498 ? "company1" : null, dispatcher_id: i === 498 ? "user1" : null, ...(i === 498 ? { source: "TEL", miles: 160000 } : {}) }));
+    const data = table === "trucks" ? trucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: null, company_id: null }] : table === "companies" ? [{ id: "company1", name: "Test Company" }] : table === "user_roles" ? [{ user_id: "user1" }] : table === "profiles" ? [{ user_id: "user1", id: "user1", full_name: "Test Dispatcher", office: "Chicago" }] : [];
     const q = { select: () => q, eq: () => q, in: () => q, order: () => q, not: () => q, gte: () => q, lt: () => q,
       range: async () => { mocks.historyRequests++; return { data: [{ truck_id: "truck498", changed_by: "user1" }], error: null }; },
       then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data, error: null }).then(resolve),
@@ -67,4 +71,17 @@ it("shows truck readiness and counts the same value in statistics", async () => 
   fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
   const heading = screen.getByRole("heading", { name: "Fleet PM Readiness" });
   expect(heading.parentElement).toHaveTextContent("1SERVICE OVERDUE");
+});
+
+it.each([
+  [0, "company1"], [1, "TEL"], [2, "user1"], [3, "Chicago"], [4, "over28"],
+])("keeps filter %i working with readiness", async (index, value) => {
+  mount(); await screen.findByText("1–50 of 499 trucks");
+  const trigger = screen.getAllByRole("combobox")[index];
+  fireEvent.keyDown(trigger, { key: "ArrowDown" });
+  const names: Record<string, string> = { company1: "Test Company", TEL: "TEL", user1: "Test Dispatcher", Chicago: "Chicago", over28: "> 28,000" };
+  fireEvent.click(await screen.findByRole("option", { name: names[value] }));
+  await screen.findByText("1–1 of 1 trucks");
+  expect(screen.getByRole("link", { name: "Open service log for truck 0499" })).toBeInTheDocument();
+  expect(screen.getByText("SERVICE OVERDUE")).toBeInTheDocument();
 });

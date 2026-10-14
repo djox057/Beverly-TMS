@@ -96,7 +96,7 @@ export default function TruckServiceLog() {
   });
   useEffect(() => {
     if (!truckId) return;
-    const refresh = () => queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] });
+    const refresh = () => { queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] }); };
     const channel = busChannel(refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "trucks", filter: `id=eq.${truckId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "truck_mileage_history", filter: `truck_id=eq.${truckId}` }, refresh)
@@ -129,7 +129,7 @@ export default function TruckServiceLog() {
       if (result.error) throw result.error;
       if (!result.data?.length) throw new Error("Entry was not saved. Check your permissions and retry.");
     },
-    onSuccess: () => { setEditing(null); queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); toast({ title: "Log entry saved" }); },
+    onSuccess: () => { setEditing(null); queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] }); toast({ title: "Log entry saved" }); },
     onError: (e: Error) => toast({ title: "Could not save entry", description: e.message, variant: "destructive" }),
   });
   const inlineSave = useMutation({
@@ -160,7 +160,7 @@ export default function TruckServiceLog() {
       }
     },
     onSuccess: async () => {
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }), queryClient.invalidateQueries({ queryKey: ["trucks"] })]);
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }), queryClient.invalidateQueries({ queryKey: ["trucks"] }), queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] })]);
     },
   });
   const addInlineRow = useMutation({
@@ -182,7 +182,7 @@ export default function TruckServiceLog() {
         invoice: draft.invoice.trim() || null, notes: draft.notes.trim() || null }).select("id");
       if (result.error) throw result.error;
       if (!result.data?.length) throw new Error("Entry was not saved. Check your permissions and retry.");
-      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] });
+      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] });
       setDraftRows(current => { const next = { ...current }; delete next[index]; return next; });
     },
   });
@@ -201,7 +201,7 @@ export default function TruckServiceLog() {
     },
     onSuccess: async () => {
       setDeleting(null);
-      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] });
+      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] });
       toast({ title: "Log entry deleted" });
     },
     onError: (error: Error) => toast({ title: "Could not delete entry", description: error.message, variant: "destructive" }),
