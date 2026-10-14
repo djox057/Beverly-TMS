@@ -883,7 +883,7 @@ const Trucks = () => {
                   ...formData,
                   vin: e.target.value.toUpperCase().trim()
                 })} placeholder="1HGBH41JXMN109186" maxLength={17} />
-                  <p role="status" className="text-xs text-muted-foreground">{vinStatus}</p>
+                  <p role={vinStatus.startsWith("Warning:") ? "alert" : "status"} className={vinStatus.startsWith("Warning:") ? "text-sm font-medium text-amber-600" : "text-xs text-muted-foreground"}>{vinStatus}</p>
                 </div>
               </div>
 

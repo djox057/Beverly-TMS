@@ -625,7 +625,7 @@ const Trailers = () => {
                 ...formData,
                 vin: e.target.value.toUpperCase().trim()
               })} placeholder="Enter VIN" maxLength={17} />
-                  <p role="status" className="text-xs text-muted-foreground">{vinStatus}</p>
+                  <p role={vinStatus.startsWith("Warning:") ? "alert" : "status"} className={vinStatus.startsWith("Warning:") ? "text-sm font-medium text-amber-600" : "text-xs text-muted-foreground"}>{vinStatus}</p>
               </div>
 
               <div className="space-y-2">

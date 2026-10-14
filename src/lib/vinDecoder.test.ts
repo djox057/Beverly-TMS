@@ -18,4 +18,14 @@ describe("VIN specifications", () => {
     expect(mapVinSpecs({ Make: "WABASH", ModelYear: "unknown", ErrorCode: "0" }, false).year).toBe("");
     expect(() => mapVinSpecs({}, false)).toThrow();
   });
+  it("warns on trailer VIN in truck form and truck VIN in trailer form", () => {
+    const base = { Make: "TEST", ModelYear: "2020", ErrorCode: "0" };
+    expect(() => mapVinSpecs({ ...base, VehicleType: "TRAILER" }, true)).toThrow("VIN belongs to a trailer");
+    expect(() => mapVinSpecs({ ...base, VehicleType: "TRUCK" }, false)).toThrow("VIN belongs to a truck");
+    expect(() => mapVinSpecs({ ...base, BodyClass: "Truck-Tractor" }, false)).toThrow("VIN belongs to a truck");
+    expect(mapVinSpecs({ ...base, VehicleType: "TRAILER" }, false).make).toBe("TEST");
+    expect(mapVinSpecs({ ...base, VehicleType: "TRUCK" }, true).make).toBe("TEST");
+    expect(mapVinSpecs(base, false).make).toBe("TEST");
+  });
+
 });

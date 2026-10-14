@@ -42,4 +42,13 @@ describe("VIN autofill", () => {
     await waitFor(() => expect(result.current.status).toBe("Unavailable"));
     expect(result.current.form.make).toBe("Manual");
   });
+  it("shows the mismatch warning without filling vehicle specifications", async () => {
+    vi.mocked(decodeVin).mockRejectedValue(new Error("Warning: this VIN belongs to a trailer."));
+    const { result } = renderHook(useSetup);
+    act(() => result.current.setForm(f => ({ ...f, vin: "1FUJGLDRXCLBP7955" })));
+    await waitFor(() => expect(result.current.status).toContain("VIN belongs to a trailer"));
+    expect(result.current.form.make).toBe("");
+    expect(result.current.form.engine).toBe("");
+  });
+
 });
