@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MapPin, Search, Loader2 } from "lucide-react";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -61,6 +62,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 export default function BeverlyHeatmapTruckClusters() {
+  const [office, setOffice] = useState("all");
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [runDate, setRunDate] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
@@ -240,6 +242,21 @@ export default function BeverlyHeatmapTruckClusters() {
         });
       }
 
+      return { points, clusters: [] };
+    },
+  });
+
+  const officeOptions = useMemo(() => Array.from(new Set([
+    "CACAK", "KRAGUJEVAC", "BG 1st FLOOR", "BG 4th FLOOR",
+    ...(data?.points || []).map(p => p.dispatcher_office).filter(Boolean),
+  ])).sort(), [data?.points]);
+
+  const points = useMemo(() => (data?.points || []).filter(p =>
+    office === "all" || (office === "unassigned" ? !p.dispatcher_office : p.dispatcher_office === office)
+  ), [data?.points, office]);
+
+  // Filter before clustering so each area's count and center use only the selected office.
+  const clusters = useMemo(() => {
       // 6) greedy clustering (100mi)
       const remaining = new Set(points.map((_, i) => i));
       const clusters: Cluster[] = [];
@@ -282,12 +299,9 @@ export default function BeverlyHeatmapTruckClusters() {
         for (const m of bestMembers) remaining.delete(m);
       }
       clusters.sort((a, b) => b.trucks.length - a.trucks.length);
-      return { points, clusters };
-    },
-  });
-
-  const clusters = data?.clusters || [];
-  const totalPoints = data?.points.length || 0;
+    return clusters;
+  }, [points]);
+  const totalPoints = points.length;
 
   return (
     <Card>
@@ -297,7 +311,17 @@ export default function BeverlyHeatmapTruckClusters() {
             <MapPin className="h-5 w-5 text-primary" />
             Truck Clusters by Delivery Date
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={office} onValueChange={(value) => { setOffice(value); setExpanded({}); }}>
+              <SelectTrigger className="w-48" aria-label="Filter by office">
+                <SelectValue placeholder="All offices" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All offices</SelectItem>
+                {officeOptions.map(value => <SelectItem key={value} value={value}>{value === "CACAK" ? "ČAČAK" : value}</SelectItem>)}
+                <SelectItem value="unassigned">No office assigned</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="w-56">
               <DatePicker date={date} onDateChange={setDate} placeholder="Select date" />
             </div>
@@ -306,6 +330,7 @@ export default function BeverlyHeatmapTruckClusters() {
               onClick={() => {
                 if (!date) return;
                 setRunDate(format(date, "yyyy-MM-dd"));
+                setExpanded({});
               }}
               disabled={!date || isFetching}
             >
