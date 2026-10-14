@@ -109,7 +109,7 @@ export function MilesChangeReasonDialog({
 }
 
 /** Threshold for significant miles change */
-export const MILES_CHANGE_THRESHOLD = 35;
+export const MILES_CHANGE_THRESHOLD = 10;
 
 /** Check if miles changed significantly */
 export function checkMilesChange(
@@ -120,8 +120,8 @@ export function checkMilesChange(
 ): { significant: boolean; dhMilesChanged: boolean; loadedMilesChanged: boolean } {
   const dhDiff = Math.abs(newDh - oldDh);
   const loadedDiff = Math.abs(newLoaded - oldLoaded);
-  const dhMilesChanged = dhDiff > MILES_CHANGE_THRESHOLD;
-  const loadedMilesChanged = loadedDiff > MILES_CHANGE_THRESHOLD;
+  const dhMilesChanged = dhDiff >= MILES_CHANGE_THRESHOLD;
+  const loadedMilesChanged = loadedDiff >= MILES_CHANGE_THRESHOLD;
   return {
     significant: dhMilesChanged || loadedMilesChanged,
     dhMilesChanged,

@@ -16,7 +16,7 @@ vi.mock("@/hooks/useTrucks", () => ({ useTrucks: () => ({ data: [{ id: "truck-1"
 vi.mock("@/hooks/useDrivers", () => ({ useDrivers: () => ({ data: [{ id: "driver-1", name: "Driver Name", dispatcher_id: "dispatcher-1" }] }) }));
 
 describe("Mandatory Yard Repair page", () => {
-  beforeEach(() => { mocks.roles = ["maintenance"]; mocks.save.mockReset().mockResolvedValue({}); mocks.remove.mockReset().mockResolvedValue({}); });
+  beforeEach(() => { mocks.roles = ["maintenance"]; mocks.task.status_note = ""; mocks.save.mockReset().mockResolvedValue({}); mocks.remove.mockReset().mockResolvedValue({}); });
   it("shows driver, current dispatch, original reporter/date, and overdue unit", () => {
     render(<MandatoryYardRepair />);
     expect(screen.getByText("7346").closest("td")).toHaveClass("text-red-600");
@@ -52,6 +52,23 @@ describe("Mandatory Yard Repair page", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument());
     expect(screen.getByText("Maintenance Worker")).toBeInTheDocument();
     expect(screen.getByText("09/28/2026")).toBeInTheDocument();
+  });
+  it.each(["maintenance", "dispatch"])("opens the full three-line-clamped note for %s without changing it", (role) => {
+    mocks.roles = [role];
+    mocks.task.status_note = "Line one\nLine two\nLine three\nLine four\nComplete note";
+    render(<MandatoryYardRepair />);
+    const preview = screen.getByRole("button", { name: "View full status note for unit 7346" });
+    expect(preview.querySelector("span")).toHaveClass("line-clamp-3");
+    expect(preview.closest("tr")).toHaveClass("h-20");
+    fireEvent.click(preview);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Line four");
+    expect(dialog).toHaveTextContent("Complete note");
+    expect(mocks.save).not.toHaveBeenCalled();
+    if (role === "maintenance") {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Edit Task" }));
+      expect(screen.getByLabelText("Status note")).toHaveValue(mocks.task.status_note);
+    } else expect(within(dialog).queryByRole("button", { name: "Edit Task" })).not.toBeInTheDocument();
   });
   it("retains edits when saving fails", async () => {
     mocks.save.mockRejectedValue(new Error("Network failure"));

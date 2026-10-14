@@ -5359,7 +5359,7 @@ const EditOrder = () => {
             });
             try {
               await supabase.functions.invoke("send-sms", {
-                body: { message, phoneNumbers },
+                body: { message, phoneNumbers, milesChange: true },
               });
             } catch (err) {
               console.error("Failed to send miles change SMS:", err);
