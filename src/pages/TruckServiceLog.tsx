@@ -3,7 +3,7 @@ import "./TruckServiceLog.css";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, ChevronLeft, ChevronRight, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
@@ -52,6 +52,7 @@ export default function TruckServiceLog() {
   const [deleting, setDeleting] = useState<ServiceEntry | null>(null);
   const [form, setForm] = useState(emptyForm);
   const pasteInFlight = useRef(false);
+  const [exporting, setExporting] = useState(false);
   const [blankRevision, setBlankRevision] = useState(0);
   const [draftRows, setDraftRows] = useState<Record<number, ReturnType<typeof emptyForm>>>({});
   useEffect(() => { setDraftRows({}); setEditing(null); setDeleting(null); setBulkDeleteOpen(false); setForm(emptyForm()); }, [truckId, user?.id]);
@@ -320,6 +321,15 @@ export default function TruckServiceLog() {
           searchPlaceholder="Type truck number…"
           className="w-full sm:w-64"
         />
+        <Button variant="outline" disabled={exporting || navigationBusy} onClick={async () => {
+          setExporting(true);
+          try {
+            const { exportTruckServiceLog } = await import("@/lib/exportTruckServiceLog");
+            await exportTruckServiceLog(truck, rows, summary, data.authors);
+          } catch (error) {
+            toast({ title: "Could not export service log", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+          } finally { setExporting(false); }
+        }}><Download className="mr-2 h-4 w-4" />{exporting ? "Exporting…" : "Export to Excel"}</Button>
         {canEditSpecs && <Button variant="destructive" disabled={navigationBusy || !deletableRows.length || editing != null || deleting != null} onClick={() => setBulkDeleteOpen(true)}><Trash2 className="mr-2 h-4 w-4" />Delete all rows</Button>}
         {canEdit && <Button onClick={() => openEditor("new")}><Plus className="h-4 w-4 mr-2" />Add log entry</Button>}
       </div></div>

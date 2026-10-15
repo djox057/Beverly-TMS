@@ -5,12 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ServiceEntry } from "@/lib/truckServiceLog";
 import TruckServiceLog from "./TruckServiceLog";
 
-const mocks = vi.hoisted(() => ({ role: "maintenance", toast: vi.fn(), bulkIds: [] as string[], saved: [] as ServiceEntry[], searchTrucks: [] as Array<{ id: string; truck_number: string; is_active: boolean; dispatcher_id: string | null; driver1_id: string | null }>, history: [] as Array<{ id: string; field: string; new_value: number; changed_at: string; changed_by: string }>, insert: vi.fn(), update: vi.fn(), truck: {
+const mocks = vi.hoisted(() => ({ role: "maintenance", exportLog: vi.fn(), toast: vi.fn(), bulkIds: [] as string[], saved: [] as ServiceEntry[], searchTrucks: [] as Array<{ id: string; truck_number: string; is_active: boolean; dispatcher_id: string | null; driver1_id: string | null }>, history: [] as Array<{ id: string; field: string; new_value: number; changed_at: string; changed_by: string }>, insert: vi.fn(), update: vi.fn(), truck: {
   id: "truck1", truck_number: "157", source: "BF TRUCK", make: "Freightliner", model: "Cascadia", year: 2026,
   vin: "VIN157", engine: "DD15", is_active: true, miles: 168624, miles_updated_at: "2026-09-30T12:00:00Z",
   last_oil_change_miles: 148108, oil_change_date: "2026-07-30", air_filter: null, last_oc_invoice: "INV-3338",
   oil_change_note: null, samsara_account: null, dispatcher_id: "user1", driver1_id: null,
 } }));
+vi.mock("@/lib/exportTruckServiceLog", () => ({ exportTruckServiceLog: mocks.exportLog }));
 vi.mock("@/hooks/use-toast", () => ({ toast: mocks.toast }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ getPrimaryRole: () => mocks.role, user: { id: "user1" } }) }));
 vi.mock("@/hooks/realtimeBus", () => ({ busChannel: () => { const channel = { on: () => channel, subscribe: () => channel, unsubscribe: vi.fn() }; return channel; } }));
@@ -103,6 +104,14 @@ describe("truck service log page", () => {
       expect(screen.getByText("Air filter overdue: 8,624 mi")).toBeInTheDocument();
       expect(screen.getByText("READY / GOOD")).toBeInTheDocument();
     } finally { mocks.truck.air_filter = null; }
+  });
+  it("exports the displayed truck with its protected baseline and saved history", async () => {
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
+    await waitFor(() => expect(mocks.exportLog).toHaveBeenCalledOnce());
+    expect(mocks.exportLog.mock.calls[0][0]).toMatchObject({ truck_number: "157" });
+    expect(mocks.exportLog.mock.calls[0][1][0]).toMatchObject({ entry_type: "Baseline Start" });
+    expect(mocks.exportLog.mock.calls[0][2]).toMatchObject({ current: 168624 });
   });
   it("saves additional mileage details only into the new log", async () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
