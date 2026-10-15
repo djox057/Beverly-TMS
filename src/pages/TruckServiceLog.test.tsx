@@ -21,7 +21,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: (table: str
     single: async () => ({ data: selectedId === "truck1" ? mocks.truck : { ...mocks.truck, ...mocks.searchTrucks.find(truck => truck.id === selectedId) }, error: null }),
     range: async () => ({ data: table === "trucks" ? mocks.searchTrucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: "user1" }, { id: "driver2", first_name: "Adil", last_name: "El Filali", dispatcher_id: "other" }] : table === "truck_mileage_history" ? mocks.history : table === "truck_service_log_entries" ? mocks.saved : [], error: null }),
     insert: (payload: unknown) => { mocks.insert(table, payload); if (table === "truck_service_log_entries" && (payload as ServiceEntry).is_deleted) mocks.saved.push({ ...payload as ServiceEntry, id: "entry1", created_at: "2026-10-12T12:00:00Z" }); return { select: async () => ({ data: [{ id: "entry1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }; },
-    update: (payload: unknown) => { mocks.update(table, payload); return { eq: () => ({ select: async () => ({ data: [{ id: "truck1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }) }; },
+    update: (payload: unknown) => { mocks.update(table, payload); return { eq: () => { const result = { in: () => result, select: async () => ({ data: [{ id: "truck1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }; return result; } }; },
   }; return query;
 } } }));
 const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={["/live-oil-change/truck1"]}><Routes><Route path="/live-oil-change/:truckId" element={<TruckServiceLog />} /></Routes></MemoryRouter></QueryClientProvider>);
@@ -282,4 +282,46 @@ it("deletes a saved/imported log row by updating its own record", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Delete entry" }));
   await waitFor(() => expect(mocks.update).toHaveBeenCalledWith("truck_service_log_entries", { is_deleted: true }));
   expect(mocks.insert).not.toHaveBeenCalled();
+});
+
+it("preserves an imported baseline on the truck before deleting only its history row", async () => {
+  mocks.saved = [{ id: "base1", source_key: "xlsx:baseline1", log_date: "2024-01-01", entry_type: "Baseline Start", odometer: 100000, oil_spec: null, facility: null, invoice: null, notes: "Original baseline", created_at: "2026-10-01T12:00:00Z", created_by: "user1" }];
+  mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+  fireEvent.click(screen.getByRole("button", { name: "Delete Baseline Start 1/1/2024" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete entry" }));
+  await waitFor(() => expect(mocks.update).toHaveBeenCalledWith("truck_service_log_entries", { is_deleted: true }));
+  expect(mocks.update.mock.calls[0]).toEqual(["trucks", { start_miles: 100000, baseline_start_date: "2024-01-01", baseline_note: "Original baseline" }]);
+  expect(mocks.update.mock.calls[1]).toEqual(["truck_service_log_entries", { is_deleted: true }]);
+});
+it("deleting an older baseline does not replace the effective truck baseline", async () => {
+  const base = { id: "base1", source_key: "xlsx:baseline1", log_date: "2024-01-01", entry_type: "Baseline Start" as const, odometer: 100000, oil_spec: null, facility: null, invoice: null, notes: "Old baseline", created_at: "2026-10-01T12:00:00Z", created_by: "user1" };
+  mocks.saved = [base, { ...base, id: "base2", source_key: "xlsx:baseline2", log_date: "2024-02-01", odometer: 110000 }];
+  mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+  fireEvent.click(screen.getByRole("button", { name: "Delete Baseline Start 1/1/2024" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete entry" }));
+  await waitFor(() => expect(mocks.update).toHaveBeenCalledWith("truck_service_log_entries", { is_deleted: true }));
+  expect(mocks.update).not.toHaveBeenCalledWith("trucks", expect.anything());
+});
+
+it("confirms bulk deletion and handles saved and generated rows while preserving the baseline", async () => {
+  mocks.saved = [{ id: "bulkbase", source_key: "xlsx:bulkbase", log_date: "2024-01-01", entry_type: "Baseline Start", odometer: 100000, oil_spec: null, facility: null, invoice: null, notes: "Keep baseline", created_at: "2026-10-01T12:00:00Z", created_by: "user1" }];
+  mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+  fireEvent.click(screen.getByRole("button", { name: "Delete all rows" }));
+  expect(mocks.update).not.toHaveBeenCalled();
+  expect(mocks.insert).not.toHaveBeenCalled();
+  expect(screen.getByRole("dialog")).toHaveTextContent("baseline values");
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(mocks.update).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Delete all rows" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirm delete all rows" }));
+  await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith({ title: "All service log rows deleted" }));
+  expect(mocks.update.mock.calls[0]).toEqual(["trucks", { start_miles: 100000, baseline_start_date: "2024-01-01", baseline_note: "Keep baseline" }]);
+  expect(mocks.update).toHaveBeenCalledWith("truck_service_log_entries", { is_deleted: true });
+  expect(mocks.insert).toHaveBeenCalledWith("truck_service_log_entries", expect.arrayContaining([expect.objectContaining({ entry_type: "Oil Change", is_deleted: true }), expect.objectContaining({ entry_type: "Mileage Check", is_deleted: true })]));
+  expect(mocks.update).not.toHaveBeenCalledWith("trucks", expect.objectContaining({ miles: expect.anything() }));
+});
+it.each(["dispatch", "supervisor", "safety"])("does not offer delete all rows to %s", async role => {
+  mocks.role = role;
+  mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+  expect(screen.queryByRole("button", { name: "Delete all rows" })).not.toBeInTheDocument();
 });

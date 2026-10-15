@@ -47,12 +47,13 @@ export default function TruckServiceLog() {
   const canEditTruck = !!role && ["admin", "manager", "maintenance", "supervisor"].includes(role);
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<ServiceEntry | "new" | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState<ServiceEntry | null>(null);
   const [form, setForm] = useState(emptyForm);
   const pasteInFlight = useRef(false);
   const [blankRevision, setBlankRevision] = useState(0);
   const [draftRows, setDraftRows] = useState<Record<number, ReturnType<typeof emptyForm>>>({});
-  useEffect(() => { setDraftRows({}); setEditing(null); setDeleting(null); setForm(emptyForm()); }, [truckId, user?.id]);
+  useEffect(() => { setDraftRows({}); setEditing(null); setDeleting(null); setBulkDeleteOpen(false); setForm(emptyForm()); }, [truckId, user?.id]);
   const { data: searchableTrucks = [], isLoading: loadingTrucks, error: truckSearchError, refetch: refetchTrucks } = useQuery({
     queryKey: ["oil-change-truck-search", user?.id, role],
     enabled: !!user && !!role,
@@ -215,9 +216,20 @@ export default function TruckServiceLog() {
       toast({ title: "Could not paste row", description: error instanceof Error ? error.message : "Check the spreadsheet row and try again.", variant: "destructive" });
     } finally { pasteInFlight.current = false; }
   };
+  const preserveBaseline = async (deletingRows: ServiceEntry[]) => {
+    const baseline = summary?.baseline;
+    if (baseline && "id" in baseline && deletingRows.some(row => row.entry_type === "Baseline Start" && row.id === baseline.id)) {
+      if (!canEditTruck || !truckId) throw new Error("No permission to preserve this truck's baseline.");
+      const preserved = await supabase.from("trucks").update({ start_miles: baseline.odometer ?? null,
+        baseline_start_date: baseline.log_date ?? null, baseline_note: baseline.notes ?? null }).eq("id", truckId).select("id");
+      if (preserved.error) throw preserved.error;
+      if (!preserved.data?.length) throw new Error("Baseline values could not be preserved. Rows were not deleted.");
+    }
+  };
   const deleteEntry = useMutation({
     mutationFn: async (row: ServiceEntry) => {
       if (!canEdit || !truckId || !user || (dispatch && row.entry_type !== "Mileage Check") || (row.source_key === "truck:baseline" && !canEditTruck)) throw new Error("No permission to delete this entry.");
+      await preserveBaseline([row]);
       const existing = row.source_key ? data?.saved.find(entry => entry.source_key === row.source_key) : row;
       // Persist a deletion marker so generated live/history rows cannot reappear.
       const result = existing
@@ -231,16 +243,45 @@ export default function TruckServiceLog() {
     onSuccess: async () => {
       setDeleting(null);
       await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
       toast({ title: "Log entry deleted" });
     },
     onError: (error: Error) => toast({ title: "Could not delete entry", description: error.message, variant: "destructive" }),
+  });
+  const bulkDelete = useMutation({
+    mutationFn: async () => {
+      if (!canEditSpecs || !truckId || !user || !data) throw new Error("No permission to delete all service rows.");
+      await preserveBaseline(rows);
+      const savedIds: string[] = [];
+      const markers: Database["public"]["Tables"]["truck_service_log_entries"]["Insert"][] = [];
+      for (const row of rows) {
+        const existing = row.source_key ? data.saved.find(entry => entry.source_key === row.source_key) : row;
+        if (existing) savedIds.push(existing.id);
+        else markers.push({ truck_id: truckId, source_key: row.source_key, log_date: row.log_date,
+          entry_type: row.entry_type, odometer: row.odometer, oil_spec: row.oil_spec,
+          facility: row.facility, invoice: row.invoice, notes: row.notes, created_by: user.id, is_deleted: true });
+      }
+      if (markers.length) {
+        const result = await db.from("truck_service_log_entries").insert(markers).select("id");
+        if (result.error) throw result.error;
+        if (!result.data?.length) throw new Error("Generated rows were not deleted. Retry to finish deleting rows.");
+      }
+      if (savedIds.length) {
+        const result = await db.from("truck_service_log_entries").update({ is_deleted: true }).eq("truck_id", truckId).in("id", savedIds).select("id");
+        if (result.error) throw result.error;
+        if (!result.data?.length) throw new Error("Saved rows were not deleted. Retry to finish deleting rows.");
+      }
+    },
+    onSuccess: () => { setBulkDeleteOpen(false); setDraftRows({}); setBlankRevision(value => value + 1); toast({ title: "All service log rows deleted" }); },
+    onError: (error: Error) => toast({ title: "Could not delete all rows", description: error.message, variant: "destructive" }),
+    onSettled: async () => { await Promise.all([queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }), queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] }), queryClient.invalidateQueries({ queryKey: ["trucks"] })]); },
   });
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading truck service log…</div>;
   if (error || !data || !summary) return <div className="p-8 space-y-4"><Link to="/live-oil-change">← Live Oil Change</Link><p role="alert">{error instanceof Error ? error.message : "Truck not found."}</p><Button onClick={() => refetch()}>Try again</Button></div>;
   const truckIndex = searchableTrucks.findIndex(truck => truck.id === truckId);
   const previousTruck = truckIndex > 0 ? searchableTrucks[truckIndex - 1] : null;
   const nextTruck = truckIndex >= 0 ? searchableTrucks[truckIndex + 1] : null;
-  const navigationBusy = loadingTrucks || !!truckSearchError || inlineSave.isPending || addInlineRow.isPending || save.isPending || deleteEntry.isPending;
+  const navigationBusy = loadingTrucks || !!truckSearchError || inlineSave.isPending || addInlineRow.isPending || save.isPending || deleteEntry.isPending || bulkDelete.isPending;
   const truck = data.truck;
   const makeModel = [truck.make, truck.model].filter(Boolean).join(" ");
   const freshness = getMileageUpdateStatus(truck.miles_updated_at);
@@ -255,6 +296,7 @@ export default function TruckServiceLog() {
     ["Telematics / ELD", truck.samsara_account ? `SAMSARA / ${truck.samsara_account}` : ""], ["Baseline Start", date(summary.baseline?.log_date ?? null)], ["Baseline Odometer", num(summary.baseline?.odometer)], ["Baseline Note", summary.baseline?.notes ?? ""],
   ];
   return <div className="truck-service-log px-2 py-6 space-y-4">
+    <fieldset disabled={bulkDelete.isPending} className="m-0 min-w-0 border-0 p-0 space-y-4">
     <div className="service-log-toolbar flex flex-wrap items-center justify-between gap-3"><Link to="/live-oil-change" className="inline-flex items-center gap-2 text-sm hover:underline"><ArrowLeft className="h-4 w-4" />Live Oil Change</Link>
       <div className="service-log-controls flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <div className="flex items-center gap-1">
@@ -269,6 +311,7 @@ export default function TruckServiceLog() {
           searchPlaceholder="Type truck number…"
           className="w-full sm:w-64"
         />
+        {canEditSpecs && <Button variant="destructive" disabled={navigationBusy || !rows.length || editing != null || deleting != null} onClick={() => setBulkDeleteOpen(true)}><Trash2 className="mr-2 h-4 w-4" />Delete all rows</Button>}
         {canEdit && <Button onClick={() => openEditor("new")}><Plus className="h-4 w-4 mr-2" />Add log entry</Button>}
       </div></div>
     {truckSearchError && <p role="alert" className="text-sm text-destructive">Could not load truck search. <button type="button" className="underline" onClick={() => refetchTrucks()}>Try again</button></p>}
@@ -306,6 +349,11 @@ export default function TruckServiceLog() {
     {canEdit && <p className="text-xs text-muted-foreground">Paste Excel or Google Sheets rows into any empty row, starting with Log Date. Miles Since Service and Next Due are calculated automatically.</p>}
     {Object.keys(draftRows).length > 0 && <p className="text-xs text-muted-foreground">Complete the log date and total odometer to save the new row. Incomplete rows are not saved.</p>}
 
+    </fieldset>
+    <Dialog open={bulkDeleteOpen} onOpenChange={open => { if (!bulkDelete.isPending) setBulkDeleteOpen(open); }}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>Delete all service log rows?</DialogTitle></DialogHeader>
+      <p className="text-sm">Delete all {rows.length} rows from truck {truck.truck_number}'s service log? The truck's baseline values, current odometer, and other truck details will be kept.</p>
+      <div className="flex justify-end gap-2"><Button variant="outline" disabled={bulkDelete.isPending} onClick={() => setBulkDeleteOpen(false)}>Cancel</Button><Button variant="destructive" disabled={bulkDelete.isPending || !rows.length} onClick={() => bulkDelete.mutate()}>{bulkDelete.isPending ? "Deleting…" : "Confirm delete all rows"}</Button></div>
+    </DialogContent></Dialog>
     <Dialog open={deleting != null} onOpenChange={open => { if (!open && !deleteEntry.isPending) setDeleting(null); }}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>Delete log entry?</DialogTitle></DialogHeader>
       <p className="text-sm">Delete {deleting?.entry_type} {date(deleting?.log_date ?? null)} from truck {truck.truck_number}'s service log?</p>
       <div className="flex justify-end gap-2"><Button variant="outline" disabled={deleteEntry.isPending} onClick={() => setDeleting(null)}>Cancel</Button><Button variant="destructive" disabled={deleteEntry.isPending} onClick={() => { if (deleting) deleteEntry.mutate(deleting); }}>{deleteEntry.isPending ? "Deleting…" : "Delete entry"}</Button></div>
