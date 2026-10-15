@@ -155,12 +155,15 @@ describe("truck service log rules", () => {
     const edited = [entry({ source_key: "history:partial", entry_type: "Mileage Check", log_date: "2026-09-14", odometer: 133310, notes: "Verified" })];
     expect(buildServiceEntries(truck, history, edited).find(e => e.source_key === "history:partial")?.notes).toBe("Verified");
   });
-  it("separates air-filter warning at 60k from actual replacement at 80k", () => {
-    const base = { ...truck, air_filter: truck.miles! - 60000 };
-    expect(serviceSummary(base, [], "2026-10-08").status).toBe("READY / GOOD");
-    expect(serviceSummary({ ...base, air_filter: truck.miles! - 60001 }, [], "2026-10-08").status).toBe("DUE SOON");
-    expect(serviceSummary({ ...base, air_filter: truck.miles! - 80000 }, [], "2026-10-08").status).toBe("SERVICE DUE");
-    expect(serviceSummary({ ...base, air_filter: truck.miles! - 80001 }, [], "2026-10-08").status).toBe("SERVICE OVERDUE");
+  it("tracks air-filter mileage separately without affecting PM readiness", () => {
+    for (const sinceFilter of [60000, 60001, 80000, 80001, -1]) {
+      const base = { ...truck, air_filter: truck.miles! - sinceFilter };
+      const result = serviceSummary(base, [], "2026-10-08");
+      expect(result.status).toBe("READY / GOOD");
+      expect(result.sinceFilter).toBe(sinceFilter);
+    }
+    const overdue = { ...truck, miles: 178109, air_filter: 178109 };
+    expect(serviceSummary(overdue, [], "2026-10-08").status).toBe("SERVICE OVERDUE");
   });
   it("backdated records do not replace the newer live current reading", () => {
     const saved = [entry({ entry_type: "Mileage Check", log_date: "2026-08-01", odometer: 150000, created_at: "2026-10-08T12:00:00Z" })];

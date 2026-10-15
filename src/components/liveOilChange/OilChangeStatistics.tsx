@@ -46,7 +46,7 @@ export function OilChangeStatistics({ trucks, loading, error, readinessLoading =
     </div>}
     <div className="mt-4 border-t pt-3"><h3 className="mb-2 text-sm font-semibold">Fleet PM Readiness</h3>
       {readinessLoading ? <p className="text-sm">Loading readiness…</p> : readinessError ? <p role="alert">Could not load readiness statistics.</p> : <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">{["READY / GOOD", "DUE SOON", "SERVICE DUE", "SERVICE OVERDUE", "CHECK ODOMETER", "MISSING SERVICE DATA"].map(status => <button type="button" key={status} aria-label={`Filter fleet readiness: ${status}`} aria-pressed={selected("readiness", status)} onClick={() => choose("readiness", status)} className={`rounded border bg-muted/20 p-2 text-left hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected("readiness", status) ? "ring-2 ring-primary" : ""}`}><p className="text-xl font-semibold">{trucks.filter(t => t.fleet_pm_readiness === status).length}</p><p className="text-xs">{status}</p></button>)}</div>}
-      <p className="mt-2 text-xs text-muted-foreground">Uses the same service history, mileage, dates, and air filter calculation as each truck’s page.</p>
+      <p className="mt-2 text-xs text-muted-foreground">Based on the same oil-change mileage and service history as each truck’s page. Air filters are tracked separately.</p>
     </div>
   </section>;
 }
