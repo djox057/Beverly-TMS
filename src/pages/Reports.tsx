@@ -1146,9 +1146,9 @@ const Reports = () => {
   const [proximitySearching, setProximitySearching] = useState(false);
   const [proximityCoords, setProximityCoords] = useState<{ lat: number; lon: number } | null>(null);
   const proximityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // When true, proximity search matches trucks by their current GPS location
-  // instead of their last delivery location.
-  const [proximityLiveMode, setProximityLiveMode] = useState(false);
+  const [proximityMode, setProximityMode] = useState<"delivery" | "live" | "trihaul">("delivery");
+  const [triHaulMinMiles, setTriHaulMinMiles] = useState(250);
+  const [triHaulMaxMiles, setTriHaulMaxMiles] = useState(550);
   const groupedReportsRef = useRef(groupedReports);
   useEffect(() => {
     groupedReportsRef.current = groupedReports;
@@ -1241,7 +1241,7 @@ const Reports = () => {
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     };
     const matched = new Map<string, number>();
-    if (proximityLiveMode) {
+    if (proximityMode === "live") {
       // Match against current GPS locations (Samsara).
       for (const loc of samsaraLocations || []) {
         const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, loc.latitude, loc.longitude);
@@ -1257,14 +1257,17 @@ const Reports = () => {
       for (const [truckId, entry] of truckLastDeliveryRef.current.entries()) {
         const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, entry.lat, entry.lon);
         const roadMiles = Math.round(straightLine * 1.3);
-        if (roadMiles <= 150) {
+        const inRange = proximityMode === "trihaul"
+          ? roadMiles >= triHaulMinMiles && roadMiles <= triHaulMaxMiles
+          : roadMiles <= 150;
+        if (inRange) {
           matched.set(truckId, roadMiles);
         }
       }
     }
     setProximityMatchedTrucks(matched);
     setProximitySearching(false);
-  }, [proximityCoords, proximityAddress, truckLastDeliveryVersion, proximityLiveMode, samsaraLocations]);
+  }, [proximityCoords, proximityAddress, truckLastDeliveryVersion, proximityMode, triHaulMinMiles, triHaulMaxMiles, samsaraLocations]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
   const [cancelRecoverInstead, setCancelRecoverInstead] = useState(false);
@@ -4696,29 +4699,59 @@ const Reports = () => {
                     </span>
                   )}
                 </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={proximityLiveMode ? "default" : "ghost"}
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => setProximityLiveMode((v) => !v)}
-                    >
-                      {proximityLiveMode ? (
-                        <Navigation className="h-4 w-4" />
-                      ) : (
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      {proximityLiveMode
-                        ? "Searching by current truck location (GPS) — click to use last delivery location"
-                        : "Searching by last delivery location — click to use current truck location (GPS)"}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
+                <Select value={proximityMode} onValueChange={(value: "delivery" | "live" | "trihaul") => setProximityMode(value)}>
+                  <SelectTrigger className="h-8 w-[145px]" aria-label="Nearby truck search mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="delivery">Last delivery</SelectItem>
+                    <SelectItem value="live">Live GPS</SelectItem>
+                    <SelectItem value="trihaul">Tri haul</SelectItem>
+                  </SelectContent>
+                </Select>
+                {proximityMode === "trihaul" && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
+                        aria-label="Tri haul mileage settings"
+                        title={`Tri haul for tomorrow: ${triHaulMinMiles}–${triHaulMaxMiles} estimated miles`}>
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 space-y-3" align="end">
+                      <div>
+                        <p className="text-sm font-medium">Tri haul · Tomorrow</p>
+                        <p className="text-xs text-muted-foreground">Find last delivery locations one positioning load away. Distances are estimated.</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="trihaul-min-miles">Min miles</Label>
+                          <Input id="trihaul-min-miles" type="number" min={0} max={triHaulMaxMiles}
+                            value={triHaulMinMiles}
+                            onChange={(e) => {
+                              if (!e.target.value) return;
+                              const value = Number(e.target.value);
+                              if (Number.isFinite(value) && value >= 0 && value <= triHaulMaxMiles) setTriHaulMinMiles(value);
+                            }} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="trihaul-max-miles">Max miles</Label>
+                          <Input id="trihaul-max-miles" type="number" min={triHaulMinMiles}
+                            value={triHaulMaxMiles}
+                            onChange={(e) => {
+                              if (!e.target.value) return;
+                              const value = Number(e.target.value);
+                              if (Number.isFinite(value) && value >= triHaulMinMiles) setTriHaulMaxMiles(value);
+                            }} />
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        setTriHaulMinMiles(250);
+                        setTriHaulMaxMiles(550);
+                      }}>Reset to 250–550 miles</Button>
+                    </PopoverContent>
+                  </Popover>
+                )}
                 <Button variant="outline" size="sm" onClick={() => setLegendDialogOpen(true)} className="gap-2">
                   <HelpCircle className="h-4 w-4" />
                   Legend
@@ -6893,7 +6926,7 @@ const Reports = () => {
                                                     paddingBottom: "14px",
                                                   }}
                                                 >
-                                                  ~{proximityMatchedTrucks.get(truck.id)} mi away
+                                                  {proximityMode === "trihaul" ? "Tri haul · " : ""}~{proximityMatchedTrucks.get(truck.id)} mi away
                                                 </span>
                                               </div>
                                             )}
