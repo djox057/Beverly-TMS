@@ -46,6 +46,7 @@ export default function TruckServiceLog() {
   const canEditSpecs = !!role && ["admin", "manager", "maintenance"].includes(role);
   const canEditTruck = !!role && ["admin", "manager", "maintenance", "supervisor"].includes(role);
   const queryClient = useQueryClient();
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<ServiceEntry | "new" | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState<ServiceEntry | null>(null);
@@ -108,6 +109,15 @@ export default function TruckServiceLog() {
       .on("postgres_changes", { event: "*", schema: "public", table: "truck_service_log_entries", filter: `truck_id=eq.${truckId}` }, refresh).subscribe();
     return () => { channel?.unsubscribe(); };
   }, [truckId, queryClient]);
+  useEffect(() => {
+    const toolbar = toolbarRef.current;
+    if (!toolbar) return;
+    const resize = () => toolbar.parentElement?.style.setProperty("--service-toolbar-height", `${toolbar.getBoundingClientRect().height}px`);
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(toolbar);
+    return () => observer.disconnect();
+  }, [data?.truck.id]);
   const entries = useMemo(() => data ? buildServiceEntries(data.truck, data.history, data.saved) : [], [data]);
   // Baseline metadata participates in calculations without becoming a visible history row.
   const rows = useMemo(() => calculateServiceLog(entries, data?.truck.source ?? null).filter(row => row.source_key !== "truck:baseline"), [entries, data?.truck.source]);
@@ -297,7 +307,7 @@ export default function TruckServiceLog() {
   ];
   return <div className="truck-service-log px-2 py-6 space-y-4">
     <fieldset disabled={bulkDelete.isPending} className="m-0 min-w-0 border-0 p-0 space-y-4">
-    <div className="service-log-toolbar flex flex-wrap items-center justify-between gap-3"><Link to="/live-oil-change" className="inline-flex items-center gap-2 text-sm hover:underline"><ArrowLeft className="h-4 w-4" />Live Oil Change</Link>
+    <div ref={toolbarRef} className="service-log-toolbar flex flex-wrap items-center justify-between gap-3"><Link to="/live-oil-change" className="inline-flex items-center gap-2 text-sm hover:underline"><ArrowLeft className="h-4 w-4" />Live Oil Change</Link>
       <div className="service-log-controls flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <div className="flex items-center gap-1">
           <Button variant="outline" size="sm" aria-label="Previous truck" title={previousTruck ? `Previous truck: ${previousTruck.truck_number}` : "First truck"} disabled={navigationBusy || !previousTruck} onClick={() => { if (previousTruck) navigate(`/live-oil-change/${previousTruck.id}`); }}><ChevronLeft className="mr-1 h-4 w-4" />Prev</Button>

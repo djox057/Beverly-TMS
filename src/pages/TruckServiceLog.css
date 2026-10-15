@@ -1,6 +1,16 @@
-.truck-service-log .service-log-sticky-header {
+.truck-service-log .service-log-toolbar {
   position: sticky;
   top: 0;
+  z-index: 30;
+  padding-block: 8px;
+  background: hsl(var(--background));
+  box-shadow: 0 2px 6px #00000014;
+}
+.dark .truck-service-log .service-log-toolbar { background: #111d31; }
+
+.truck-service-log .service-log-sticky-header {
+  position: sticky;
+  top: var(--service-toolbar-height, 0px);
   z-index: 20;
   max-height: 60vh;
   overflow-y: auto;
