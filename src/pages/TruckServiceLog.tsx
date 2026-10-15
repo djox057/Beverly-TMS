@@ -119,9 +119,16 @@ export default function TruckServiceLog() {
     return () => observer.disconnect();
   }, [data?.truck.id]);
   const entries = useMemo(() => data ? buildServiceEntries(data.truck, data.history, data.saved) : [], [data]);
-  // Baseline metadata participates in calculations without becoming a visible history row.
-  const rows = useMemo(() => calculateServiceLog(entries, data?.truck.source ?? null).filter(row => row.source_key !== "truck:baseline"), [entries, data?.truck.source]);
-  const summary = data ? serviceSummary(data.truck, entries) : null;
+  const summary = useMemo(() => data ? serviceSummary(data.truck, entries) : null, [data, entries]);
+  const rows = useMemo(() => {
+    const baseline: ServiceEntry = { id: "truck:baseline", source_key: "truck:baseline", entry_type: "Baseline Start",
+      log_date: summary?.baseline?.log_date ?? null, odometer: summary?.baseline?.odometer ?? null,
+      notes: summary?.baseline?.notes ?? null, oil_spec: null, facility: null, invoice: null,
+      created_at: "", created_by: data?.truck.baseline_created_by ?? null, imported: true };
+    return [...calculateServiceLog([baseline], data?.truck.source ?? null),
+      ...calculateServiceLog(entries, data?.truck.source ?? null).filter(row => row.entry_type !== "Baseline Start")];
+  }, [data, entries, summary]);
+  const deletableRows = rows.filter(row => row.entry_type !== "Baseline Start");
 
   const openEditor = (entry: ServiceEntry | "new") => {
     setEditing(entry);
@@ -161,7 +168,7 @@ export default function TruckServiceLog() {
         const truckKey = row ? baselineKey[key] : key;
         if (["year", "make", "model", "engine"].includes(truckKey) && !canEditSpecs) throw new Error("No permission to edit truck specifications.");
         if (!["year", "make", "model", "engine", "start_miles", "baseline_start_date", "baseline_note", "oil_spec"].includes(truckKey)) throw new Error("Invalid truck field.");
-        const payload = { [truckKey]: parsed, ...(["start_miles", "baseline_start_date", "baseline_note"].includes(truckKey) && !data?.truck.baseline_created_by && data?.truck.start_miles == null && !data?.truck.baseline_start_date && !data?.truck.baseline_note && parsed != null ? { baseline_created_by: user?.id } : {}) };
+        const payload = { ...(["start_miles", "baseline_start_date", "baseline_note"].includes(truckKey) ? { start_miles: summary?.baseline?.odometer ?? null, baseline_start_date: summary?.baseline?.log_date ?? null, baseline_note: summary?.baseline?.notes ?? null } : {}), [truckKey]: parsed, ...(["start_miles", "baseline_start_date", "baseline_note"].includes(truckKey) && !data?.truck.baseline_created_by && data?.truck.start_miles == null && !data?.truck.baseline_start_date && !data?.truck.baseline_note && parsed != null ? { baseline_created_by: user?.id } : {}) };
         const result = await supabase.from("trucks").update(payload).eq("id", truckId!).select("id");
         if (result.error) throw result.error;
         if (!result.data?.length) throw new Error("No permission to update this truck.");
@@ -226,20 +233,10 @@ export default function TruckServiceLog() {
       toast({ title: "Could not paste row", description: error instanceof Error ? error.message : "Check the spreadsheet row and try again.", variant: "destructive" });
     } finally { pasteInFlight.current = false; }
   };
-  const preserveBaseline = async (deletingRows: ServiceEntry[]) => {
-    const baseline = summary?.baseline;
-    if (baseline && "id" in baseline && deletingRows.some(row => row.entry_type === "Baseline Start" && row.id === baseline.id)) {
-      if (!canEditTruck || !truckId) throw new Error("No permission to preserve this truck's baseline.");
-      const preserved = await supabase.from("trucks").update({ start_miles: baseline.odometer ?? null,
-        baseline_start_date: baseline.log_date ?? null, baseline_note: baseline.notes ?? null }).eq("id", truckId).select("id");
-      if (preserved.error) throw preserved.error;
-      if (!preserved.data?.length) throw new Error("Baseline values could not be preserved. Rows were not deleted.");
-    }
-  };
   const deleteEntry = useMutation({
     mutationFn: async (row: ServiceEntry) => {
       if (!canEdit || !truckId || !user || (dispatch && row.entry_type !== "Mileage Check") || (row.source_key === "truck:baseline" && !canEditTruck)) throw new Error("No permission to delete this entry.");
-      await preserveBaseline([row]);
+      if (row.entry_type === "Baseline Start") throw new Error("The baseline row cannot be deleted.");
       const existing = row.source_key ? data?.saved.find(entry => entry.source_key === row.source_key) : row;
       // Persist a deletion marker so generated live/history rows cannot reappear.
       const result = existing
@@ -261,10 +258,9 @@ export default function TruckServiceLog() {
   const bulkDelete = useMutation({
     mutationFn: async () => {
       if (!canEditSpecs || !truckId || !user || !data) throw new Error("No permission to delete all service rows.");
-      await preserveBaseline(rows);
       const savedIds: string[] = [];
       const markers: Database["public"]["Tables"]["truck_service_log_entries"]["Insert"][] = [];
-      for (const row of rows) {
+      for (const row of deletableRows) {
         const existing = row.source_key ? data.saved.find(entry => entry.source_key === row.source_key) : row;
         if (existing) savedIds.push(existing.id);
         else markers.push({ truck_id: truckId, source_key: row.source_key, log_date: row.log_date,
@@ -321,7 +317,7 @@ export default function TruckServiceLog() {
           searchPlaceholder="Type truck number…"
           className="w-full sm:w-64"
         />
-        {canEditSpecs && <Button variant="destructive" disabled={navigationBusy || !rows.length || editing != null || deleting != null} onClick={() => setBulkDeleteOpen(true)}><Trash2 className="mr-2 h-4 w-4" />Delete all rows</Button>}
+        {canEditSpecs && <Button variant="destructive" disabled={navigationBusy || !deletableRows.length || editing != null || deleting != null} onClick={() => setBulkDeleteOpen(true)}><Trash2 className="mr-2 h-4 w-4" />Delete all rows</Button>}
         {canEdit && <Button onClick={() => openEditor("new")}><Plus className="h-4 w-4 mr-2" />Add log entry</Button>}
       </div></div>
     {truckSearchError && <p role="alert" className="text-sm text-destructive">Could not load truck search. <button type="button" className="underline" onClick={() => refetchTrucks()}>Try again</button></p>}
@@ -341,11 +337,11 @@ export default function TruckServiceLog() {
         {rows.map(row => <tr key={row.id} className={row.entry_type === "Baseline Start" ? "bg-[#abc6f0]" : row.entry_type !== "Mileage Check" ? "bg-[#effbf4] text-emerald-900 font-semibold" : "even:bg-[#f7f9fd]"}>
           {(["log_date", "entry_type", "odometer"] as const).map(key => <td key={key} className={`${editableCell} ${key === "odometer" ? "text-right tabular-nums" : "whitespace-nowrap"}`}><ServiceLogCell label={`${key} ${row.id}`} value={String(row[key] ?? "")} display={key === "log_date" ? date(row.log_date) : key === "odometer" ? num(row.odometer) : <span className="service-entry-type" data-type={row.entry_type}>{row.entry_type}</span>} type={key === "log_date" ? "date" : key === "odometer" ? "number" : "text"} options={key === "entry_type" ? entryTypes.filter(type => type !== "Baseline Start" && (!dispatch || type === "Mileage Check")) : undefined} editable={row.source_key === "truck:baseline" ? key !== "entry_type" && canEditTruck : canEdit && (!dispatch || row.entry_type === "Mileage Check")} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ row, key, value })} /></td>)}
           <td data-mileage-tone={mileageTone(row.miles_since_service, truck.source)} className={`${cell} h-7 overflow-hidden whitespace-nowrap text-right tabular-nums ${mileageTone(row.miles_since_service, truck.source) === "red" ? "bg-red-50 text-red-800 font-bold" : mileageTone(row.miles_since_service, truck.source) === "yellow" ? "bg-amber-50 text-amber-800 font-bold" : ""}`}>{num(row.miles_since_service)}</td><td className={`${cell} h-7 overflow-hidden whitespace-nowrap text-right`}>{num(row.next_due)}</td>
-          {(["oil_spec", "facility", "invoice", "notes"] as const).map(key => <td key={key} className={`${editableCell} ${key === "notes" ? "whitespace-nowrap" : ""}`}><ServiceLogCell label={`${key} ${row.id}`} value={row[key] ?? ""} editable={row.source_key === "truck:baseline" && key === "notes" ? canEditTruck : canEdit && (!dispatch || row.entry_type === "Mileage Check")} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ row, key, value })} /></td>)}
+          {(["oil_spec", "facility", "invoice", "notes"] as const).map(key => <td key={key} className={`${editableCell} ${key === "notes" ? "whitespace-nowrap" : ""}`}><ServiceLogCell label={`${key} ${row.id}`} value={row[key] ?? ""} editable={row.source_key === "truck:baseline" ? key === "notes" && canEditTruck : canEdit && (!dispatch || row.entry_type === "Mileage Check")} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => inlineSave.mutateAsync({ row, key, value })} /></td>)}
           <td className={`${cell} h-7 overflow-hidden whitespace-nowrap truncate`}>{row.created_by ? data.authors.get(row.created_by) ?? "" : ""}</td>
           <td className="h-7 border border-[#dce3f3] px-1 py-0"><div className="flex items-center justify-center gap-1">
             {canEdit && row.source_key !== "truck:baseline" && (!dispatch || row.entry_type === "Mileage Check") && <button type="button" title="Edit log details" aria-label={`Edit ${row.entry_type} ${date(row.log_date)}`} onClick={() => openEditor(row)} className="p-1 hover:bg-blue-100 rounded"><Pencil className="h-3.5 w-3.5" /></button>}
-            {canEdit && (!dispatch || row.entry_type === "Mileage Check") && (row.source_key !== "truck:baseline" || canEditTruck) && <button type="button" title="Delete log entry" aria-label={`Delete ${row.entry_type} ${date(row.log_date)}`} disabled={deleteEntry.isPending || inlineSave.isPending || addInlineRow.isPending} onClick={() => setDeleting(row)} className="p-1 text-red-700 hover:bg-red-100 rounded disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>}
+            {canEdit && (!dispatch || row.entry_type === "Mileage Check") && row.entry_type !== "Baseline Start" && <button type="button" title="Delete log entry" aria-label={`Delete ${row.entry_type} ${date(row.log_date)}`} disabled={deleteEntry.isPending || inlineSave.isPending || addInlineRow.isPending} onClick={() => setDeleting(row)} className="p-1 text-red-700 hover:bg-red-100 rounded disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>}
           </div></td>
         </tr>)}
         {Array.from({ length: Math.max(3, 12 - rows.length, ...Object.keys(draftRows).map(index => Number(index) + 1)) }, (_, i) => <tr key={`blank:${i}:${blankRevision}`} onPasteCapture={event => { void pasteSpreadsheetRow(event, i); }} className="even:bg-[#f7f9fd]">
@@ -361,8 +357,8 @@ export default function TruckServiceLog() {
 
     </fieldset>
     <Dialog open={bulkDeleteOpen} onOpenChange={open => { if (!bulkDelete.isPending) setBulkDeleteOpen(open); }}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>Delete all service log rows?</DialogTitle></DialogHeader>
-      <p className="text-sm">Delete all {rows.length} rows from truck {truck.truck_number}'s service log? The truck's baseline values, current odometer, and other truck details will be kept.</p>
-      <div className="flex justify-end gap-2"><Button variant="outline" disabled={bulkDelete.isPending} onClick={() => setBulkDeleteOpen(false)}>Cancel</Button><Button variant="destructive" disabled={bulkDelete.isPending || !rows.length} onClick={() => bulkDelete.mutate()}>{bulkDelete.isPending ? "Deleting…" : "Confirm delete all rows"}</Button></div>
+      <p className="text-sm">Delete all {deletableRows.length} service rows from truck {truck.truck_number}'s service log? The Baseline Start row, baseline values, current odometer, and other truck details will be kept.</p>
+      <div className="flex justify-end gap-2"><Button variant="outline" disabled={bulkDelete.isPending} onClick={() => setBulkDeleteOpen(false)}>Cancel</Button><Button variant="destructive" disabled={bulkDelete.isPending || !deletableRows.length} onClick={() => bulkDelete.mutate()}>{bulkDelete.isPending ? "Deleting…" : "Confirm delete all rows"}</Button></div>
     </DialogContent></Dialog>
     <Dialog open={deleting != null} onOpenChange={open => { if (!open && !deleteEntry.isPending) setDeleting(null); }}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>Delete log entry?</DialogTitle></DialogHeader>
       <p className="text-sm">Delete {deleting?.entry_type} {date(deleting?.log_date ?? null)} from truck {truck.truck_number}'s service log?</p>

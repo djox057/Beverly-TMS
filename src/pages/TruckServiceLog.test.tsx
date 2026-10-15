@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ServiceEntry } from "@/lib/truckServiceLog";
 import TruckServiceLog from "./TruckServiceLog";
 
-const mocks = vi.hoisted(() => ({ role: "maintenance", toast: vi.fn(), saved: [] as ServiceEntry[], searchTrucks: [] as Array<{ id: string; truck_number: string; is_active: boolean; dispatcher_id: string | null; driver1_id: string | null }>, history: [] as Array<{ id: string; field: string; new_value: number; changed_at: string; changed_by: string }>, insert: vi.fn(), update: vi.fn(), truck: {
+const mocks = vi.hoisted(() => ({ role: "maintenance", toast: vi.fn(), bulkIds: [] as string[], saved: [] as ServiceEntry[], searchTrucks: [] as Array<{ id: string; truck_number: string; is_active: boolean; dispatcher_id: string | null; driver1_id: string | null }>, history: [] as Array<{ id: string; field: string; new_value: number; changed_at: string; changed_by: string }>, insert: vi.fn(), update: vi.fn(), truck: {
   id: "truck1", truck_number: "157", source: "BF TRUCK", make: "Freightliner", model: "Cascadia", year: 2026,
   vin: "VIN157", engine: "DD15", is_active: true, miles: 168624, miles_updated_at: "2026-09-30T12:00:00Z",
   last_oil_change_miles: 148108, oil_change_date: "2026-07-30", air_filter: null, last_oc_invoice: "INV-3338",
@@ -21,7 +21,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: (table: str
     single: async () => ({ data: selectedId === "truck1" ? mocks.truck : { ...mocks.truck, ...mocks.searchTrucks.find(truck => truck.id === selectedId) }, error: null }),
     range: async () => ({ data: table === "trucks" ? mocks.searchTrucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: "user1" }, { id: "driver2", first_name: "Adil", last_name: "El Filali", dispatcher_id: "other" }] : table === "truck_mileage_history" ? mocks.history : table === "truck_service_log_entries" ? mocks.saved : [], error: null }),
     insert: (payload: unknown) => { mocks.insert(table, payload); if (table === "truck_service_log_entries" && (payload as ServiceEntry).is_deleted) mocks.saved.push({ ...payload as ServiceEntry, id: "entry1", created_at: "2026-10-12T12:00:00Z" }); return { select: async () => ({ data: [{ id: "entry1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }; },
-    update: (payload: unknown) => { mocks.update(table, payload); return { eq: () => { const result = { in: () => result, select: async () => ({ data: [{ id: "truck1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }; return result; } }; },
+    update: (payload: unknown) => { mocks.update(table, payload); return { eq: () => { const result = { in: (_key: string, ids: string[]) => { mocks.bulkIds = ids; return result; }, select: async () => ({ data: [{ id: "truck1" }], error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) }; return result; } }; },
   }; return query;
 } } }));
 const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={["/live-oil-change/truck1"]}><Routes><Route path="/live-oil-change/:truckId" element={<TruckServiceLog />} /></Routes></MemoryRouter></QueryClientProvider>);
@@ -35,7 +35,7 @@ beforeEach(() => { mocks.searchTrucks = [
   { id: "truck2", truck_number: "0984", is_active: true, dispatcher_id: "other", driver1_id: "driver2" },
   { id: "truck3", truck_number: "460", is_active: false, dispatcher_id: null, driver1_id: "driver1" },
   { id: "truck4", truck_number: "555", is_active: true, dispatcher_id: "other", driver1_id: "driver1" },
-]; mocks.role = "maintenance"; mocks.history = []; mocks.saved = []; mocks.insert.mockClear(); mocks.update.mockClear(); mocks.toast.mockClear(); });
+]; mocks.role = "maintenance"; mocks.history = []; mocks.saved = []; mocks.insert.mockClear(); mocks.update.mockClear(); mocks.toast.mockClear(); mocks.bulkIds = []; });
 afterEach(cleanup);
 describe("truck service log page", () => {
   it("navigates to adjacent trucks and disables the first/last boundaries", async () => {
@@ -122,7 +122,7 @@ describe("truck service log page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit Baseline Odometer" }));
     fireEvent.change(screen.getByLabelText("Baseline Odometer"), { target: { value: "0" } });
     fireEvent.keyDown(screen.getByLabelText("Baseline Odometer"), { key: "Enter" });
-    await waitFor(() => expect(mocks.update).toHaveBeenCalledWith("trucks", { start_miles: 0, baseline_created_by: "user1" }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledWith("trucks", expect.objectContaining({ start_miles: 0, baseline_created_by: "user1" })));
     fireEvent.click(screen.getByRole("button", { name: "Edit Oil Specification" }));
     fireEvent.change(screen.getByLabelText("Oil Specification"), { target: { value: "15W40" } });
     fireEvent.keyDown(screen.getByLabelText("Oil Specification"), { key: "Escape" });
@@ -135,12 +135,13 @@ describe("truck service log page", () => {
     expect(screen.getByText("Jane Maintenance")).toBeInTheDocument();
     expect(screen.getAllByText("Live Oil Change")).toHaveLength(1); // navigation link only
   });
-  it("keeps baseline metadata out of history while retaining its mileage calculation", async () => {
+  it("pins the editable baseline first while retaining its mileage calculation", async () => {
     const original = { ...mocks.truck };
     Object.assign(mocks.truck, { start_miles: 140000, baseline_start_date: "2026-07-01", baseline_note: "Starting baseline", last_oil_change_miles: null, oil_change_date: null });
     try {
       mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
-      expect(screen.queryByText("Baseline Start", { selector: "[data-type]" })).not.toBeInTheDocument();
+      expect(screen.getByText("Baseline Start", { selector: "[data-type]" }).closest("tr")).toBe(screen.getAllByRole("row")[1]);
+      expect(screen.queryByRole("button", { name: /^Delete Baseline Start/ })).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Edit Baseline Odometer" })).toHaveTextContent("140,000");
       expect(screen.getAllByText("28,624").length).toBeGreaterThan(0);
       expect(mocks.insert).not.toHaveBeenCalled();
@@ -284,27 +285,21 @@ it("deletes a saved/imported log row by updating its own record", async () => {
   expect(mocks.insert).not.toHaveBeenCalled();
 });
 
-it("preserves an imported baseline on the truck before deleting only its history row", async () => {
+it("edits the protected first baseline and preserves its other imported values", async () => {
   mocks.saved = [{ id: "base1", source_key: "xlsx:baseline1", log_date: "2024-01-01", entry_type: "Baseline Start", odometer: 100000, oil_spec: null, facility: null, invoice: null, notes: "Original baseline", created_at: "2026-10-01T12:00:00Z", created_by: "user1" }];
   mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
-  fireEvent.click(screen.getByRole("button", { name: "Delete Baseline Start 1/1/2024" }));
-  fireEvent.click(screen.getByRole("button", { name: "Delete entry" }));
-  await waitFor(() => expect(mocks.update).toHaveBeenCalledWith("truck_service_log_entries", { is_deleted: true }));
-  expect(mocks.update.mock.calls[0]).toEqual(["trucks", { start_miles: 100000, baseline_start_date: "2024-01-01", baseline_note: "Original baseline" }]);
-  expect(mocks.update.mock.calls[1]).toEqual(["truck_service_log_entries", { is_deleted: true }]);
+  const first = screen.getAllByRole("row")[1];
+  expect(first).toHaveTextContent("Baseline Start");
+  expect(first).toHaveTextContent("100,000");
+  expect(screen.queryByRole("button", { name: /^Delete Baseline Start/ })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Edit odometer truck:baseline" }));
+  fireEvent.change(screen.getByLabelText("odometer truck:baseline"), { target: { value: "105000" } });
+  fireEvent.keyDown(screen.getByLabelText("odometer truck:baseline"), { key: "Enter" });
+  await waitFor(() => expect(mocks.update).toHaveBeenCalledWith("trucks", expect.objectContaining({ start_miles: 105000, baseline_start_date: "2024-01-01", baseline_note: "Original baseline" })));
 });
-it("deleting an older baseline does not replace the effective truck baseline", async () => {
-  const base = { id: "base1", source_key: "xlsx:baseline1", log_date: "2024-01-01", entry_type: "Baseline Start" as const, odometer: 100000, oil_spec: null, facility: null, invoice: null, notes: "Old baseline", created_at: "2026-10-01T12:00:00Z", created_by: "user1" };
-  mocks.saved = [base, { ...base, id: "base2", source_key: "xlsx:baseline2", log_date: "2024-02-01", odometer: 110000 }];
-  mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
-  fireEvent.click(screen.getByRole("button", { name: "Delete Baseline Start 1/1/2024" }));
-  fireEvent.click(screen.getByRole("button", { name: "Delete entry" }));
-  await waitFor(() => expect(mocks.update).toHaveBeenCalledWith("truck_service_log_entries", { is_deleted: true }));
-  expect(mocks.update).not.toHaveBeenCalledWith("trucks", expect.anything());
-});
-
 it("confirms bulk deletion and handles saved and generated rows while preserving the baseline", async () => {
   mocks.saved = [{ id: "bulkbase", source_key: "xlsx:bulkbase", log_date: "2024-01-01", entry_type: "Baseline Start", odometer: 100000, oil_spec: null, facility: null, invoice: null, notes: "Keep baseline", created_at: "2026-10-01T12:00:00Z", created_by: "user1" }];
+  mocks.saved.push({ ...mocks.saved[0], id: "saved-mileage", source_key: "xlsx:saved-mileage", entry_type: "Mileage Check", odometer: 110000 });
   mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
   fireEvent.click(screen.getByRole("button", { name: "Delete all rows" }));
   expect(mocks.update).not.toHaveBeenCalled();
@@ -315,7 +310,9 @@ it("confirms bulk deletion and handles saved and generated rows while preserving
   fireEvent.click(screen.getByRole("button", { name: "Delete all rows" }));
   fireEvent.click(screen.getByRole("button", { name: "Confirm delete all rows" }));
   await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith({ title: "All service log rows deleted" }));
-  expect(mocks.update.mock.calls[0]).toEqual(["trucks", { start_miles: 100000, baseline_start_date: "2024-01-01", baseline_note: "Keep baseline" }]);
+  expect(mocks.update).not.toHaveBeenCalledWith("trucks", expect.anything());
+  expect(mocks.bulkIds).toEqual(["saved-mileage"]);
+  expect(screen.getAllByRole("row")[1]).toHaveTextContent("Baseline Start");
   expect(mocks.update).toHaveBeenCalledWith("truck_service_log_entries", { is_deleted: true });
   expect(mocks.insert).toHaveBeenCalledWith("truck_service_log_entries", expect.arrayContaining([expect.objectContaining({ entry_type: "Oil Change", is_deleted: true }), expect.objectContaining({ entry_type: "Mileage Check", is_deleted: true })]));
   expect(mocks.update).not.toHaveBeenCalledWith("trucks", expect.objectContaining({ miles: expect.anything() }));
