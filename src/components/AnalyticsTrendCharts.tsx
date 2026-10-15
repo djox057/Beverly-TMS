@@ -3,9 +3,6 @@ import {
   format,
   startOfWeek,
   startOfMonth,
-  endOfWeek,
-  endOfMonth,
-  differenceInCalendarDays,
   addDays,
 } from "date-fns";
 import {
@@ -20,6 +17,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Legend } from "recharts";
+import { projectAnalyticsTrend } from "@/lib/analyticsTrendProjection";
+import { chicagoTodayISO } from "@/lib/mileageUpdateStatus";
 import { Toggle } from "@/components/ui/toggle";
 
 type Granularity = "daily" | "weekly" | "monthly";
@@ -64,10 +63,11 @@ function bucketLabel(key: string, g: Granularity): string {
 export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay }: Props) {
   const [granularity, setGranularity] = useState<Granularity>("weekly");
 
+  const todayKey = chicagoTodayISO();
   const data = useMemo(() => {
     const buckets = new Map<
       string,
-      { freight: number; miles: number; driverPay: number; count: number; drivers: Set<string> }
+      { freight: number; miles: number; driverPay: number; count: number; drivers: Set<string>; elapsedFreight: number; elapsedMiles: number; elapsedDriverPay: number }
     >();
     orders.forEach((o) => {
       const raw =
@@ -75,17 +75,24 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
           ? o.deliveryDate
           : o.pickupDate || o.pickupDatetime;
       if (!raw) return;
-      const d = new Date(raw);
+      // Stored load dates are calendar dates; avoid browser-timezone shifts.
+      const d = new Date(`${raw.slice(0, 10)}T00:00:00`);
       if (isNaN(d.getTime())) return;
       if (granularity === "daily") {
         const dow = d.getDay();
         if (dow === 0 || dow === 6) return;
       }
       const key = bucketKey(d, granularity);
-      const b = buckets.get(key) || { freight: 0, miles: 0, driverPay: 0, count: 0, drivers: new Set<string>() };
+      const b = buckets.get(key) || { freight: 0, miles: 0, driverPay: 0, count: 0, drivers: new Set<string>(), elapsedFreight: 0, elapsedMiles: 0, elapsedDriverPay: 0 };
       b.freight += Number(o.totalFreightAmountNoLumper) || 0;
       b.miles += Number(o.mileage) || 0;
-      b.driverPay += getEffectiveDriverPay(o as any);
+      const driverPay = getEffectiveDriverPay(o as any);
+      b.driverPay += driverPay;
+      if (raw.slice(0, 10) <= todayKey) {
+        b.elapsedFreight += Number(o.totalFreightAmountNoLumper) || 0;
+        b.elapsedMiles += Number(o.mileage) || 0;
+        b.elapsedDriverPay += driverPay;
+      }
       b.count += 1;
       if (o.driver1Id) b.drivers.add(String(o.driver1Id));
       buckets.set(key, b);
@@ -101,6 +108,8 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
         const driverPayPerDriver = driverCount > 0 ? v.driverPay / driverCount : 0;
         return {
           key,
+          driverCount,
+          elapsedFreight: v.elapsedFreight, elapsedMiles: v.elapsedMiles, elapsedDriverPay: v.elapsedDriverPay,
           label: bucketLabel(key, granularity),
           freight: Math.round(v.freight),
           miles: Math.round(v.miles),
@@ -112,7 +121,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
           driverPayPerDriver: Math.round(driverPayPerDriver),
         };
       });
-  }, [orders, granularity, filterType]);
+  }, [orders, granularity, filterType, getEffectiveDriverPay, todayKey]);
 
   const charts: { key: keyof typeof data[number]; title: string; color: string; prefix?: string; suffix?: string; axis: string }[] = [
     { key: "freight", title: "Total Freight", color: "hsl(142 76% 36%)", prefix: "$", axis: "dollars-big" },
@@ -125,32 +134,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
     { key: "driverPayPerDriver", title: "Driver Freight per Driver", color: "hsl(20 85% 55%)", prefix: "$", axis: "dollars-per-driver" },
   ];
 
-  const projection = useMemo(() => {
-    if (granularity === "daily" || data.length === 0) return null;
-    const lastKey = data[data.length - 1].key;
-    const now = new Date();
-    if (granularity === "weekly") {
-      const start = startOfWeek(new Date(lastKey + "T00:00:00"), { weekStartsOn: 1 });
-      const end = endOfWeek(start, { weekStartsOn: 1 });
-      if (now > end) return null;
-      // business-day ratio (Mon-Fri = 5)
-      const elapsedBiz = Math.min(
-        5,
-        Math.max(1, Math.min(5, differenceInCalendarDays(now, start) + 1)),
-      );
-      return { ratio: 5 / elapsedBiz };
-    }
-    // monthly
-    const start = startOfMonth(new Date(lastKey + "-01T00:00:00"));
-    const end = endOfMonth(start);
-    if (now > end) return null;
-    const totalDays = differenceInCalendarDays(end, start) + 1;
-    const elapsed = Math.max(1, Math.min(totalDays, differenceInCalendarDays(now, start) + 1));
-    return { ratio: totalDays / elapsed };
-  }, [data, granularity]);
-
-  const isProjectable = (k: string) =>
-    k === "freight" || k === "miles" || k === "comm" || k === "driverPay";
+  const projection = useMemo(() => projectAnalyticsTrend(data, granularity, new Date(`${todayKey}T00:00:00`)), [data, granularity, todayKey]);
 
   const chartData = useMemo(() => {
     const arr: any[] = data.map((d) => ({ ...d }));
@@ -158,10 +142,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
     const lastIdx = arr.length - 1;
     for (const c of charts) {
       const k = c.key as string;
-      const lastVal = (data[lastIdx] as any)[k];
-      const projVal = isProjectable(k)
-        ? Math.round(lastVal * projection.ratio)
-        : lastVal;
+      const projVal = projection[k as keyof typeof projection];
       if (lastIdx > 0) {
         arr[lastIdx - 1][`${k}_proj`] = (data[lastIdx - 1] as any)[k];
       }
@@ -214,6 +195,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
           </Select>
         </div>
       </CardHeader>
+      <p className="px-6 pb-4 text-xs text-muted-foreground">Dotted values are estimates: the current period uses elapsed calendar-day pace, with booked loads as a minimum. Future periods use the average of up to four recent completed periods. Filters apply to both actuals and estimates.</p>
       <CardContent>
         {data.length === 0 ? (
           <p className="text-sm text-muted-foreground">No data for selected period.</p>
@@ -378,6 +360,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
                       <Line
                         type="monotone"
                         dataKey={c.key as string}
+                        name={c.title}
                         stroke={c.color}
                         strokeWidth={2}
                         dot={{ r: 2 }}
@@ -388,6 +371,7 @@ export function AnalyticsTrendCharts({ orders, filterType, getEffectiveDriverPay
                         <Line
                           type="monotone"
                           dataKey={`${c.key as string}_proj`}
+                          name={`${c.title} (projected)`}
                           stroke={c.color}
                           strokeWidth={2}
                           strokeDasharray="5 5"
