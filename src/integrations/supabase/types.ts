@@ -6672,6 +6672,7 @@ export type Database = {
           dot_inspection_note: string | null
           driver1_id: string | null
           driver2_id: string | null
+          fleet_pm_readiness: string
           engine: string | null
           eta_minutes: number | null
           fuel_level: number | null
@@ -6737,6 +6738,7 @@ export type Database = {
           dot_inspection_note?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
+          fleet_pm_readiness?: string
           engine?: string | null
           eta_minutes?: number | null
           fuel_level?: number | null
@@ -6802,6 +6804,7 @@ export type Database = {
           dot_inspection_note?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
+          fleet_pm_readiness?: string
           engine?: string | null
           eta_minutes?: number | null
           fuel_level?: number | null

@@ -30,7 +30,6 @@ import { TruckSourceSelect } from "@/components/TruckSourceSelect";
 import { TRUCK_SOURCES, normalizeTruckSource } from "@/lib/truckSources";
 import { filterMileageUpdateTrucks } from "@/lib/mileageUpdatePeriod";
 import { useMileageUpdateSummary } from "@/hooks/useMileageUpdateSummary";
-import { useFleetReadiness } from "@/hooks/useFleetReadiness";
 import { OilChangeStatistics, matchesStatisticsSelection, type StatisticsSelection } from "@/components/liveOilChange/OilChangeStatistics";
 import { MileageUpdateSummary } from "@/components/liveOilChange/MileageUpdateSummary";
 
@@ -474,7 +473,7 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
                         <TableCell className={cn(milesSinceAF != null && milesSinceAF > 60000 && "text-destructive font-semibold")}>
                           {fmtNum(milesSinceAF)}
                         </TableCell>
-                        <TableCell className={cn("font-semibold text-xs", t.fleet_pm_readiness === "READY / GOOD" ? "text-emerald-600" : t.fleet_pm_readiness === "DUE SOON" ? "text-amber-600" : t.fleet_pm_readiness?.includes("OVERDUE") || t.fleet_pm_readiness === "SERVICE DUE" || t.fleet_pm_readiness === "CHECK ODOMETER" ? "text-destructive" : "text-muted-foreground")}>{t.fleet_pm_readiness ?? "Loading…"}</TableCell>
+                        <TableCell className={cn("font-semibold text-xs", t.fleet_pm_readiness === "READY / GOOD" ? "text-emerald-600" : t.fleet_pm_readiness === "DUE SOON" ? "text-amber-600" : t.fleet_pm_readiness?.includes("OVERDUE") || t.fleet_pm_readiness === "SERVICE DUE" || t.fleet_pm_readiness === "CHECK ODOMETER" ? "text-destructive" : "text-muted-foreground")}>{t.fleet_pm_readiness ?? "Unavailable"}</TableCell>
                       </TableRow>
                     );
                   })
@@ -618,7 +617,7 @@ const LiveOilChange = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, oil_change_note, is_active, driver1_id, dispatcher_id, company_id")
+        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, oil_change_note, fleet_pm_readiness, is_active, driver1_id, dispatcher_id, company_id")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
@@ -694,7 +693,6 @@ const LiveOilChange = () => {
       queryClient.invalidateQueries({ queryKey: ["trucks", "v2"] });
       queryClient.invalidateQueries({ queryKey: ["truck-mileage-history"] });
       queryClient.invalidateQueries({ queryKey: ["truck-service-log"] });
-      queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] });
     },
     onError: (e: any) => {
       toast({ title: "Update failed", description: e.message, variant: "destructive" });
@@ -741,11 +739,9 @@ const LiveOilChange = () => {
     return Array.from(set).sort();
   }, [enrichedTrucks]);
 
-  const readiness = useFleetReadiness(trucks);
-  const readinessTrucks = useMemo(() => enrichedTrucks.map(t => ({ ...t, fleet_pm_readiness: readiness.error ? "Unavailable" : readiness.statuses.get(t.id) })), [enrichedTrucks, readiness.statuses, readiness.error]);
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return readinessTrucks.filter(t => {
+    return enrichedTrucks.filter(t => {
       if (q) {
         const matches =
           (t.truck_number ?? "").toLowerCase().includes(q) ||
@@ -766,7 +762,7 @@ const LiveOilChange = () => {
       }
       return true;
     });
-  }, [readinessTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
+  }, [enrichedTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
 
   const [statisticsSelection, setStatisticsSelection] = useState<StatisticsSelection | null>(null);
   const [showStatistics, setShowStatistics] = useState(false);
@@ -871,7 +867,7 @@ const LiveOilChange = () => {
           </Button>
           <Button variant="outline" size="sm" className="mb-3" aria-expanded={showStatistics} aria-controls="oil-change-statistics" onClick={() => setShowStatistics(shown => !shown)}>Statistics<ChevronDown className={cn("ml-2 h-4 w-4 transition-transform", showStatistics && "rotate-180")} /></Button>
           </div>
-          {showStatistics && <OilChangeStatistics selection={statisticsSelection} onSelect={setStatisticsSelection} trucks={filtered} loading={isLoading} error={!!trucksError} readinessLoading={readiness.loading} readinessError={readiness.error} />}
+          {showStatistics && <OilChangeStatistics selection={statisticsSelection} onSelect={setStatisticsSelection} trucks={filtered} loading={isLoading} error={!!trucksError} readinessLoading={isLoading} readinessError={!!trucksError} />}
           <div id="mileage-updates-panel" hidden={!showMileageUpdates}>
             {showMileageUpdates && <MileageUpdateSummary summary={mileageSummary} trucks={filtered} trucksLoading={isLoading} trucksError={trucksError} />}
           </div>

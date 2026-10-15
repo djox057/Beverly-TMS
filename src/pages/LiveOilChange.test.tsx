@@ -8,7 +8,6 @@ HTMLElement.prototype.setPointerCapture = () => {};
 HTMLElement.prototype.releasePointerCapture = () => {};
 HTMLElement.prototype.scrollIntoView = () => {};
 
-vi.mock("@/hooks/useFleetReadiness", () => { const statuses = new Map([["truck498", "SERVICE OVERDUE"]]); return { useFleetReadiness: () => ({ statuses, loading: false, error: false }) }; });
 const mocks = vi.hoisted(() => ({ cellRender: vi.fn(), tables: [] as string[], historyRequests: 0 }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ getPrimaryRole: () => "maintenance", profile: { user_id: "user1" }, user: { email: "test@example.com" } }) }));
 vi.mock("@/hooks/realtimeBus", () => ({ busChannel: () => { const c = { on: () => c, subscribe: () => c, unsubscribe: vi.fn() }; return c; } }));
@@ -19,7 +18,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   rpc: async () => ({ data: [], error: null }),
   from: (table: string) => {
     mocks.tables.push(table);
-    const trucks = Array.from({ length: 499 }, (_, i) => ({ id: `truck${i}`, truck_number: String(i + 1).padStart(4, "0"), source: "BF TRUCK", miles: 150000, last_oil_change_miles: 130000, miles_updated_at: "2026-10-12T12:00:00Z", is_active: true, driver1_id: "driver1", company_id: i === 498 ? "company1" : null, dispatcher_id: i === 498 ? "user1" : null, ...(i === 498 ? { source: "TEL", miles: 160000 } : {}) }));
+    const trucks = Array.from({ length: 499 }, (_, i) => ({ id: `truck${i}`, truck_number: String(i + 1).padStart(4, "0"), source: "BF TRUCK", miles: 150000, fleet_pm_readiness: i === 498 ? "SERVICE OVERDUE" : "READY / GOOD", last_oil_change_miles: 130000, miles_updated_at: "2026-10-12T12:00:00Z", is_active: true, driver1_id: "driver1", company_id: i === 498 ? "company1" : null, dispatcher_id: i === 498 ? "user1" : null, ...(i === 498 ? { source: "TEL", miles: 160000 } : {}) }));
     const data = table === "trucks" ? trucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: null, company_id: null }] : table === "companies" ? [{ id: "company1", name: "Test Company" }] : table === "user_roles" ? [{ user_id: "user1" }] : table === "profiles" ? [{ user_id: "user1", id: "user1", full_name: "Test Dispatcher", office: "Chicago" }] : [];
     const q = { select: () => q, eq: () => q, in: () => q, order: () => q, not: () => q, gte: () => q, lt: () => q,
       range: async () => { mocks.historyRequests++; return { data: [{ truck_id: "truck498", changed_by: "user1" }], error: null }; },
@@ -104,3 +103,10 @@ it("filters statistics categories, switches categories and clears without losing
   fireEvent.click(screen.getByRole("button", { name: "Clear category filter" }));
   await waitFor(() => expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(50));
 }, 15000);
+
+it("loads stored readiness with trucks without querying any service history", async () => {
+  mount(); await screen.findByRole("link", { name: "Open service log for truck 0001" });
+  expect(screen.getAllByText("READY / GOOD").length).toBeGreaterThan(0);
+  expect(mocks.tables).not.toContain("truck_service_log_entries");
+  expect(mocks.tables).not.toContain("truck_mileage_history");
+});

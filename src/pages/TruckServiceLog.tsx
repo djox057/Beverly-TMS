@@ -102,7 +102,7 @@ export default function TruckServiceLog() {
   });
   useEffect(() => {
     if (!truckId) return;
-    const refresh = () => { queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] }); };
+    const refresh = () => { queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] }); };
     const channel = busChannel(refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "trucks", filter: `id=eq.${truckId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "truck_mileage_history", filter: `truck_id=eq.${truckId}` }, refresh)
@@ -152,7 +152,7 @@ export default function TruckServiceLog() {
       if (result.error) throw result.error;
       if (!result.data?.length) throw new Error("Entry was not saved. Check your permissions and retry.");
     },
-    onSuccess: () => { setEditing(null); queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] }); toast({ title: "Log entry saved" }); },
+    onSuccess: () => { setEditing(null); queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] }); toast({ title: "Log entry saved" }); },
     onError: (e: Error) => toast({ title: "Could not save entry", description: e.message, variant: "destructive" }),
   });
   const inlineSave = useMutation({
@@ -186,7 +186,7 @@ export default function TruckServiceLog() {
       }
     },
     onSuccess: async () => {
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }), queryClient.invalidateQueries({ queryKey: ["trucks"] }), queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] })]);
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }), queryClient.invalidateQueries({ queryKey: ["trucks"] }), queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] })]);
     },
   });
   const addInlineRow = useMutation({
@@ -213,7 +213,7 @@ export default function TruckServiceLog() {
       const result = await db.from("truck_service_log_entries").insert(complete.length === 1 ? complete[0] : complete).select("id");
       if (result.error) throw result.error;
       if (!result.data?.length) throw new Error("Entries were not saved. Check your permissions and retry.");
-      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] });
+      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
       setDraftRows(current => { const next = { ...current }; delete next[index]; return next; });
     },
   });
@@ -249,7 +249,7 @@ export default function TruckServiceLog() {
     },
     onSuccess: async () => {
       setDeleting(null);
-      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] });
+      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
       queryClient.invalidateQueries({ queryKey: ["trucks"] });
       toast({ title: "Log entry deleted" });
     },
@@ -280,7 +280,7 @@ export default function TruckServiceLog() {
     },
     onSuccess: () => { setBulkDeleteOpen(false); setDraftRows({}); setBlankRevision(value => value + 1); toast({ title: "All service log rows deleted" }); },
     onError: (error: Error) => toast({ title: "Could not delete all rows", description: error.message, variant: "destructive" }),
-    onSettled: async () => { await Promise.all([queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }), queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] }), queryClient.invalidateQueries({ queryKey: ["trucks"] })]); },
+    onSettled: async () => { await Promise.all([queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }), queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] }), queryClient.invalidateQueries({ queryKey: ["trucks"] })]); },
   });
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading truck service log…</div>;
   if (error || !data || !summary) return <div className="p-8 space-y-4"><Link to="/live-oil-change">← Live Oil Change</Link><p role="alert">{error instanceof Error ? error.message : "Truck not found."}</p><Button onClick={() => refetch()}>Try again</Button></div>;
