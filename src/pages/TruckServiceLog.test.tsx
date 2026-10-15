@@ -100,7 +100,7 @@ describe("truck service log page", () => {
     Object.assign(mocks.truck, { air_filter: 80000 });
     try {
       mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
-      expect(screen.getByText("Air filter due (ODO): 160,000 mi")).toBeInTheDocument();
+      expect(screen.getByText("AIR FILTER DUE (ODO)").closest(".service-log-stat")).toHaveTextContent("160,000 mi");
       expect(screen.getByText("Air filter overdue: 8,624 mi")).toBeInTheDocument();
       expect(screen.getByText("READY / GOOD")).toBeInTheDocument();
     } finally { mocks.truck.air_filter = null; }

@@ -92,3 +92,6 @@
   color: #f1f5f9;
   background-color: #172132;
 }
+
+.dark .truck-service-log .service-log-air-filter { background: linear-gradient(135deg, #20384b, #192739); color: #c4e5fb; }
+.dark .truck-service-log .service-log-air-filter > .my-2 { color: #b6e3ff; }
