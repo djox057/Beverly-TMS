@@ -95,6 +95,15 @@ describe("truck service log page", () => {
     expect(screen.getByText("30,000 mi")).toBeInTheDocument();
     expect(screen.queryByText(/days overdue|days remaining|Target date:/)).not.toBeInTheDocument();
   });
+  it("shows air-filter due mileage without changing oil-only readiness", async () => {
+    Object.assign(mocks.truck, { air_filter: 80000 });
+    try {
+      mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+      expect(screen.getByText("Air filter due (ODO): 160,000 mi")).toBeInTheDocument();
+      expect(screen.getByText("Air filter overdue: 8,624 mi")).toBeInTheDocument();
+      expect(screen.getByText("READY / GOOD")).toBeInTheDocument();
+    } finally { mocks.truck.air_filter = null; }
+  });
   it("saves additional mileage details only into the new log", async () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
     fireEvent.click(screen.getByRole("button", { name: "Edit Mileage Check 9/30/2026" }));
