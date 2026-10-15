@@ -7366,6 +7366,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      preview_next_internal_load_number: {
+        Args: { p_company_id: string }
+        Returns: string
+      }
       create_order_with_unique_load_number: {
         Args: { order_data: Json }
         Returns: Json

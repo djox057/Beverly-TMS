@@ -7,26 +7,12 @@ export const useNextInternalLoadNumber = (companyId?: string, companyName?: stri
     queryFn: async () => {
       if (!companyId) return "1";
       
-      const { data, error } = await supabase
-        .from('orders')
-        .select('internal_load_number')
-        .eq('company_id', companyId)
-        .not('internal_load_number', 'is', null)
-        .order('internal_load_number', { ascending: false })
-        .limit(100);
-      
+      const { data, error } = await supabase.rpc("preview_next_internal_load_number", {
+        p_company_id: companyId,
+      });
       if (error) throw error;
-      
-      // Extract max numeric part from text values like "7941-BF"
-      let maxNum = 0;
-      for (const row of data || []) {
-        const num = parseInt((row.internal_load_number || "").split("-")[0], 10);
-        if (!isNaN(num) && num > maxNum) maxNum = num;
-      }
-      
-      // Internal load numbers are now plain numeric; the company is stored separately
-      // in orders.load_company_code.
-      return `${maxNum + 1}`;
+      return data;
+
     },
     enabled: !!companyId,
     staleTime: 0,
