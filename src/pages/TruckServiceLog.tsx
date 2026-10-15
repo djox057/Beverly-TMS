@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./TruckServiceLog.css";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { busChannel } from "@/hooks/realtimeBus";
 import { chicagoTodayISO, getMileageUpdateStatus } from "@/lib/mileageUpdateStatus";
 import { buildServiceEntries, calculateServiceLog, entryTypes, mileageTone, serviceSummary, type EntryType, type ServiceEntry, type ServiceTruck } from "@/lib/truckServiceLog";
 import type { Database } from "@/integrations/supabase/types";
+import { parseServiceLogPaste } from "@/lib/serviceLogPaste";
 import { ServiceLogCell } from "@/components/ServiceLogCell";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,8 @@ export default function TruckServiceLog() {
   const [editing, setEditing] = useState<ServiceEntry | "new" | null>(null);
   const [deleting, setDeleting] = useState<ServiceEntry | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const pasteInFlight = useRef(false);
+  const [blankRevision, setBlankRevision] = useState(0);
   const [draftRows, setDraftRows] = useState<Record<number, ReturnType<typeof emptyForm>>>({});
   useEffect(() => { setDraftRows({}); setEditing(null); setDeleting(null); setForm(emptyForm()); }, [truckId, user?.id]);
   const { data: searchableTrucks = [], isLoading: loadingTrucks, error: truckSearchError, refetch: refetchTrucks } = useQuery({
@@ -169,9 +172,9 @@ export default function TruckServiceLog() {
     },
   });
   const addInlineRow = useMutation({
-    mutationFn: async ({ index, key, value }: { index: number; key: keyof ReturnType<typeof emptyForm>; value: string }) => {
+    mutationFn: async ({ index, key, value, pasted }: { index: number; key?: keyof ReturnType<typeof emptyForm>; value?: string; pasted?: ReturnType<typeof emptyForm> }) => {
       if (!canEdit || !user || !truckId) throw new Error("No permission to add log entries.");
-      const draft = { ...(draftRows[index] ?? emptyForm()), [key]: value };
+      const draft = pasted ?? { ...(draftRows[index] ?? emptyForm()), ...(key ? { [key]: value } : {}) };
       if (!entryTypes.includes(draft.entry_type) || draft.entry_type === "Baseline Start" || (dispatch && draft.entry_type !== "Mileage Check")) throw new Error("Invalid entry type.");
       if (draft.log_date && (!/^\d{4}-\d{2}-\d{2}$/.test(draft.log_date) || draft.log_date > chicagoTodayISO())) throw new Error("Enter a valid date that is not in the future.");
       const odometer = draft.odometer === "" ? null : Number(draft.odometer);
@@ -191,6 +194,22 @@ export default function TruckServiceLog() {
       setDraftRows(current => { const next = { ...current }; delete next[index]; return next; });
     },
   });
+  const pasteSpreadsheetRow = async (event: React.ClipboardEvent<HTMLTableRowElement>, index: number) => {
+    const text = event.clipboardData.getData("text/plain");
+    if (!text.includes("\t")) return; // Ordinary single-cell paste keeps its normal behavior.
+    event.preventDefault();
+    event.stopPropagation();
+    if (!canEdit || pasteInFlight.current || addInlineRow.isPending || inlineSave.isPending) return;
+    pasteInFlight.current = true;
+    try {
+      const pasted = parseServiceLogPaste(text, chicagoTodayISO());
+      await addInlineRow.mutateAsync({ index, pasted });
+      setBlankRevision(revision => revision + 1);
+      toast({ title: "Spreadsheet row added" });
+    } catch (error) {
+      toast({ title: "Could not paste row", description: error instanceof Error ? error.message : "Check the spreadsheet row and try again.", variant: "destructive" });
+    } finally { pasteInFlight.current = false; }
+  };
   const deleteEntry = useMutation({
     mutationFn: async (row: ServiceEntry) => {
       if (!canEdit || !truckId || !user || (dispatch && row.entry_type !== "Mileage Check") || (row.source_key === "truck:baseline" && !canEditTruck)) throw new Error("No permission to delete this entry.");
@@ -271,7 +290,7 @@ export default function TruckServiceLog() {
             {canEdit && (!dispatch || row.entry_type === "Mileage Check") && (row.source_key !== "truck:baseline" || canEditTruck) && <button type="button" title="Delete log entry" aria-label={`Delete ${row.entry_type} ${date(row.log_date)}`} disabled={deleteEntry.isPending || inlineSave.isPending || addInlineRow.isPending} onClick={() => setDeleting(row)} className="p-1 text-red-700 hover:bg-red-100 rounded disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>}
           </div></td>
         </tr>)}
-        {Array.from({ length: Math.max(3, 12 - rows.length, ...Object.keys(draftRows).map(index => Number(index) + 1)) }, (_, i) => <tr key={`blank:${i}`} className="even:bg-[#f7f9fd]">
+        {Array.from({ length: Math.max(3, 12 - rows.length, ...Object.keys(draftRows).map(index => Number(index) + 1)) }, (_, i) => <tr key={`blank:${i}:${blankRevision}`} onPasteCapture={event => { void pasteSpreadsheetRow(event, i); }} className="even:bg-[#f7f9fd]">
           {(["log_date", "entry_type", "odometer", null, null, "oil_spec", "facility", "invoice", "notes", null, null] as const).map((key, j) => <td key={j} className={`${key ? editableCell : `${cell} h-7`} ${key === "odometer" ? "text-right tabular-nums" : ""}`}>
             {key && <ServiceLogCell label={`New row ${i + 1} ${key}`} value={draftRows[i]?.[key] ?? ""} display={key === "log_date" ? date(draftRows[i]?.log_date ?? null) : key === "odometer" ? num(draftRows[i]?.odometer ? Number(draftRows[i].odometer) : null) : draftRows[i]?.[key] ?? ""} type={key === "log_date" ? "date" : key === "odometer" ? "number" : "text"} options={key === "entry_type" ? ["", ...entryTypes.filter(type => type !== "Baseline Start" && (!dispatch || type === "Mileage Check"))] : undefined} editable={canEdit} disabled={inlineSave.isPending || addInlineRow.isPending} onSave={value => addInlineRow.mutateAsync({ index: i, key, value })} />}
           </td>)}
@@ -279,6 +298,7 @@ export default function TruckServiceLog() {
 
       </tbody></table></div>
     </div>
+    {canEdit && <p className="text-xs text-muted-foreground">Paste one Excel or Google Sheets row into any empty row, starting with Log Date. Miles Since Service and Next Due are calculated automatically.</p>}
     {Object.keys(draftRows).length > 0 && <p className="text-xs text-muted-foreground">Complete the log date and total odometer to save the new row. Incomplete rows are not saved.</p>}
 
     <Dialog open={deleting != null} onOpenChange={open => { if (!open && !deleteEntry.isPending) setDeleting(null); }}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>Delete log entry?</DialogTitle></DialogHeader>

@@ -5,12 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ServiceEntry } from "@/lib/truckServiceLog";
 import TruckServiceLog from "./TruckServiceLog";
 
-const mocks = vi.hoisted(() => ({ role: "maintenance", saved: [] as ServiceEntry[], searchTrucks: [] as Array<{ id: string; truck_number: string; is_active: boolean; dispatcher_id: string | null; driver1_id: string | null }>, history: [] as Array<{ id: string; field: string; new_value: number; changed_at: string; changed_by: string }>, insert: vi.fn(), update: vi.fn(), truck: {
+const mocks = vi.hoisted(() => ({ role: "maintenance", toast: vi.fn(), saved: [] as ServiceEntry[], searchTrucks: [] as Array<{ id: string; truck_number: string; is_active: boolean; dispatcher_id: string | null; driver1_id: string | null }>, history: [] as Array<{ id: string; field: string; new_value: number; changed_at: string; changed_by: string }>, insert: vi.fn(), update: vi.fn(), truck: {
   id: "truck1", truck_number: "157", source: "BF TRUCK", make: "Freightliner", model: "Cascadia", year: 2026,
   vin: "VIN157", engine: "DD15", is_active: true, miles: 168624, miles_updated_at: "2026-09-30T12:00:00Z",
   last_oil_change_miles: 148108, oil_change_date: "2026-07-30", air_filter: null, last_oc_invoice: "INV-3338",
   oil_change_note: null, samsara_account: null, dispatcher_id: "user1", driver1_id: null,
 } }));
+vi.mock("@/hooks/use-toast", () => ({ toast: mocks.toast }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ getPrimaryRole: () => mocks.role, user: { id: "user1" } }) }));
 vi.mock("@/hooks/realtimeBus", () => ({ busChannel: () => { const channel = { on: () => channel, subscribe: () => channel, unsubscribe: vi.fn() }; return channel; } }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: (table: string) => {
@@ -34,7 +35,7 @@ beforeEach(() => { mocks.searchTrucks = [
   { id: "truck2", truck_number: "0984", is_active: true, dispatcher_id: "other", driver1_id: "driver2" },
   { id: "truck3", truck_number: "460", is_active: false, dispatcher_id: null, driver1_id: "driver1" },
   { id: "truck4", truck_number: "555", is_active: true, dispatcher_id: "other", driver1_id: "driver1" },
-]; mocks.role = "maintenance"; mocks.history = []; mocks.saved = []; mocks.insert.mockClear(); mocks.update.mockClear(); });
+]; mocks.role = "maintenance"; mocks.history = []; mocks.saved = []; mocks.insert.mockClear(); mocks.update.mockClear(); mocks.toast.mockClear(); });
 afterEach(cleanup);
 describe("truck service log page", () => {
   it("navigates to adjacent trucks and disables the first/last boundaries", async () => {
@@ -163,6 +164,20 @@ describe("truck service log page", () => {
     mocks.role = role;
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
     for (const label of ["Model Year", "Make", "Model", "Engine Type"]) expect(screen.queryByRole("button", { name: `Edit ${label}` })).not.toBeInTheDocument();
+  });
+  it("pastes a complete spreadsheet row into an empty cell as a normal authored entry", async () => {
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    fireEvent.paste(screen.getByRole("button", { name: "Edit New row 1 log_date" }), { clipboardData: { getData: () => "11/18/2024\tOil Change\t103,953\t0\t133,953\t\tDealer / TA Petro\t" } });
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledOnce());
+    expect(mocks.insert).toHaveBeenCalledWith("truck_service_log_entries", expect.objectContaining({ truck_id: "truck1", source_key: null, created_by: "user1", log_date: "2024-11-18", entry_type: "Oil Change", odometer: 103953, oil_spec: null, facility: "Dealer / TA Petro", invoice: null }));
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+  it("rejects pasted oil service for dispatchers without saving anything", async () => {
+    mocks.role = "dispatch";
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    fireEvent.paste(screen.getByRole("button", { name: "Edit New row 1 log_date" }), { clipboardData: { getData: () => "11/18/2024\tOil Change\t103,953\t0\t133,953\t\tShop\t" } });
+    await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Could not paste row", variant: "destructive" })));
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
   it("saves baseline date, note and oil specification into separate truck fields", async () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
