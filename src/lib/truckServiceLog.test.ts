@@ -6,10 +6,10 @@ const entry = (overrides: Partial<ServiceEntry>): ServiceEntry => ({ id: "1", so
 
 describe("truck service log rules", () => {
   it("keeps existing warning thresholds separate from service intervals", () => {
-    expect(getServiceInterval("BF TRUCK")).toEqual({ miles: 30000, days: 90 });
-    expect(getServiceInterval(" TEL ")).toEqual({ miles: 30000, days: 90 });
-    expect(getServiceInterval(" M & K ")).toEqual({ miles: 40000, days: 120 });
-    expect(getServiceInterval("ryder")).toEqual({ miles: 50000, days: 120 });
+    expect(getServiceInterval("BF TRUCK")).toEqual({ miles: 30000 });
+    expect(getServiceInterval(" TEL ")).toEqual({ miles: 30000 });
+    expect(getServiceInterval(" M & K ")).toEqual({ miles: 40000 });
+    expect(getServiceInterval("ryder")).toEqual({ miles: 50000 });
     expect(mileageTone(28000, "BF TRUCK")).toBe("yellow");
     expect(mileageTone(28001, "BF TRUCK")).toBe("red");
     expect(mileageTone(27999, "TEL")).toBe("yellow");
@@ -23,7 +23,7 @@ describe("truck service log rules", () => {
     expect(result.sinceOil).toBe(20516);
     expect(result.nextDue).toBe(178108);
     expect(result.remaining).toBe(9484);
-    expect(result.daysLeft).toBe(20);
+    expect(result).not.toHaveProperty("daysLeft");
     expect(result.status).toBe("READY / GOOD");
   });
   it("combined oil/filter service resets both and recognizes its date", () => {
@@ -48,7 +48,7 @@ describe("truck service log rules", () => {
     const missing = { ...truck, oil_change_date: null, last_oil_change_miles: null, air_filter: null };
     const result = serviceSummary(missing, buildServiceEntries(missing, [], []), "2026-10-08");
     expect(result.sinceOil).toBeNull();
-    expect(result.targetDate).toBeNull();
+    expect(result).not.toHaveProperty("targetDate");
     expect(result.baseline).toBeUndefined();
     expect(result.status).toBe("MISSING SERVICE DATA");
     expect(serviceSummary({ ...truck, miles: 100000 }, [], "2026-10-08").status).toBe("CHECK ODOMETER");
@@ -256,7 +256,7 @@ describe("truck service log rules", () => {
     const result = serviceSummary(truck, entries, "2026-10-08");
     expect(result.current).toBe(170000);
     expect(result.sinceOil).toBe(21892);
-    expect(result.targetDate).toBeNull();
+    expect(result).not.toHaveProperty("targetDate");
   });
 
 });
@@ -306,4 +306,16 @@ it("uses miles alone for oil due and overdue regardless of elapsed months", () =
   expect(serviceSummary(due, buildServiceEntries(due, [], []), "2026-10-14").status).toBe("SERVICE DUE");
   const overdue = { ...base, miles: 130001 };
   expect(serviceSummary(overdue, buildServiceEntries(overdue, [], []), "2026-10-14").status).toBe("SERVICE OVERDUE");
+});
+
+it("keeps screenshot truck 8551 ready despite its July oil date", () => {
+  const live = { ...truck, truck_number: "8551", miles: 140199, miles_updated_at: "2026-10-15T13:03:42.440165Z", last_oil_change_miles: 122738, oil_change_date: "2026-07-04", air_filter: 139613 };
+  const saved = [entry({ id: "filter8551", source_key: "xlsx:filter8551", entry_type: "Air Filter", log_date: "2026-08-19", odometer: 139613 })];
+  const summary = serviceSummary(live, buildServiceEntries(live, [], saved), "2026-10-15");
+  expect(summary.sinceOil).toBe(17461);
+  expect(summary.sinceFilter).toBe(586);
+  expect(summary.status).toBe("READY / GOOD");
+  expect(summary.interval).toEqual({ miles: 30000 });
+  expect(summary).not.toHaveProperty("daysLeft");
+  expect(summary).not.toHaveProperty("targetDate");
 });

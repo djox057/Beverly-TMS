@@ -1,4 +1,3 @@
-import { addDays, differenceInCalendarDays, parseISO } from "date-fns";
 import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { chicagoTodayISO } from "@/lib/mileageUpdateStatus";
 
@@ -22,10 +21,10 @@ export const isOilService = (type: EntryType) => type === "Oil Change" || type =
 export const isFilterService = (type: EntryType) => type === "Air Filter" || type === "Air Filter + Oil change";
 export const getServiceInterval = (source: string | null) => {
   const normalized = (source ?? "").trim().toUpperCase();
-  if (["M&K", "MK", "M & K"].includes(normalized)) return { miles: 40000, days: 120 };
-  if (normalized === "RYDER") return { miles: 50000, days: 120 };
-  if (normalized === "TEL") return { miles: 30000, days: 90 };
-  return { miles: 30000, days: 90 };
+  if (["M&K", "MK", "M & K"].includes(normalized)) return { miles: 40000 };
+  if (normalized === "RYDER") return { miles: 50000 };
+  if (normalized === "TEL") return { miles: 30000 };
+  return { miles: 30000 };
 };
 export const mileageTone = (miles: number | null, source: string | null) => {
   if (miles == null || miles < 0) return "unknown";
@@ -183,8 +182,6 @@ export function serviceSummary(truck: ServiceTruck, entries: ServiceEntry[], tod
   const filterMiles = latestFilter ? latestFilter.odometer : entries.some(e => e.source_key?.startsWith("live:filter:")) ? null : truck.air_filter;
   const sinceOil = current == null || oilMiles == null ? null : current - oilMiles;
   const sinceFilter = current == null || filterMiles == null ? null : current - filterMiles;
-  const targetDate = oilDate ? addDays(parseISO(oilDate), interval.days) : null;
-  const daysLeft = targetDate ? differenceInCalendarDays(targetDate, parseISO(today)) : null;
   const nextDue = oilMiles == null ? null : oilMiles + interval.miles;
   const remaining = current == null || nextDue == null ? null : nextDue - current;
   const tone = mileageTone(sinceOil, truck.source);
@@ -192,5 +189,5 @@ export function serviceSummary(truck: ServiceTruck, entries: ServiceEntry[], tod
   const overdue = (remaining != null && remaining < 0) || (sinceFilter != null && sinceFilter > 80000);
   const due = remaining === 0 || sinceFilter === 80000;
   const status = invalid ? "CHECK ODOMETER" : overdue ? "SERVICE OVERDUE" : due ? "SERVICE DUE" : tone === "red" || tone === "yellow" || (sinceFilter != null && sinceFilter > 60000) ? "DUE SOON" : sinceOil == null || oilDate == null ? "MISSING SERVICE DATA" : "READY / GOOD";
-  return { interval, current, currentDate, sinceOil, sinceFilter, oilDate, targetDate, daysLeft, nextDue, remaining, status, baseline, tone };
+  return { interval, current, currentDate, sinceOil, sinceFilter, oilDate, nextDue, remaining, status, baseline, tone };
 }
