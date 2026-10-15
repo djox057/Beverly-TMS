@@ -24,3 +24,12 @@ describe("ordersTransform load_company_code mapping", () => {
     expect(reversed.internal_load_number).toBe("25654");
   });
 });
+
+it("keeps retrieval and assignment separate from the driver-transfer recovery flag", () => {
+  const [available, assigned] = transformOrders([
+    { id: "available", retrieval: true, recovery_assigned: false, is_recovery: false },
+    { id: "assigned", retrieval: false, recovery_assigned: true, is_recovery: false },
+  ]);
+  expect(available).toMatchObject({ retrieval: true, recoveryAssigned: false, isRecovery: false });
+  expect(assigned).toMatchObject({ retrieval: false, recoveryAssigned: true, isRecovery: false });
+});
