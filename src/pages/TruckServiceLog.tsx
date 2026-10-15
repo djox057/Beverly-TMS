@@ -141,7 +141,7 @@ export default function TruckServiceLog() {
     mutationFn: async () => {
       const entry = editing && editing !== "new" ? editing : null;
       const odometer = form.odometer === "" ? null : Number(form.odometer);
-      if ((!form.log_date || odometer == null || !Number.isSafeInteger(odometer) || odometer < 0)) throw new Error("Enter a valid date and a whole, non-negative odometer reading.");
+      if ((!form.log_date || (odometer != null && (!Number.isSafeInteger(odometer) || odometer < 0)))) throw new Error("Enter a valid date and, if provided, a whole, non-negative odometer reading.");
       if (form.log_date > chicagoTodayISO()) throw new Error("A completed log entry cannot have a future date.");
       const payload = { truck_id: truckId, source_key: entry?.source_key ?? null,
         log_date: form.log_date, entry_type: form.entry_type,
@@ -176,7 +176,7 @@ export default function TruckServiceLog() {
         if (!canEdit || (dispatch && row.entry_type !== "Mileage Check")) throw new Error("No permission to edit this entry.");
         if (key === "entry_type" && (!entryTypes.includes(value as EntryType) || (dispatch && value !== "Mileage Check"))) throw new Error("Invalid entry type.");
         const existing = row.source_key ? data?.saved.find(e => e.source_key === row.source_key) : row;
-        if (!row.source_key && (key === "odometer" || key === "log_date") && parsed == null) throw new Error("Date and odometer are required for manual entries.");
+        if (!row.source_key && key === "log_date" && parsed == null) throw new Error("Date is required for manual entries.");
         if (!["log_date", "entry_type", "odometer", "oil_spec", "facility", "invoice", "notes"].includes(key)) throw new Error("Invalid log field.");
         const patch: Database["public"]["Tables"]["truck_service_log_entries"]["Update"] = { [key]: parsed };
         const payload: Database["public"]["Tables"]["truck_service_log_entries"]["Insert"] = { truck_id: truckId!, source_key: row.source_key, log_date: row.log_date, entry_type: row.entry_type, odometer: row.odometer, oil_spec: row.oil_spec, facility: row.facility, invoice: row.invoice, notes: row.notes, ...patch };
@@ -198,8 +198,8 @@ export default function TruckServiceLog() {
         if (draft.log_date && (!/^\d{4}-\d{2}-\d{2}$/.test(draft.log_date) || draft.log_date > chicagoTodayISO())) throw new Error("Enter a valid date that is not in the future.");
         const odometer = draft.odometer === "" ? null : Number(draft.odometer);
         if (odometer != null && (!Number.isSafeInteger(odometer) || odometer < 0)) throw new Error("Enter a whole, non-negative odometer reading.");
-        if (!draft.log_date || odometer == null) {
-          if (pasted) throw new Error("Each pasted row needs a date and total odometer.");
+        if (!draft.log_date) {
+          if (pasted) throw new Error("Each pasted row needs a date.");
           setDraftRows(current => ({ ...current, [index]: draft }));
           return null;
         }
@@ -352,8 +352,8 @@ export default function TruckServiceLog() {
 
       </tbody></table></div>
     </div>
-    {canEdit && <p className="text-xs text-muted-foreground">Paste Excel or Google Sheets rows into any empty row, starting with Log Date. Miles Since Service and Next Due are calculated automatically.</p>}
-    {Object.keys(draftRows).length > 0 && <p className="text-xs text-muted-foreground">Complete the log date and total odometer to save the new row. Incomplete rows are not saved.</p>}
+    {canEdit && <p className="text-xs text-muted-foreground">Paste Excel or Google Sheets rows into any empty row, starting with Log Date. Miles Since Service and Next Due are calculated automatically. Dated entries save automatically, even without an odometer; add the reading later to calculate mileage.</p>}
+    {Object.keys(draftRows).length > 0 && <p className="text-xs text-muted-foreground">Enter a log date to save the row. Total odometer can be added later; mileage calculations stay blank until it is entered.</p>}
 
     </fieldset>
     <Dialog open={bulkDeleteOpen} onOpenChange={open => { if (!bulkDelete.isPending) setBulkDeleteOpen(open); }}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>Delete all service log rows?</DialogTitle></DialogHeader>
@@ -367,7 +367,7 @@ export default function TruckServiceLog() {
     <Dialog open={editing != null} onOpenChange={open => { if (!open && !save.isPending) setEditing(null); }}><DialogContent className="max-w-xl"><DialogHeader><DialogTitle>{editing === "new" ? "Add log entry" : "Edit log details"} · Truck {truck.truck_number}</DialogTitle></DialogHeader>
       <form onSubmit={e => { e.preventDefault(); save.mutate(); }} className="space-y-4">
         <div className="grid grid-cols-2 gap-3"><label className="text-sm">Log date<Input type="date" value={form.log_date} max={chicagoTodayISO()} disabled={!editable} required={editable} onChange={e => field("log_date", e.target.value)} /></label><label className="text-sm">Entry type<select className="flex h-10 w-full rounded-md border bg-background px-3 text-sm" value={form.entry_type} disabled={!editable} onChange={e => field("entry_type", e.target.value)}>{entryTypes.filter(type => type !== "Baseline Start" && (!dispatch || type === "Mileage Check")).map(type => <option key={type}>{type}</option>)}</select></label>
-          <label className="text-sm">Total odometer<Input type="number" min="0" step="1" value={form.odometer} disabled={!editable} required={editable} onChange={e => field("odometer", e.target.value)} /></label><label className="text-sm">Oil grade / specification<Input value={form.oil_spec} onChange={e => field("oil_spec", e.target.value)} placeholder="" /></label>
+          <label className="text-sm">Total odometer<Input type="number" min="0" step="1" value={form.odometer} disabled={!editable} onChange={e => field("odometer", e.target.value)} /></label><label className="text-sm">Oil grade / specification<Input value={form.oil_spec} onChange={e => field("oil_spec", e.target.value)} placeholder="" /></label>
           <label className="text-sm">Service facility<Input value={form.facility} onChange={e => field("facility", e.target.value)} /></label><label className="text-sm">Invoice<Input value={form.invoice} onChange={e => field("invoice", e.target.value)} /></label></div>
         <label className="block text-sm">Notes / telematics<Textarea value={form.notes} onChange={e => field("notes", e.target.value)} rows={3} /></label>
 

@@ -228,18 +228,19 @@ describe("truck service log page", () => {
     expect(mocks.insert.mock.calls[0]).toEqual(["truck_service_log_entries", expect.objectContaining({ truck_id: "truck1", source_key: null, odometer: 0, entry_type: "Mileage Check", created_by: "user1" })]);
     expect(mocks.update).not.toHaveBeenCalled();
   });
-  it("keeps partial blank-row details until the odometer is entered", async () => {
+  it("saves a typed service entry without inventing an odometer", async () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
-    for (const [key, value] of [["notes", "Verified by photo"], ["odometer", "170000"]]) {
-      const label = `New row 1 ${key}`;
-      fireEvent.click(screen.getByRole("button", { name: `Edit ${label}` }));
-      fireEvent.change(screen.getByLabelText(label), { target: { value } });
-      fireEvent.keyDown(screen.getByLabelText(label), { key: "Enter" });
-      await waitFor(() => expect(screen.queryByLabelText(label)).not.toBeInTheDocument());
-      if (key === "notes") expect(mocks.insert).not.toHaveBeenCalled();
-    }
-    expect(mocks.insert).toHaveBeenCalledOnce();
-    expect(mocks.insert.mock.calls[0][1]).toMatchObject({ odometer: 170000, notes: "Verified by photo", created_by: "user1" });
+    const label = "New row 1 entry_type";
+    fireEvent.click(screen.getByRole("button", { name: `Edit ${label}` }));
+    fireEvent.change(screen.getByLabelText(label), { target: { value: "Air Filter + Oil change" } });
+    fireEvent.keyDown(screen.getByLabelText(label), { key: "Enter" });
+    await waitFor(() => expect(mocks.insert).toHaveBeenCalledOnce());
+    expect(mocks.insert.mock.calls[0][1]).toMatchObject({ entry_type: "Air Filter + Oil change", odometer: null, created_by: "user1" });
+    mocks.saved = [{ ...mocks.insert.mock.calls[0][1], id: "saved-service", created_at: "2026-10-15T12:00:00Z" }];
+    cleanup(); mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    expect(screen.getByRole("button", { name: /^Edit Air Filter \+ Oil change/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Delete Air Filter \+ Oil change/ })).toBeInTheDocument();
+
   });
   it("limits dispatchers to mileage entries and rejects another dispatcher's truck", async () => {
     mocks.role = "dispatch"; mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
