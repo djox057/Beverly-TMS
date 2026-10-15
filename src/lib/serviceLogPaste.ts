@@ -1,10 +1,22 @@
 import Papa from "papaparse";
 import { entryTypes, type EntryType } from "./truckServiceLog";
 
-export function parseServiceLogPaste(text: string, today: string) {
+export function parseServiceLogRows(text: string, today: string) {
   const parsed = Papa.parse<string[]>(text, { delimiter: "\t", skipEmptyLines: "greedy" });
-  if (parsed.errors.length || parsed.data.length !== 1) throw new Error("Paste one complete spreadsheet row at a time.");
-  const columns = parsed.data[0].map(value => value.trim());
+  if (parsed.errors.length || !parsed.data.length) throw new Error("Paste complete spreadsheet rows.");
+  return parsed.data.map((values, index) => {
+    try { return parseRow(values.map(value => value.trim()), today); }
+    catch (error) { throw new Error(`Row ${index + 1}: ${error instanceof Error ? error.message : "Invalid row."}`); }
+  });
+}
+
+export function parseServiceLogPaste(text: string, today: string) {
+  const rows = parseServiceLogRows(text, today);
+  if (rows.length !== 1) throw new Error("Expected one spreadsheet row.");
+  return rows[0];
+}
+
+function parseRow(columns: string[], today: string) {
   if (columns.length < 8 || columns.length > 11) throw new Error("Copy the row from Log Date through Invoice (optionally including Notes).");
   const rawDate = columns[0];
   const us = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(rawDate);

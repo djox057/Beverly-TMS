@@ -11,7 +11,7 @@ import { busChannel } from "@/hooks/realtimeBus";
 import { chicagoTodayISO, getMileageUpdateStatus } from "@/lib/mileageUpdateStatus";
 import { buildServiceEntries, calculateServiceLog, entryTypes, mileageTone, serviceSummary, type EntryType, type ServiceEntry, type ServiceTruck } from "@/lib/truckServiceLog";
 import type { Database } from "@/integrations/supabase/types";
-import { parseServiceLogPaste } from "@/lib/serviceLogPaste";
+import { parseServiceLogRows } from "@/lib/serviceLogPaste";
 import { ServiceLogCell } from "@/components/ServiceLogCell";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { Button } from "@/components/ui/button";
@@ -172,24 +172,29 @@ export default function TruckServiceLog() {
     },
   });
   const addInlineRow = useMutation({
-    mutationFn: async ({ index, key, value, pasted }: { index: number; key?: keyof ReturnType<typeof emptyForm>; value?: string; pasted?: ReturnType<typeof emptyForm> }) => {
+    mutationFn: async ({ index, key, value, pasted }: { index: number; key?: keyof ReturnType<typeof emptyForm>; value?: string; pasted?: ReturnType<typeof emptyForm>[] }) => {
       if (!canEdit || !user || !truckId) throw new Error("No permission to add log entries.");
-      const draft = pasted ?? { ...(draftRows[index] ?? emptyForm()), ...(key ? { [key]: value } : {}) };
-      if (!entryTypes.includes(draft.entry_type) || draft.entry_type === "Baseline Start" || (dispatch && draft.entry_type !== "Mileage Check")) throw new Error("Invalid entry type.");
-      if (draft.log_date && (!/^\d{4}-\d{2}-\d{2}$/.test(draft.log_date) || draft.log_date > chicagoTodayISO())) throw new Error("Enter a valid date that is not in the future.");
-      const odometer = draft.odometer === "" ? null : Number(draft.odometer);
-      if (odometer != null && (!Number.isSafeInteger(odometer) || odometer < 0)) throw new Error("Enter a whole, non-negative odometer reading.");
-      // Keep incomplete rows locally; never invent a zero odometer to satisfy the database.
-      if (!draft.log_date || odometer == null) {
-        setDraftRows(current => ({ ...current, [index]: draft }));
-        return;
-      }
-      const result = await db.from("truck_service_log_entries").insert({ truck_id: truckId, source_key: null,
-        log_date: draft.log_date, entry_type: draft.entry_type, odometer, created_by: user.id,
-        oil_spec: draft.oil_spec.trim() || null, facility: draft.facility.trim() || null,
-        invoice: draft.invoice.trim() || null, notes: draft.notes.trim() || null }).select("id");
+      const drafts = pasted ?? [{ ...(draftRows[index] ?? emptyForm()), ...(key ? { [key]: value } : {}) }];
+      const payloads = drafts.map(draft => {
+        if (!entryTypes.includes(draft.entry_type) || draft.entry_type === "Baseline Start" || (dispatch && draft.entry_type !== "Mileage Check")) throw new Error("Invalid entry type.");
+        if (draft.log_date && (!/^\d{4}-\d{2}-\d{2}$/.test(draft.log_date) || draft.log_date > chicagoTodayISO())) throw new Error("Enter a valid date that is not in the future.");
+        const odometer = draft.odometer === "" ? null : Number(draft.odometer);
+        if (odometer != null && (!Number.isSafeInteger(odometer) || odometer < 0)) throw new Error("Enter a whole, non-negative odometer reading.");
+        if (!draft.log_date || odometer == null) {
+          if (pasted) throw new Error("Each pasted row needs a date and total odometer.");
+          setDraftRows(current => ({ ...current, [index]: draft }));
+          return null;
+        }
+        return { truck_id: truckId, source_key: null, log_date: draft.log_date, entry_type: draft.entry_type, odometer, created_by: user.id,
+          oil_spec: draft.oil_spec.trim() || null, facility: draft.facility.trim() || null,
+          invoice: draft.invoice.trim() || null, notes: draft.notes.trim() || null };
+      });
+      if (payloads.some(payload => payload == null)) return;
+      const complete = payloads.filter((payload): payload is NonNullable<typeof payload> => payload != null);
+      // One database INSERT keeps the whole pasted block atomic.
+      const result = await db.from("truck_service_log_entries").insert(complete.length === 1 ? complete[0] : complete).select("id");
       if (result.error) throw result.error;
-      if (!result.data?.length) throw new Error("Entry was not saved. Check your permissions and retry.");
+      if (!result.data?.length) throw new Error("Entries were not saved. Check your permissions and retry.");
       await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["fleet-pm-readiness"] });
       setDraftRows(current => { const next = { ...current }; delete next[index]; return next; });
     },
@@ -202,10 +207,10 @@ export default function TruckServiceLog() {
     if (!canEdit || pasteInFlight.current || addInlineRow.isPending || inlineSave.isPending) return;
     pasteInFlight.current = true;
     try {
-      const pasted = parseServiceLogPaste(text, chicagoTodayISO());
+      const pasted = parseServiceLogRows(text, chicagoTodayISO());
       await addInlineRow.mutateAsync({ index, pasted });
       setBlankRevision(revision => revision + 1);
-      toast({ title: "Spreadsheet row added" });
+      toast({ title: pasted.length === 1 ? "Spreadsheet row added" : `${pasted.length} spreadsheet rows added` });
     } catch (error) {
       toast({ title: "Could not paste row", description: error instanceof Error ? error.message : "Check the spreadsheet row and try again.", variant: "destructive" });
     } finally { pasteInFlight.current = false; }
@@ -298,7 +303,7 @@ export default function TruckServiceLog() {
 
       </tbody></table></div>
     </div>
-    {canEdit && <p className="text-xs text-muted-foreground">Paste one Excel or Google Sheets row into any empty row, starting with Log Date. Miles Since Service and Next Due are calculated automatically.</p>}
+    {canEdit && <p className="text-xs text-muted-foreground">Paste Excel or Google Sheets rows into any empty row, starting with Log Date. Miles Since Service and Next Due are calculated automatically.</p>}
     {Object.keys(draftRows).length > 0 && <p className="text-xs text-muted-foreground">Complete the log date and total odometer to save the new row. Incomplete rows are not saved.</p>}
 
     <Dialog open={deleting != null} onOpenChange={open => { if (!open && !deleteEntry.isPending) setDeleting(null); }}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>Delete log entry?</DialogTitle></DialogHeader>

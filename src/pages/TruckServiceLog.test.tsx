@@ -172,6 +172,24 @@ describe("truck service log page", () => {
     expect(mocks.insert).toHaveBeenCalledWith("truck_service_log_entries", expect.objectContaining({ truck_id: "truck1", source_key: null, created_by: "user1", log_date: "2024-11-18", entry_type: "Oil Change", odometer: 103953, oil_spec: null, facility: "Dealer / TA Petro", invoice: null }));
     expect(mocks.update).not.toHaveBeenCalled();
   });
+  it("saves multiple pasted rows in one atomic insert with the current author", async () => {
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    const block = "4/18/2024\tMileage Check\t16,434\t16,434\t\t\t\t\n7/15/2024\tOil Change\t52,413\t0\t82,413\t\tDealer / TA Petro\t";
+    fireEvent.paste(screen.getByRole("button", { name: "Edit New row 1 log_date" }), { clipboardData: { getData: () => block } });
+    await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith({ title: "2 spreadsheet rows added" }));
+    expect(mocks.insert).toHaveBeenCalledOnce();
+    expect(mocks.insert).toHaveBeenCalledWith("truck_service_log_entries", [
+      expect.objectContaining({ log_date: "2024-04-18", entry_type: "Mileage Check", odometer: 16434, created_by: "user1" }),
+      expect.objectContaining({ log_date: "2024-07-15", entry_type: "Oil Change", odometer: 52413, facility: "Dealer / TA Petro", created_by: "user1" }),
+    ]);
+  });
+  it("does not insert a valid first row when a later pasted row is invalid", async () => {
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    const row = "4/18/2024\tMileage Check\t16,434\t0\t\t\t\t";
+    fireEvent.paste(screen.getByRole("button", { name: "Edit New row 1 log_date" }), { clipboardData: { getData: () => `${row}\n${row.replace("16,434", "invalid")}` } });
+    await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Could not paste row", description: expect.stringContaining("Row 2:") })));
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
   it("rejects pasted oil service for dispatchers without saving anything", async () => {
     mocks.role = "dispatch";
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
