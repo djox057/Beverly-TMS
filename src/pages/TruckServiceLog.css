@@ -72,3 +72,23 @@
 .dark .truck-service-log .service-log-table button[title="Edit log details"]:hover { background: #2b3c54; color: #dae6fa; }
 .dark .truck-service-log .service-log-table button[title="Delete log entry"] { color: #d693a5; }
 .dark .truck-service-log .service-log-table button[title="Delete log entry"]:hover { background: #452b3b; }
+
+/* Native entry menus need explicit colors: inherited pale text can land on white options. */
+.truck-service-log .service-log-table select {
+  color-scheme: light;
+  color: #172132;
+  background-color: #ffffff;
+}
+.truck-service-log .service-log-table select option {
+  color: #172132;
+  background-color: #ffffff;
+}
+.dark .truck-service-log .service-log-table select {
+  color-scheme: dark;
+  color: #f1f5f9;
+  background-color: #172132;
+}
+.dark .truck-service-log .service-log-table select option {
+  color: #f1f5f9;
+  background-color: #172132;
+}
