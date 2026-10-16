@@ -107,7 +107,6 @@ const shortenBrokerName = (name?: string | null) => {
 const RecoveryLoads = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("prebook");
-  const [movingId, setMovingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [assignOrder, setAssignOrder] = useState<{
@@ -250,19 +249,6 @@ const RecoveryLoads = () => {
     else toast({ title: "Could not open RC", variant: "destructive" });
   };
 
-  const moveLoad = async (id: string, prebook: boolean) => {
-    setMovingId(id);
-    try {
-      const { data, error } = await supabase.from("orders").update({ prebook, retrieval: !prebook, ...(prebook ? { recovery_auto_cancel_at: null, recovery_cancel_payload: null, truck_id: null, trailer_id: null, driver1_id: null, driver2_id: null } : {}) }).eq("id", id).select("id");
-      if (error) throw error;
-      if (!data?.length) throw new Error("The load was not moved. Check your permissions.");
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["recovery-loads"] }), queryClient.invalidateQueries({ queryKey: ["recovery-loads-count"] })]);
-      toast({ title: prebook ? "Moved to Prebook loads" : "Moved to Recovery loads" });
-    } catch (error) {
-      toast({ title: "Could not move load", description: (error as { message?: string }).message || "Please try again.", variant: "destructive" });
-    } finally { setMovingId(null); }
-  };
-
   const savePrebookNote = async (id: string, note: string) => {
     const { data, error } = await supabase.from("orders").update({ prebook_note: note || null }).eq("id", id).select("id");
     if (error || !data?.length) {
@@ -353,8 +339,8 @@ const RecoveryLoads = () => {
                         key={`${row.id}:${row.prebookNote}`}
                         aria-label={`Prebook note for ${row.loadNumber}`}
                         defaultValue={row.prebookNote}
-                        placeholder="Add note…"
-                        className="min-h-[64px] text-sm"
+                        className="min-h-7 resize-none border-0 bg-transparent rounded-none px-1 py-1 shadow-none text-sm transition-colors hover:bg-muted/40 focus:bg-muted/60 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        placeholder="—"
                         disabled={!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName)}
                         onBlur={(event) => {
                           if (event.target.value !== row.prebookNote) void savePrebookNote(row.id, event.target.value);
@@ -430,7 +416,6 @@ const RecoveryLoads = () => {
                     >
                       Assign
                     </Button>
-                    <Button size="sm" variant="ghost" className="mt-1 h-auto px-1 text-xs whitespace-normal" disabled={movingId !== null || (!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName))} onClick={() => moveLoad(row.id, !row.prebook)}>{movingId === row.id ? "Moving…" : row.prebook ? "Move to Recovery" : "Move to Prebook"}</Button>
                   </TableCell>
                 </TableRow>
               ))
