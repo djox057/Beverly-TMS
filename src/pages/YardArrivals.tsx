@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Combobox } from "@/components/ui/combobox";
 
-import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck, XCircle, Search, Languages } from "lucide-react";
+import { Plus, Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck, XCircle, Search, Languages } from "lucide-react";
 import { SetDriverStatusDialog } from "@/components/SetDriverStatusDialog";
 import { CompletedDriversDialog } from "@/components/CompletedDriversDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +37,7 @@ import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useDrivers } from "@/hooks/useDrivers";
 import { EditDriverDialog } from "@/components/EditDriverDialog";
+import { AddYardArrivalDialog } from "@/components/yard/AddYardArrivalDialog";
 import { YardActionComments } from "@/components/yard/YardActionComments";
 
 function TranslatableComment({ actionId, comment, commentEng, defaultEnglish = false, showTranslateButton = true }: { actionId: string; comment: string; commentEng: string | null; defaultEnglish?: boolean; showTranslateButton?: boolean }) {
@@ -96,7 +97,7 @@ function TranslatableComment({ actionId, comment, commentEng, defaultEnglish = f
 
 interface YardAction {
   id: string;
-  driver_id: string;
+  driver_id: string | null;
   action_type: "maintenance" | "return_truck" | "safety" | "recovery";
   comment: string;
   comment_eng: string | null;
@@ -148,8 +149,9 @@ export default function YardArrivals() {
   const canRemoveYardArrival = hasRole('admin') || hasRole('manager') || isRecoveryDispatch;
   const isYardRole = hasRole('yard');
   
+  const [addArrivalOpen, setAddArrivalOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [actionToCancel, setActionToCancel] = useState<{ id: string; driverId: string; driverName: string; isTeam: boolean } | null>(null);
+  const [actionToCancel, setActionToCancel] = useState<{ id: string; driverId: string | null; driverName: string; isTeam: boolean } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [actionToEdit, setActionToEdit] = useState<YardAction | null>(null);
   const [editForm, setEditForm] = useState({
@@ -282,7 +284,7 @@ export default function YardArrivals() {
       const actionsWithTrucks = (data || []).map((action) => {
         const truckInfo = action.truck_number ? trucksMap.get(action.truck_number) : undefined;
         // Driver's company wins; fallback to the truck's company (driver1's company, then truck company_id)
-        const company = driverCompanyMap.get(action.driver_id)
+        const company = (action.driver_id ? driverCompanyMap.get(action.driver_id) : null)
           || (truckInfo?.driver1_id ? driverCompanyMap.get(truckInfo.driver1_id) : undefined)
           || truckInfo?.company_id;
         return {
@@ -293,7 +295,7 @@ export default function YardArrivals() {
             ...truckInfo,
           } : null,
           company: company ? companiesMap.get(company) || null : null,
-          office: driverOfficeMap.get(action.driver_id) || null,
+          office: (action.driver_id ? driverOfficeMap.get(action.driver_id) : null) || null,
           is_team: action.is_team || false,
           creator: action.created_by ? { full_name: creatorsMap.get(action.created_by) || null } : null,
         };
@@ -488,7 +490,7 @@ export default function YardArrivals() {
       await supabase.from("driver_yard_actions").delete().eq("id", actionToCancel.id);
 
       // Remove going_yard status from driver(s)
-      if (actionToCancel.isTeam) {
+      if (actionToCancel.driverId && actionToCancel.isTeam) {
         // For teams, find driver2 from the truck and reset both
         const { data: truckData } = await supabase
           .from("trucks")
@@ -501,7 +503,7 @@ export default function YardArrivals() {
           driverIds.push(truckData.driver2_id);
         }
         await supabase.from("drivers").update({ going_yard: false }).in("id", driverIds);
-      } else {
+      } else if (actionToCancel.driverId) {
         await supabase.from("drivers").update({ going_yard: false }).eq("id", actionToCancel.driverId);
       }
 
@@ -616,7 +618,7 @@ export default function YardArrivals() {
       }
 
       const ids = toDelete.map(a => a.id);
-      const driverIds = [...new Set(toDelete.map(a => a.driver_id))];
+      const driverIds = [...new Set(toDelete.map(a => a.driver_id).filter((id): id is string => !!id))];
 
       const { error: deleteError } = await supabase
         .from("driver_yard_actions")
@@ -678,7 +680,8 @@ export default function YardArrivals() {
     }
   };
 
-  const openEditDriverDialog = (driverId: string) => {
+  const openEditDriverDialog = (driverId: string | null) => {
+    if (!driverId) return;
     const driver = allDrivers?.find(d => d.id === driverId);
     if (driver) {
       setEditingDriver(driver);
@@ -688,6 +691,7 @@ export default function YardArrivals() {
 
   // Open Set Driver Status dialog for a recovery action
   const handleOpenStatusDialog = async (action: YardAction) => {
+    if (!action.driver_id) return;
     try {
       // Fetch truck using fallback strategy
       let truck = null;
@@ -921,6 +925,7 @@ export default function YardArrivals() {
 
   return (
     <div className="max-w-[1800px] mx-auto p-6 space-y-6">
+      <AddYardArrivalDialog open={addArrivalOpen} onOpenChange={setAddArrivalOpen} />
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-3xl font-bold whitespace-nowrap">Yard Arrivals</h1>
         <div className="flex-1 flex justify-center max-w-xl">
@@ -935,6 +940,7 @@ export default function YardArrivals() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button onClick={() => setAddArrivalOpen(true)}><Plus className="mr-2 h-4 w-4" />Add yard arrival</Button>
           <Combobox
             options={[
               { value: "all", label: "All offices" },
@@ -997,15 +1003,15 @@ export default function YardArrivals() {
                               <p className="font-semibold">
                                 #{action.truck?.truck_number || "N/A"}{" "}
                                 {action.is_team ? "Team" : (
-                                  canEditDriver ? (
+                                  canEditDriver && action.driver_id ? (
                                     <span 
                                       className="text-primary hover:underline cursor-pointer"
                                       onClick={() => openEditDriverDialog(action.driver_id)}
                                     >
-                                      {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                      {action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"}
                                     </span>
                                   ) : (
-                                    action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
+                                    action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"
                                   )
                                 )}
                               </p>
@@ -1044,7 +1050,7 @@ export default function YardArrivals() {
                                       setActionToCancel({
                                         id: action.id,
                                         driverId: action.driver_id,
-                                        driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                        driverName: action.is_team ? "Team" : (action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"),
                                         isTeam: action.is_team,
                                       });
                                       setCancelDialogOpen(true);
@@ -1118,15 +1124,15 @@ export default function YardArrivals() {
                             <p className="font-semibold">
                               #{action.truck?.truck_number || "N/A"}{" "}
                               {action.is_team ? "Team" : (
-                                canEditDriver ? (
+                                canEditDriver && action.driver_id ? (
                                   <span 
                                     className="text-primary hover:underline cursor-pointer"
                                     onClick={() => openEditDriverDialog(action.driver_id)}
                                   >
-                                    {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                    {action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"}
                                   </span>
                                 ) : (
-                                  action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
+                                  action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"
                                 )
                               )}
                             </p>
@@ -1165,7 +1171,7 @@ export default function YardArrivals() {
                                     setActionToCancel({
                                       id: action.id,
                                       driverId: action.driver_id,
-                                      driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                      driverName: action.is_team ? "Team" : (action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"),
                                       isTeam: action.is_team,
                                     });
                                     setCancelDialogOpen(true);
@@ -1238,15 +1244,15 @@ export default function YardArrivals() {
                             <p className="font-semibold">
                               #{action.truck?.truck_number || "N/A"}{" "}
                               {action.is_team ? "Team" : (
-                                canEditDriver ? (
+                                canEditDriver && action.driver_id ? (
                                   <span 
                                     className="text-primary hover:underline cursor-pointer"
                                     onClick={() => openEditDriverDialog(action.driver_id)}
                                   >
-                                    {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                    {action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"}
                                   </span>
                                 ) : (
-                                  action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
+                                  action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"
                                 )
                               )}
                             </p>
@@ -1285,7 +1291,7 @@ export default function YardArrivals() {
                                     setActionToCancel({
                                       id: action.id,
                                       driverId: action.driver_id,
-                                      driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                      driverName: action.is_team ? "Team" : (action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"),
                                       isTeam: action.is_team,
                                     });
                                     setCancelDialogOpen(true);
@@ -1307,7 +1313,8 @@ export default function YardArrivals() {
                               size="icon"
                               className="h-6 w-6"
                               onClick={() => handleOpenStatusDialog(action)}
-                              title="Set Game Over / Recovery Status"
+                              disabled={!action.driver_id}
+                              title={action.driver_id ? "Set Game Over / Recovery Status" : "No driver assigned"}
                             >
                               <XCircle className="h-3 w-3" />
                             </Button>
@@ -1366,15 +1373,15 @@ export default function YardArrivals() {
                             <p className="font-semibold">
                               #{action.truck?.truck_number || "N/A"}{" "}
                               {action.is_team ? "Team" : (
-                                canEditDriver ? (
+                                canEditDriver && action.driver_id ? (
                                   <span 
                                     className="text-primary hover:underline cursor-pointer"
                                     onClick={() => openEditDriverDialog(action.driver_id)}
                                   >
-                                    {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                    {action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"}
                                   </span>
                                 ) : (
-                                  action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
+                                  action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"
                                 )
                               )}
                             </p>
@@ -1413,7 +1420,7 @@ export default function YardArrivals() {
                                     setActionToCancel({
                                       id: action.id,
                                       driverId: action.driver_id,
-                                      driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                      driverName: action.is_team ? "Team" : (action.driver?.name || [action.driver?.first_name, action.driver?.last_name].filter(Boolean).join(" ") || "No driver assigned"),
                                       isTeam: action.is_team,
                                     });
                                     setCancelDialogOpen(true);

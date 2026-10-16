@@ -71,13 +71,13 @@ Deno.serve(async (req) => {
     // Reset going_yard for affected drivers
     let driversUpdated = 0;
     if (deletedRows && deletedRows.length > 0) {
-      const driverIds = [...new Set(deletedRows.map((r) => r.driver_id))];
+      const driverIds = [...new Set(deletedRows.map((r) => r.driver_id).filter((id): id is string => !!id))];
       console.log(`Resetting going_yard for ${driverIds.length} drivers`);
 
-      const { error: updateError } = await supabase
+      const { error: updateError } = driverIds.length ? await supabase
         .from("drivers")
         .update({ going_yard: false })
-        .in("id", driverIds);
+        .in("id", driverIds) : { error: null };
 
       if (updateError) {
         console.error("Error updating drivers:", updateError);

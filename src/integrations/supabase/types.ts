@@ -2470,7 +2470,7 @@ export type Database = {
           comment_eng: string | null
           created_at: string
           created_by: string | null
-          driver_id: string
+          driver_id: string | null
           id: string
           is_checked: boolean | null
           is_team: boolean
@@ -2484,7 +2484,7 @@ export type Database = {
           comment_eng?: string | null
           created_at?: string
           created_by?: string | null
-          driver_id: string
+          driver_id?: string | null
           id?: string
           is_checked?: boolean | null
           is_team?: boolean
@@ -2498,7 +2498,7 @@ export type Database = {
           comment_eng?: string | null
           created_at?: string
           created_by?: string | null
-          driver_id?: string
+          driver_id?: string | null
           id?: string
           is_checked?: boolean | null
           is_team?: boolean
@@ -7368,6 +7368,10 @@ export type Database = {
       }
       preview_next_internal_load_number: {
         Args: { p_company_id: string }
+        Returns: string
+      }
+      add_truck_yard_arrival: {
+        Args: { p_truck_id: string; p_arrival_datetime: string; p_action_type: string; p_comment: string }
         Returns: string
       }
       create_order_with_unique_load_number: {
