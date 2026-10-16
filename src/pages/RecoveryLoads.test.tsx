@@ -9,8 +9,8 @@ vi.mock("@/hooks/useRecoveryLoadsRealtime", () => ({ useRecoveryLoadsRealtime: v
 vi.mock("@/components/recovery/AssignRecoveryLoadDialog", () => ({ AssignRecoveryLoadDialog: () => null }));
 vi.mock("@/components/recovery/RecoveryLoadsStats", () => ({ RecoveryLoadsStats: () => null }));
 const { saveNote } = vi.hoisted(() => ({ saveNote: vi.fn(async (..._args: unknown[]) => ({ data: [{ id: "p" }], error: null })) }));
-vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => ({ update: (values: unknown) => ({ eq: (column: string, id: string) => ({ select: () => saveNote(values, column, id) }) }), select: () => ({ or: () => ({ order: async () => ({ error: null, data: [
-  { id: "p", broker_load_number: "PREBOOK-1", prebook: true, prebook_note: "Call tomorrow", status: "pending", p_status: "Covered", truck: { truck_number: "123" }, trailer: { trailer_number: "456" }, driver1: { name: "Driver One", dispatcher_id: null }, driver2: { name: "Driver Two" }, retrieval: false, canceled: false, booked_by: "Jon", pickup_drops: [], order_files: [{ id: "rc", file_category: "RC", file_path: "rc.pdf" }, { id: "bol", file_category: "BOL", file_path: "bol.pdf" }] },
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => ({ update: (values: unknown) => ({ eq: (column: string, id: string) => { const chain = { eq: () => chain, select: () => saveNote(values, column, id) }; return chain; } }), select: () => ({ or: () => ({ order: async () => ({ error: null, data: [
+  { id: "p", broker_load_number: "PREBOOK-1", prebook: true, truck_id: "truck", driver1_id: "driver", prebook_note: "Call tomorrow", status: "pending", p_status: "Covered", truck: { truck_number: "123" }, trailer: { trailer_number: "456" }, driver1: { name: "Driver One", dispatcher_id: null }, driver2: { name: "Driver Two" }, retrieval: false, canceled: false, booked_by: "Jon", pickup_drops: [], order_files: [{ id: "rc", file_category: "RC", file_path: "rc.pdf" }, { id: "bol", file_category: "BOL", file_path: "bol.pdf" }] },
   { id: "r", broker_load_number: "RECOVERY-1", prebook: false, retrieval: true, canceled: false, booked_by: "Jon", pickup_drops: [], order_files: [] },
   { id: "c", broker_load_number: "CANCELED-1", prebook: true, retrieval: false, canceled: true, pickup_drops: [], order_files: [] },
   { id: "done", broker_load_number: "COMPLETED-1", prebook: true, canceled: false, order_files: [{ file_category: "POD" }] },
@@ -100,4 +100,16 @@ it("colors Available green and Covered red", async () => {
   render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
   expect(await screen.findByRole("button", { name: "View status for AVAILABLE-1" })).toHaveClass("text-green-700");
   expect(screen.getByRole("button", { name: "View status for COVERED-1" })).toHaveClass("text-red-700");
+});
+
+it("lets managers revert the assignment and reset availability", async () => {
+  access.role = "manager";
+  render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
+  fireEvent.click(await screen.findByRole("button", { name: "Revert assign" }));
+  await waitFor(() => expect(saveNote).toHaveBeenCalledWith({ truck_id: null, trailer_id: null, driver1_id: null, driver2_id: null, p_status: "Available", recovery_assigned: false }, "id", "p"));
+});
+it("does not offer revert assignment to dispatchers", async () => {
+  render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
+  await screen.findByText("PREBOOK-1");
+  expect(screen.queryByRole("button", { name: "Revert assign" })).not.toBeInTheDocument();
 });

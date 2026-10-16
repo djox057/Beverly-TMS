@@ -39,6 +39,10 @@ interface RetrievalOrder {
   id: string;
   retrieval: boolean;
   prebook: boolean;
+  truck_id: string | null;
+  trailer_id: string | null;
+  driver1_id: string | null;
+  driver2_id: string | null;
   prebook_note: string | null;
   status: string | null;
   p_status: string;
@@ -114,6 +118,7 @@ const shortenBrokerName = (name?: string | null) => {
 const RecoveryLoads = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("prebook");
+  const [revertingId, setRevertingId] = useState<string | null>(null);
   const [statusOrderId, setStatusOrderId] = useState<string | null>(null);
   const [statusDraft, setStatusDraft] = useState("");
   const [savingStatus, setSavingStatus] = useState(false);
@@ -140,7 +145,7 @@ const RecoveryLoads = () => {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, prebook, prebook_note, status, p_status, recovery_assigned, recovery_auto_cancel_at,
+          `id, truck_id, trailer_id, driver1_id, driver2_id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, prebook, prebook_note, status, p_status, recovery_assigned, recovery_auto_cancel_at,
            pickup_datetime, pickup_end_datetime, delivery_datetime,
            truck:trucks!orders_truck_id_fkey ( truck_number ),
            trailer:trailers!orders_trailer_id_fkey ( trailer_number ),
@@ -210,6 +215,7 @@ const RecoveryLoads = () => {
         recovered: !!(order as RetrievalOrder & { recovery_assigned?: boolean }).recovery_assigned,
         pStatus: order.canceled ? "Canceled" : order.p_status || "Available",
         status: order.canceled ? "Canceled" : (order.order_files || []).some(file => file.file_category === "POD") ? "Completed" : order.p_status === "Covered" && (order.order_files || []).some(file => file.file_category === "BOL") ? "Loaded" : order.p_status || "Available",
+        hasAssignment: !!(order.truck_id || order.trailer_id || order.driver1_id || order.driver2_id),
         assignment: { truck: order.truck?.truck_number, trailer: order.trailer?.trailer_number, driver1: order.driver1?.name, driver2: order.driver2?.name, dispatcher: order.driver1?.dispatcher_name },
       };
     });
@@ -294,6 +300,28 @@ const RecoveryLoads = () => {
     } catch (error) {
       toast({ title: "Could not save note", description: (error as Error).message, variant: "destructive" });
     } finally { setSavingNote(false); }
+  };
+
+  const revertAssignment = async (id: string) => {
+    if (!canAssignAny || revertingId) return;
+    const row = rows.find(load => load.id === id);
+    if (!row?.prebook || row.canceled || row.hasPod) return;
+    setRevertingId(id);
+    try {
+      const { data, error } = await supabase.from("orders").update({
+        truck_id: null, trailer_id: null, driver1_id: null, driver2_id: null,
+        p_status: "Available", recovery_assigned: false,
+      }).eq("id", id).eq("prebook", true).eq("canceled", false).select("id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("Assignment was not reverted. Refresh and check your permissions.");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["recovery-loads"] }),
+        queryClient.invalidateQueries({ queryKey: ["orders"] }),
+      ]);
+      toast({ title: "Assignment reverted", description: "The load is Available with no truck, trailer, or drivers assigned." });
+    } catch (error) {
+      toast({ title: "Could not revert assignment", description: (error as Error).message, variant: "destructive" });
+    } finally { setRevertingId(null); }
   };
 
   const statusRow = rows.find(row => row.id === statusOrderId);
@@ -452,7 +480,7 @@ const RecoveryLoads = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName)}
+                      disabled={revertingId === row.id || (!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName))}
                       title={
                         !canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName)
                           ? "Only the dispatcher who booked this load can assign it"
@@ -469,6 +497,7 @@ const RecoveryLoads = () => {
                     >
                       {row.prebook && row.assignment.truck && row.assignment.driver1 ? "Assigned" : "Assign"}
                     </Button>
+                    {row.prebook && row.hasAssignment && canAssignAny && <Button type="button" size="sm" variant="ghost" className="mt-1 h-auto whitespace-normal px-1 text-xs" disabled={revertingId !== null} onClick={() => revertAssignment(row.id)}>{revertingId === row.id ? "Reverting…" : "Revert assign"}</Button>}
                   </TableCell>}
                 </TableRow>
               ))
