@@ -940,7 +940,6 @@ export default function YardArrivals() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => setAddArrivalOpen(true)}><Plus className="mr-2 h-4 w-4" />Add yard arrival</Button>
           <Combobox
             options={[
               { value: "all", label: "All offices" },
@@ -957,6 +956,7 @@ export default function YardArrivals() {
             modal={false}
           />
           <CompletedDriversDialog />
+          <Button size="sm" className="gap-2" onClick={() => setAddArrivalOpen(true)}><Plus className="h-4 w-4" />Add yard arrival</Button>
         </div>
       </div>
 
