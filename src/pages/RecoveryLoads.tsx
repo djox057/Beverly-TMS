@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, Undo2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -479,7 +479,7 @@ const RecoveryLoads = () => {
                     </Button>
                   </TableCell>
                   {(activeTab === "recovery" || (activeTab === "prebook" && canAssignAny)) && <TableCell>
-                    <Button
+                    {!(row.prebook && row.hasAssignment) && <Button
                       size="sm"
                       variant="outline"
                       disabled={revertingId === row.id || (!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName))}
@@ -497,9 +497,9 @@ const RecoveryLoads = () => {
                         })
                       }
                     >
-                      {row.prebook && row.assignment.truck && row.assignment.driver1 ? "Assigned" : "Assign"}
-                    </Button>
-                    {row.prebook && row.hasAssignment && canAssignAny && <Button type="button" size="sm" variant="ghost" className="mt-1 h-auto whitespace-normal px-1 text-xs" disabled={revertingId !== null} onClick={() => revertAssignment(row.id)}>{revertingId === row.id ? "Reverting…" : "Revert assign"}</Button>}
+                      Assign
+                    </Button>}
+                    {row.prebook && row.hasAssignment && canAssignAny && <Button type="button" size="sm" variant="outline" title="Revert assign" aria-label="Revert assign" disabled={revertingId !== null} onClick={() => revertAssignment(row.id)}><Undo2 className="h-4 w-4 text-primary" /></Button>}
                   </TableCell>}
                 </TableRow>
               ))
