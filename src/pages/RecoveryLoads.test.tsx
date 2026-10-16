@@ -10,7 +10,7 @@ vi.mock("@/components/recovery/AssignRecoveryLoadDialog", () => ({ AssignRecover
 vi.mock("@/components/recovery/RecoveryLoadsStats", () => ({ RecoveryLoadsStats: () => null }));
 const { saveNote } = vi.hoisted(() => ({ saveNote: vi.fn(async (..._args: unknown[]) => ({ data: [{ id: "p" }], error: null })) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => ({ update: (values: unknown) => ({ eq: (column: string, id: string) => { const chain = { eq: () => chain, select: () => saveNote(values, column, id) }; return chain; } }), select: () => ({ or: () => ({ order: async () => ({ error: null, data: [
-  { id: "p", broker_load_number: "PREBOOK-1", prebook: true, truck_id: "truck", driver1_id: "driver", prebook_note: "Call tomorrow", status: "pending", p_status: "Covered", truck: { truck_number: "123" }, trailer: { trailer_number: "456" }, driver1: { name: "Driver One", dispatcher_id: null }, driver2: { name: "Driver Two" }, retrieval: false, canceled: false, booked_by: "Jon", pickup_drops: [], order_files: [{ id: "rc", file_category: "RC", file_path: "rc.pdf" }, { id: "bol", file_category: "BOL", file_path: "bol.pdf" }] },
+  { id: "p", broker_load_number: "PREBOOK-1", prebook: true, truck_id: "truck", driver1_id: "driver", prebook_original_booked_by: "Original Booker", prebook_note: "Call tomorrow", status: "pending", p_status: "Covered", truck: { truck_number: "123" }, trailer: { trailer_number: "456" }, driver1: { name: "Driver One", dispatcher_id: null }, driver2: { name: "Driver Two" }, retrieval: false, canceled: false, booked_by: "Jon", pickup_drops: [], order_files: [{ id: "rc", file_category: "RC", file_path: "rc.pdf" }, { id: "bol", file_category: "BOL", file_path: "bol.pdf" }] },
   { id: "r", broker_load_number: "RECOVERY-1", prebook: false, retrieval: true, canceled: false, booked_by: "Jon", pickup_drops: [], order_files: [] },
   { id: "c", broker_load_number: "CANCELED-1", prebook: true, retrieval: false, canceled: true, pickup_drops: [], order_files: [] },
   { id: "done", broker_load_number: "COMPLETED-1", prebook: true, canceled: false, order_files: [{ file_category: "POD" }] },
@@ -27,7 +27,7 @@ it("opens Prebook first, keeping recovery separate and archiving canceled preboo
   expect(screen.queryByRole("columnheader", { name: "Cancels At" })).not.toBeInTheDocument();
   expect(screen.getByText("Loaded")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "View status for PREBOOK-1" })).toHaveClass("text-sky-700");
-  expect(screen.getByText("Jon")).toBeInTheDocument();
+  expect(screen.getByText("Original Booker")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Assign" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Move to Recovery" })).not.toBeInTheDocument();
   expect(within(screen.getByText("PREBOOK-1").closest("tr")!).getByRole("button", { name: "RC" })).toBeEnabled();

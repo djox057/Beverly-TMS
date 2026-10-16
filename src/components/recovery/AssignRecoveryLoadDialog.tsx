@@ -212,7 +212,7 @@ export function AssignRecoveryLoadDialog({
       recovery_auto_cancel_at: null,
       recovery_cancel_payload: null,
     };
-    if (bookedBy && !isPrebook) payload.booked_by = bookedBy;
+    if (bookedBy) payload.booked_by = bookedBy;
 
     const { data: updated, error } = await supabase
       .from("orders")

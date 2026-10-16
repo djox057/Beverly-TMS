@@ -3947,6 +3947,7 @@ export type Database = {
           po_number: string | null
           pod_force_complete: boolean
           prebook: boolean
+          prebook_original_booked_by: string | null
           prebook_note: string | null
           pu_number: string | null
           recovery_assigned: boolean
@@ -4082,6 +4083,7 @@ export type Database = {
           po_number?: string | null
           pod_force_complete?: boolean
           prebook?: boolean
+          prebook_original_booked_by?: string | null
           prebook_note?: string | null
           pu_number?: string | null
           recovery_assigned?: boolean
@@ -4217,6 +4219,7 @@ export type Database = {
           po_number?: string | null
           pod_force_complete?: boolean
           prebook?: boolean
+          prebook_original_booked_by?: string | null
           prebook_note?: string | null
           pu_number?: string | null
           recovery_assigned?: boolean

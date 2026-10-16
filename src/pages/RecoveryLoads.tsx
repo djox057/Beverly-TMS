@@ -55,6 +55,7 @@ interface RetrievalOrder {
   loaded_miles: number | null;
   canceled: boolean | null;
   booked_by: string | null;
+  prebook_original_booked_by: string | null;
   pickup_datetime: string | null;
   pickup_end_datetime: string | null;
   delivery_datetime: string | null;
@@ -145,7 +146,7 @@ const RecoveryLoads = () => {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          `id, truck_id, trailer_id, driver1_id, driver2_id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, prebook, prebook_note, status, p_status, recovery_assigned, recovery_auto_cancel_at,
+          `id, truck_id, trailer_id, driver1_id, driver2_id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, prebook_original_booked_by, retrieval, prebook, prebook_note, status, p_status, recovery_assigned, recovery_auto_cancel_at,
            pickup_datetime, pickup_end_datetime, delivery_datetime,
            truck:trucks!orders_truck_id_fkey ( truck_number ),
            trailer:trailers!orders_trailer_id_fkey ( trailer_number ),
@@ -200,6 +201,7 @@ const RecoveryLoads = () => {
         pickupDatetime: order.pickup_end_datetime || order.pickup_datetime,
         deliveryDatetime: order.delivery_datetime,
         bookedBy: order.booked_by || "—",
+        originalBooker: order.prebook_original_booked_by || order.booked_by || "—",
         rcFile: (order.order_files || []).find((f) => f.file_category === "RC") || null,
         freightAmount: order.freight_amount,
         rpm,
@@ -390,7 +392,7 @@ const RecoveryLoads = () => {
                 <TableRow key={row.id}>
                   <TableCell className="truncate" title={row.loadNumber}>
                     <div className="font-medium truncate">{row.loadNumber}</div>
-                    {activeTab !== "recovery" && <div className="text-xs text-muted-foreground truncate" title={row.bookedBy}>{row.bookedBy}</div>}
+                    {activeTab !== "recovery" && <div className="text-xs text-muted-foreground truncate" title={row.originalBooker}>{row.originalBooker}</div>}
                   </TableCell>
                   <TableCell className="whitespace-normal break-words text-sm">
                     {row.pickupAddress}
