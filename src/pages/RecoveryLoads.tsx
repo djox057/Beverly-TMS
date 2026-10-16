@@ -354,7 +354,8 @@ const RecoveryLoads = () => {
                         aria-label={`Prebook note for ${row.loadNumber}`}
                         defaultValue={row.prebookNote}
                         placeholder="Add note…"
-                        className="min-h-[64px] text-sm"
+                        className="min-h-7 resize-none border-0 bg-transparent rounded-none px-1 py-1 shadow-none text-sm transition-colors hover:bg-muted/40 focus:bg-muted/60 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        placeholder="—"
                         disabled={!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName)}
                         onBlur={(event) => {
                           if (event.target.value !== row.prebookNote) void savePrebookNote(row.id, event.target.value);
@@ -430,7 +431,6 @@ const RecoveryLoads = () => {
                     >
                       Assign
                     </Button>
-                    <Button size="sm" variant="ghost" className="mt-1 h-auto px-1 text-xs whitespace-normal" disabled={movingId !== null || (!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName))} onClick={() => moveLoad(row.id, !row.prebook)}>{movingId === row.id ? "Moving…" : row.prebook ? "Move to Recovery" : "Move to Prebook"}</Button>
                   </TableCell>
                 </TableRow>
               ))
