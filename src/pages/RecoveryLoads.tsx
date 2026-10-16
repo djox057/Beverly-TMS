@@ -366,10 +366,10 @@ const RecoveryLoads = () => {
               <TableHead className="w-[95px]">DEL Date</TableHead>
               <TableHead className="w-[95px]">Freight</TableHead>
               <TableHead className="w-[65px]">Miles</TableHead>
-              <TableHead className="w-[150px]">{activeTab !== "recovery" ? "Status" : "Booked By"}</TableHead>
+              <TableHead className={activeTab !== "recovery" ? "w-[100px]" : "w-[150px]"}>{activeTab !== "recovery" ? "Status" : "Booked By"}</TableHead>
               <TableHead className="w-[160px]">Booked By Company</TableHead>
-              <TableHead className="w-[130px]">Broker</TableHead>
-              <TableHead className="w-[150px]">{activeTab !== "recovery" ? "Note" : "Cancels At"}</TableHead>
+              <TableHead className="w-[100px]">Broker</TableHead>
+              <TableHead className={activeTab !== "recovery" ? "w-[230px]" : "w-[150px]"}>{activeTab !== "recovery" ? "Note" : "Cancels At"}</TableHead>
               <TableHead className="w-[60px]">RC</TableHead>
               {(activeTab === "recovery" || (activeTab === "prebook" && canAssignAny)) && <TableHead className="w-[90px]">Assign</TableHead>}
             </TableRow>
