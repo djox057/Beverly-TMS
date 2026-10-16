@@ -85,6 +85,7 @@ export const useYardLoadsFromOrders = () => {
         `)
         .is("driver1_id", null)
         .is("truck_id", null)
+        .eq("prebook", false)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
