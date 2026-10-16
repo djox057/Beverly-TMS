@@ -1,3 +1,4 @@
+import { compareLoadsByPickupAndAvailability } from "@/utils/prebookLoadSort";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -215,7 +216,7 @@ const RecoveryLoads = () => {
   }, [orders]);
 
   const filteredRows = useMemo(() => {
-    const activeRows = rows.filter((r) => activeTab === "stats" ? r.prebook : activeTab === "prebook" ? r.prebook && !r.canceled && !r.hasPod : !r.canceled && r.retrieval && !r.prebook);
+    const activeRows = rows.filter((r) => activeTab === "stats" ? r.prebook : activeTab === "prebook" ? r.prebook && !r.canceled && !r.hasPod : !r.canceled && r.retrieval && !r.prebook).sort(compareLoadsByPickupAndAvailability);
     const term = debouncedSearch.trim().toLowerCase();
     if (!term) return activeRows;
     return activeRows.filter((row) =>
@@ -381,7 +382,7 @@ const RecoveryLoads = () => {
                   </TableCell>
                   <TableCell>{row.loadedMiles ?? "—"}</TableCell>
                   <TableCell className="truncate capitalize" title={activeTab !== "recovery" ? row.status : row.bookedBy}>
-                    {activeTab !== "recovery" ? <button type="button" className={`block w-full truncate text-left hover:underline rounded px-1 ${row.status === "Loaded" ? "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" : row.status === "Available" ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200" : row.status === "Covered" ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200" : ""}`} aria-label={`View status for ${row.loadNumber}`} onClick={() => { setStatusOrderId(row.id); setStatusDraft(row.pStatus); }}>{row.status}</button> : row.bookedBy}
+                    {activeTab !== "recovery" ? <button type="button" className={`block w-full truncate text-left hover:underline rounded px-1 ${row.status === "Loaded" ? "text-sky-700 dark:text-sky-200" : row.status === "Available" ? "text-green-700 dark:text-green-200" : row.status === "Covered" ? "text-red-700 dark:text-red-200" : ""}`} aria-label={`View status for ${row.loadNumber}`} onClick={() => { setStatusOrderId(row.id); setStatusDraft(row.pStatus); }}>{row.status}</button> : row.bookedBy}
                   </TableCell>
                   <TableCell className="truncate">{row.bookedByCompany}</TableCell>
                   <TableCell className="truncate" title={row.brokerName}>

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import RecoveryLoads from "./RecoveryLoads";
@@ -26,11 +26,11 @@ it("opens Prebook first, keeping recovery separate and archiving canceled preboo
   expect(screen.queryByRole("columnheader", { name: "Booked By" })).not.toBeInTheDocument();
   expect(screen.queryByRole("columnheader", { name: "Cancels At" })).not.toBeInTheDocument();
   expect(screen.getByText("Loaded")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "View status for PREBOOK-1" })).toHaveClass("bg-sky-100");
+  expect(screen.getByRole("button", { name: "View status for PREBOOK-1" })).toHaveClass("text-sky-700");
   expect(screen.getByText("Jon")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Assign" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Move to Recovery" })).not.toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: "RC" })[0]).toBeEnabled();
+  expect(within(screen.getByText("PREBOOK-1").closest("tr")!).getByRole("button", { name: "RC" })).toBeEnabled();
   const note = screen.getByRole("button", { name: "View prebook note for PREBOOK-1" });
   expect(note).toHaveClass("truncate");
   fireEvent.click(note);
@@ -98,6 +98,6 @@ it("shows all prebooks in Statistics, including canceled and POD-completed loads
 });
 it("colors Available green and Covered red", async () => {
   render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
-  expect(await screen.findByRole("button", { name: "View status for AVAILABLE-1" })).toHaveClass("bg-green-100");
-  expect(screen.getByRole("button", { name: "View status for COVERED-1" })).toHaveClass("bg-red-100");
+  expect(await screen.findByRole("button", { name: "View status for AVAILABLE-1" })).toHaveClass("text-green-700");
+  expect(screen.getByRole("button", { name: "View status for COVERED-1" })).toHaveClass("text-red-700");
 });
