@@ -21,17 +21,17 @@ vi.mock("@/components/ui/use-toast", () => ({ useToast: () => ({ toast: vi.fn() 
 const mount = () => render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><NewOrder /></MemoryRouter></QueryClientProvider>);
 beforeEach(() => { vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} }); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
-it.each(["manager", "admin"])("shows Prebook and Multi load only for %s", role => {
+it.each(["manager", "admin"])("shows Prebook without Multi load for %s", role => {
   state.role = role; mount();
   expect(screen.getByRole("switch", { name: "Prebook" })).toBeInTheDocument();
-  expect(screen.getByRole("switch", { name: "Multi load" })).toBeInTheDocument();
+  expect(screen.queryByRole("switch", { name: "Multi load" })).not.toBeInTheDocument();
 });
-it("hides both toggles for dispatchers", () => {
+it("hides Prebook for dispatchers", () => {
   state.role = "dispatch"; mount();
   expect(screen.queryByRole("switch", { name: "Prebook" })).not.toBeInTheDocument();
   expect(screen.queryByRole("switch", { name: "Multi load" })).not.toBeInTheDocument();
 });
-it("hides assignments for Prebook and uploads three RCs without automatic extraction", async () => {
+it("keeps Prebook unassigned and RC extraction manual", async () => {
   state.role = "manager";
   const fetcher = vi.fn(async () => ({ ok: true, json: async () => ({ success: true, data: { brokerLoadNumber: "EXTRACTED" } }) }));
   vi.stubGlobal("fetch", fetcher);
@@ -39,15 +39,10 @@ it("hides assignments for Prebook and uploads three RCs without automatic extrac
   fireEvent.click(screen.getByRole("switch", { name: "Prebook" }));
   expect(screen.queryByText("Truck #", { exact: true })).not.toBeInTheDocument();
   expect(screen.queryByText("Driver 1 (Auto-filled)")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("switch", { name: "Multi load" }));
-  fireEvent.click(screen.getByRole("button", { name: "Add another load" }));
-  for (let i = 1; i <= 3; i++) {
-    fireEvent.change(screen.getByLabelText(`RC for load ${i}`), { target: { files: [new File(["RC"], `${i}.pdf`, { type: "application/pdf" })] } });
-  }
+  fireEvent.change(screen.getByLabelText("RC files"), { target: { files: [new File(["RC"], "rc.pdf", { type: "application/pdf" })] } });
   expect(fetcher).not.toHaveBeenCalled();
-  expect(screen.getAllByRole("button", { name: "Extract with AI" })).toHaveLength(3);
-  fireEvent.click(screen.getAllByRole("button", { name: "Extract with AI" })[1]);
+  expect(screen.queryByRole("button", { name: "Add another load" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Extract with AI" }));
   await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
-  await waitFor(() => expect(screen.getByLabelText("Load 2 · Broker Load #")).toHaveValue("EXTRACTED"));
-  expect(screen.getByLabelText("Load 1 · Broker Load #")).toHaveValue("");
+  await waitFor(() => expect(screen.getByLabelText("Broker Load #")).toHaveValue("EXTRACTED"));
 });

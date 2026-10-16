@@ -1,4 +1,3 @@
-import { newBatchLoadEntry, validateBatchEntries, type BatchLoadEntry } from "@/utils/loadBatch";
 import { requiresLowStopAmountApproval } from "@/lib/dispatchAccess";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -85,8 +84,6 @@ const NewOrder = () => {
   const navigate = useNavigate();
 
   const [isPrebook, setIsPrebook] = useState(false);
-  const [isMultiLoad, setIsMultiLoad] = useState(false);
-  const [batchEntries, setBatchEntries] = useState<BatchLoadEntry[]>(() => [newBatchLoadEntry(), newBatchLoadEntry()]);
 
   // Partial loads state
   const [isPartial, setIsPartial] = useState(false);
@@ -431,7 +428,7 @@ const NewOrder = () => {
   // Auto-extract AI when RC file is uploaded (only for single load mode)
   useEffect(() => {
     // Skip auto-extraction for partial loads
-    if (isPartial || isPrebook || isMultiLoad) {
+    if (isPartial || isPrebook) {
       return;
     }
 
@@ -448,7 +445,7 @@ const NewOrder = () => {
         handleExtractWithAI();
       }
     }
-  }, [rcFiles, isPartial, isPrebook, isMultiLoad]);
+  }, [rcFiles, isPartial, isPrebook]);
 
   // Pre-select BF Prime company as default
   useEffect(() => {
@@ -984,7 +981,7 @@ const NewOrder = () => {
   const podDragHandlers = createFileDragHandlers("pod");
   const additionalDragHandlers = createFileDragHandlers("additional");
   const emailDragHandlers = createFileDragHandlers("email");
-  const handleExtractWithAI = async (selectedFiles?: File[], batchEntryId?: string) => {
+  const handleExtractWithAI = async () => {
     // Prevent multiple simultaneous extractions
     if (isExtracting) {
       console.log("Extraction already in progress, skipping...");
@@ -995,9 +992,7 @@ const NewOrder = () => {
     let filesToExtract: File[] = [];
     let filePartialIndexMap: number[] = []; // Track which partial each file belongs to
 
-    if (selectedFiles) {
-      filesToExtract = selectedFiles;
-    } else if (isPartial) {
+    if (isPartial) {
       // For partial mode, flatten but keep track of which partial each file belongs to
       rcFilesArray.forEach((filesArray, partialIndex) => {
         filesArray.forEach((file) => {
@@ -1097,8 +1092,7 @@ const NewOrder = () => {
             partialBrokerLoadNumbers[partialIndex] = extractedData.brokerLoadNumber;
           }
         } else if (fileIndex === 0 && extractedData.brokerLoadNumber) {
-          if (batchEntryId) setBatchEntries(previous => previous.map(entry => entry.id === batchEntryId ? { ...entry, loadNumber: extractedData.brokerLoadNumber } : entry));
-          else setBrokerLoadNumber(extractedData.brokerLoadNumber);
+          setBrokerLoadNumber(extractedData.brokerLoadNumber);
         }
 
         // Accumulate freight amount and driver price
@@ -1770,7 +1764,7 @@ const NewOrder = () => {
 
   // Check for duplicate orders with same broker load# and pickup date
   const checkForDuplicates = async () => {
-    const normalizedInputs = (isMultiLoad ? batchEntries.map(entry => entry.loadNumber) : [brokerLoadNumber]).map(normalizeLoadNumber).filter(Boolean);
+    const normalizedInputs = [brokerLoadNumber].map(normalizeLoadNumber).filter(Boolean);
     if (!normalizedInputs.length) return [];
     const pickups = pickupsDrops.filter((item) => item.type === "pickup");
     if (pickups.length === 0 || !pickups[0].dateRange?.from) return [];
@@ -1881,15 +1875,10 @@ const NewOrder = () => {
       return;
     }
 
-    if ((isPrebook || isMultiLoad) && !canCreatePrebook) {
+    if ((isPrebook) && !canCreatePrebook) {
       toast({ title: "Manager or admin access required", variant: "destructive" });
       return;
     }
-    if (isMultiLoad) {
-      const error = validateBatchEntries(batchEntries);
-      if (error) { toast({ title: error, variant: "destructive" }); return; }
-    }
-
     // Set submitting flag IMMEDIATELY to prevent race conditions from double-clicks
     setIsSubmitting(true);
 
@@ -1996,7 +1985,7 @@ const NewOrder = () => {
       }
     }
 
-    if (!isPartial && !isMultiLoad && !brokerLoadNumber?.trim()) {
+    if (!isPartial && !brokerLoadNumber?.trim()) {
       toast({
         title: "Broker Load# Required",
         description: "Please enter a broker load number.",
@@ -2303,9 +2292,9 @@ const NewOrder = () => {
         driver_company: selectedDriver1?.company?.name,
       });
 
-      if (isPrebook || isMultiLoad) {
+      if (isPrebook) {
         if (!driverCompanyId) throw new Error("Select a company for load numbering.");
-        const entries = isMultiLoad ? batchEntries : [{ id: clientRequestIdRef.current!, loadNumber: brokerLoadNumber, rc: null }];
+        const entries = [{ id: clientRequestIdRef.current!, loadNumber: brokerLoadNumber }];
         const stops = await Promise.all(pickupsDrops.filter(item => item.address?.trim()).map(async (item, index) => {
           let latitude = item.latitude || null;
           let longitude = item.longitude || null;
@@ -2332,9 +2321,8 @@ const NewOrder = () => {
         if (!Array.isArray(created) || created.length !== entries.length) throw new Error("Could not confirm all loads were saved. Retry to check the same requests.");
         const failedUploads: string[] = [];
         for (const load of created) {
-          const entry = entries.find(item => item.id === load.request_id)!;
           const groups = [
-            { category: "RC", files: isMultiLoad ? [entry.rc!] : rcFiles },
+            { category: "RC", files: rcFiles },
             { category: "BOL", files: bolFiles }, { category: "POD", files: podFiles }, { category: "ADDITIONAL", files: additionalFiles },
           ];
           for (const group of groups) for (const file of group.files) {
@@ -2838,26 +2826,11 @@ const NewOrder = () => {
             {canCreatePrebook && (
               <div className="flex flex-wrap items-center gap-6 rounded-lg border p-4">
                 <div className="flex items-center gap-2"><Switch id="prebook" checked={isPrebook} disabled={isSubmitting || isExtracting} onCheckedChange={value => { setIsPrebook(value); setIsPartial(false); if (value) { setTruck(""); setTrailer(""); setDriver1(""); setDriver2(""); } }} /><Label htmlFor="prebook">Prebook</Label></div>
-                <div className="flex items-center gap-2"><Switch id="multi-load" checked={isMultiLoad} disabled={isSubmitting || isExtracting} onCheckedChange={value => { setIsMultiLoad(value); setIsPartial(false); }} /><Label htmlFor="multi-load">Multi load</Label></div>
                 {isPrebook && <p className="text-sm text-muted-foreground">No truck, trailer, or drivers assigned. Numbering uses Booked by Company.</p>}
               </div>
             )}
-            {isMultiLoad && (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">Shared details below apply to each load. Upload one RC per load. AI extraction runs only when you click it and replaces shared details.</p>
-                {batchEntries.map((entry, index) => (
-                  <div key={entry.id} className="rounded-lg border p-3 space-y-2">
-                    <Label htmlFor={`batch-number-${entry.id}`}>Load {index + 1} · Broker Load #</Label>
-                    <Input id={`batch-number-${entry.id}`} value={entry.loadNumber} disabled={isSubmitting || isExtracting} onChange={event => setBatchEntries(previous => previous.map(item => item.id === entry.id ? { ...item, loadNumber: event.target.value } : item))} />
-                    <Input aria-label={`RC for load ${index + 1}`} type="file" accept=".pdf,.jpg,.jpeg,.png" disabled={isSubmitting || isExtracting} onChange={event => { const file = event.target.files?.[0] || null; setBatchEntries(previous => previous.map(item => item.id === entry.id ? { ...item, rc: file } : item)); }} />
-                    <div className="flex gap-2"><Button type="button" variant="outline" size="sm" disabled={isSubmitting || isExtracting || entry.rc?.type !== "application/pdf"} onClick={() => handleExtractWithAI([entry.rc!], entry.id)}>Extract with AI</Button><Button type="button" variant="ghost" size="sm" disabled={isSubmitting || isExtracting || batchEntries.length <= 2} onClick={() => setBatchEntries(previous => previous.filter(item => item.id !== entry.id))}>Remove</Button></div>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" disabled={isSubmitting || isExtracting || batchEntries.length >= 50} onClick={() => setBatchEntries(previous => [...previous, newBatchLoadEntry()])}>Add another load</Button>
-              </div>
-            )}
             {/* RC Upload Section - Top Priority */}
-            {!isPartial && !isMultiLoad && (
+            {!isPartial && (
               <Card
                 className={cn(
                   "bg-blue-50/50 border-blue-200 transition-all duration-200 cursor-pointer",
@@ -2933,6 +2906,7 @@ const NewOrder = () => {
                     )}
 
                     <input
+                      aria-label="RC files"
                       ref={rcFileInputRef}
                       type="file"
                       multiple
@@ -2945,7 +2919,7 @@ const NewOrder = () => {
               </Card>
             )}
 
-            {!isMultiLoad && <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="broker-load-number">Broker Load #</Label>
                 {!isPartial ? (
@@ -2974,7 +2948,6 @@ const NewOrder = () => {
               </div>
             </div>
 
-            }
             {/* Partial loads - Multiple RC uploads and broker/company sections */}
             {isPartial && (
               <div className="space-y-4">
@@ -3892,7 +3865,7 @@ const NewOrder = () => {
                 className={cn(isSubmitting && "opacity-50 cursor-not-allowed")}
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isSubmitting ? "Creating Load..." : isMultiLoad ? `Create ${batchEntries.length} Loads` : "Create Load"}
+                {isSubmitting ? "Creating Load..." : "Create Load"}
               </Button>
             </div>
             </fieldset>
@@ -3906,7 +3879,7 @@ const NewOrder = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicate Load Warning</AlertDialogTitle>
             <AlertDialogDescription>
-              A load with the same Broker Load# <strong>({isMultiLoad ? duplicateOrders.map(order => order.broker_load_number).join(", ") : brokerLoadNumber})</strong> and pickup date already exists in
+              A load with the same Broker Load# <strong>({brokerLoadNumber})</strong> and pickup date already exists in
               the system:
               <div className="mt-3 space-y-2">
                 {duplicateOrders.map((order) => (
