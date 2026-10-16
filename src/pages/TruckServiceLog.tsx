@@ -211,7 +211,7 @@ export default function TruckServiceLog() {
       if (payloads.some(payload => payload == null)) return;
       const complete = payloads.filter((payload): payload is NonNullable<typeof payload> => payload != null);
       // One database INSERT keeps the whole pasted block atomic.
-      const result = await db.from("truck_service_log_entries").insert(complete.length === 1 ? complete[0] : complete).select("id");
+      const result = await db.from("truck_service_log_entries").insert(complete).select("id");
       if (result.error) throw result.error;
       if (!result.data?.length) throw new Error("Entries were not saved. Check your permissions and retry.");
       await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });

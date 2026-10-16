@@ -55,7 +55,7 @@ export function useVehiclePlateUploadCheck(vehicleType: "truck" | "trailer", veh
           body.append("vehicleType", vehicleType);
           body.append("vehicleId", vehicleId);
           try {
-            const { data, error: invokeError } = await supabase.functions.invoke("check-vehicle-document", { body, timeout: 60000 });
+            const { data, error: invokeError } = await supabase.functions.invoke("check-vehicle-document", { body });
             if (invokeError || !data?.data || !Array.isArray(data.data.detectedPlates)) throw new Error("Plate check failed");
             return { ...data.data, fileName: file.name };
           } catch {
