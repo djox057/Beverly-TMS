@@ -339,8 +339,6 @@ const RecoveryLoads = () => {
                         key={`${row.id}:${row.prebookNote}`}
                         aria-label={`Prebook note for ${row.loadNumber}`}
                         defaultValue={row.prebookNote}
-                        placeholder="Add note…"
-                        className="min-h-7 resize-none border-0 bg-transparent rounded-none px-1 py-1 shadow-none text-sm transition-colors hover:bg-muted/40 focus:bg-muted/60 focus-visible:ring-0 focus-visible:ring-offset-0"
                         placeholder="—"
                         disabled={!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName)}
                         onBlur={(event) => {
