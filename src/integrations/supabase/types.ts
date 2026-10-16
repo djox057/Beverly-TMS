@@ -3957,6 +3957,7 @@ export type Database = {
           recovery_requested_at: string | null
           recovery_requested_by: string | null
           reference_number: string | null
+          prebook: boolean
           retrieval: boolean
           scale_drive_axle: number | null
           scale_gross: number | null
@@ -4089,6 +4090,7 @@ export type Database = {
           recovery_requested_at?: string | null
           recovery_requested_by?: string | null
           reference_number?: string | null
+          prebook?: boolean
           retrieval?: boolean
           scale_drive_axle?: number | null
           scale_gross?: number | null
@@ -4221,6 +4223,7 @@ export type Database = {
           recovery_requested_at?: string | null
           recovery_requested_by?: string | null
           reference_number?: string | null
+          prebook?: boolean
           retrieval?: boolean
           scale_drive_axle?: number | null
           scale_gross?: number | null

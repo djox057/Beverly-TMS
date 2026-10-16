@@ -121,6 +121,7 @@ export function transformOrders(allOrders: any[]) {
       // Handle paid boolean - convert string "true"/"false" to actual boolean
       paid: order.paid === true || order.paid === "true" || order.paid === 1,
       retrieval: order.retrieval === true,
+      prebook: order.prebook === true,
       recoveryAssigned: order.recovery_assigned === true,
       isRecovery: order.is_recovery === true || order.is_recovery === "true" || order.is_recovery === 1,
 

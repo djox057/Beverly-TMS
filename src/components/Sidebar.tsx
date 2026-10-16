@@ -133,7 +133,7 @@ const navigation = [
   { name: "Fleets", href: "/fleets", icon: Users },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   {
-    name: "Recovery Loads",
+    name: "Recovery Loads & Prebook",
     href: "/recovery-loads",
     icon: RefreshCw,
     roles: ["dispatch", "supervisor", "manager", "admin"],

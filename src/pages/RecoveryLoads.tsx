@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,8 @@ interface Stop {
 
 interface RetrievalOrder {
   id: string;
+  retrieval: boolean;
+  prebook: boolean;
   broker_load_number: string | null;
   freight_amount: number | null;
   loaded_miles: number | null;
@@ -100,6 +102,9 @@ const shortenBrokerName = (name?: string | null) => {
 };
 
 const RecoveryLoads = () => {
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("prebook");
+  const [movingId, setMovingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [assignOrder, setAssignOrder] = useState<{
@@ -119,14 +124,14 @@ const RecoveryLoads = () => {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, recovery_assigned, recovery_auto_cancel_at,
+          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, prebook, recovery_assigned, recovery_auto_cancel_at,
            pickup_datetime, pickup_end_datetime, delivery_datetime,
            broker:brokers ( name ),
            booked_by_company:companies!orders_booked_by_company_id_fkey ( name ),
            pickup_drops ( type, address, city, state, zip_code, sequence_number ),
            order_files ( id, file_category, file_name, file_path )`
         )
-        .or("retrieval.eq.true,recovery_assigned.eq.true")
+        .or("retrieval.eq.true,recovery_assigned.eq.true,prebook.eq.true")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -170,13 +175,14 @@ const RecoveryLoads = () => {
         brokerName: shortenBrokerName(order.broker?.name),
         canceled: !!order.canceled,
         autoCancelAt: order.recovery_auto_cancel_at,
-        retrieval: !!(order as unknown as { retrieval?: boolean }).retrieval,
+        retrieval: !!order.retrieval,
+        prebook: !!order.prebook,
       };
     });
   }, [orders]);
 
   const filteredRows = useMemo(() => {
-    const activeRows = rows.filter((r) => r.retrieval && !r.canceled);
+    const activeRows = rows.filter((r) => !r.canceled && (activeTab === "prebook" ? r.prebook : r.retrieval && !r.prebook));
     const term = debouncedSearch.trim().toLowerCase();
     if (!term) return activeRows;
     return activeRows.filter((row) =>
@@ -192,7 +198,7 @@ const RecoveryLoads = () => {
         .toLowerCase()
         .includes(term)
     );
-  }, [rows, debouncedSearch]);
+  }, [rows, debouncedSearch, activeTab]);
 
   const handleOpenRc = async (file: {
     id: string;
@@ -238,6 +244,19 @@ const RecoveryLoads = () => {
     else toast({ title: "Could not open RC", variant: "destructive" });
   };
 
+  const moveLoad = async (id: string, prebook: boolean) => {
+    setMovingId(id);
+    try {
+      const { data, error } = await supabase.from("orders").update({ prebook, retrieval: !prebook, ...(prebook ? { recovery_auto_cancel_at: null, recovery_cancel_payload: null } : {}) }).eq("id", id).select("id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("The load was not moved. Check your permissions.");
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["recovery-loads"] }), queryClient.invalidateQueries({ queryKey: ["recovery-loads-count"] })]);
+      toast({ title: prebook ? "Moved to Prebook loads" : "Moved to Recovery loads" });
+    } catch (error) {
+      toast({ title: "Could not move load", description: (error as { message?: string }).message || "Please try again.", variant: "destructive" });
+    } finally { setMovingId(null); }
+  };
+
   const loadsView = (
     <>
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -281,7 +300,7 @@ const RecoveryLoads = () => {
             ) : filteredRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
-                  No recovery loads found.
+                  No {activeTab === "prebook" ? "prebook" : "recovery"} loads found.
                 </TableCell>
               </TableRow>
             ) : (
@@ -381,6 +400,7 @@ const RecoveryLoads = () => {
                     >
                       Assign
                     </Button>
+                    <Button size="sm" variant="ghost" className="mt-1 h-auto px-1 text-xs whitespace-normal" disabled={movingId !== null || (!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName))} onClick={() => moveLoad(row.id, !row.prebook)}>{movingId === row.id ? "Moving…" : row.prebook ? "Move to Recovery" : "Move to Prebook"}</Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -402,30 +422,17 @@ const RecoveryLoads = () => {
 
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-semibold text-foreground">Recovery Loads</h1>
-      {canSeeStats ? (
-        <Tabs defaultValue="loads" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="loads">Loads</TabsTrigger>
-            <TabsTrigger value="stats">Statistics</TabsTrigger>
-          </TabsList>
-          <TabsContent value="loads" className="space-y-4">
-            {loadsView}
-          </TabsContent>
-          <TabsContent value="stats">
-            <RecoveryLoadsStats
-              isLoading={isLoading}
-              rows={rows.map((r) => ({
-                canceled: r.canceled,
-                freightAmount: r.freightAmount,
-                bookedByCompany: r.bookedByCompany,
-              }))}
-            />
-          </TabsContent>
-        </Tabs>
-      ) : (
-        <div className="space-y-4">{loadsView}</div>
-      )}
+      <h1 className="text-2xl font-semibold text-foreground">Recovery Loads &amp; Prebook</h1>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="prebook">Prebook loads</TabsTrigger>
+          <TabsTrigger value="loads">Recovery loads</TabsTrigger>
+          {canSeeStats && <TabsTrigger value="stats">Statistics</TabsTrigger>}
+        </TabsList>
+        <TabsContent value="prebook" className="space-y-4">{loadsView}</TabsContent>
+        <TabsContent value="loads" className="space-y-4">{loadsView}</TabsContent>
+        {canSeeStats && <TabsContent value="stats"><RecoveryLoadsStats isLoading={isLoading} rows={rows.filter(r => !r.prebook).map(r => ({ canceled: r.canceled, freightAmount: r.freightAmount, bookedByCompany: r.bookedByCompany }))} /></TabsContent>}
+      </Tabs>
     </div>
   );
 };

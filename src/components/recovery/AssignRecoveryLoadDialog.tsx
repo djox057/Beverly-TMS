@@ -200,6 +200,7 @@ export function AssignRecoveryLoadDialog({
       driver_price: driverRate ? parseFloat(driverRate) : null,
       dh_miles: dhMiles ? parseInt(dhMiles, 10) : null,
       retrieval: false,
+      prebook: false,
       recovery_assigned: true,
       recovery_auto_cancel_at: null,
       recovery_cancel_payload: null,

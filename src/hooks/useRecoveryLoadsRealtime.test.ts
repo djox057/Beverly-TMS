@@ -16,7 +16,7 @@ it("refreshes entry, assignment and removal events but ignores unrelated orders"
   });
   expect(mocks.invalidate).not.toHaveBeenCalled();
   act(() => {
-    mocks.handlers.orders({ new: { id: "new", retrieval: true }, old: {} });
+    mocks.handlers.orders({ new: { id: "new", retrieval: false, prebook: true }, old: {} });
     mocks.handlers.orders({ new: { id: "known", retrieval: false, recovery_assigned: true }, old: { id: "known" } });
     mocks.handlers.orders({ new: {}, old: { id: "new" } });
     vi.advanceTimersByTime(300);

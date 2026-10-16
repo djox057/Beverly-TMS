@@ -17,7 +17,7 @@ export function useRecoveryLoadsRealtime(orders: Array<{ id: string }>) {
       if (timer) return;
       timer = setTimeout(() => { timer = undefined; refresh(); }, 300);
     };
-    const relevant = (record: Record<string, unknown>) => record.retrieval === true || record.recovery_assigned === true || knownIds.current.has(String(record.id));
+    const relevant = (record: Record<string, unknown>) => record.prebook === true || record.retrieval === true || record.recovery_assigned === true || knownIds.current.has(String(record.id));
     const orderChanged = (payload: BusPayload) => {
       const next = payload.new as Record<string, unknown>;
       const previous = payload.old as Record<string, unknown>;
