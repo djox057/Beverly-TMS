@@ -253,7 +253,7 @@ const RecoveryLoads = () => {
   const moveLoad = async (id: string, prebook: boolean) => {
     setMovingId(id);
     try {
-      const { data, error } = await supabase.from("orders").update({ prebook, retrieval: !prebook, ...(prebook ? { recovery_auto_cancel_at: null, recovery_cancel_payload: null } : {}) }).eq("id", id).select("id");
+      const { data, error } = await supabase.from("orders").update({ prebook, retrieval: !prebook, ...(prebook ? { recovery_auto_cancel_at: null, recovery_cancel_payload: null, truck_id: null, trailer_id: null, driver1_id: null, driver2_id: null } : {}) }).eq("id", id).select("id");
       if (error) throw error;
       if (!data?.length) throw new Error("The load was not moved. Check your permissions.");
       await Promise.all([queryClient.invalidateQueries({ queryKey: ["recovery-loads"] }), queryClient.invalidateQueries({ queryKey: ["recovery-loads-count"] })]);

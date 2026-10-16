@@ -1,3 +1,4 @@
+import { newBatchLoadEntry, validateBatchEntries, type BatchLoadEntry } from "@/utils/loadBatch";
 import { requiresLowStopAmountApproval } from "@/lib/dispatchAccess";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -82,6 +83,10 @@ interface PickupDrop {
 }
 const NewOrder = () => {
   const navigate = useNavigate();
+
+  const [isPrebook, setIsPrebook] = useState(false);
+  const [isMultiLoad, setIsMultiLoad] = useState(false);
+  const [batchEntries, setBatchEntries] = useState<BatchLoadEntry[]>(() => [newBatchLoadEntry(), newBatchLoadEntry()]);
 
   // Partial loads state
   const [isPartial, setIsPartial] = useState(false);
@@ -187,6 +192,7 @@ const NewOrder = () => {
 
   const { toast } = useToast();
   const { profile, hasRole, roles } = useAuthContext();
+  const canCreatePrebook = hasRole("manager") || hasRole("admin");
   const queryClient = useQueryClient();
 
   // Company email configuration
@@ -390,7 +396,7 @@ const NewOrder = () => {
 
   // Get company_id from selected driver1 (not from truck)
   const selectedDriver1 = allDrivers?.find((d) => d.id === driver1);
-  const driverCompanyId = selectedDriver1?.company_id;
+  const driverCompanyId = isPrebook ? bookedByCompany : selectedDriver1?.company_id;
   const driverCompanyName = companies?.find((c) => c.id === driverCompanyId)?.name;
 
   // BG Prime Inc can only be booked when no driver is selected, or when the
@@ -425,7 +431,7 @@ const NewOrder = () => {
   // Auto-extract AI when RC file is uploaded (only for single load mode)
   useEffect(() => {
     // Skip auto-extraction for partial loads
-    if (isPartial) {
+    if (isPartial || isPrebook || isMultiLoad) {
       return;
     }
 
@@ -442,7 +448,7 @@ const NewOrder = () => {
         handleExtractWithAI();
       }
     }
-  }, [rcFiles, isPartial]);
+  }, [rcFiles, isPartial, isPrebook, isMultiLoad]);
 
   // Pre-select BF Prime company as default
   useEffect(() => {
@@ -978,7 +984,7 @@ const NewOrder = () => {
   const podDragHandlers = createFileDragHandlers("pod");
   const additionalDragHandlers = createFileDragHandlers("additional");
   const emailDragHandlers = createFileDragHandlers("email");
-  const handleExtractWithAI = async () => {
+  const handleExtractWithAI = async (selectedFiles?: File[], batchEntryId?: string) => {
     // Prevent multiple simultaneous extractions
     if (isExtracting) {
       console.log("Extraction already in progress, skipping...");
@@ -989,7 +995,9 @@ const NewOrder = () => {
     let filesToExtract: File[] = [];
     let filePartialIndexMap: number[] = []; // Track which partial each file belongs to
 
-    if (isPartial) {
+    if (selectedFiles) {
+      filesToExtract = selectedFiles;
+    } else if (isPartial) {
       // For partial mode, flatten but keep track of which partial each file belongs to
       rcFilesArray.forEach((filesArray, partialIndex) => {
         filesArray.forEach((file) => {
@@ -1089,7 +1097,8 @@ const NewOrder = () => {
             partialBrokerLoadNumbers[partialIndex] = extractedData.brokerLoadNumber;
           }
         } else if (fileIndex === 0 && extractedData.brokerLoadNumber) {
-          setBrokerLoadNumber(extractedData.brokerLoadNumber);
+          if (batchEntryId) setBatchEntries(previous => previous.map(entry => entry.id === batchEntryId ? { ...entry, loadNumber: extractedData.brokerLoadNumber } : entry));
+          else setBrokerLoadNumber(extractedData.brokerLoadNumber);
         }
 
         // Accumulate freight amount and driver price
@@ -1761,8 +1770,8 @@ const NewOrder = () => {
 
   // Check for duplicate orders with same broker load# and pickup date
   const checkForDuplicates = async () => {
-    const normalizedInput = normalizeLoadNumber(brokerLoadNumber);
-    if (!normalizedInput) return [];
+    const normalizedInputs = (isMultiLoad ? batchEntries.map(entry => entry.loadNumber) : [brokerLoadNumber]).map(normalizeLoadNumber).filter(Boolean);
+    if (!normalizedInputs.length) return [];
     const pickups = pickupsDrops.filter((item) => item.type === "pickup");
     if (pickups.length === 0 || !pickups[0].dateRange?.from) return [];
     const pickupDate = pickups[0].dateRange.from;
@@ -1787,7 +1796,7 @@ const NewOrder = () => {
     // Filter orders: normalized load number matches AND same pickup date (local)
     const duplicates = existingOrders.filter((order) => {
       if (!order.pickup_datetime) return false;
-      if (normalizeLoadNumber(order.broker_load_number) !== normalizedInput) return false;
+      if (!normalizedInputs.includes(normalizeLoadNumber(order.broker_load_number))) return false;
       const d = new Date(order.pickup_datetime);
       const orderPickupDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       return orderPickupDate === pickupDateStr;
@@ -1870,6 +1879,15 @@ const NewOrder = () => {
         variant: "default",
       });
       return;
+    }
+
+    if ((isPrebook || isMultiLoad) && !canCreatePrebook) {
+      toast({ title: "Manager or admin access required", variant: "destructive" });
+      return;
+    }
+    if (isMultiLoad) {
+      const error = validateBatchEntries(batchEntries);
+      if (error) { toast({ title: error, variant: "destructive" }); return; }
     }
 
     // Set submitting flag IMMEDIATELY to prevent race conditions from double-clicks
@@ -1978,7 +1996,7 @@ const NewOrder = () => {
       }
     }
 
-    if (!isPartial && !brokerLoadNumber?.trim()) {
+    if (!isPartial && !isMultiLoad && !brokerLoadNumber?.trim()) {
       toast({
         title: "Broker Load# Required",
         description: "Please enter a broker load number.",
@@ -2026,7 +2044,7 @@ const NewOrder = () => {
       }
     }
 
-    if (!truck) {
+    if (!isPrebook && !truck) {
       toast({
         title: "Truck# Required",
         description: "Please select a truck.",
@@ -2135,7 +2153,7 @@ const NewOrder = () => {
       setIsSubmitting(false);
       return;
     }
-    if (!driver1) {
+    if (!isPrebook && !driver1) {
       toast({
         title: "Driver Required",
         description: "Please select a driver. The internal load number is based on the driver's company.",
@@ -2215,10 +2233,12 @@ const NewOrder = () => {
         booked_by_company_id: isPartial ? null : bookedByCompany || bfPrimeCompany?.id || null,
         // Company that booked the order (defaults to BF Prime LLC)
         broker_id: isPartial ? null : broker || null,
-        truck_id: truck || null,
-        trailer_id: truck && trucks ? trucks.find((t) => t.id === truck)?.trailer_id || null : null,
-        driver1_id: driver1 || null,
-        driver2_id: driver2 || null,
+        notes: bfPrimeNote.trim() || null,
+        prebook: isPrebook,
+        truck_id: isPrebook ? null : truck || null,
+        trailer_id: !isPrebook && truck && trucks ? trucks.find((t) => t.id === truck)?.trailer_id || null : null,
+        driver1_id: isPrebook ? null : driver1 || null,
+        driver2_id: isPrebook ? null : driver2 || null,
         broker_load_number: isPartial ? null : brokerLoadNumber || null,
         // Partial load fields
         is_partial: isPartial,
@@ -2282,6 +2302,57 @@ const NewOrder = () => {
         company_id: driverCompanyId,
         driver_company: selectedDriver1?.company?.name,
       });
+
+      if (isPrebook || isMultiLoad) {
+        if (!driverCompanyId) throw new Error("Select a company for load numbering.");
+        const entries = isMultiLoad ? batchEntries : [{ id: clientRequestIdRef.current!, loadNumber: brokerLoadNumber, rc: null }];
+        const stops = await Promise.all(pickupsDrops.filter(item => item.address?.trim()).map(async (item, index) => {
+          let latitude = item.latitude || null;
+          let longitude = item.longitude || null;
+          if (!latitude || !longitude) {
+            const coords = await geocodeAddress([item.address, item.city, item.state, item.zipCode].filter(Boolean).join(", "));
+            if (coords && isValidStopCoordinate(coords.lat, coords.lon, item.state)) { latitude = coords.lat; longitude = coords.lon; }
+          }
+          if (latitude != null && longitude != null && !isValidStopCoordinate(latitude, longitude, item.state)) { latitude = null; longitude = null; }
+          return {
+            type: item.type, sequence_number: index + 1, address: item.address,
+            city: item.city || null, state: item.state || null, zip_code: item.zipCode || null, company_name: item.companyName || null,
+            datetime: item.dateRange?.from && item.startTime ? combineDateAndTime(item.dateRange.from, item.startTime) : null,
+            end_datetime: item.dateRange?.from && item.endTime ? combineDateAndTime(item.dateRange.from, item.endTime) : null,
+            latitude, longitude,
+          };
+        }));
+        const { data, error } = await withFetchRetry("Create loads", () => supabase.rpc("create_load_batch", {
+          order_data: orderData,
+          load_entries: entries.map(entry => ({ load_number: entry.loadNumber, request_id: entry.id })),
+          stops,
+        }));
+        if (error) throw error;
+        const created = data as unknown as { id: string; request_id: string; internal_load_number: string; broker_load_number: string }[];
+        if (!Array.isArray(created) || created.length !== entries.length) throw new Error("Could not confirm all loads were saved. Retry to check the same requests.");
+        const failedUploads: string[] = [];
+        for (const load of created) {
+          const entry = entries.find(item => item.id === load.request_id)!;
+          const groups = [
+            { category: "RC", files: isMultiLoad ? [entry.rc!] : rcFiles },
+            { category: "BOL", files: bolFiles }, { category: "POD", files: podFiles }, { category: "ADDITIONAL", files: additionalFiles },
+          ];
+          for (const group of groups) for (const file of group.files) {
+            try {
+              const path = await withFetchRetry("Upload file", () => uploadOrderFilePreserveName({ orderId: load.id, folder: group.category, file }));
+              const { error: uploadError } = await supabase.from("order_files").insert({ order_id: load.id, file_name: file.name, file_path: path, file_size: file.size, content_type: file.type, file_category: group.category, uploaded_by: profile?.full_name || "Unknown User" });
+              if (uploadError) throw uploadError;
+            } catch { failedUploads.push(`${load.broker_load_number}: ${file.name}`); }
+          }
+        }
+        queryClient.invalidateQueries({ queryKey: ["nextInternalLoadNumber"] });
+        queryClient.invalidateQueries({ queryKey: ["recovery-loads"] });
+        queryClient.removeQueries({ queryKey: ["orders"] });
+        toast({ title: `${created.length} load(s) created`, description: failedUploads.length ? `Re-upload failed files from Orders: ${failedUploads.join(", ")}` : `Internal load numbers: ${created.map(load => load.internal_load_number).join(", ")}`, variant: failedUploads.length ? "destructive" : "default", duration: failedUploads.length ? 15000 : 5000 });
+        clientRequestIdRef.current = null;
+        navigate(isPrebook ? "/recovery-loads" : "/orders");
+        return;
+      }
 
       // Validate company_id exists
       if (!driverCompanyId) {
@@ -2756,15 +2827,37 @@ const NewOrder = () => {
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
               <div className="text-lg font-medium">
-                {formatInternalLoadNumber(nextInternalLoadNumber, selectedDriver1?.company?.name)}
+                {formatInternalLoadNumber(nextInternalLoadNumber, driverCompanyName)}
               </div>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit}>
+            <fieldset disabled={isSubmitting} className="space-y-6">
+            {canCreatePrebook && (
+              <div className="flex flex-wrap items-center gap-6 rounded-lg border p-4">
+                <div className="flex items-center gap-2"><Switch id="prebook" checked={isPrebook} disabled={isSubmitting || isExtracting} onCheckedChange={value => { setIsPrebook(value); setIsPartial(false); if (value) { setTruck(""); setTrailer(""); setDriver1(""); setDriver2(""); } }} /><Label htmlFor="prebook">Prebook</Label></div>
+                <div className="flex items-center gap-2"><Switch id="multi-load" checked={isMultiLoad} disabled={isSubmitting || isExtracting} onCheckedChange={value => { setIsMultiLoad(value); setIsPartial(false); }} /><Label htmlFor="multi-load">Multi load</Label></div>
+                {isPrebook && <p className="text-sm text-muted-foreground">No truck, trailer, or drivers assigned. Numbering uses Booked by Company.</p>}
+              </div>
+            )}
+            {isMultiLoad && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Shared details below apply to each load. Upload one RC per load. AI extraction runs only when you click it and replaces shared details.</p>
+                {batchEntries.map((entry, index) => (
+                  <div key={entry.id} className="rounded-lg border p-3 space-y-2">
+                    <Label htmlFor={`batch-number-${entry.id}`}>Load {index + 1} · Broker Load #</Label>
+                    <Input id={`batch-number-${entry.id}`} value={entry.loadNumber} disabled={isSubmitting || isExtracting} onChange={event => setBatchEntries(previous => previous.map(item => item.id === entry.id ? { ...item, loadNumber: event.target.value } : item))} />
+                    <Input aria-label={`RC for load ${index + 1}`} type="file" accept=".pdf,.jpg,.jpeg,.png" disabled={isSubmitting || isExtracting} onChange={event => { const file = event.target.files?.[0] || null; setBatchEntries(previous => previous.map(item => item.id === entry.id ? { ...item, rc: file } : item)); }} />
+                    <div className="flex gap-2"><Button type="button" variant="outline" size="sm" disabled={isSubmitting || isExtracting || entry.rc?.type !== "application/pdf"} onClick={() => handleExtractWithAI([entry.rc!], entry.id)}>Extract with AI</Button><Button type="button" variant="ghost" size="sm" disabled={isSubmitting || isExtracting || batchEntries.length <= 2} onClick={() => setBatchEntries(previous => previous.filter(item => item.id !== entry.id))}>Remove</Button></div>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" disabled={isSubmitting || isExtracting || batchEntries.length >= 50} onClick={() => setBatchEntries(previous => [...previous, newBatchLoadEntry()])}>Add another load</Button>
+              </div>
+            )}
             {/* RC Upload Section - Top Priority */}
-            {!isPartial && (
+            {!isPartial && !isMultiLoad && (
               <Card
                 className={cn(
                   "bg-blue-50/50 border-blue-200 transition-all duration-200 cursor-pointer",
@@ -2852,7 +2945,7 @@ const NewOrder = () => {
               </Card>
             )}
 
-            <div className="flex items-center justify-between gap-4">
+            {!isMultiLoad && <div className="flex items-center justify-between gap-4">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="broker-load-number">Broker Load #</Label>
                 {!isPartial ? (
@@ -2881,6 +2974,7 @@ const NewOrder = () => {
               </div>
             </div>
 
+            }
             {/* Partial loads - Multiple RC uploads and broker/company sections */}
             {isPartial && (
               <div className="space-y-4">
@@ -3025,7 +3119,7 @@ const NewOrder = () => {
                 {rcFilesArray.some((arr) => arr.length > 0) && (
                   <Button
                     type="button"
-                    onClick={handleExtractWithAI}
+                    onClick={() => handleExtractWithAI()}
                     disabled={isExtracting}
                     variant="outline"
                     className="w-full border-blue-500 text-blue-700 hover:bg-blue-50"
@@ -3128,6 +3222,7 @@ const NewOrder = () => {
               </div>
             )}
 
+            {!isPrebook && <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="truck">Truck #</Label>
@@ -3186,6 +3281,7 @@ const NewOrder = () => {
               </div>
             </div>
 
+            </>}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-medium">Additional Pickups & Deliveries</Label>
@@ -3796,9 +3892,10 @@ const NewOrder = () => {
                 className={cn(isSubmitting && "opacity-50 cursor-not-allowed")}
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isSubmitting ? "Creating Load..." : "Create Load"}
+                {isSubmitting ? "Creating Load..." : isMultiLoad ? `Create ${batchEntries.length} Loads` : "Create Load"}
               </Button>
             </div>
+            </fieldset>
           </form>
         </CardContent>
       </Card>
@@ -3809,7 +3906,7 @@ const NewOrder = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicate Load Warning</AlertDialogTitle>
             <AlertDialogDescription>
-              A load with the same Broker Load# <strong>({brokerLoadNumber})</strong> and pickup date already exists in
+              A load with the same Broker Load# <strong>({isMultiLoad ? duplicateOrders.map(order => order.broker_load_number).join(", ") : brokerLoadNumber})</strong> and pickup date already exists in
               the system:
               <div className="mt-3 space-y-2">
                 {duplicateOrders.map((order) => (

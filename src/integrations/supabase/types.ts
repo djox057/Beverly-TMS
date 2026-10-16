@@ -7380,6 +7380,10 @@ export type Database = {
         Args: { p_truck_id: string; p_arrival_datetime: string; p_action_type: string; p_comment: string }
         Returns: string
       }
+      create_load_batch: {
+        Args: { order_data: Json; load_entries: Json; stops: Json }
+        Returns: Json
+      }
       create_order_with_unique_load_number: {
         Args: { order_data: Json }
         Returns: Json
