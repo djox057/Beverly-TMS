@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -3946,6 +3946,8 @@ export type Database = {
           pickup_end_datetime: string | null
           po_number: string | null
           pod_force_complete: boolean
+          prebook: boolean
+          prebook_note: string | null
           pu_number: string | null
           recovery_assigned: boolean
           recovery_auto_cancel_at: string | null
@@ -3957,8 +3959,6 @@ export type Database = {
           recovery_requested_at: string | null
           recovery_requested_by: string | null
           reference_number: string | null
-          prebook_note: string | null
-          prebook: boolean
           retrieval: boolean
           scale_drive_axle: number | null
           scale_gross: number | null
@@ -4080,6 +4080,8 @@ export type Database = {
           pickup_end_datetime?: string | null
           po_number?: string | null
           pod_force_complete?: boolean
+          prebook?: boolean
+          prebook_note?: string | null
           pu_number?: string | null
           recovery_assigned?: boolean
           recovery_auto_cancel_at?: string | null
@@ -4091,8 +4093,6 @@ export type Database = {
           recovery_requested_at?: string | null
           recovery_requested_by?: string | null
           reference_number?: string | null
-          prebook_note?: string | null
-          prebook?: boolean
           retrieval?: boolean
           scale_drive_axle?: number | null
           scale_gross?: number | null
@@ -4214,6 +4214,8 @@ export type Database = {
           pickup_end_datetime?: string | null
           po_number?: string | null
           pod_force_complete?: boolean
+          prebook?: boolean
+          prebook_note?: string | null
           pu_number?: string | null
           recovery_assigned?: boolean
           recovery_auto_cancel_at?: string | null
@@ -4225,8 +4227,6 @@ export type Database = {
           recovery_requested_at?: string | null
           recovery_requested_by?: string | null
           reference_number?: string | null
-          prebook_note?: string | null
-          prebook?: boolean
           retrieval?: boolean
           scale_drive_axle?: number | null
           scale_gross?: number | null
@@ -4443,6 +4443,81 @@ export type Database = {
           },
         ]
       }
+      pod_rejections: {
+        Row: {
+          booked_by_company_id: string | null
+          broker_load_number: string | null
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          dispatcher_name: string | null
+          email_id: string | null
+          id: string
+          notification_status: string
+          notified_at: string | null
+          order_id: string
+          pods: Json
+          reason: string
+          reporter_email: string
+          reporter_id: string | null
+          reporter_name: string
+          request_id: string
+        }
+        Insert: {
+          booked_by_company_id?: string | null
+          broker_load_number?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          dispatcher_name?: string | null
+          email_id?: string | null
+          id?: string
+          notification_status?: string
+          notified_at?: string | null
+          order_id: string
+          pods: Json
+          reason: string
+          reporter_email: string
+          reporter_id?: string | null
+          reporter_name: string
+          request_id: string
+        }
+        Update: {
+          booked_by_company_id?: string | null
+          broker_load_number?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          dispatcher_name?: string | null
+          email_id?: string | null
+          id?: string
+          notification_status?: string
+          notified_at?: string | null
+          order_id?: string
+          pods?: Json
+          reason?: string
+          reporter_email?: string
+          reporter_id?: string | null
+          reporter_name?: string
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pod_rejections_booked_by_company_id_fkey"
+            columns: ["booked_by_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pod_rejections_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pretrip_checks: {
         Row: {
           checked_at: string
@@ -4611,11 +4686,14 @@ export type Database = {
       }
       pretrip_photos: {
         Row: {
+          content_sha256: string | null
+          content_type: string | null
           created_at: string
           file_name: string | null
           file_path: string
           form_submission_id: string | null
           google_file_id: string | null
+          hash_last_attempt_at: string | null
           id: string
           inspection_date: string
           photo_category: string | null
@@ -4623,11 +4701,14 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          content_sha256?: string | null
+          content_type?: string | null
           created_at?: string
           file_name?: string | null
           file_path: string
           form_submission_id?: string | null
           google_file_id?: string | null
+          hash_last_attempt_at?: string | null
           id?: string
           inspection_date?: string
           photo_category?: string | null
@@ -4635,11 +4716,14 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          content_sha256?: string | null
+          content_type?: string | null
           created_at?: string
           file_name?: string | null
           file_path?: string
           form_submission_id?: string | null
           google_file_id?: string | null
+          hash_last_attempt_at?: string | null
           id?: string
           inspection_date?: string
           photo_category?: string | null
@@ -4697,81 +4781,6 @@ export type Database = {
             columns: ["truck_id"]
             isOneToOne: false
             referencedRelation: "trucks"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      pod_rejections: {
-        Row: {
-          deleted_by: string | null
-          deleted_at: string | null
-          dispatcher_name: string | null
-          id: string
-          request_id: string
-          order_id: string
-          reporter_id: string | null
-          reporter_name: string
-          reporter_email: string
-          broker_load_number: string | null
-          booked_by_company_id: string | null
-          reason: string
-          pods: Json
-          notification_status: string
-          email_id: string | null
-          created_at: string
-          notified_at: string | null
-        }
-        Insert: {
-          deleted_by?: string | null
-          deleted_at?: string | null
-          dispatcher_name?: string | null
-          id?: string
-          request_id: string
-          order_id: string
-          reporter_id?: string | null
-          reporter_name: string
-          reporter_email: string
-          broker_load_number?: string | null
-          booked_by_company_id?: string | null
-          reason: string
-          pods: Json
-          notification_status?: string
-          email_id?: string | null
-          created_at?: string
-          notified_at?: string | null
-        }
-        Update: {
-          deleted_by?: string | null
-          deleted_at?: string | null
-          dispatcher_name?: string | null
-          id?: string
-          request_id?: string
-          order_id?: string
-          reporter_id?: string | null
-          reporter_name?: string
-          reporter_email?: string
-          broker_load_number?: string | null
-          booked_by_company_id?: string | null
-          reason?: string
-          pods?: Json
-          notification_status?: string
-          email_id?: string | null
-          created_at?: string
-          notified_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pod_rejections_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pod_rejections_booked_by_company_id_fkey"
-            columns: ["booked_by_company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -6678,9 +6687,9 @@ export type Database = {
           dot_inspection_note: string | null
           driver1_id: string | null
           driver2_id: string | null
-          fleet_pm_readiness: string
           engine: string | null
           eta_minutes: number | null
+          fleet_pm_readiness: string
           fuel_level: number | null
           has_apu_webasto: boolean
           has_fridge: boolean
@@ -6744,9 +6753,9 @@ export type Database = {
           dot_inspection_note?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
-          fleet_pm_readiness?: string
           engine?: string | null
           eta_minutes?: number | null
+          fleet_pm_readiness?: string
           fuel_level?: number | null
           has_apu_webasto?: boolean
           has_fridge?: boolean
@@ -6810,9 +6819,9 @@ export type Database = {
           dot_inspection_note?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
-          fleet_pm_readiness?: string
           engine?: string | null
           eta_minutes?: number | null
+          fleet_pm_readiness?: string
           fuel_level?: number | null
           has_apu_webasto?: boolean
           has_fridge?: boolean
@@ -7333,6 +7342,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_truck_yard_arrival: {
+        Args: {
+          p_action_type: string
+          p_arrival_datetime: string
+          p_comment: string
+          p_truck_id: string
+        }
+        Returns: string
+      }
       archive_completed_hr_reports: { Args: never; Returns: number }
       auth_user_roles: {
         Args: never
@@ -7372,16 +7390,8 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      preview_next_internal_load_number: {
-        Args: { p_company_id: string }
-        Returns: string
-      }
-      add_truck_yard_arrival: {
-        Args: { p_truck_id: string; p_arrival_datetime: string; p_action_type: string; p_comment: string }
-        Returns: string
-      }
       create_load_batch: {
-        Args: { order_data: Json; load_entries: Json; stops: Json }
+        Args: { load_entries: Json; order_data: Json; stops: Json }
         Returns: Json
       }
       create_order_with_unique_load_number: {
@@ -7557,6 +7567,16 @@ export type Database = {
       }
       get_orders_summary: { Args: { p_filters?: Json }; Returns: Json }
       get_pretrip_missing_count: { Args: never; Returns: number }
+      get_pretrip_photo_reuse: {
+        Args: { _week_start: string }
+        Returns: {
+          photo_id: string
+          previous_driver_name: string
+          previous_inspection_date: string
+          previous_photo_id: string
+          previous_truck_number: string
+        }[]
+      }
       get_recovery_loads_badge: {
         Args: never
         Returns: {
@@ -7635,6 +7655,10 @@ export type Database = {
         }[]
       }
       pretrip_due_date: { Args: never; Returns: string }
+      preview_next_internal_load_number: {
+        Args: { p_company_id: string }
+        Returns: string
+      }
       refresh_driver_last_order: {
         Args: { _driver: string }
         Returns: undefined
