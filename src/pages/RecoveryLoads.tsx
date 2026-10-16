@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import {
@@ -36,6 +37,8 @@ interface RetrievalOrder {
   id: string;
   retrieval: boolean;
   prebook: boolean;
+  prebook_note: string | null;
+  status: string | null;
   broker_load_number: string | null;
   freight_amount: number | null;
   loaded_miles: number | null;
@@ -124,7 +127,7 @@ const RecoveryLoads = () => {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, prebook, recovery_assigned, recovery_auto_cancel_at,
+          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, prebook, prebook_note, status, recovery_assigned, recovery_auto_cancel_at,
            pickup_datetime, pickup_end_datetime, delivery_datetime,
            broker:brokers ( name ),
            booked_by_company:companies!orders_booked_by_company_id_fkey ( name ),
@@ -177,6 +180,8 @@ const RecoveryLoads = () => {
         autoCancelAt: order.recovery_auto_cancel_at,
         retrieval: !!order.retrieval,
         prebook: !!order.prebook,
+        prebookNote: order.prebook_note || "",
+        status: order.status || "—",
       };
     });
   }, [orders]);
@@ -193,6 +198,7 @@ const RecoveryLoads = () => {
         row.bookedBy,
         row.bookedByCompany,
         row.brokerName,
+        ...(activeTab === "prebook" ? [row.status, row.prebookNote] : []),
       ]
         .join(" ")
         .toLowerCase()
@@ -257,6 +263,16 @@ const RecoveryLoads = () => {
     } finally { setMovingId(null); }
   };
 
+  const savePrebookNote = async (id: string, note: string) => {
+    const { data, error } = await supabase.from("orders").update({ prebook_note: note || null }).eq("id", id).select("id");
+    if (error || !data?.length) {
+      toast({ title: "Could not save note", description: error?.message || "Check your permissions and try again.", variant: "destructive" });
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["recovery-loads"] });
+    toast({ title: "Note saved" });
+  };
+
   const loadsView = (
     <>
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -282,10 +298,10 @@ const RecoveryLoads = () => {
               <TableHead className="w-[95px]">DEL Date</TableHead>
               <TableHead className="w-[95px]">Freight</TableHead>
               <TableHead className="w-[65px]">Miles</TableHead>
-              <TableHead className="w-[150px]">Booked By</TableHead>
+              <TableHead className="w-[150px]">{activeTab === "prebook" ? "Status" : "Booked By"}</TableHead>
               <TableHead className="w-[160px]">Booked By Company</TableHead>
               <TableHead className="w-[130px]">Broker</TableHead>
-              <TableHead className="w-[150px]">Cancels At</TableHead>
+              <TableHead className="w-[150px]">{activeTab === "prebook" ? "Note" : "Cancels At"}</TableHead>
               <TableHead className="w-[60px]">RC</TableHead>
               <TableHead className="w-[90px]">Assign</TableHead>
             </TableRow>
@@ -324,14 +340,27 @@ const RecoveryLoads = () => {
                     </div>
                   </TableCell>
                   <TableCell>{row.loadedMiles ?? "—"}</TableCell>
-                  <TableCell className="truncate" title={row.bookedBy}>
-                    {row.bookedBy}
+                  <TableCell className="truncate capitalize" title={activeTab === "prebook" ? row.status : row.bookedBy}>
+                    {activeTab === "prebook" ? row.status.replace(/_/g, " ") : row.bookedBy}
                   </TableCell>
                   <TableCell className="truncate">{row.bookedByCompany}</TableCell>
                   <TableCell className="truncate" title={row.brokerName}>
                     {row.brokerName}
                   </TableCell>
                   <TableCell className="text-sm">
+                    {activeTab === "prebook" ? (
+                      <Textarea
+                        key={`${row.id}:${row.prebookNote}`}
+                        aria-label={`Prebook note for ${row.loadNumber}`}
+                        defaultValue={row.prebookNote}
+                        placeholder="Add note…"
+                        className="min-h-[64px] text-sm"
+                        disabled={!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName)}
+                        onBlur={(event) => {
+                          if (event.target.value !== row.prebookNote) void savePrebookNote(row.id, event.target.value);
+                        }}
+                      />
+                    ) : (<>
                     {row.autoCancelAt ? (
                       <div
                         className={
@@ -369,6 +398,7 @@ const RecoveryLoads = () => {
                         )}
                       </div>
                     )}
+                    </>)}
                   </TableCell>
                   <TableCell>
                     <Button
