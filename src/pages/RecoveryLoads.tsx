@@ -107,7 +107,6 @@ const shortenBrokerName = (name?: string | null) => {
 const RecoveryLoads = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("prebook");
-  const [movingId, setMovingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [assignOrder, setAssignOrder] = useState<{
