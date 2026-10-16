@@ -9,7 +9,8 @@ export const useYardLoadsCount = () => {
         .from("orders")
         .select("id", { count: "exact", head: true })
         .is("driver1_id", null)
-        .is("truck_id", null);
+        .is("truck_id", null)
+        .eq("prebook", false);
 
       if (error) {
         console.error("Error fetching yard loads count:", error);
