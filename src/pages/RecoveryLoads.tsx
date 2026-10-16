@@ -205,14 +205,15 @@ const RecoveryLoads = () => {
         retrieval: !!order.retrieval,
         prebook: !!order.prebook,
         prebookNote: order.prebook_note || "",
-        status: order.p_status || "Open",
+        pStatus: order.canceled ? "Canceled" : order.p_status || "Available",
+        status: order.canceled ? "Canceled" : order.p_status === "Covered" && (order.order_files || []).some(file => file.file_category === "BOL") ? "Loaded" : order.p_status || "Available",
         assignment: { truck: order.truck?.truck_number, trailer: order.trailer?.trailer_number, driver1: order.driver1?.name, driver2: order.driver2?.name, dispatcher: order.driver1?.dispatcher_name },
       };
     });
   }, [orders]);
 
   const filteredRows = useMemo(() => {
-    const activeRows = rows.filter((r) => !r.canceled && (activeTab === "prebook" ? r.prebook : r.retrieval && !r.prebook));
+    const activeRows = rows.filter((r) => activeTab === "prebook" ? r.prebook : !r.canceled && r.retrieval && !r.prebook);
     const term = debouncedSearch.trim().toLowerCase();
     if (!term) return activeRows;
     return activeRows.filter((row) =>
@@ -297,7 +298,7 @@ const RecoveryLoads = () => {
     if (!canAssignAny || !statusOrderId || !statusDraft.trim() || savingStatus) return;
     setSavingStatus(true);
     try {
-      const { data, error } = await supabase.from("orders").update({ p_status: statusDraft.trim() }).eq("id", statusOrderId).select("id");
+      const { data, error } = await supabase.from("orders").update({ p_status: statusDraft, canceled: statusDraft === "Canceled" }).eq("id", statusOrderId).select("id");
       if (error) throw error;
       if (!data?.length) throw new Error("Status was not saved. Check your permissions.");
       await queryClient.invalidateQueries({ queryKey: ["recovery-loads"] });
@@ -378,7 +379,7 @@ const RecoveryLoads = () => {
                   </TableCell>
                   <TableCell>{row.loadedMiles ?? "—"}</TableCell>
                   <TableCell className="truncate capitalize" title={activeTab === "prebook" ? row.status : row.bookedBy}>
-                    {activeTab === "prebook" ? <button type="button" className="block w-full truncate text-left hover:underline" aria-label={`View status for ${row.loadNumber}`} onClick={() => { setStatusOrderId(row.id); setStatusDraft(row.status); }}>{row.status}</button> : row.bookedBy}
+                    {activeTab === "prebook" ? <button type="button" className={`block w-full truncate text-left hover:underline rounded px-1 ${row.status === "Loaded" ? "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" : ""}`} aria-label={`View status for ${row.loadNumber}`} onClick={() => { setStatusOrderId(row.id); setStatusDraft(row.pStatus); }}>{row.status}</button> : row.bookedBy}
                   </TableCell>
                   <TableCell className="truncate">{row.bookedByCompany}</TableCell>
                   <TableCell className="truncate" title={row.brokerName}>
@@ -496,8 +497,9 @@ const RecoveryLoads = () => {
             {statusRow.assignment.driver2 && <><dt>Driver 2</dt><dd>{statusRow.assignment.driver2}</dd></>}
             <dt>Dispatcher</dt><dd>{statusRow.assignment.dispatcher || "—"}</dd>
           </dl>}
-          {canAssignAny ? <Input aria-label="Prebook status" value={statusDraft} onChange={event => setStatusDraft(event.target.value)} disabled={savingStatus} list="prebook-status-suggestions" /> : <p>{statusRow?.status}</p>}
-          <datalist id="prebook-status-suggestions"><option value="Open" /><option value="Covered" /></datalist>
+          {canAssignAny ? <select aria-label="Prebook status" value={statusDraft} onChange={event => setStatusDraft(event.target.value)} disabled={savingStatus} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <option value="Available">Available</option><option value="Covered">Covered</option><option value="Canceled">Canceled</option>
+          </select> : <p>{statusRow?.status}</p>}
           {canAssignAny && <DialogFooter><Button disabled={savingStatus || !statusDraft.trim()} onClick={saveStatus}>{savingStatus ? "Saving…" : "Save status"}</Button></DialogFooter>}
         </DialogContent>
       </Dialog>
