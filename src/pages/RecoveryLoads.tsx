@@ -205,15 +205,17 @@ const RecoveryLoads = () => {
         retrieval: !!order.retrieval,
         prebook: !!order.prebook,
         prebookNote: order.prebook_note || "",
+        hasPod: (order.order_files || []).some(file => file.file_category === "POD"),
+        recovered: !!(order as RetrievalOrder & { recovery_assigned?: boolean }).recovery_assigned,
         pStatus: order.canceled ? "Canceled" : order.p_status || "Available",
-        status: order.canceled ? "Canceled" : order.p_status === "Covered" && (order.order_files || []).some(file => file.file_category === "BOL") ? "Loaded" : order.p_status || "Available",
+        status: order.canceled ? "Canceled" : (order.order_files || []).some(file => file.file_category === "POD") ? "Completed" : order.p_status === "Covered" && (order.order_files || []).some(file => file.file_category === "BOL") ? "Loaded" : order.p_status || "Available",
         assignment: { truck: order.truck?.truck_number, trailer: order.trailer?.trailer_number, driver1: order.driver1?.name, driver2: order.driver2?.name, dispatcher: order.driver1?.dispatcher_name },
       };
     });
   }, [orders]);
 
   const filteredRows = useMemo(() => {
-    const activeRows = rows.filter((r) => activeTab === "prebook" ? r.prebook : !r.canceled && r.retrieval && !r.prebook);
+    const activeRows = rows.filter((r) => activeTab === "stats" ? r.prebook : activeTab === "prebook" ? r.prebook && !r.canceled && !r.hasPod : !r.canceled && r.retrieval && !r.prebook);
     const term = debouncedSearch.trim().toLowerCase();
     if (!term) return activeRows;
     return activeRows.filter((row) =>
@@ -224,7 +226,7 @@ const RecoveryLoads = () => {
         row.bookedBy,
         row.bookedByCompany,
         row.brokerName,
-        ...(activeTab === "prebook" ? [row.status, row.prebookNote] : []),
+        ...(activeTab !== "recovery" ? [row.status, row.prebookNote] : []),
       ]
         .join(" ")
         .toLowerCase()
@@ -298,7 +300,7 @@ const RecoveryLoads = () => {
     if (!canAssignAny || !statusOrderId || !statusDraft.trim() || savingStatus) return;
     setSavingStatus(true);
     try {
-      const { data, error } = await supabase.from("orders").update({ p_status: statusDraft, canceled: statusDraft === "Canceled" }).eq("id", statusOrderId).select("id");
+      const { data, error } = await supabase.from("orders").update({ p_status: statusDraft }).eq("id", statusOrderId).select("id");
       if (error) throw error;
       if (!data?.length) throw new Error("Status was not saved. Check your permissions.");
       await queryClient.invalidateQueries({ queryKey: ["recovery-loads"] });
@@ -333,25 +335,25 @@ const RecoveryLoads = () => {
               <TableHead className="w-[95px]">DEL Date</TableHead>
               <TableHead className="w-[95px]">Freight</TableHead>
               <TableHead className="w-[65px]">Miles</TableHead>
-              <TableHead className="w-[150px]">{activeTab === "prebook" ? "Status" : "Booked By"}</TableHead>
+              <TableHead className="w-[150px]">{activeTab !== "recovery" ? "Status" : "Booked By"}</TableHead>
               <TableHead className="w-[160px]">Booked By Company</TableHead>
               <TableHead className="w-[130px]">Broker</TableHead>
-              <TableHead className="w-[150px]">{activeTab === "prebook" ? "Note" : "Cancels At"}</TableHead>
+              <TableHead className="w-[150px]">{activeTab !== "recovery" ? "Note" : "Cancels At"}</TableHead>
               <TableHead className="w-[60px]">RC</TableHead>
-              {(activeTab !== "prebook" || canAssignAny) && <TableHead className="w-[90px]">Assign</TableHead>}
+              {(activeTab === "recovery" || (activeTab === "prebook" && canAssignAny)) && <TableHead className="w-[90px]">Assign</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={activeTab === "prebook" && !canAssignAny ? 12 : 13} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={activeTab === "stats" || (activeTab === "prebook" && !canAssignAny) ? 12 : 13} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={activeTab === "prebook" && !canAssignAny ? 12 : 13} className="text-center text-muted-foreground py-8">
-                  No {activeTab === "prebook" ? "prebook" : "recovery"} loads found.
+                <TableCell colSpan={activeTab === "stats" || (activeTab === "prebook" && !canAssignAny) ? 12 : 13} className="text-center text-muted-foreground py-8">
+                  No {activeTab !== "recovery" ? "prebook" : "recovery"} loads found.
                 </TableCell>
               </TableRow>
             ) : (
@@ -359,7 +361,7 @@ const RecoveryLoads = () => {
                 <TableRow key={row.id}>
                   <TableCell className="truncate" title={row.loadNumber}>
                     <div className="font-medium truncate">{row.loadNumber}</div>
-                    {activeTab === "prebook" && <div className="text-xs text-muted-foreground truncate" title={row.bookedBy}>{row.bookedBy}</div>}
+                    {activeTab !== "recovery" && <div className="text-xs text-muted-foreground truncate" title={row.bookedBy}>{row.bookedBy}</div>}
                   </TableCell>
                   <TableCell className="whitespace-normal break-words text-sm">
                     {row.pickupAddress}
@@ -378,15 +380,15 @@ const RecoveryLoads = () => {
                     </div>
                   </TableCell>
                   <TableCell>{row.loadedMiles ?? "—"}</TableCell>
-                  <TableCell className="truncate capitalize" title={activeTab === "prebook" ? row.status : row.bookedBy}>
-                    {activeTab === "prebook" ? <button type="button" className={`block w-full truncate text-left hover:underline rounded px-1 ${row.status === "Loaded" ? "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" : ""}`} aria-label={`View status for ${row.loadNumber}`} onClick={() => { setStatusOrderId(row.id); setStatusDraft(row.pStatus); }}>{row.status}</button> : row.bookedBy}
+                  <TableCell className="truncate capitalize" title={activeTab !== "recovery" ? row.status : row.bookedBy}>
+                    {activeTab !== "recovery" ? <button type="button" className={`block w-full truncate text-left hover:underline rounded px-1 ${row.status === "Loaded" ? "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" : row.status === "Available" ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200" : row.status === "Covered" ? "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200" : ""}`} aria-label={`View status for ${row.loadNumber}`} onClick={() => { setStatusOrderId(row.id); setStatusDraft(row.pStatus); }}>{row.status}</button> : row.bookedBy}
                   </TableCell>
                   <TableCell className="truncate">{row.bookedByCompany}</TableCell>
                   <TableCell className="truncate" title={row.brokerName}>
                     {row.brokerName}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {activeTab === "prebook" ? (
+                    {activeTab !== "recovery" ? (
                       <button
                         type="button"
                         className="block w-full truncate text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
@@ -445,7 +447,7 @@ const RecoveryLoads = () => {
                       RC
                     </Button>
                   </TableCell>
-                  {(activeTab !== "prebook" || canAssignAny) && <TableCell>
+                  {(activeTab === "recovery" || (activeTab === "prebook" && canAssignAny)) && <TableCell>
                     <Button
                       size="sm"
                       variant="outline"
@@ -497,10 +499,10 @@ const RecoveryLoads = () => {
             {statusRow.assignment.driver2 && <><dt>Driver 2</dt><dd>{statusRow.assignment.driver2}</dd></>}
             <dt>Dispatcher</dt><dd>{statusRow.assignment.dispatcher || "—"}</dd>
           </dl>}
-          {canAssignAny ? <select aria-label="Prebook status" value={statusDraft} onChange={event => setStatusDraft(event.target.value)} disabled={savingStatus} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-            <option value="Available">Available</option><option value="Covered">Covered</option><option value="Canceled">Canceled</option>
+          {canAssignAny && !statusRow?.canceled && !statusRow?.hasPod ? <select aria-label="Prebook status" value={statusDraft} onChange={event => setStatusDraft(event.target.value)} disabled={savingStatus} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <option value="Available">Available</option><option value="Covered">Covered</option>
           </select> : <p>{statusRow?.status}</p>}
-          {canAssignAny && <DialogFooter><Button disabled={savingStatus || !statusDraft.trim()} onClick={saveStatus}>{savingStatus ? "Saving…" : "Save status"}</Button></DialogFooter>}
+          {canAssignAny && !statusRow?.canceled && !statusRow?.hasPod && <DialogFooter><Button disabled={savingStatus || !statusDraft.trim()} onClick={saveStatus}>{savingStatus ? "Saving…" : "Save status"}</Button></DialogFooter>}
         </DialogContent>
       </Dialog>
 
@@ -522,12 +524,12 @@ const RecoveryLoads = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="prebook">Prebook loads</TabsTrigger>
-          <TabsTrigger value="loads">Recovery loads</TabsTrigger>
+          <TabsTrigger value="recovery">Recovery loads</TabsTrigger>
           {canSeeStats && <TabsTrigger value="stats">Statistics</TabsTrigger>}
         </TabsList>
         <TabsContent value="prebook" className="space-y-4">{loadsView}</TabsContent>
-        <TabsContent value="loads" className="space-y-4">{loadsView}</TabsContent>
-        {canSeeStats && <TabsContent value="stats"><RecoveryLoadsStats isLoading={isLoading} rows={rows.filter(r => !r.prebook).map(r => ({ canceled: r.canceled, freightAmount: r.freightAmount, bookedByCompany: r.bookedByCompany }))} /></TabsContent>}
+        <TabsContent value="recovery" className="space-y-4">{loadsView}</TabsContent>
+        {canSeeStats && <TabsContent value="stats" className="space-y-4"><RecoveryLoadsStats isLoading={isLoading} rows={rows.map(r => ({ canceled: r.canceled, freightAmount: r.freightAmount, bookedByCompany: r.bookedByCompany, prebook: r.prebook, recovered: r.recovered, covered: r.pStatus === "Covered", completed: r.hasPod }))} /><h2 className="text-lg font-semibold">All Prebook loads</h2>{loadsView}</TabsContent>}
       </Tabs>
     </div>
   );
