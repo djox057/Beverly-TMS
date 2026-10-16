@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
@@ -39,6 +40,11 @@ interface RetrievalOrder {
   prebook: boolean;
   prebook_note: string | null;
   status: string | null;
+  p_status: string;
+  truck: { truck_number: string } | null;
+  trailer: { trailer_number: string } | null;
+  driver1: { name: string; dispatcher_id: string | null; dispatcher_name?: string } | null;
+  driver2: { name: string } | null;
   broker_load_number: string | null;
   freight_amount: number | null;
   loaded_miles: number | null;
@@ -107,12 +113,19 @@ const shortenBrokerName = (name?: string | null) => {
 const RecoveryLoads = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("prebook");
+  const [statusOrderId, setStatusOrderId] = useState<string | null>(null);
+  const [statusDraft, setStatusDraft] = useState("");
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [noteOrder, setNoteOrder] = useState<{ id: string; loadNumber: string } | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [assignOrder, setAssignOrder] = useState<{
     id: string;
     loadNumber: string;
     pickupAddress: string;
+    prebook: boolean;
   } | null>(null);
   const { hasRole, profile } = useAuth();
   const canSeeStats = hasRole("manager") || hasRole("admin");
@@ -126,8 +139,12 @@ const RecoveryLoads = () => {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, prebook, prebook_note, status, recovery_assigned, recovery_auto_cancel_at,
+          `id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, retrieval, prebook, prebook_note, status, p_status, recovery_assigned, recovery_auto_cancel_at,
            pickup_datetime, pickup_end_datetime, delivery_datetime,
+           truck:trucks!orders_truck_id_fkey ( truck_number ),
+           trailer:trailers!orders_trailer_id_fkey ( trailer_number ),
+           driver1:drivers!orders_driver1_id_fkey ( name, dispatcher_id ),
+           driver2:drivers!orders_driver2_id_fkey ( name ),
            broker:brokers ( name ),
            booked_by_company:companies!orders_booked_by_company_id_fkey ( name ),
            pickup_drops ( type, address, city, state, zip_code, sequence_number ),
@@ -137,7 +154,15 @@ const RecoveryLoads = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []) as unknown as RetrievalOrder[];
+      const loads = (data || []) as unknown as RetrievalOrder[];
+      const dispatcherIds = [...new Set(loads.map(load => load.driver1?.dispatcher_id).filter((id): id is string => !!id))];
+      if (dispatcherIds.length) {
+        const { data: dispatchers, error: dispatcherError } = await supabase.from("profiles").select("user_id, full_name").in("user_id", dispatcherIds);
+        if (dispatcherError) throw dispatcherError;
+        const names = new Map((dispatchers || []).map(person => [person.user_id, person.full_name]));
+        loads.forEach(load => { if (load.driver1) load.driver1.dispatcher_name = names.get(load.driver1.dispatcher_id || "") || "—"; });
+      }
+      return loads;
     },
     staleTime: 30000,
     // Realtime handles changes; keep a slow fallback for missed events.
@@ -180,7 +205,8 @@ const RecoveryLoads = () => {
         retrieval: !!order.retrieval,
         prebook: !!order.prebook,
         prebookNote: order.prebook_note || "",
-        status: order.status || "—",
+        status: order.p_status || "Open",
+        assignment: { truck: order.truck?.truck_number, trailer: order.trailer?.trailer_number, driver1: order.driver1?.name, driver2: order.driver2?.name, dispatcher: order.driver1?.dispatcher_name },
       };
     });
   }, [orders]);
@@ -250,13 +276,35 @@ const RecoveryLoads = () => {
   };
 
   const savePrebookNote = async (id: string, note: string) => {
-    const { data, error } = await supabase.from("orders").update({ prebook_note: note || null }).eq("id", id).select("id");
-    if (error || !data?.length) {
-      toast({ title: "Could not save note", description: error?.message || "Check your permissions and try again.", variant: "destructive" });
-      return;
-    }
-    await queryClient.invalidateQueries({ queryKey: ["recovery-loads"] });
-    toast({ title: "Note saved" });
+    if (!canAssignAny || savingNote) return;
+    setSavingNote(true);
+    try {
+      const { data, error } = await supabase.from("orders").update({ prebook_note: note || null }).eq("id", id).select("id");
+      if (error || !data?.length) {
+        toast({ title: "Could not save note", description: error?.message || "Check your permissions and try again.", variant: "destructive" });
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["recovery-loads"] });
+      toast({ title: "Note saved" });
+      setNoteOrder(null);
+    } catch (error) {
+      toast({ title: "Could not save note", description: (error as Error).message, variant: "destructive" });
+    } finally { setSavingNote(false); }
+  };
+
+  const statusRow = rows.find(row => row.id === statusOrderId);
+  const saveStatus = async () => {
+    if (!canAssignAny || !statusOrderId || !statusDraft.trim() || savingStatus) return;
+    setSavingStatus(true);
+    try {
+      const { data, error } = await supabase.from("orders").update({ p_status: statusDraft.trim() }).eq("id", statusOrderId).select("id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("Status was not saved. Check your permissions.");
+      await queryClient.invalidateQueries({ queryKey: ["recovery-loads"] });
+      setStatusOrderId(null);
+      toast({ title: "Status saved" });
+    } catch (error) { toast({ title: "Could not save status", description: (error as Error).message, variant: "destructive" }); }
+    finally { setSavingStatus(false); }
   };
 
   const loadsView = (
@@ -289,26 +337,29 @@ const RecoveryLoads = () => {
               <TableHead className="w-[130px]">Broker</TableHead>
               <TableHead className="w-[150px]">{activeTab === "prebook" ? "Note" : "Cancels At"}</TableHead>
               <TableHead className="w-[60px]">RC</TableHead>
-              <TableHead className="w-[90px]">Assign</TableHead>
+              {(activeTab !== "prebook" || canAssignAny) && <TableHead className="w-[90px]">Assign</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={activeTab === "prebook" && !canAssignAny ? 12 : 13} className="text-center text-muted-foreground py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={activeTab === "prebook" && !canAssignAny ? 12 : 13} className="text-center text-muted-foreground py-8">
                   No {activeTab === "prebook" ? "prebook" : "recovery"} loads found.
                 </TableCell>
               </TableRow>
             ) : (
               filteredRows.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="font-medium truncate" title={row.loadNumber}>{row.loadNumber}</TableCell>
+                  <TableCell className="truncate" title={row.loadNumber}>
+                    <div className="font-medium truncate">{row.loadNumber}</div>
+                    {activeTab === "prebook" && <div className="text-xs text-muted-foreground truncate" title={row.bookedBy}>{row.bookedBy}</div>}
+                  </TableCell>
                   <TableCell className="whitespace-normal break-words text-sm">
                     {row.pickupAddress}
                   </TableCell>
@@ -327,7 +378,7 @@ const RecoveryLoads = () => {
                   </TableCell>
                   <TableCell>{row.loadedMiles ?? "—"}</TableCell>
                   <TableCell className="truncate capitalize" title={activeTab === "prebook" ? row.status : row.bookedBy}>
-                    {activeTab === "prebook" ? row.status.replace(/_/g, " ") : row.bookedBy}
+                    {activeTab === "prebook" ? <button type="button" className="block w-full truncate text-left hover:underline" aria-label={`View status for ${row.loadNumber}`} onClick={() => { setStatusOrderId(row.id); setStatusDraft(row.status); }}>{row.status}</button> : row.bookedBy}
                   </TableCell>
                   <TableCell className="truncate">{row.bookedByCompany}</TableCell>
                   <TableCell className="truncate" title={row.brokerName}>
@@ -335,17 +386,14 @@ const RecoveryLoads = () => {
                   </TableCell>
                   <TableCell className="text-sm">
                     {activeTab === "prebook" ? (
-                      <Textarea
-                        key={`${row.id}:${row.prebookNote}`}
-                        aria-label={`Prebook note for ${row.loadNumber}`}
-                        defaultValue={row.prebookNote}
-                        className="min-h-7 resize-none border-0 bg-transparent rounded-none px-1 py-1 shadow-none text-sm transition-colors hover:bg-muted/40 focus:bg-muted/60 focus-visible:ring-0 focus-visible:ring-offset-0"
-                        placeholder="—"
-                        disabled={!canAssignAny && (!myName || row.bookedBy.trim().toLowerCase() !== myName)}
-                        onBlur={(event) => {
-                          if (event.target.value !== row.prebookNote) void savePrebookNote(row.id, event.target.value);
-                        }}
-                      />
+                      <button
+                        type="button"
+                        className="block w-full truncate text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                        aria-label={`View prebook note for ${row.loadNumber}`}
+                        onClick={() => { setNoteOrder({ id: row.id, loadNumber: row.loadNumber }); setNoteDraft(row.prebookNote); }}
+                      >
+                        {row.prebookNote || (canAssignAny ? "Add note…" : "—")}
+                      </button>
                     ) : (<>
                     {row.autoCancelAt ? (
                       <div
@@ -396,7 +444,7 @@ const RecoveryLoads = () => {
                       RC
                     </Button>
                   </TableCell>
-                  <TableCell>
+                  {(activeTab !== "prebook" || canAssignAny) && <TableCell>
                     <Button
                       size="sm"
                       variant="outline"
@@ -411,12 +459,13 @@ const RecoveryLoads = () => {
                           id: row.id,
                           loadNumber: row.loadNumber,
                           pickupAddress: row.pickupFullAddress,
+                          prebook: row.prebook,
                         })
                       }
                     >
-                      Assign
+                      {row.prebook && row.assignment.truck && row.assignment.driver1 ? "Assigned" : "Assign"}
                     </Button>
-                  </TableCell>
+                  </TableCell>}
                 </TableRow>
               ))
             )}
@@ -424,10 +473,40 @@ const RecoveryLoads = () => {
         </Table>
       </Card>
 
+      <Dialog open={!!noteOrder} onOpenChange={open => { if (!open && !savingNote) setNoteOrder(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Prebook note · {noteOrder?.loadNumber}</DialogTitle>
+            <DialogDescription>{canAssignAny ? "Edit the note and save your changes." : "Full note for this load."}</DialogDescription>
+          </DialogHeader>
+          {canAssignAny ? (
+            <Textarea aria-label="Prebook note" value={noteDraft} onChange={event => setNoteDraft(event.target.value)} disabled={savingNote} className="min-h-[180px]" />
+          ) : <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap break-words text-sm">{noteDraft || "No note."}</div>}
+          {canAssignAny && <DialogFooter><Button disabled={savingNote} onClick={() => noteOrder && savePrebookNote(noteOrder.id, noteDraft)}>{savingNote ? "Saving…" : "Save note"}</Button></DialogFooter>}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!statusOrderId} onOpenChange={open => { if (!open && !savingStatus) setStatusOrderId(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Prebook status · {statusRow?.loadNumber}</DialogTitle><DialogDescription>Current status and load assignment.</DialogDescription></DialogHeader>
+          {statusRow?.assignment.truck && statusRow.assignment.driver1 && <dl className="grid grid-cols-2 gap-2 text-sm">
+            <dt>Truck #</dt><dd>{statusRow.assignment.truck}</dd>
+            <dt>Trailer #</dt><dd>{statusRow.assignment.trailer || "—"}</dd>
+            <dt>Driver 1</dt><dd>{statusRow.assignment.driver1}</dd>
+            {statusRow.assignment.driver2 && <><dt>Driver 2</dt><dd>{statusRow.assignment.driver2}</dd></>}
+            <dt>Dispatcher</dt><dd>{statusRow.assignment.dispatcher || "—"}</dd>
+          </dl>}
+          {canAssignAny ? <Input aria-label="Prebook status" value={statusDraft} onChange={event => setStatusDraft(event.target.value)} disabled={savingStatus} list="prebook-status-suggestions" /> : <p>{statusRow?.status}</p>}
+          <datalist id="prebook-status-suggestions"><option value="Open" /><option value="Covered" /></datalist>
+          {canAssignAny && <DialogFooter><Button disabled={savingStatus || !statusDraft.trim()} onClick={saveStatus}>{savingStatus ? "Saving…" : "Save status"}</Button></DialogFooter>}
+        </DialogContent>
+      </Dialog>
+
       <AssignRecoveryLoadDialog
         open={!!assignOrder}
         onOpenChange={(open) => !open && setAssignOrder(null)}
         orderId={assignOrder?.id ?? null}
+        isPrebook={assignOrder?.prebook}
         loadNumber={assignOrder?.loadNumber}
         pickupAddress={assignOrder?.pickupAddress}
         onAssigned={() => refetch()}

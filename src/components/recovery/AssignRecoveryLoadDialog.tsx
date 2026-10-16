@@ -24,6 +24,7 @@ interface AssignRecoveryLoadDialogProps {
   loadNumber?: string;
   pickupAddress?: string;
   onAssigned?: () => void;
+  isPrebook?: boolean;
 }
 
 export function AssignRecoveryLoadDialog({
@@ -33,6 +34,7 @@ export function AssignRecoveryLoadDialog({
   loadNumber,
   pickupAddress,
   onAssigned,
+  isPrebook = false,
 }: AssignRecoveryLoadDialogProps) {
   const { toast } = useToast();
   const [truckId, setTruckId] = useState("");
@@ -167,6 +169,10 @@ export function AssignRecoveryLoadDialog({
 
   const handleSave = async () => {
     if (!orderId) return;
+    if (isPrebook && (!truckId || !driverId)) {
+      toast({ title: "Select a truck and driver", variant: "destructive" });
+      return;
+    }
     setSaving(true);
 
     const truck = trucks.find((t: any) => t.id === truckId) as any;
@@ -200,23 +206,25 @@ export function AssignRecoveryLoadDialog({
       driver_price: driverRate ? parseFloat(driverRate) : null,
       dh_miles: dhMiles ? parseInt(dhMiles, 10) : null,
       retrieval: false,
-      prebook: false,
-      recovery_assigned: true,
+      prebook: isPrebook,
+      ...(isPrebook ? { p_status: "Covered" } : {}),
+      recovery_assigned: !isPrebook,
       recovery_auto_cancel_at: null,
       recovery_cancel_payload: null,
     };
-    if (bookedBy) payload.booked_by = bookedBy;
+    if (bookedBy && !isPrebook) payload.booked_by = bookedBy;
 
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from("orders")
       .update(payload as never)
-      .eq("id", orderId);
+      .eq("id", orderId)
+      .select("id");
     setSaving(false);
 
-    if (error) {
+    if (error || !updated?.length) {
       toast({
         title: "Assignment failed",
-        description: error.message,
+        description: error?.message || "The load was not updated. Check your permissions.",
         variant: "destructive",
       });
       return;
@@ -230,7 +238,7 @@ export function AssignRecoveryLoadDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
-          <DialogTitle>Assign Recovery Load {loadNumber ? `#${loadNumber}` : ""}</DialogTitle>
+          <DialogTitle>Assign {isPrebook ? "Prebook" : "Recovery"} Load {loadNumber ? `#${loadNumber}` : ""}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
