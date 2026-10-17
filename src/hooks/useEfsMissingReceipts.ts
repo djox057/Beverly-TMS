@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getEfsReceiptCutoff } from "@/lib/efsReceiptWindow";
 
 export interface EfsFuelMissingData {
   id: string;
@@ -26,6 +27,7 @@ export function useEfsMissingReceipts() {
         .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path, requested_by")
         .eq("purpose", "Fuel")
         .eq("receipt_bypassed", false)
+        .gte("requested_at", getEfsReceiptCutoff())
         .or("receipt_path.is.null,quantity.is.null")
         .order("requested_at", { ascending: false });
 

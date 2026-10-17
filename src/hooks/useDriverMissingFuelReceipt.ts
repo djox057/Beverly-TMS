@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getEfsReceiptCutoff } from "@/lib/efsReceiptWindow";
 
 /**
  * Returns fuel EFS requests for a driver that are still missing their receipt
@@ -17,6 +18,7 @@ export function useDriverMissingFuelReceipt(driverId?: string, enabled = true) {
         .eq("driver_id", driverId!)
         .eq("purpose", "Fuel")
         .eq("receipt_bypassed", false)
+        .gte("requested_at", getEfsReceiptCutoff())
         .is("receipt_path", null)
         .order("requested_at", { ascending: false });
 

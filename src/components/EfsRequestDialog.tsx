@@ -137,7 +137,7 @@ export function EfsRequestDialog({
     if (otherPurpose === "fuel" && hasMissingFuelReceipt) {
       toast({
         title: "Fuel request blocked",
-        description: `${driverName} has ${missingFuelReceipts.length} fuel receipt(s) missing. Upload the missing receipt(s) before requesting fuel again.`,
+        description: `${driverName} has ${missingFuelReceipts.length} fuel receipt(s) missing from the last 14 days. Upload the missing receipt(s) before requesting fuel again.`,
         variant: "destructive",
       });
       return;
@@ -355,7 +355,7 @@ export function EfsRequestDialog({
               <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                 <p className="text-sm text-destructive font-medium">
                   Fuel request blocked: {driverName} has {missingFuelReceipts.length} fuel receipt
-                  {missingFuelReceipts.length > 1 ? "s" : ""} missing. Upload the missing receipt
+                  {missingFuelReceipts.length > 1 ? "s" : ""} missing from the last 14 days. Upload the missing receipt
                   {missingFuelReceipts.length > 1 ? "s" : ""} before requesting fuel again.
                 </p>
               </div>
