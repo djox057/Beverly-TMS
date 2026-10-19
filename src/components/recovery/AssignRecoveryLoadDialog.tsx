@@ -181,21 +181,41 @@ export function AssignRecoveryLoadDialog({
     let bookedBy: string | null = null;
     const dispatcherLookupDriverId = driverId || truck?.driver1_id || null;
     if (dispatcherLookupDriverId) {
-      const { data: driverRow } = await supabase
+      const { data: driverRow, error: driverError } = await supabase
         .from("drivers")
         .select("dispatcher_id")
         .eq("id", dispatcherLookupDriverId)
         .maybeSingle();
-      const dispatcherId = (driverRow as any)?.dispatcher_id;
+      if (driverError) {
+        setSaving(false);
+        toast({ title: "Assignment failed", description: driverError.message, variant: "destructive" });
+        return;
+      }
+      const dispatcherId = driverRow?.dispatcher_id;
       if (dispatcherId) {
-        const { data: prof } = await supabase
+        const { data: prof, error: profileError } = await supabase
           .from("profiles")
           .select("full_name")
           .eq("user_id", dispatcherId)
           .maybeSingle();
 
-        bookedBy = (prof as any)?.full_name || null;
+        if (profileError) {
+          setSaving(false);
+          toast({ title: "Assignment failed", description: profileError.message, variant: "destructive" });
+          return;
+        }
+        bookedBy = prof?.full_name?.trim() || null;
       }
+    }
+
+    if (isPrebook && !bookedBy) {
+      setSaving(false);
+      toast({
+        title: "Driver has no dispatcher",
+        description: "Set the driver's dispatcher before assigning this prebook load.",
+        variant: "destructive",
+      });
+      return;
     }
 
     const payload: Record<string, unknown> = {
