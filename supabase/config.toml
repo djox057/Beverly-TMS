@@ -155,3 +155,7 @@ verify_jwt = true
 
 [functions.check-vehicle-document]
 verify_jwt = true
+
+[functions.hos-load-check]
+# Validates user JWTs and the existing cron secret inside the handler.
+verify_jwt = false

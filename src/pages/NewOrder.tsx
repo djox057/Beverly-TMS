@@ -1,4 +1,6 @@
 import { requiresLowStopAmountApproval } from "@/lib/dispatchAccess";
+import { HosLoadLight } from "@/components/HosLoadLight";
+import { useHosAssessment, checkCreatedOrderHos } from "@/hooks/useHosAssessment";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -271,6 +273,18 @@ const NewOrder = () => {
   } = useCompanies();
   const { data: allTrucks, isLoading: trucksLoading, error: trucksError } = useTrucks();
   const { data: allDrivers, isLoading: driversLoading, error: driversError } = useDrivers();
+  const hos = useHosAssessment({
+    driverId: isPrebook ? null : driver1 || null,
+    teamDriverId: isPrebook ? null : driver2 || null,
+    truckId: isPrebook ? null : truck || null,
+    dhMiles: dhMiles.trim() ? Number(dhMiles) : null,
+    loadedMiles: loadedMiles.trim() ? Number(loadedMiles) : null,
+    stops: pickupsDrops.map(stop => ({ type: stop.type,
+      datetime: stop.dateRange?.from && stop.startTime ? combineDateAndTime(stop.dateRange.from, stop.startTime) : null,
+      end_datetime: stop.dateRange?.from && stop.endTime ? combineDateAndTime(stop.dateRange.from, stop.endTime) : null,
+      latitude: stop.latitude ?? null, longitude: stop.longitude ?? null,
+    })),
+  });
   const { data: allBrokers } = useBrokers();
 
   // Filter trucks by dispatcher for dispatch role - check driver dispatcher
@@ -2698,6 +2712,7 @@ const NewOrder = () => {
         newInternalLoadNumber,
         selectedDriver1?.company?.name,
       );
+      await checkCreatedOrderHos(orderId);
       if (failedFileUploads.length > 0) {
         const categories = Array.from(new Set(failedFileUploads.map((f) => f.category))).join(", ");
         toast({
@@ -3859,6 +3874,7 @@ const NewOrder = () => {
               <Button type="button" variant="outline" onClick={() => navigate("/orders")}>
                 Cancel
               </Button>
+              <HosLoadLight {...hos} loading={hos.loading || isCalculatingMiles || isCalculatingDhMiles} />
               <Button
                 type="submit"
                 disabled={isSubmitting || isExtracting || isCalculatingMiles}

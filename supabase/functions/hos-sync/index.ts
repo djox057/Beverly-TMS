@@ -34,6 +34,16 @@ interface HosUpdate {
   updated: string;
 }
 
+function sourceTimestamp(record: TransitRecord): string | null {
+  // The generic asset timestamp may be GPS freshness, not HOS freshness.
+  for (const value of [record.hosUtcTimestamp]) {
+    if (!value || value.startsWith('0001-')) continue;
+    const parsed = Date.parse(/[Zz]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`);
+    if (Number.isFinite(parsed) && parsed <= Date.now() + 300000 && parsed > 0) return new Date(parsed).toISOString();
+  }
+  return null;
+}
+
 // Get bearer token using client_key
 async function getBearerToken(clientKey: string): Promise<string | null> {
   try {
@@ -248,6 +258,7 @@ serve(async (req) => {
     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
     
     const updates: HosUpdate[] = [];
+    const observations: Record<string, unknown>[] = [];
     const fuelUpdates: { id: string; fuel: number }[] = [];
 
     for (const truck of trucks) {
@@ -273,6 +284,13 @@ serve(async (req) => {
               status: hosData.statusAbbreviation || null,
               updated: timestamp
             });
+            if ([hosData.minsTillDriving, hosData.minsTillShift, hosData.minsTillBreak, hosData.minsTillCycle]
+              .every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0)) {
+              observations.push({ id: driver.id, truck_id: truck.id, observed_at: now.toISOString(),
+                source_at: sourceTimestamp(hosData), status: hosData.statusAbbreviation || null,
+                drive: hosData.minsTillDriving, shift: hosData.minsTillShift,
+                break: hosData.minsTillBreak, cycle: hosData.minsTillCycle });
+            }
           } else if (hosData && !isValidHosRecord(hosData)) {
             // Skip updating HOS for invalid timestamps - keep previous valid data
             console.log(`Skipping HOS update for driver ${driver.id} - invalid timestamp`);
@@ -297,6 +315,12 @@ serve(async (req) => {
     }
 
     // Batch update truck fuel levels
+    // Keep the planning history separate from the existing clock/fuel sync. An
+    // unavailable planning component must not stop the established sync.
+    if (observations.length) {
+      const history = await supabase.rpc('record_hos_observations', { observations });
+      if (history.error) console.error('HOS history unavailable:', history.error.message);
+    }
     if (fuelUpdates.length > 0) {
       // Writes go to truck_telemetry (not published to realtime) so this
       // 5-minute job no longer broadcasts a change for every truck.
@@ -308,6 +332,18 @@ serve(async (req) => {
     }
 
     console.log(`HOS sync complete. ${updatedCount} drivers updated from ${allApiData.length} API records.`);
+
+    try {
+      const plannerSecret = Deno.env.get('CRON_SECRET');
+      if (plannerSecret) {
+        const response = await fetch(`${supabaseUrl}/functions/v1/hos-load-check`, {
+          method: 'POST', signal: AbortSignal.timeout(25000),
+          headers: { Authorization: `Bearer ${plannerSecret}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'process' }),
+        });
+        if (!response.ok) console.error('HOS notification worker unavailable:', response.status);
+      }
+    } catch { console.error('HOS notification worker timed out; queued alerts will retry.'); }
 
     return new Response(JSON.stringify({ 
       success: true, 

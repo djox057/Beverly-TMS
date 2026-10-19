@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { previousDelivery } from "@/utils/previousDelivery";
 
 interface LastDelivery {
   orderId: string;
@@ -17,13 +18,16 @@ export const useTruckLastDelivery = (driverId: string | null, pickupDatetime?: s
       console.log('🔍 Target pickup datetime:', pickupDatetime);
 
       // Get all completed orders for this driver (as driver1 or driver2)
+      const cutoff = pickupDatetime || new Date().toISOString();
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
-        .select('id, delivery_datetime')
+        .select('id, delivery_datetime, delivery_end_datetime')
         .or(`driver1_id.eq.${driverId},driver2_id.eq.${driverId}`)
         .eq('canceled', false)
         .not('delivery_datetime', 'is', null)
-        .order('delivery_datetime', { ascending: false });
+        .lte('delivery_datetime', cutoff)
+        .order('delivery_datetime', { ascending: false })
+        .limit(100);
 
       if (ordersError) throw ordersError;
       if (!orders || orders.length === 0) {
@@ -31,7 +35,8 @@ export const useTruckLastDelivery = (driverId: string | null, pickupDatetime?: s
         return null;
       }
 
-      const lastOrder = orders[0];
+      const lastOrder = previousDelivery(orders, cutoff);
+      if (!lastOrder) return null;
       console.log('✅ Using most recent delivery:', lastOrder.id);
 
       // Get the final delivery address (highest sequence_number with type = 'delivery')

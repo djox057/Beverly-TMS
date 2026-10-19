@@ -14,6 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
 import { calculateDhMiles } from "@/utils/mapboxRouteCalculator";
+import { useHosAssessment, checkCreatedOrderHos } from "@/hooks/useHosAssessment";
+import { HosLoadLight } from "@/components/HosLoadLight";
+import { previousDelivery } from "@/utils/previousDelivery";
 
 const YARD_COORDS = "41.53782517269106,-87.57865749016162";
 
@@ -99,6 +102,26 @@ export function AssignRecoveryLoadDialog({
     staleTime: 60000,
   });
 
+  const { data: hosOrder } = useQuery({
+    queryKey: ['hos-prebook-order', orderId],
+    enabled: open && isPrebook && !!orderId,
+    queryFn: async () => {
+      const {data,error} = await supabase.from('orders')
+        .select('loaded_miles,pickup_drops(type,datetime,end_datetime,latitude,longitude,sequence_number)').eq('id',orderId!).single();
+      if(error) throw error;
+      return data;
+    },
+    staleTime: 30000,
+  });
+  const hos = useHosAssessment(hosOrder ? {
+    orderId, driverId:driverId||null, truckId:truckId||null,
+    teamDriverId:trucks.find((t:any)=>t.id===truckId)?.driver2_id||null,
+    dhMiles:dhMiles.trim()?Number(dhMiles):null,
+    loadedMiles:hosOrder.loaded_miles==null?null:Number(hosOrder.loaded_miles),
+    stops:[...(hosOrder.pickup_drops||[])].sort((a:any,b:any)=>(a.sequence_number||0)-(b.sequence_number||0))
+      .map((s:any)=>({type:s.type,datetime:s.datetime,end_datetime:s.end_datetime,latitude:s.latitude,longitude:s.longitude})),
+  } : null, open && isPrebook);
+
   const truckOptions = useMemo(
     () => trucks.map((t: any) => ({ value: t.id, label: t.truck_number || "—" })),
     [trucks]
@@ -131,20 +154,23 @@ export function AssignRecoveryLoadDialog({
       if (!pickup || pickup === "—") return;
       setCalculatingDh(true);
       try {
+        const targetPickup = [...(hosOrder?.pickup_drops||[])].filter((p:any)=>p.type==='pickup')
+          .sort((a:any,b:any)=>(a.sequence_number||0)-(b.sequence_number||0))[0]?.datetime || new Date().toISOString();
         const { data: lastOrders } = await supabase
           .from("orders")
           .select(
-            "id, delivery_datetime, pickup_drops ( type, address, city, state, zip_code, sequence_number )"
+            "id, delivery_datetime, delivery_end_datetime, pickup_drops ( type, address, city, state, zip_code, sequence_number )"
           )
           .eq("driver1_id", driverId)
           .eq("canceled", false)
           .neq("id", orderId || "")
           .not("delivery_datetime", "is", null)
+          .lte("delivery_datetime", targetPickup)
           .order("delivery_datetime", { ascending: false })
-          .limit(1);
+          .limit(100);
 
         let origin = YARD_COORDS;
-        const stops = (lastOrders?.[0] as any)?.pickup_drops || [];
+        const stops = (previousDelivery(lastOrders||[],targetPickup) as any)?.pickup_drops || [];
         const deliveries = [...stops]
           .filter((s: any) => s.type === "delivery")
           .sort((a: any, b: any) => (a.sequence_number ?? 0) - (b.sequence_number ?? 0));
@@ -165,7 +191,7 @@ export function AssignRecoveryLoadDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, driverId, orderId, pickupAddress]);
+  }, [open, driverId, orderId, pickupAddress, hosOrder]);
 
   const handleSave = async () => {
     if (!orderId) return;
@@ -250,6 +276,7 @@ export function AssignRecoveryLoadDialog({
       return;
     }
     toast({ title: "Assigned", description: `Load ${loadNumber || ""} updated.` });
+    if (isPrebook) void checkCreatedOrderHos(orderId);
     onOpenChange(false);
     onAssigned?.();
   };
@@ -320,6 +347,7 @@ export function AssignRecoveryLoadDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
+          {isPrebook && <HosLoadLight {...hos} loading={hos.loading || calculatingDh} />}
           <Button onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Assign"}
           </Button>
