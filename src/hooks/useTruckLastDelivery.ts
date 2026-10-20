@@ -21,7 +21,7 @@ export const useTruckLastDelivery = (driverId: string | null, pickupDatetime?: s
       const cutoff = pickupDatetime || new Date().toISOString();
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
-        .select('id, delivery_datetime, delivery_end_datetime')
+        .select('id, delivery_datetime, delivery_end_datetime, pickup_drops(type,datetime,address,city,state,zip_code,sequence_number)')
         .or(`driver1_id.eq.${driverId},driver2_id.eq.${driverId}`)
         .eq('canceled', false)
         .not('delivery_datetime', 'is', null)
@@ -39,20 +39,11 @@ export const useTruckLastDelivery = (driverId: string | null, pickupDatetime?: s
       if (!lastOrder) return null;
       console.log('✅ Using most recent delivery:', lastOrder.id);
 
-      // Get the final delivery address (highest sequence_number with type = 'delivery')
-      const { data: pickupDrops, error: pickupDropsError } = await supabase
-        .from('pickup_drops')
-        .select('address, city, state, zip_code, sequence_number')
-        .eq('order_id', lastOrder.id)
-        .eq('type', 'delivery')
-        .order('sequence_number', { ascending: false })
-        .limit(1);
+      const pickup = [...(lastOrder.pickup_drops || [])]
+        .filter(stop => stop.type === 'delivery')
+        .sort((a, b) => b.sequence_number - a.sequence_number)[0];
+      if (!pickup) return null;
 
-      if (pickupDropsError) throw pickupDropsError;
-      if (!pickupDrops || pickupDrops.length === 0) return null;
-
-      const pickup = pickupDrops[0];
-      
       // Handle cases where address is already complete or fields are separated
       let fullAddress: string;
       if (!pickup.city && !pickup.state && !pickup.zip_code) {
@@ -76,9 +67,11 @@ export const useTruckLastDelivery = (driverId: string | null, pickupDatetime?: s
       return {
         orderId: lastOrder.id,
         deliveryAddress: fullAddress,
-        deliveryDatetime: lastOrder.delivery_datetime || ''
+        deliveryDatetime: pickup.datetime || lastOrder.delivery_datetime || ''
       };
     },
     enabled: !!driverId,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 };

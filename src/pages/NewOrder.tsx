@@ -437,7 +437,7 @@ const NewOrder = () => {
 
   // Get the first pickup datetime for DH miles calculation
   const firstPickupDatetime = pickupsDrops.find((item) => item.type === "pickup")?.datetime || null;
-  const { data: lastDelivery } = useTruckLastDelivery(driver1 || null, firstPickupDatetime);
+  const { data: lastDelivery, isFetching: loadingLastDelivery, error: lastDeliveryError } = useTruckLastDelivery(driver1 || null, firstPickupDatetime);
 
   // Auto-extract AI when RC file is uploaded (only for single load mode)
   useEffect(() => {
@@ -700,8 +700,9 @@ const NewOrder = () => {
 
   // Auto-calculate DH miles when truck is selected and pickup address is entered
   useEffect(() => {
+    let cancelled = false;
     const calculateDh = async () => {
-      if (!truck) {
+      if (!truck || !driver1 || loadingLastDelivery || lastDeliveryError) {
         return;
       }
       const firstPickup = pickupsDrops.find((item) => item.type === "pickup" && item.address.trim());
@@ -739,6 +740,7 @@ const NewOrder = () => {
           miles = await calculateDhMiles(dhOriginAddress, pickupAddress);
         }
 
+        if (cancelled) return;
         if (miles !== null) {
           setDhMiles(miles.toString());
           autoCalcDhMilesRef.current = miles;
@@ -755,14 +757,15 @@ const NewOrder = () => {
       } catch (error) {
         console.error("Error calculating DH miles:", error);
       } finally {
-        setIsCalculatingDhMiles(false);
+        if (!cancelled) setIsCalculatingDhMiles(false);
       }
     };
 
+    setIsCalculatingDhMiles(false);
     const timeoutId = setTimeout(calculateDh, 1500);
-    return () => clearTimeout(timeoutId);
+    return () => { cancelled = true; clearTimeout(timeoutId); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [truck, lastDelivery, pickupsDropsGeoKey, toast]);
+  }, [truck, driver1, lastDelivery, loadingLastDelivery, lastDeliveryError, pickupsDropsGeoKey, toast]);
 
   // Auto-calculate driver price for company drivers based on cents per mile
   useEffect(() => {

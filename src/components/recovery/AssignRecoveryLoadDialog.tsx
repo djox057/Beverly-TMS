@@ -209,7 +209,7 @@ export function AssignRecoveryLoadDialog({
         const { data: lastOrders } = await supabase
           .from("orders")
           .select(
-            "id, delivery_datetime, delivery_end_datetime, pickup_drops ( type, address, city, state, zip_code, sequence_number )"
+            "id, delivery_datetime, delivery_end_datetime, pickup_drops ( type, datetime, address, city, state, zip_code, sequence_number )"
           )
           .eq("driver1_id", driverId)
           .eq("canceled", false)
