@@ -8,6 +8,7 @@ vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock("@/hooks/useRecoveryLoadsRealtime", () => ({ useRecoveryLoadsRealtime: vi.fn() }));
 vi.mock("@/components/recovery/AssignRecoveryLoadDialog", () => ({ AssignRecoveryLoadDialog: () => null }));
 vi.mock("@/components/recovery/RecoveryLoadsStats", () => ({ RecoveryLoadsStats: () => null }));
+vi.mock("@/components/recovery/PrebookManagerStats", () => ({ PrebookManagerStats: () => <div>Prebook performance by manager</div> }));
 const { saveNote } = vi.hoisted(() => ({ saveNote: vi.fn(async (..._args: unknown[]) => ({ data: [{ id: "p" }], error: null })) }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => ({ update: (values: unknown) => ({ eq: (column: string, id: string) => { const chain = { eq: () => chain, select: () => saveNote(values, column, id) }; return chain; } }), select: () => ({ or: () => ({ order: async () => ({ error: null, data: [
   { id: "p", broker_load_number: "PREBOOK-1", prebook: true, truck_id: "truck", driver1_id: "driver", prebook_original_booked_by: "Original Booker", prebook_note: "Call tomorrow", status: "pending", p_status: "Covered", truck: { truck_number: "123" }, trailer: { trailer_number: "456" }, driver1: { name: "Driver One", dispatcher_id: null }, driver2: { name: "Driver Two" }, retrieval: false, canceled: false, booked_by: "Jon", pickup_drops: [], order_files: [{ id: "rc", file_category: "RC", file_path: "rc.pdf" }, { id: "bol", file_category: "BOL", file_path: "bol.pdf" }] },
@@ -18,6 +19,15 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => ({ up
   { id: "covered", broker_load_number: "COVERED-1", prebook: true, canceled: false, p_status: "Covered", order_files: [] },
 ] }) }) }) }) } }));
 afterEach(() => { cleanup(); access.role = "dispatch"; saveNote.mockClear(); });
+it.each(['admin','manager'])('shows manager performance only to admin, checking %s',async role=>{
+  access.role=role;
+  render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
+  await screen.findByText('PREBOOK-1');
+  fireEvent.mouseDown(screen.getByRole('tab',{name:'Statistics'}),{button:0,ctrlKey:false});
+  await screen.findByRole('heading',{name:'All Prebook loads'});
+  if(role==='admin') expect(screen.getByText('Prebook performance by manager')).toBeInTheDocument();
+  else expect(screen.queryByText('Prebook performance by manager')).not.toBeInTheDocument();
+});
 it("opens Prebook first, keeping recovery separate and archiving canceled prebooks", async () => {
   render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
   expect(screen.getByRole("heading", { name: "Recovery Loads & Prebook" })).toBeInTheDocument();

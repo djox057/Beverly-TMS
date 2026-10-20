@@ -25,6 +25,7 @@ import { AssignRecoveryLoadDialog } from "@/components/recovery/AssignRecoveryLo
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { RecoveryLoadsStats } from "@/components/recovery/RecoveryLoadsStats";
+import { PrebookManagerStats } from "@/components/recovery/PrebookManagerStats";
 
 interface Stop {
   type: string | null;
@@ -53,6 +54,7 @@ interface RetrievalOrder {
   broker_load_number: string | null;
   freight_amount: number | null;
   loaded_miles: number | null;
+  dh_miles: number | null;
   canceled: boolean | null;
   booked_by: string | null;
   prebook_original_booked_by: string | null;
@@ -146,7 +148,7 @@ const RecoveryLoads = () => {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          `id, truck_id, trailer_id, driver1_id, driver2_id, broker_load_number, freight_amount, loaded_miles, canceled, booked_by, prebook_original_booked_by, retrieval, prebook, prebook_note, status, p_status, recovery_assigned, recovery_auto_cancel_at,
+          `id, truck_id, trailer_id, driver1_id, driver2_id, broker_load_number, freight_amount, loaded_miles, dh_miles, canceled, booked_by, prebook_original_booked_by, retrieval, prebook, prebook_note, status, p_status, recovery_assigned, recovery_auto_cancel_at,
            pickup_datetime, pickup_end_datetime, delivery_datetime,
            truck:trucks!orders_truck_id_fkey ( truck_number ),
            trailer:trailers!orders_trailer_id_fkey ( trailer_number ),
@@ -206,6 +208,7 @@ const RecoveryLoads = () => {
         freightAmount: order.freight_amount,
         rpm,
         loadedMiles: order.loaded_miles,
+        dhMiles: order.dh_miles,
         bookedByCompany: order.booked_by_company?.name || "—",
         brokerName: shortenBrokerName(order.broker?.name),
         canceled: !!order.canceled,
@@ -561,7 +564,7 @@ const RecoveryLoads = () => {
         </TabsList>
         <TabsContent value="prebook" className="space-y-4">{loadsView}</TabsContent>
         <TabsContent value="recovery" className="space-y-4">{loadsView}</TabsContent>
-        {canSeeStats && <TabsContent value="stats" className="space-y-4"><RecoveryLoadsStats isLoading={isLoading} rows={rows.map(r => ({ canceled: r.canceled, freightAmount: r.freightAmount, bookedByCompany: r.bookedByCompany, prebook: r.prebook, recovered: r.recovered, covered: r.pStatus === "Covered", completed: r.hasPod }))} /><h2 className="text-lg font-semibold">All Prebook loads</h2>{loadsView}</TabsContent>}
+        {canSeeStats && <TabsContent value="stats" className="space-y-4"><RecoveryLoadsStats isLoading={isLoading} rows={rows.map(r => ({ canceled: r.canceled, freightAmount: r.freightAmount, bookedByCompany: r.bookedByCompany, prebook: r.prebook, recovered: r.recovered, covered: r.pStatus === "Covered", completed: r.hasPod }))} /><h2 className="text-lg font-semibold">All Prebook loads</h2>{hasRole("admin") && <PrebookManagerStats rows={rows} isLoading={isLoading} />}{loadsView}</TabsContent>}
       </Tabs>
     </div>
   );
