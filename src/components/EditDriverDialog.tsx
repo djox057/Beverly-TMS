@@ -75,6 +75,7 @@ interface DriverFormData {
   fein: string;
   is_company_driver: boolean;
   is_recovery: boolean;
+  close_watch: boolean;
   do_not_touch_hos: boolean;
   hazmat: boolean;
   tanker: boolean;
@@ -182,6 +183,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     fein: "",
     is_company_driver: false,
     is_recovery: false,
+    close_watch: false,
     do_not_touch_hos: false,
     hazmat: false,
     tanker: false,
@@ -330,6 +332,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       fein: sensitivePIIData?.fein || "",
       is_company_driver: driver.is_company_driver || false,
       is_recovery: driver.is_recovery || false,
+      close_watch: driver.close_watch || false,
       do_not_touch_hos: driver.do_not_touch_hos || false,
       hazmat: driver.hazmat || false,
       tanker: driver.tanker || false,
@@ -570,6 +573,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
           agreement_start_date: formData.agreement_start_date || null,
           is_company_driver: formData.is_company_driver || false,
           is_recovery: formData.is_recovery || false,
+          close_watch: formData.close_watch,
           do_not_touch_hos: formData.do_not_touch_hos || false,
           hazmat: formData.hazmat,
           tanker: formData.tanker,
@@ -744,6 +748,8 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
       }
 
       toast({ title: "Success", description: "Driver updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["adapter-drivers"] });
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
       queryClient.invalidateQueries({ queryKey: ["trucks"] });
       queryClient.invalidateQueries({ queryKey: ["trailers"] });
@@ -1293,6 +1299,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                 </div>
 
                 <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="edit_close_watch" checked={formData.close_watch}
+                      onCheckedChange={(checked) => setFormData({ ...formData, close_watch: checked === true })} />
+                    <Label htmlFor="edit_close_watch" className="cursor-pointer">Close Watch</Label>
+                  </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="edit_hazmat"

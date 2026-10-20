@@ -27,6 +27,8 @@ export function useReportsFilters() {
     return saved ? JSON.parse(saved) : false;
   });
 
+  const [showCloseWatch, setShowCloseWatch] = useState(false);
+
   const [showProblems, setShowProblems] = useState(() => {
     const saved = localStorage.getItem("reports-showProblems");
     return saved ? JSON.parse(saved) : false;
@@ -139,7 +141,9 @@ export function useReportsFilters() {
     setShowTwoWeekNotice,
     showLateTrucks,
     setShowLateTrucks,
+    showCloseWatch,
     showProblems,
+    setShowCloseWatch,
     setShowProblems,
     truckDriverFilter,
     setTruckDriverFilter,
@@ -163,6 +167,7 @@ export function useReportsFilters() {
     showNewDrivers,
     showTwoWeekNotice,
     showLateTrucks,
+    showCloseWatch,
     showProblems,
     truckDriverFilter,
     dispatchNameFilter,

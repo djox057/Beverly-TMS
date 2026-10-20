@@ -2531,6 +2531,7 @@ export type Database = {
           created_at: string
           criminal: boolean
           dispatcher_id: string | null
+          close_watch: boolean
           do_not_touch_hos: boolean
           email: string | null
           emergency_contact_name: string | null
@@ -2592,6 +2593,7 @@ export type Database = {
           created_at?: string
           criminal?: boolean
           dispatcher_id?: string | null
+          close_watch?: boolean
           do_not_touch_hos?: boolean
           email?: string | null
           emergency_contact_name?: string | null
@@ -2653,6 +2655,7 @@ export type Database = {
           created_at?: string
           criminal?: boolean
           dispatcher_id?: string | null
+          close_watch?: boolean
           do_not_touch_hos?: boolean
           email?: string | null
           emergency_contact_name?: string | null

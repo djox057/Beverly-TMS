@@ -534,7 +534,9 @@ const Reports = () => {
     setShowTwoWeekNotice,
     showLateTrucks,
     setShowLateTrucks,
+    showCloseWatch,
     showProblems,
+    setShowCloseWatch,
     setShowProblems,
     truckDriverFilter,
     setTruckDriverFilter,
@@ -4065,7 +4067,14 @@ const Reports = () => {
 
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {
-    const reports = filterReportsByOffice(activeTab);
+    let reports = filterReportsByOffice(activeTab);
+
+    if (showCloseWatch) {
+      reports = reports.map((group) => ({
+        ...group,
+        trucks: group.trucks.filter((truck) => truck.closeWatch === true),
+      })).filter((group) => group.trucks.length > 0);
+    }
 
     // Two week notice filter: show only trucks with drivers on 2-week notice
     if (showTwoWeekNotice) {
@@ -4253,6 +4262,7 @@ const Reports = () => {
     activeTab,
     filterReportsByOffice,
     showEmptyTrucks,
+    showCloseWatch,
     showNewDrivers,
     showTwoWeekNotice,
     showLateTrucks,
@@ -4783,6 +4793,13 @@ const Reports = () => {
                     <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                     Late trucks
                   </Button>
+
+                  <Button
+                    variant={showCloseWatch ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowCloseWatch(!showCloseWatch)}
+                    className="text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
+                  >Close Watch</Button>
 
                   {(hasRole("manager") || hasRole("admin") || hasRole("safety")) && (
                     <>

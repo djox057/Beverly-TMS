@@ -904,7 +904,7 @@ export const useReports = (options?: UseReportsOptions) => {
     // Parallel batch fetches for truck relations
     const [truckDriversRes, truckTrailersRes, truckCompaniesRes] = await Promise.all([
       truckDriverIdsBatch.size > 0
-        ? supabase.from("drivers").select("id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, home_latitude, home_longitude, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, hire_date, dispatcher_id, going_yard, is_recovery, company_id, do_not_touch_hos, hazmat, tanker, twic, citizen, criminal, straps, load_bars").in("id", Array.from(truckDriverIdsBatch))
+        ? supabase.from("drivers").select("id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, home_latitude, home_longitude, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, hire_date, dispatcher_id, going_yard, is_recovery, company_id, close_watch, do_not_touch_hos, hazmat, tanker, twic, citizen, criminal, straps, load_bars").in("id", Array.from(truckDriverIdsBatch))
         : { data: [], error: null },
       truckTrailerIdsBatch.size > 0
         ? supabase.from("trailers").select("id, trailer_number, dot_inspection_date, vented").in("id", Array.from(truckTrailerIdsBatch))
@@ -1759,6 +1759,7 @@ export const useReports = (options?: UseReportsOptions) => {
               goingYard: truck.driver1?.going_yard || false,
               needsRecovery: truck.needs_recovery || false,
               isRecoveryDriver: truck.driver1?.is_recovery || false,
+              closeWatch: truck.driver1?.close_watch === true,
               doNotTouchHos: truck.driver1?.do_not_touch_hos || false,
               trailerId: truck.trailer_id || null,
               dispatcherEmail: dispatcherInfo?.email || null,
@@ -1781,7 +1782,7 @@ export const useReports = (options?: UseReportsOptions) => {
         let driversQuery = supabase
           .from("drivers")
           .select(
-            "id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, home_latitude, home_longitude, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, hire_date, dispatcher_id, is_active, going_yard, company_id, do_not_touch_hos",
+            "id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, home_latitude, home_longitude, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, hire_date, dispatcher_id, is_active, going_yard, company_id, close_watch, do_not_touch_hos",
           )
           .eq("is_active", true)
           .order("name", { ascending: true });
@@ -2070,7 +2071,8 @@ export const useReports = (options?: UseReportsOptions) => {
             hosLastUpdated: driver.hos_last_updated || null,
             twoWeekBlockDate: driver.two_week_block_date || null,
             randomDrugTestDate: driver.random_drug_test_date || null,
-            doNotTouchHos: driver.do_not_touch_hos || false,
+            closeWatch: driver.close_watch === true,
+              doNotTouchHos: driver.do_not_touch_hos || false,
             note: driverNote?.note || "",
             lastEdit: (() => { const d = driverNote?.updated_at ? new Date(driverNote.updated_at) : new Date(); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
             editDate: (() => { const d = driverNote?.updated_at ? new Date(driverNote.updated_at) : new Date(); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })(),
@@ -2197,7 +2199,7 @@ export const useReports = (options?: UseReportsOptions) => {
             const { data: realDriverData } = driverIds.length > 0 
               ? await supabase
                   .from("drivers")
-                  .select("id, name, phone, email, home_city, home_state, home_latitude, home_longitude, company_id, dispatcher_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, do_not_touch_hos")
+                  .select("id, name, phone, email, home_city, home_state, home_latitude, home_longitude, company_id, dispatcher_id, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, close_watch, do_not_touch_hos")
                   .in("id", driverIds)
               : { data: [] };
             
@@ -2445,7 +2447,8 @@ export const useReports = (options?: UseReportsOptions) => {
                 hosLastUpdated: realDriver?.hos_last_updated || null,
                 twoWeekBlockDate: null,
                 randomDrugTestDate: null,
-                doNotTouchHos: realDriver?.do_not_touch_hos || false,
+                closeWatch: realDriver?.close_watch === true,
+              doNotTouchHos: realDriver?.do_not_touch_hos || false,
                 note: offDutyNote?.note || "",
                 lastEdit: (() => { const d = offDutyNote?.updated_at ? new Date(offDutyNote.updated_at) : new Date(); return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }); })(),
                 editDate: (() => { const d = offDutyNote?.updated_at ? new Date(offDutyNote.updated_at) : new Date(); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); })(),
