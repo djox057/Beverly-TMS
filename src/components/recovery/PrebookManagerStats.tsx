@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/utils';
 import { summarizePrebookManagers, type PrebookStatsLoad } from '@/lib/prebookManagerStats';
 
@@ -21,14 +20,21 @@ export function PrebookManagerStats({rows,isLoading}:{rows:PrebookStatsLoad[];is
     },
     staleTime:60000,
   });
-  const totals=useMemo(()=>summarizePrebookManagers(rows,managers.data||[]),[rows,managers.data]);
+  const totals=useMemo(()=>summarizePrebookManagers(rows,managers.data||[]).filter(row=>row.gross>0),[rows,managers.data]);
   return <Card><CardHeader>
     <CardTitle className="text-base">Prebook performance by manager</CardTitle>
     <p className="text-sm text-muted-foreground">Credited to the original booking manager. Canceled loads excluded. RPM uses loaded + DH miles.</p>
-  </CardHeader><CardContent className="overflow-x-auto">
+  </CardHeader><CardContent>
     {isLoading || managers.isPending ? <p>Loading manager statistics…</p> : managers.error ? <p role="alert">Could not load manager statistics.</p> :
-      <Table><TableHeader><TableRow><TableHead>Manager</TableHead><TableHead className="text-right">Gross</TableHead><TableHead className="text-right">Miles (Loaded + DH)</TableHead><TableHead className="text-right">RPM</TableHead></TableRow></TableHeader>
-        <TableBody>{totals.map(row=><TableRow key={row.id}><TableCell>{row.name}</TableCell><TableCell className="text-right">{formatCurrency(row.gross)}</TableCell><TableCell className="text-right">{row.miles.toLocaleString('en-US',{maximumFractionDigits:2})}</TableCell><TableCell className="text-right">{row.rpm==null?'—':formatCurrency(row.rpm)}</TableCell></TableRow>)}</TableBody>
-      </Table>}
+      totals.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {totals.map(row=><Card key={row.id} className="bg-muted/20">
+          <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">{row.name}</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-2 gap-4">
+            <div className="col-span-2"><p className="text-sm text-muted-foreground">Gross</p><p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(row.gross)}</p></div>
+            <div><p className="text-xs text-muted-foreground">Miles (Loaded + DH)</p><p className="text-lg font-semibold">{row.miles.toLocaleString('en-US',{maximumFractionDigits:2})}</p></div>
+            <div><p className="text-xs text-muted-foreground">RPM</p><p className="text-lg font-semibold">{row.rpm==null?'—':formatCurrency(row.rpm)}</p></div>
+          </CardContent>
+        </Card>)}
+      </div> : <p className="text-sm text-muted-foreground">No managers with gross above $0.</p>}
   </CardContent></Card>;
 }
