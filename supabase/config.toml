@@ -159,3 +159,6 @@ verify_jwt = true
 [functions.hos-load-check]
 # Validates user JWTs and the existing cron secret inside the handler.
 verify_jwt = false
+
+[functions.send-low-drive-reminders]
+verify_jwt = false
