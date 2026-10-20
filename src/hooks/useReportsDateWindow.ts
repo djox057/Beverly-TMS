@@ -818,6 +818,12 @@ export const useReportsDateWindow = (options: ReportsDateWindowOptions) => {
       console.timeEnd('[scope] office-lookup');
       return { driverIds: [], dispatcherIds: [] };
     }
+    if (priorityOffice === "__all__") {
+      return {
+        driverIds: [...new Set([...allScopes.values()].flatMap(scope => scope.driverIds))],
+        dispatcherIds: [...new Set([...allScopes.values()].flatMap(scope => scope.dispatcherIds))],
+      };
+    }
     const result = allScopes.get(priorityOffice || '') || { driverIds: [], dispatcherIds: [] };
     console.timeEnd('[scope] office-lookup');
     return result;

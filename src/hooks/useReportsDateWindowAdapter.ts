@@ -29,6 +29,7 @@ interface UseReportsDateWindowAdapterOptions {
   selectedDate: Date;
   /** When true, bypasses Individual Mode office restrictions (for search results) */
   hasActiveSearch?: boolean;
+  allOffices?: boolean;
   /**
    * Optional spotlight driver id from the Reports load# search. Passed
    * through to useReportsDateWindow so the matched driver renders before
@@ -402,11 +403,13 @@ const getTransferAwareStops = (driverId: string, order: any, originalPickupStop:
  * to match the shape expected by Reports.tsx
  */
 export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapterOptions) => {
-  const { priorityOffice, dispatcherId, dispatcherProfileId, selectedDate, hasActiveSearch, spotlightDriverId } = options;
+  const { priorityOffice, dispatcherId, dispatcherProfileId, selectedDate, hasActiveSearch, spotlightDriverId, allOffices } = options;
   const queryClient = useQueryClient();
   
   // Get individual mode state - this controls database-level filtering
-  const { individualMode, currentUserDispatcherId, individualOverrideDriverIds } = useIndividualMode();
+  const { individualMode: savedIndividualMode, currentUserDispatcherId, individualOverrideDriverIds: savedOverrideDriverIds } = useIndividualMode();
+  const individualMode = allOffices ? false : savedIndividualMode;
+  const individualOverrideDriverIds = allOffices ? null : savedOverrideDriverIds;
   
   // Track previous mode to detect changes and invalidate cache
   const prevModeRef = useRef<{ individualMode: boolean; userId: string | null } | null>(null);
@@ -2050,7 +2053,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     // Convert to array and filter by office if needed
     let groupedData = Array.from(dispatcherGroups.values());
 
-    if (priorityOffice) {
+    if (priorityOffice && priorityOffice !== "__all__") {
       groupedData = groupedData.filter((g) => g.office === priorityOffice);
     }
 
@@ -2096,7 +2099,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         const offDutyDispatcherInfo = dispatcherMap.get(offDutyDispatcherId);
         
         // Skip if this office doesn't match the filter
-        if (priorityOffice && offDutyDispatcherInfo?.office !== priorityOffice) continue;
+        if (priorityOffice && priorityOffice !== "__all__" && offDutyDispatcherInfo?.office !== priorityOffice) continue;
 
         const offDutyDispatcherName = offDutyDispatcherInfo?.full_name || offDutyDispatcherInfo?.email || "Unknown";
 

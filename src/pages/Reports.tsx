@@ -1,3 +1,4 @@
+import { closeWatchGroups, isCloseWatchUrgent } from "@/lib/closeWatch";
 import { useChicagoToday, useMandatoryYardRepairs } from "@/hooks/useMandatoryYardRepairs";
 import { estimatedRoadMiles } from "@/utils/truckProximity";
 import { getActiveMandatoryYardRepairAlerts, hasActiveMandatoryYardRepairDueWithin, hasOverdueTruckRequirement } from "@/lib/yardRepairDue";
@@ -725,10 +726,11 @@ const Reports = () => {
   const activeHook = useReportsDateWindowAdapter({
     // When a virtual tab ("BG", "MY DRIVERS") is active, do not constrain by a single
     // office value; the individual-mode driver-id scope already narrows correctly.
-    priorityOffice: (hasCoverageScope && individualMode) || (activeTab === "BG" && useCombinedBgTab) ? null : activeTab,
+    priorityOffice: showCloseWatch ? "__all__" : (hasCoverageScope && individualMode) || (activeTab === "BG" && useCombinedBgTab) ? null : activeTab,
     dispatcherId: profile?.user_id || null,
     dispatcherProfileId: profile?.id || null,
     selectedDate: selectedDateForWindow,
+    allOffices: showCloseWatch,
     hasActiveSearch, // Bypass Individual Mode office restrictions when searching
     spotlightDriverId,
   });
@@ -4067,14 +4069,12 @@ const Reports = () => {
 
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {
-    let reports = filterReportsByOffice(activeTab);
-
     if (showCloseWatch) {
-      reports = reports.map((group) => ({
-        ...group,
-        trucks: group.trucks.filter((truck) => truck.closeWatch === true),
-      })).filter((group) => group.trucks.length > 0);
+      return closeWatchGroups(filterReportGroups(groupedReports, {
+        ...searchFilters, offices: undefined, driverIds: undefined,
+      }));
     }
+    const reports = filterReportsByOffice(activeTab);
 
     // Two week notice filter: show only trucks with drivers on 2-week notice
     if (showTwoWeekNotice) {
@@ -4261,6 +4261,8 @@ const Reports = () => {
   }, [
     activeTab,
     filterReportsByOffice,
+    groupedReports,
+    searchFilters,
     showEmptyTrucks,
     showCloseWatch,
     showNewDrivers,
@@ -4352,6 +4354,7 @@ const Reports = () => {
     () => ({}),
     [
       editing,
+      showCloseWatch,
       expandedTruckMap,
       expandedDispatcherMap,
       calendarDates,
@@ -4874,7 +4877,7 @@ const Reports = () => {
               <div className="px-4 py-2">
                 {activeOfficeReports.slice(0, visibleGroupCount).map((group) => (
                   <MemoizedDispatcherGroup
-                    key={group.dispatcherId}
+                    key={`${group.dispatcherId}-${group.closeWatchSection || "default"}`}
                     group={group}
                     memoKey={groupMemoKey}
                     renderGroup={() => {
@@ -5323,11 +5326,14 @@ const Reports = () => {
                                     const yardRepairIconRed = hasActiveMandatoryYardRepairDueWithin(yardRepairWarnings, repairToday, 5);
                                     const yardRepairTruckAndDriverRed = hasActiveMandatoryYardRepairDueWithin(yardRepairWarnings, repairToday, 2);
                                     const overdueRequirement = hasOverdueTruckRequirement(yardRepairTasks.filter(task => task.service_type !== "mandatory_yard_repair"), truck.dot_inspection_date, truck.trailer_dot_inspection_date, repairToday);
-                                    const driverCellStyle = getDriverCellStyle(truck);
+                                    const closeWatchUrgent = showCloseWatch && isCloseWatchUrgent(truck);
+                                    const driverCellStyle = closeWatchUrgent
+                                      ? { backgroundColor: "hsl(0, 72%, 53%)", color: "white" }
+                                      : getDriverCellStyle(truck);
                                     const shouldShowDrugTestUI = isNew && canManageDrugTests;
                                     return (
                                       <React.Fragment key={truck.id}>
-                                        <tr className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
+                                        <tr className={closeWatchUrgent ? "bg-red-500/10 outline outline-2 -outline-offset-2 outline-red-500" : truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
                                           <td
                                             className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium"
                                             style={{
@@ -5338,6 +5344,7 @@ const Reports = () => {
                                             }}
                                           >
                                             <div className="flex flex-col gap-0.5">
+                                              {closeWatchUrgent && <span className="font-bold text-red-600">Drive &lt; 1h</span>}
                                               <div className="flex items-center gap-1 font-bold text-black">
                                                 <span className={overdueRequirement || yardRepairTruckAndDriverRed ? "font-bold text-red-600" : undefined} title={overdueRequirement ? "Overdue DOT inspection" : yardRepairTruckAndDriverRed ? "Mandatory Yard Repair due within two days or overdue" : undefined}>{truck.truckNumber}</span>
                                                 {yardRepairWarnings.length > 0 && (
@@ -5496,6 +5503,7 @@ const Reports = () => {
                                               maxWidth: "163px",
                                               ...driverCellStyle,
                                             }}
+                                            title={closeWatchUrgent ? "Close Watch: less than 1 hour of drive time" : undefined}
                                             onClick={(e) => {
                                               // Only trigger drug test dialog if clicking on the cell itself, not the info button
                                               if (
