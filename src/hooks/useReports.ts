@@ -882,7 +882,7 @@ export const useReports = (options?: UseReportsOptions) => {
       .from("trucks")
       // Only the columns normal, team and off-duty report rows actually use.
       .select(
-        "id, truck_number, trailer_id, driver1_id, driver2_id, company_id, dispatcher_id, status, is_active, needs_recovery, miles, miles_away, eta_minutes, source, vin, oos, oil_change_date, tires_swap_date, maintenance_check_date, last_oil_change_miles, dot_inspection_date, samsara_insured, samsara_account, samsara_insured_updated_at, created_at, updated_at",
+        "id, truck_number, trailer_id, driver1_id, driver2_id, company_id, dispatcher_id, status, is_active, needs_recovery, miles, miles_away, eta_minutes, source, vin, oil_change_date, tires_swap_date, maintenance_check_date, last_oil_change_miles, dot_inspection_date, samsara_insured, samsara_account, samsara_insured_updated_at, created_at, updated_at",
       )
       .order("id", { ascending: true });
 
@@ -1752,7 +1752,6 @@ export const useReports = (options?: UseReportsOptions) => {
               milesAway: truck.miles_away,
               etaMinutes: truck.eta_minutes,
               truckVin: (truck as any).vin || null,
-              truckOos: (truck as any).oos ?? false,
               samsaraInsured: (truck as any).samsara_insured ?? null,
               samsaraAccount: (truck as any).samsara_account ?? null,
               samsaraInsuredUpdatedAt: (truck as any).samsara_insured_updated_at ?? null,

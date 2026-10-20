@@ -4,7 +4,6 @@ import { getActiveMandatoryYardRepairAlerts, hasActiveMandatoryYardRepairDueWith
 import { TruckRepairDeadlines } from "@/components/reports/TruckRepairDeadlines";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { CoiRequestDialog } from "@/components/reports/CoiRequestDialog";
-import { TruckOosCheckbox } from "@/components/reports/TruckOosCheckbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -150,8 +149,6 @@ import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { useTruckInsurance } from "@/hooks/useTruckInsurance";
-import { useTruckOosRealtime } from "@/hooks/useTruckOosRealtime";
-import { useTruckOosOverrides } from "@/hooks/useTruckOosOverrides";
 
 import { usePrefetchTruckMatches } from "@/hooks/useLoadSuggestions";
 import LoadSuggestionsDialog from "@/components/reports/LoadSuggestionsDialog";
@@ -496,8 +493,6 @@ const Reports = () => {
   const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
   const { byTruck: yardRepairsByTruck } = useMandatoryYardRepairs(true);
   const repairToday = useChicagoToday();
-  useTruckOosRealtime();
-  const resolveTruckOos = useTruckOosOverrides();
 
   const { individualMode, setIndividualMode, individualOverrideDriverIds } = useIndividualMode();
   const { insuranceByTruckId } = useTruckInsurance();
@@ -541,8 +536,6 @@ const Reports = () => {
     setShowLateTrucks,
     showProblems,
     setShowProblems,
-    showOosTrucks,
-    setShowOosTrucks,
     truckDriverFilter,
     setTruckDriverFilter,
     dispatchNameFilter,
@@ -4104,19 +4097,6 @@ const Reports = () => {
         .filter((group) => group.trucks.length > 0);
     }
 
-    // OOS trucks filter: show only trucks flagged out-of-service (insurance)
-    if (showOosTrucks) {
-      return reports
-        .map((group) => {
-          const oosTrucks = group.trucks.filter((truck) => !!(truck as any).truckOos);
-          return {
-            ...group,
-            trucks: oosTrucks,
-          };
-        })
-        .filter((group) => group.trucks.length > 0);
-    }
-
     // New drivers filter: show only trucks with no loads ever OR exactly 1 load with pickup today
     if (showNewDrivers) {
       const today = getChicagoToday();
@@ -4277,7 +4257,6 @@ const Reports = () => {
     showTwoWeekNotice,
     showLateTrucks,
     showProblems,
-    showOosTrucks,
     lateTrucks,
     hasDriverProblem,
   ]);
@@ -4804,21 +4783,7 @@ const Reports = () => {
                     <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                     Late trucks
                   </Button>
-                  {(hasRole("supervisor") ||
-                    hasRole("manager") ||
-                    hasRole("admin") ||
-                    hasRole("safety") ||
-                    hasRole("dispatch")) && (
-                    <Button
-                      variant={showOosTrucks ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setShowOosTrucks(!showOosTrucks)}
-                      className="gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
-                    >
-                      <ShieldOff className="h-3 w-3 sm:h-4 sm:w-4" />
-                      OOS trucks
-                    </Button>
-                  )}
+
                   {(hasRole("manager") || hasRole("admin") || hasRole("safety")) && (
                     <>
                       <Button
@@ -5357,25 +5322,7 @@ const Reports = () => {
                                           >
                                             <div className="flex flex-col gap-0.5">
                                               <div className="flex items-center gap-1 font-bold text-black">
-                                                {resolveTruckOos(truck.id, !!(truck as any).truckOos) &&
-                                                truck.companyName?.toLowerCase().includes("ap silver trans") ? (
-                                                  <TooltipProvider>
-                                                    <Tooltip>
-                                                      <TooltipTrigger asChild>
-                                                        <span className="font-bold text-destructive cursor-help">
-                                                          {truck.truckNumber}
-                                                        </span>
-                                                      </TooltipTrigger>
-                                                      <TooltipContent>
-                                                        <p className="text-xs">
-                                                          Truck is out of service due to insurance
-                                                        </p>
-                                                      </TooltipContent>
-                                                    </Tooltip>
-                                                  </TooltipProvider>
-                                                ) : (
-                                                  <span className={overdueRequirement || yardRepairTruckAndDriverRed ? "font-bold text-red-600" : undefined} title={overdueRequirement ? "Overdue DOT inspection" : yardRepairTruckAndDriverRed ? "Mandatory Yard Repair due within two days or overdue" : undefined}>{truck.truckNumber}</span>
-                                                )}
+                                                <span className={overdueRequirement || yardRepairTruckAndDriverRed ? "font-bold text-red-600" : undefined} title={overdueRequirement ? "Overdue DOT inspection" : yardRepairTruckAndDriverRed ? "Mandatory Yard Repair due within two days or overdue" : undefined}>{truck.truckNumber}</span>
                                                 {yardRepairWarnings.length > 0 && (
                                                   <Popover>
                                                     <PopoverTrigger asChild>
@@ -6167,21 +6114,7 @@ const Reports = () => {
                                                                   </p>
                                                                   <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                   <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
-                                                                  {(hasRole("manager") ||
-                                                                    hasRole("admin") ||
-                                                                    hasRole("dispatch")) &&
-                                                                    truck.id &&
-                                                                    truck.companyName
-                                                                      ?.toLowerCase()
-                                                                      .includes("ap silver trans") && (
-                                                                      <TruckOosCheckbox
-                                                                        truckId={truck.id}
-                                                                        checked={resolveTruckOos(
-                                                                          truck.id,
-                                                                          !!(truck as any).truckOos,
-                                                                        )}
-                                                                      />
-                                                                    )}
+
                                                                 </PopoverContent>
                                                               </Popover>
                                                               {truck.trailerNumber && (
@@ -6521,21 +6454,7 @@ const Reports = () => {
                                                                 </p>
                                                                 <p>VIN: {(truck as any).truckVin || "N/A"}</p>
                                                                 <p>Plate: {(truck as any).truckPlate || "N/A"}</p>
-                                                                {(hasRole("manager") ||
-                                                                  hasRole("admin") ||
-                                                                  hasRole("dispatch")) &&
-                                                                  truck.id &&
-                                                                  truck.companyName
-                                                                    ?.toLowerCase()
-                                                                    .includes("ap silver trans") && (
-                                                                    <TruckOosCheckbox
-                                                                      truckId={truck.id}
-                                                                      checked={resolveTruckOos(
-                                                                        truck.id,
-                                                                        !!(truck as any).truckOos,
-                                                                      )}
-                                                                    />
-                                                                  )}
+
                                                               </PopoverContent>
                                                             </Popover>
                                                             {truck.trailerNumber && (

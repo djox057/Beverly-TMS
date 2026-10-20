@@ -6720,7 +6720,6 @@ export type Database = {
           oil_change_date: string | null
           oil_change_note: string | null
           oil_spec: string | null
-          oos: boolean
           plate: string | null
           plate_expiration_date: string | null
           pretrip_checked: boolean
@@ -6786,7 +6785,6 @@ export type Database = {
           oil_change_date?: string | null
           oil_change_note?: string | null
           oil_spec?: string | null
-          oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
           pretrip_checked?: boolean
@@ -6852,7 +6850,6 @@ export type Database = {
           oil_change_date?: string | null
           oil_change_note?: string | null
           oil_spec?: string | null
-          oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
           pretrip_checked?: boolean
@@ -7410,10 +7407,6 @@ export type Database = {
       }
       dispatcher_update_truck_oil_change_note: {
         Args: { _note: string; _truck_id: string }
-        Returns: undefined
-      }
-      dispatcher_update_truck_oos: {
-        Args: { _oos: boolean; _truck_id: string }
         Returns: undefined
       }
       dispatcher_update_truck_pretrip: {

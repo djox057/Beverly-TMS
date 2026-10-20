@@ -27,8 +27,6 @@ import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 import { AssignmentReasonDialog, AssignmentConflict } from "@/components/AssignmentReasonDialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useTruckOosRealtime } from "@/hooks/useTruckOosRealtime";
-import { useTruckOosOverrides } from "@/hooks/useTruckOosOverrides";
 import { useChangedTrucks } from "@/hooks/useChangedTrucks";
 import { TruckSourceSelect } from "@/components/TruckSourceSelect";
 import { normalizeTruckSource } from "@/lib/truckSources";
@@ -58,7 +56,6 @@ interface TruckFormData {
   maintenance_check_date: string;
   company_id: string;
   dispatcher_id: string;
-  oos: boolean;
 }
 
 interface TerminationNote {
@@ -71,8 +68,6 @@ interface TerminationNote {
 const ITEMS_PER_PAGE = 100;
 
 const Trucks = () => {
-  useTruckOosRealtime();
-  const resolveTruckOos = useTruckOosOverrides();
   const [searchTerm, setSearchTerm] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -120,7 +115,6 @@ const Trucks = () => {
     maintenance_check_date: "",
     company_id: "",
     dispatcher_id: "",
-    oos: false
   });
   const vinStatus = useVinAutofill(formData, setFormData, isAddDialogOpen, true);
   const { user } = useAuth();
@@ -151,11 +145,6 @@ const Trucks = () => {
     allDispatchers
   } = useFleetManagement();
 
-  const isApSilverSelected = useMemo(() => {
-    const name = companies?.find(c => c.id === formData.company_id)?.name || "";
-    return name.toLowerCase().includes("ap silver trans");
-  }, [companies, formData.company_id]);
-
   // Filter trucks based on search term, company filter, assignment filter, and status filter
   const filteredTrucks = useMemo(() => {
     return trucks?.filter(truck => {
@@ -182,12 +171,11 @@ const Trucks = () => {
       const matchesStatus = statusFilter === "all" || 
         (statusFilter === "active" && truck.is_active !== false) || 
         (statusFilter === "inactive" && truck.is_active === false) ||
-        (statusFilter === "oos" && resolveTruckOos(truck.id, truck.oos === true)) ||
         (statusFilter === "changed" && truck.is_active !== false && !!changedTruckIds?.has(truck.id));
       
       return matchesSearch && matchesCompany && matchesAssignment && matchesStatus;
     }) || [];
-  }, [trucks, searchTerm, companyFilter, assignmentFilter, statusFilter, changedTruckIds, resolveTruckOos]);
+  }, [trucks, searchTerm, companyFilter, assignmentFilter, statusFilter, changedTruckIds]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTrucks.length / ITEMS_PER_PAGE);
@@ -225,7 +213,6 @@ const Trucks = () => {
       maintenance_check_date: "",
       company_id: "",
       dispatcher_id: "",
-      oos: false
     });
   };
   const handleAddTruck = async (e: React.FormEvent) => {
@@ -498,7 +485,6 @@ const Trucks = () => {
         oil_change_date: formData.oil_change_date || null,
         tires_swap_date: formData.tires_swap_date || null,
         maintenance_check_date: formData.maintenance_check_date || null,
-        oos: formData.oos
       }).eq('id', editingTruck.id).select('id');
       if (error) throw error;
       // RLS blocks truck updates for dispatch-only users: 0 rows means the write silently did nothing
@@ -673,7 +659,6 @@ const Trucks = () => {
       maintenance_check_date: truck.maintenance_check_date || "",
       company_id: truck.company_id || "",
       dispatcher_id: truck.dispatcher_id || "",
-      oos: truck.oos === true
     });
     
     // Store original assignments for comparison
@@ -1098,7 +1083,6 @@ const Trucks = () => {
                   options={[
                     { value: "active", label: "Active" },
                     { value: "inactive", label: "Inactive" },
-                    { value: "oos", label: "OOS" },
                     { value: "changed", label: "Changed" },
                     { value: "all", label: "All Status" }
                   ]}
@@ -1184,13 +1168,7 @@ const Trucks = () => {
                     <>
                       {paginatedTrucks.map(truck => <TableRow key={truck.id} className={statusFilter === "changed" && changedTruckIds?.has(truck.id) ? "bg-destructive-light hover:bg-destructive-light" : undefined}>
                         <TableCell className="font-medium text-center whitespace-nowrap">
-                          {resolveTruckOos(truck.id, truck.oos === true) ? (
-                            <span className="inline-flex items-center rounded-md border-2 border-destructive bg-destructive/10 px-2 py-0.5 text-destructive font-semibold" title="Out of Service">
-                              {truck.truck_number}
-                            </span>
-                          ) : (
-                            truck.truck_number
-                          )}
+                          {truck.truck_number}
                         </TableCell>
                         <TableCell className="font-mono text-sm text-center whitespace-nowrap">{truck.vin || "—"}</TableCell>
                         <TableCell className="text-center whitespace-nowrap">
@@ -1500,17 +1478,6 @@ const Trucks = () => {
                     />
                   </div>
                 </div>
-
-                {isApSilverSelected && (
-                  <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
-                    <Checkbox
-                      id="edit_oos"
-                      checked={formData.oos}
-                      onCheckedChange={checked => setFormData({ ...formData, oos: checked === true })}
-                    />
-                    <Label htmlFor="edit_oos" className="cursor-pointer text-destructive">OOS (Out of Service)</Label>
-                  </div>
-                )}
 
 
 
