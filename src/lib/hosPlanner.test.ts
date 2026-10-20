@@ -51,6 +51,21 @@ describe('HOS load forecasts',()=>{
       {label:'Delivery',miles:275,start:at('2026-10-20T16:00:00'),end:at('2026-10-20T18:00:00')}];
     const result=assessHos(input);expect(result.color).toBe('green');expect(result.cycleRemainingMinutes).toBeLessThan(1200);
   });
+  it('finishes a long trip after a 10-hour rest instead of requiring same-day delivery',()=>{
+    const input=fixture();input.clock!.drive=180;
+    input.legs=[{label:'Pickup',miles:0,start:now,end:now+2*3600000},
+      {label:'Delivery',miles:440,start:at('2026-10-20T06:00:00'),end:at('2026-10-20T08:00:00')}];
+    // 08–10 loading, 10–13 driving, 13–23 rest, 23–04 driving.
+    // The driver waits until 06:00 and unloads for two hours.
+    const result=assessHos(input);
+    expect(result.color).toBe('green');
+    expect(result.earliestArrival).toBe(new Date(at('2026-10-20T04:00:00')).toISOString());
+    expect(result.cycleRemainingMinutes).toBe(2280); // 8h driving + 4h service.
+    expect(result.reasons).toContain('1 qualifying 10-hour rest period(s) included.');
+    input.legs[1].start=at('2026-10-20T01:00:00');
+    input.legs[1].end=at('2026-10-20T02:00:00');
+    expect(assessHos(input).color).toBe('red');
+  });
   it('uses the correct expired day for tomorrow recap, not any convenient historical day',()=>{
     const input=fixture();input.clock!.cycle=60;
     input.legs=[{label:'Pickup',miles:0,start:at('2026-10-20T01:00:00'),end:at('2026-10-20T02:00:00')},

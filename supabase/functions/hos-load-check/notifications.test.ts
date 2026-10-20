@@ -1,7 +1,22 @@
 import { processHosChecks } from './notifications.ts';
-import { buildLegs, stopZone } from './model.ts';
+import { buildLegs, stopZone, savedDraft } from './model.ts';
+import { wallTime } from '../_shared/hos-planner.ts';
 
 function assert(value:unknown,message='Assertion failed'):asserts value {if(!value) throw new Error(message);}
+Deno.test('saved HOS checks use rescheduled stop windows, not original-date audit notes',async()=>{
+  const order={id:'rescheduled',driver1_id:'driver-1',loaded_miles:220,dh_miles:55,
+    date_change_notes:'Supposed to deliver on 10/20/2026',
+    pickup_drops:[
+      {type:'delivery',sequence_number:2,datetime:'2026-10-22T12:00:00+00:00',end_datetime:'2026-10-22T15:00:00+00:00',latitude:41.88,longitude:-87.63},
+      {type:'pickup',sequence_number:1,datetime:'2026-10-21T08:00:00+00:00',end_datetime:'2026-10-21T10:00:00+00:00',latitude:41.88,longitude:-87.63},
+    ]};
+  const chain:any={select:()=>chain,eq:()=>chain,single:async()=>({data:order})};
+  const {draft}=await savedDraft({from:()=>chain},order.id);
+  const {legs}=buildLegs(draft.stops,draft.dhMiles!,draft.loadedMiles!);
+  assert(legs[0].start===wallTime('2026-10-21T08:00:00','America/Chicago'));
+  assert(legs[1].start===wallTime('2026-10-22T12:00:00','America/Chicago'));
+  assert(legs[1].end===wallTime('2026-10-22T15:00:00','America/Chicago'));
+});
 function mockDb(color='red',office:string|null='Čačak',managers=1) {
   const event:any={id:'event-1',order_id:'order-1',driver_id:'driver-1',dispatcher_id:'dispatcher-1',attempts:1,assessment:{color,summary:'Pickup <late>',reasons:['Needs more time']}};
   const patches:any[]=[];

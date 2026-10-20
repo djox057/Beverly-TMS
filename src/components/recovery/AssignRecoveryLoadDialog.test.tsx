@@ -88,6 +88,20 @@ it('clears the old driver, trailer and deadhead when switching to an unassigned 
   expect(screen.getByRole('combobox', { name: 'Select trailer' })).toHaveValue('');
   expect(screen.getByPlaceholderText('0')).toHaveValue(null);
 });
+it('refreshes cached appointments before previewing a rescheduled prebook', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client.setQueryData(['hos-prebook-order', 'prebook-1'], {
+    loaded_miles: 256, booked_by_company: {name: 'BF Prime LLC'},
+    pickup_drops: [{type:'pickup',datetime:'2026-10-20T08:00:00+00:00',sequence_number:1},
+      {type:'delivery',datetime:'2026-10-20T18:00:00+00:00',sequence_number:2}],
+  });
+  render(<QueryClientProvider client={client}><AssignRecoveryLoadDialog open onOpenChange={vi.fn()} orderId="prebook-1" isPrebook pickupAddress="Dallas, TX" /></QueryClientProvider>);
+  await screen.findByRole('option', {name: /BFP 157 - Driver One/});
+  fireEvent.change(screen.getByRole('combobox', {name:'Select truck'}), {target:{value:'truck-157'}});
+  await waitFor(() => expect(fixture.invoke).toHaveBeenCalledWith('hos-load-check', {body:{mode:'preview',draft:expect.objectContaining({
+    stops:[expect.objectContaining({datetime:'2026-10-21T19:00:00+00:00'}),expect.objectContaining({datetime:'2026-10-22T12:30:00+00:00'})],
+  })}}), {timeout:2500});
+});
 it('shows unavailable when the saved prebook cannot be loaded', async () => {
   fixture.orderError = new Error('Load not accessible');
   openDialog();

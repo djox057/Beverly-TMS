@@ -118,7 +118,10 @@ export function AssignRecoveryLoadDialog({
       if(error) throw error;
       return data;
     },
-    staleTime: 30000,
+    // Reschedules can happen between openings or while assignment is open.
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: 60000,
   });
   const hos = useHosAssessment(hosOrder ? {
     orderId, driverId:driverId||null, truckId:truckId||null,
