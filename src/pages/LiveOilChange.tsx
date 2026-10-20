@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
+import { OilChangeEditCell } from "@/components/liveOilChange/OilChangeEditCell";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -91,7 +91,7 @@ const MaintenanceDateCell = ({
   placeholder = "MM/DD/YYYY",
 }: {
   value: string | null;
-  onChange: (iso: string | null) => void;
+  onChange: (iso: string | null) => void | Promise<void>;
   placeholder?: string;
 }) => {
   const [open, setOpen] = useState(false);
@@ -122,24 +122,15 @@ const MaintenanceDateCell = ({
         <PopoverTrigger asChild>
           {iconBtn}
         </PopoverTrigger>
-        <Input
-        key={value ?? "empty"}
-        defaultValue={value ? fmtDate(value) : ""}
-        placeholder={placeholder}
-        onBlur={(e) => {
-          const raw = e.target.value.trim();
-          if (raw === "") {
-            if (value !== null) onChange(null);
-            return;
-          }
-          const parsed = parseDateInput(raw);
-          if (parsed === "__invalid__") {
-            toast({ title: "Invalid date", description: "Use MM/DD/YYYY", variant: "destructive" });
-            e.target.value = value ? fmtDate(value) : "";
-            return;
-          }
-          if (parsed !== value) onChange(parsed);
-        }}
+        <OilChangeEditCell
+          value={value ? fmtDate(value) : ""}
+          label="Maintenance date"
+          placeholder={placeholder}
+          onSave={async raw => {
+            const parsed = parseDateInput(raw.trim());
+            if (parsed === "__invalid__") throw new Error("Use MM/DD/YYYY");
+            if (parsed !== value) await onChange(parsed);
+          }}
           className={cn(bareInput, "min-w-0 flex-1 text-center")}
         />
         <PopoverTrigger asChild>
@@ -156,9 +147,9 @@ const MaintenanceDateCell = ({
         <Calendar
           mode="single"
           selected={selectedDate}
-          onSelect={(d) => {
-            if (d) onChange(format(d, "yyyy-MM-dd"));
-            setOpen(false);
+          onSelect={async (d) => {
+            try { if (d) await onChange(format(d, "yyyy-MM-dd")); setOpen(false); }
+            catch { /* The update mutation displays the error. */ }
           }}
           initialFocus
           className={cn("p-3 pointer-events-auto")}
@@ -174,7 +165,7 @@ type TruckUpdate = { id: string; patch: Partial<TruckRow> };
 
 // The period controls must not rebuild every truck's input and popover tree.
 const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, errorMessage, canEditAll, isDispatcher,
-  odometerFileMap, onUpdate, updatePending, onUpload, onView }: {
+  odometerFileMap, onUpdate, onEdit, updatePending, onUpload, onView }: {
   rows: readonly TruckRow[];
   isLoading: boolean;
   errorMessage: string | null;
@@ -182,6 +173,7 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
   isDispatcher: boolean;
   odometerFileMap: Record<string, string | null>;
   onUpdate: (update: TruckUpdate) => void;
+  onEdit: (update: TruckUpdate) => Promise<void>;
   updatePending: boolean;
   onUpload: (truckId: string, file: File) => Promise<void>;
   onView: (truckId: string, fileName: string) => Promise<void>;
@@ -271,7 +263,7 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
                               value={t.oil_change_date}
                               onChange={(v) => {
                                 if (v !== (t.oil_change_date ?? null)) {
-                                  onUpdate({ id: t.id, patch: { oil_change_date: v as any } });
+                                  return onEdit({ id: t.id, patch: { oil_change_date: v as any } });
                                 }
                               }}
                             />
@@ -298,19 +290,11 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Input
-                              key={t.last_oil_change_miles ?? "empty-locm"}
-                              type="number"
-                              defaultValue={t.last_oil_change_miles ?? ""}
-                              onBlur={(e) => {
-                                const raw = e.target.value.trim();
-                                const v = raw === "" ? null : Number(raw);
-                                if (v !== (t.last_oil_change_miles ?? null)) {
-                                  onUpdate({ id: t.id, patch: { last_oil_change_miles: v as any } });
-                                }
+                            <OilChangeEditCell value={t.last_oil_change_miles} label={`Last oil change mileage · Truck ${t.truck_number}`} type="number" readOnly={!canEditAll} className={bareInput}
+                              onSave={async raw => {
+                                const value = raw.trim() === "" ? null : Number(raw);
+                                if (value !== (t.last_oil_change_miles ?? null)) await onEdit({id:t.id,patch:{last_oil_change_miles:value}});
                               }}
-                              className={cn(bareInput, "no-spinner")}
-                              readOnly={!canEditAll}
                             />
                             <MileageHistoryPopover
                               truckId={t.id}
@@ -329,7 +313,7 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
                                   ? t.miles_updated_at.slice(0, 10)
                                   : null;
                                 if (v !== currentDate) {
-                                  onUpdate({ id: t.id, patch: { miles_updated_at: v as any } });
+                                  return onEdit({ id: t.id, patch: { miles_updated_at: v as any } });
                                 }
                               }}
                             />
@@ -339,18 +323,11 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Input
-                              key={t.miles ?? "empty-miles"}
-                              type="number"
-                              defaultValue={t.miles ?? ""}
-                              onBlur={(e) => {
-                                const raw = e.target.value.trim();
-                                const v = raw === "" ? null : Number(raw);
-                                if (v !== (t.miles ?? null)) {
-                                  onUpdate({ id: t.id, patch: { miles: v as any } });
-                                }
+                            <OilChangeEditCell value={t.miles} label={`Odometer · Truck ${t.truck_number}`} type="number" readOnly={false} className={bareInput}
+                              onSave={async raw => {
+                                const value = raw.trim() === "" ? null : Number(raw);
+                                if (value !== (t.miles ?? null)) await onEdit({id:t.id,patch:{miles:value}});
                               }}
-                              className={cn(bareInput, "no-spinner")}
                             />
                             <MileageHistoryPopover
                               truckId={t.id}
@@ -422,50 +399,28 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
                           })()}
                         </TableCell>
                         <TableCell>
-                          <Textarea
-                            key={t.oil_change_note ?? "empty-note"}
-                            defaultValue={t.oil_change_note ?? ""}
-                            onBlur={(e) => {
-                              const v = e.target.value.trim() || null;
-                              if (v !== (t.oil_change_note ?? null)) {
-                                onUpdate({ id: t.id, patch: { oil_change_note: v as any } });
-                              }
-                            }}
-                            className={cn(bareInput, "min-h-7 py-1 resize-none")}
-                            placeholder="—"
-                            readOnly={!canEditAll && !isDispatcher}
-                          />
+                          <OilChangeEditCell value={t.oil_change_note} label={`Oil change note · Truck ${t.truck_number}`} multiline readOnly={!canEditAll && !isDispatcher} className={bareInput}
+                              onSave={async raw => {
+                                const value = raw.trim() || null;
+                                if (value !== (t.oil_change_note ?? null)) await onEdit({id:t.id,patch:{oil_change_note:value}});
+                              }}
+                            />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            key={t.last_oc_invoice ?? "empty-inv"}
-                            defaultValue={t.last_oc_invoice ?? ""}
-                            onBlur={(e) => {
-                              const v = e.target.value.trim() || null;
-                              if (v !== (t.last_oc_invoice ?? null)) {
-                                onUpdate({ id: t.id, patch: { last_oc_invoice: v as any } });
-                              }
-                            }}
-                            className={bareInput}
-                            placeholder="—"
-                            readOnly={!canEditAll}
-                          />
+                          <OilChangeEditCell value={t.last_oc_invoice} label={`Last OC invoice · Truck ${t.truck_number}`} multiline readOnly={!canEditAll} className={bareInput}
+                              onSave={async raw => {
+                                const value = raw.trim() || null;
+                                if (value !== (t.last_oc_invoice ?? null)) await onEdit({id:t.id,patch:{last_oc_invoice:value}});
+                              }}
+                            />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Input
-                              key={t.air_filter ?? "empty-af"}
-                              type="number"
-                              defaultValue={t.air_filter ?? ""}
-                              onBlur={(e) => {
-                                const raw = e.target.value.trim();
-                                const v = raw === "" ? null : parseInt(raw, 10);
-                                if (v !== (t.air_filter ?? null)) {
-                                  onUpdate({ id: t.id, patch: { air_filter: v as any } });
-                                }
+                            <OilChangeEditCell value={t.air_filter} label={`Air filter · Truck ${t.truck_number}`} type="number" readOnly={!canEditAll} className={bareInput}
+                              onSave={async raw => {
+                                const value = raw.trim() === "" ? null : Number(raw);
+                                if (value !== (t.air_filter ?? null)) await onEdit({id:t.id,patch:{air_filter:value}});
                               }}
-                              className={cn(bareInput, "no-spinner")}
-                              readOnly={!canEditAll}
                             />
                             <MileageHistoryPopover truckId={t.id} field="air_filter" label="Air filter" />
                           </div>
@@ -874,7 +829,7 @@ const LiveOilChange = () => {
           {!showStatistics && statisticsSelection && <div className="mb-3 flex items-center gap-3 text-sm"><span>Category: {statisticsSelection.category === "oil" ? "Oil changes" : statisticsSelection.category === "air" ? "Air filters" : "Fleet PM Readiness"} · {statisticsSelection.status}</span><button type="button" className="underline" onClick={() => setStatisticsSelection(null)}>Clear category filter</button></div>}
           <LiveOilChangeTable rows={pageTrucks} isLoading={tableLoading} errorMessage={tableError}
             canEditAll={canEditAll} isDispatcher={isDispatcher} odometerFileMap={odometerFileMap}
-            onUpdate={updateTruck.mutate} updatePending={updateTruck.isPending} onUpload={uploadOdometer} onView={viewOdometer} />
+            onUpdate={updateTruck.mutate} onEdit={updateTruck.mutateAsync} updatePending={updateTruck.isPending} onUpload={uploadOdometer} onView={viewOdometer} />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm" aria-label="Truck pagination">
             <span className="text-muted-foreground">{displayedTrucks.length ? `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, displayedTrucks.length)} of ${displayedTrucks.length} trucks` : "0 trucks"}</span>
             <div className="flex items-center gap-2">
