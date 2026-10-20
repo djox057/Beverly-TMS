@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { assessHos, wallTime, addDays, logDate, type HosPlanInput } from '../../supabase/functions/_shared/hos-planner';
+import { assessHos, wallTime, addDays, logDate, hosStopMinutes, type HosPlanInput } from '../../supabase/functions/_shared/hos-planner';
 const now=Date.parse('2026-10-19T13:00:00Z'); // 08:00 Chicago
 const at=(value:string)=>wallTime(value,'America/Chicago');
 const fixture=(overrides:Partial<HosPlanInput>={}):HosPlanInput=>({now,clock:{drive:660,shift:840,break:480,cycle:3000,updatedAt:new Date(now).toISOString(),sourceAt:new Date(now).toISOString(),status:'ON'},days:[],legs:[
@@ -8,6 +8,32 @@ const fixture=(overrides:Partial<HosPlanInput>={}):HosPlanInput=>({now,clock:{dr
   {label:'Delivery',miles:110,start:at('2026-10-19T16:00:00'),end:at('2026-10-19T18:00:00')},
 ],...overrides});
 describe('HOS load forecasts',()=>{
+  it('uses two hours for each single-load stop and one hour for each multi-load stop',()=>{
+    expect(hosStopMinutes([{type:'pickup'},{type:'delivery'}])).toBe(120);
+    expect(hosStopMinutes([{type:'pickup'},{type:'delivery'},{type:'delivery'}])).toBe(60);
+    expect(hosStopMinutes([{type:'pickup'},{type:'pickup'},{type:'delivery'}])).toBe(60);
+    const input=fixture();
+    input.legs=[{label:'Pickup',miles:0,start:now,end:now+60*60000},
+      {label:'Delivery',miles:55,start:now,end:now+300*60000}];
+    expect(assessHos(input).cycleRemainingMinutes).toBe(2700);
+    input.legs.splice(1,0,{label:'Pickup 2',miles:0,start:now,end:now+180*60000});
+    expect(assessHos(input).cycleRemainingMinutes).toBe(2760);
+  });
+  it.each([1,29,30])('keeps %i minutes late yellow and explains the lateness',late=>{
+    const input=fixture();
+    input.legs=[{label:'Pickup',miles:0,start:now,end:now+60*60000},
+      {label:'Delivery',miles:55,start:now,end:now+(180-late)*60000}];
+    const result=assessHos(input);
+    expect(result.color).toBe('yellow');
+    expect(result.bufferMinutes).toBe(-late);
+    expect(result.summary).toContain('late');
+  });
+  it('turns red at 31 minutes late',()=>{
+    const input=fixture();
+    input.legs=[{label:'Pickup',miles:0,start:now,end:now+60*60000},
+      {label:'Delivery',miles:55,start:now,end:now+149*60000}];
+    expect(assessHos(input).color).toBe('red');
+  });
   it('shows green for a comfortable same-day load',()=>expect(assessHos(fixture()).color).toBe('green'));
   it('shows yellow for missing/stale data and unassigned prebooks',()=>{
     expect(assessHos(fixture({clock:null})).color).toBe('yellow');

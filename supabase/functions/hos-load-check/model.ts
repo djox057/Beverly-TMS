@@ -1,4 +1,4 @@
-import { assessHos, wallTime, HOS_DEFAULTS, type HosAssessment, type HosLeg } from '../_shared/hos-planner.ts';
+import { assessHos, wallTime, HOS_DEFAULTS, hosStopMinutes, type HosAssessment, type HosLeg } from '../_shared/hos-planner.ts';
 import tzLookup from 'npm:tz-lookup@6.1.25';
 
 export function stopZone(stop: any) {
@@ -13,7 +13,7 @@ function geoMiles(a: any,b: any) {
   const h=Math.sin(x/2)**2+Math.cos(Number(a.latitude)*r)*Math.cos(Number(b.latitude)*r)*Math.sin(y/2)**2;
   return 3959*2*Math.atan2(Math.sqrt(h),Math.sqrt(Math.max(0,1-h)));
 }
-export function buildLegs(stops: any[], dh: number, loaded: number, existing = false): {legs:HosLeg[]; warnings:string[]} {
+export function buildLegs(stops: any[], dh: number, loaded: number, existing = false, serviceMinutes = hosStopMinutes(stops)): {legs:HosLeg[]; warnings:string[]} {
   const warnings:string[]=[];
   const weights=stops.slice(1).map((s,i)=>geoMiles(stops[i],s));
   const total=weights.reduce<number>((sum,v)=>sum+(v??0),0);
@@ -24,7 +24,7 @@ export function buildLegs(stops: any[], dh: number, loaded: number, existing = f
     const start=wallTime(s.datetime||'',zone||HOS_DEFAULTS.timeZone);
     const end=wallTime(s.end_datetime||s.datetime||'',zone||HOS_DEFAULTS.timeZone);
     return {miles:i===0 ? dh : total>0 && weights.every(w=>w!=null) ? loaded*(weights[i-1]||0)/total : loaded/Math.max(1,stops.length-1),
-      start,end,label:`${s.type==='pickup'?'Pickup':'Delivery'} ${i+1}`,existing};
+      start,end,label:`${s.type==='pickup'?'Pickup':'Delivery'} ${i+1}`,existing,serviceMinutes};
   });
   return {legs,warnings};
 }
@@ -80,7 +80,7 @@ export async function loadHosPlan(db: any, draft: any, now = Date.now()): Promis
       continue;
     }
     // The ELD snapshot already includes completed work; only future/remaining stops consume clocks.
-    const remaining=buildLegs(open,Number(order.dh_miles)||0,Number(order.loaded_miles)||0,true);
+    const remaining=buildLegs(open,Number(order.dh_miles)||0,Number(order.loaded_miles)||0,true,hosStopMinutes(stops));
     if(start<previousCommitmentEnd) uncertainties.push('Existing bookings overlap; their combined route needs confirmation.');
     const lastEnd=remaining.legs[remaining.legs.length-1]?.end;
     if(Number.isFinite(lastEnd)) previousCommitmentEnd=Math.max(previousCommitmentEnd,lastEnd!);

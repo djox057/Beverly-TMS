@@ -58,5 +58,10 @@ Deno.test('email failures retain the red assessment for an idempotent retry',asy
 Deno.test('multi-stop allocation preserves total miles and local stop timezones',()=>{
   const result=buildLegs([{type:'pickup',datetime:'2026-10-20T08:00:00',latitude:41.88,longitude:-87.63},{type:'delivery',datetime:'2026-10-20T18:00:00',latitude:40.71,longitude:-74.00}],55,800);
   assert(result.legs[0].miles+result.legs[1].miles===855);
+  assert(result.legs.every(leg=>leg.serviceMinutes===120));
+  const multi=buildLegs([{type:'pickup'},{type:'pickup'},{type:'delivery'}],0,100);
+  assert(multi.legs.every(leg=>leg.serviceMinutes===60));
+  const remaining=buildLegs([{type:'delivery'}],0,100,true,120);
+  assert(remaining.legs[0].serviceMinutes===120,'Remaining single-load delivery retains its two-hour service time');
   assert(stopZone({latitude:40.71,longitude:-74.00})==='America/New_York');
 });

@@ -1,4 +1,5 @@
-/** Forecast only: standard US property-carrying 70/8, 55 mph, 60 min/stop.
+/** Forecast only: standard US property-carrying 70/8, 55 mph, 120 min/stop
+ * for one pickup/one delivery, otherwise 60 min/stop.
  * No split-sleeper/adverse-condition exemptions are assumed. Minute stepping
  * keeps recaps, restarts and DST log-day boundaries in chronological order.
  */
@@ -24,6 +25,10 @@ export interface HosAssessment {
 const MINUTE = 60000;
 const dateFormatters = new Map<string, Intl.DateTimeFormat>();
 export const HOS_DEFAULTS = { timeZone: 'America/Chicago', mph: 55, stopMinutes: 60, bufferMinutes: 60 };
+export function hosStopMinutes(stops: {type:string}[]) {
+  return stops.length === 2 && stops.filter(stop=>stop.type==='pickup').length === 1
+    && stops.filter(stop=>stop.type==='delivery').length === 1 ? 120 : 60;
+}
 export function logDate(time: number, timeZone = HOS_DEFAULTS.timeZone) {
   if (!dateFormatters.has(timeZone)) dateFormatters.set(timeZone,new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }));
   return dateFormatters.get(timeZone)!.format(time);
@@ -65,6 +70,8 @@ function simulate(input: HosPlanInput, optimistic: boolean) {
   // A completed restart makes all older work ineligible for future recaps.
   let restartAt = restarted ? time - rest * MINUTE : -Infinity;
   const assumptions = new Set<string>();
+  const lateStops: string[] = [];
+  const targetStopMinutes = input.legs.filter(leg=>!leg.existing).length === 2 ? 120 : 60;
   function tick(kind: 'drive' | 'on' | 'off', count: number) {
     for (let m = 0; m < Math.ceil(count); m++) {
       const previousDay = date;
@@ -129,14 +136,15 @@ function simulate(input: HosPlanInput, optimistic: boolean) {
     if (!leg.existing && Number.isFinite(leg.end)) {
       const buffer = Math.floor((leg.end! - arrival) / MINUTE);
       minBuffer = Math.min(minBuffer, buffer);
-      if (buffer < 0) { failed = `${leg.label} is reached ${hours(-buffer)} after its appointment window.`; break; }
+      if (buffer < -30) { failed = `${leg.label} is reached ${hours(-buffer)} after its appointment window.`; break; }
+      if (buffer < 0) lateStops.push(`${leg.label} is reached ${hours(-buffer)} after its appointment window (within the 30-minute yellow tolerance).`);
     }
     if (Number.isFinite(leg.start) && leg.start! > time) tick('off', (leg.start! - time) / MINUTE);
-    tick('on', leg.serviceMinutes ?? HOS_DEFAULTS.stopMinutes);
+    tick('on', leg.serviceMinutes ?? (leg.existing ? HOS_DEFAULTS.stopMinutes : targetStopMinutes));
   }
   if (dailyRestCount) assumptions.add(`${dailyRestCount} qualifying 10-hour rest period(s) included.`);
   if (usedEstimatedRecap) assumptions.add(`Uses ${hours(recaps)} of estimated recap hours from observed duty history.`);
-  return { failed, arrival, minBuffer, cycle, recaps, uncertainRecap, usedEstimatedRecap, assumptions: [...assumptions] };
+  return { failed, arrival, minBuffer, cycle, recaps, uncertainRecap, usedEstimatedRecap, assumptions: [...assumptions, ...lateStops] };
 }
 
 export function assessHos(input: HosPlanInput): HosAssessment {
@@ -154,7 +162,7 @@ export function assessHos(input: HosPlanInput): HosAssessment {
   if (target[0].end! < input.now - 15 * MINUTE) return yellow('Historical load: current HOS cannot assess a past pickup.');
   const planned = simulate(input, false);
   const reasons = [`Current clocks: drive ${hours(c.drive)}, shift ${hours(c.shift)}, cycle ${hours(c.cycle)}.`,
-    ...(input.uncertainties || []), ...planned.assumptions, 'Estimated at 55 mph with 60 minutes per stop; stop times use local time.'];
+    ...(input.uncertainties || []), ...planned.assumptions, `Estimated at 55 mph with ${target.length===2 ? 120 : 60} minutes per stop for this load; stop times use local time. Up to 30 minutes late is yellow.`];
   if (planned.failed) {
     const best = simulate(input, true);
     if (best.failed) return {...base, color:'red', summary:best.failed, reasons, earliestArrival:new Date(best.arrival).toISOString(), bufferMinutes:best.minBuffer};
@@ -162,6 +170,6 @@ export function assessHos(input: HosPlanInput): HosAssessment {
   }
   const uncertain = input.uncertainties?.length || planned.usedEstimatedRecap || (planned.uncertainRecap && planned.cycle < 60);
   const tight = planned.minBuffer < HOS_DEFAULTS.bufferMinutes || planned.cycle < 60;
-  return {...base, color:uncertain || tight ? 'yellow' : 'green', summary:uncertain ? 'Schedule fits, with estimates to confirm.' : tight ? 'Schedule fits with a small HOS buffer.' : 'HOS friendly: schedule fits with a buffer.', reasons,
+  return {...base, color:uncertain || tight ? 'yellow' : 'green', summary:planned.minBuffer<0 ? `Schedule is ${hours(-planned.minBuffer)} late, within the 30-minute yellow tolerance.` : uncertain ? 'Schedule fits, with estimates to confirm.' : tight ? 'Schedule fits with a small HOS buffer.' : 'HOS friendly: schedule fits with a buffer.', reasons,
     earliestArrival:new Date(planned.arrival).toISOString(), bufferMinutes:Number.isFinite(planned.minBuffer) ? planned.minBuffer : undefined, cycleRemainingMinutes:Math.max(0,planned.cycle), recapMinutes:planned.recaps};
 }
