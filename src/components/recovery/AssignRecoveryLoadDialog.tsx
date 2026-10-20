@@ -16,6 +16,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
 import { calculateDhMiles, geocodeAddress } from "@/utils/mapboxRouteCalculator";
 import { suggestedPrebookTrucks } from "@/utils/truckProximity";
+import { getCompanySuffix } from "@/utils/formatInternalLoadNumber";
 import { useHosAssessment, checkCreatedOrderHos } from "@/hooks/useHosAssessment";
 import { HosLoadLight } from "@/components/HosLoadLight";
 import { previousDelivery } from "@/utils/previousDelivery";
@@ -68,7 +69,7 @@ export function AssignRecoveryLoadDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, driver1_id, driver2_id, trailer_id")
+        .select("id, truck_number, driver1_id, driver2_id, trailer_id, company:companies!trucks_company_id_fkey(name)")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
@@ -163,7 +164,8 @@ export function AssignRecoveryLoadDialog({
         const driverNames = [truck.driver1_id, truck.driver2_id]
           .filter((id, index, ids) => id && ids.indexOf(id) === index)
           .map((id) => names.get(id!)).filter(Boolean).join(" / ");
-        return { value: truck.id, label: `${truck.truck_number || "—"}${driverNames ? ` - ${driverNames}` : ""}` };
+        const company = getCompanySuffix(truck.company?.name);
+        return { value: truck.id, label: `${company ? `${company} ` : ""}${truck.truck_number || "—"}${driverNames ? ` - ${driverNames}` : ""}` };
       });
     },
     [trucks, drivers]

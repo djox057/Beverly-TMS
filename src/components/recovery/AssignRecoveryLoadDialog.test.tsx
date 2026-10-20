@@ -35,9 +35,9 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: {
           { id: 'truck-near', orders: [{ delivery_datetime: '2026-10-21T08:00:00+00:00', delivery_end_datetime: null, pickup_drops: [{type: 'delivery', sequence_number: 2, latitude: 40.5, longitude: -90}] }] },
           { id: 'empty-truck', orders: [] },
         ] : table === 'trucks' ? [
-          { id: 'truck-157', truck_number: '157', driver1_id: 'driver-1', driver2_id: 'driver-2', trailer_id: 'trailer-1' },
+          { id: 'truck-157', truck_number: '157', company: {name: 'BF Prime LLC'}, driver1_id: 'driver-1', driver2_id: 'driver-2', trailer_id: 'trailer-1' },
           { id: 'empty-truck', truck_number: '999', driver1_id: null, driver2_id: null, trailer_id: null },
-          { id: 'truck-near', truck_number: '156', driver1_id: 'driver-1', driver2_id: null, trailer_id: null },
+          { id: 'truck-near', truck_number: '156', company: {name: 'AP Silver Trans LLC'}, driver1_id: 'driver-1', driver2_id: null, trailer_id: null },
         ] : table === 'drivers' ? [{ id: 'driver-1', name: 'Driver One' }, { id: 'driver-2', name: 'Driver Two' }]
           : table === 'trailers' ? [{ id: 'trailer-1', trailer_number: '456' }]
             : single ? { loaded_miles: 256, pickup_drops: [
@@ -61,7 +61,7 @@ function openDialog() {
 }
 it('shows both team names beside the truck and previews the selected driver with saved future stops', async () => {
   openDialog();
-  await screen.findByRole('option', { name: '157 - Driver One / Driver Two' });
+  await screen.findByRole('option', { name: 'BFP 157 - Driver One / Driver Two' });
   fireEvent.change(screen.getByRole('combobox', { name: 'Select truck' }), { target: { value: 'truck-157' } });
   expect(screen.getByRole('combobox', { name: 'Select driver' })).toHaveValue('driver-1');
   await waitFor(() => expect(fixture.invoke).toHaveBeenCalledWith('hos-load-check', { body: { mode: 'preview', draft: expect.objectContaining({
@@ -73,7 +73,7 @@ it('shows both team names beside the truck and previews the selected driver with
 });
 it('clears the old driver, trailer and deadhead when switching to an unassigned truck', async () => {
   openDialog();
-  await screen.findByRole('option', { name: '157 - Driver One / Driver Two' });
+  await screen.findByRole('option', { name: 'BFP 157 - Driver One / Driver Two' });
   const trucks = screen.getByRole('combobox', { name: 'Select truck' });
   fireEvent.change(trucks, { target: { value: 'truck-157' } });
   await waitFor(() => expect(fixture.route).toHaveBeenCalled());
@@ -93,9 +93,9 @@ it('loads date-specific nearby suggestions only when enabled, sorts by distance 
   await screen.findByRole('option', {name: '999'});
   expect(fixture.query.mock.calls.some(call => call[1] === 'select' && call[2].includes('orders!'))).toBe(false);
   fireEvent.click(screen.getByRole('switch', {name: 'Suggested trucks'}));
-  await screen.findByRole('option', {name: '156 - Driver One · ~45 mi'});
+  await screen.findByRole('option', {name: 'AP 156 - Driver One · ~45 mi'});
   const options = (screen.getByRole('combobox', {name: 'Select truck'}) as HTMLSelectElement).options;
-  expect(Array.from(options).map(option => option.text)).toEqual(['Select truck', '156 - Driver One · ~45 mi', '157 - Driver One / Driver Two · ~90 mi']);
+  expect(Array.from(options).map(option => option.text)).toEqual(['Select truck', 'AP 156 - Driver One · ~45 mi', 'BFP 157 - Driver One / Driver Two · ~90 mi']);
   expect(fixture.query).toHaveBeenCalledWith('trucks', 'lte', 'orders.pickup_datetime', '2026-10-21T19:00:00+00:00');
   expect(fixture.query).toHaveBeenCalledWith('trucks', 'limit', 1, {referencedTable: 'orders'});
   fireEvent.click(screen.getByRole('switch', {name: 'Suggested trucks'}));
