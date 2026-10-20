@@ -16,3 +16,11 @@ it('sorts multi-drop loads by final delivery, rather than first drop or window e
     {id:'older',delivery_datetime:'2026-10-20T08:00:00Z',delivery_end_datetime:'2026-10-20T18:00:00Z'}];
   expect(previousDelivery(orders,'2026-10-20T12:00:00Z')?.id).toBe('multi');
 });
+it('selects the preceding booking regardless of POD or overlapping delivery',()=>{
+  const orders=[
+    {id:'completed',pickup_datetime:'2026-10-19T12:00:00Z',delivery_datetime:'2026-10-20T06:30:00Z',pod:true},
+    {id:'unfinished',pickup_datetime:'2026-10-19T18:00:00Z',delivery_datetime:'2026-10-21T14:00:00Z',pod:false},
+    {id:'future',pickup_datetime:'2026-10-22T09:00:00Z',delivery_datetime:'2026-10-23T09:00:00Z',pod:false},
+  ];
+  expect(previousDelivery(orders,'2026-10-21T09:00:00Z')?.id).toBe('unfinished');
+});

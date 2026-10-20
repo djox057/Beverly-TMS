@@ -17,16 +17,15 @@ export const useTruckLastDelivery = (driverId: string | null, pickupDatetime?: s
       console.log('🔍 Finding last delivery for driver:', driverId);
       console.log('🔍 Target pickup datetime:', pickupDatetime);
 
-      // Get all completed orders for this driver (as driver1 or driver2)
+      // Include pending/loaded bookings; POD and delivery completion do not select the origin.
       const cutoff = pickupDatetime || new Date().toISOString();
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
-        .select('id, delivery_datetime, delivery_end_datetime, pickup_drops(type,datetime,address,city,state,zip_code,sequence_number)')
+        .select('id, pickup_datetime, delivery_datetime, delivery_end_datetime, pickup_drops(type,datetime,address,city,state,zip_code,sequence_number)')
         .or(`driver1_id.eq.${driverId},driver2_id.eq.${driverId}`)
         .eq('canceled', false)
-        .not('delivery_datetime', 'is', null)
-        .lte('delivery_datetime', cutoff)
-        .order('delivery_datetime', { ascending: false })
+        .lte('pickup_datetime', cutoff)
+        .order('pickup_datetime', { ascending: false })
         .limit(100);
 
       if (ordersError) throw ordersError;

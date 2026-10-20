@@ -213,14 +213,13 @@ export function AssignRecoveryLoadDialog({
         const { data: lastOrders } = await supabase
           .from("orders")
           .select(
-            "id, delivery_datetime, delivery_end_datetime, pickup_drops ( type, datetime, address, city, state, zip_code, sequence_number )"
+            "id, pickup_datetime, delivery_datetime, delivery_end_datetime, pickup_drops ( type, datetime, address, city, state, zip_code, sequence_number )"
           )
-          .eq("driver1_id", driverId)
+          .or(`driver1_id.eq.${driverId},driver2_id.eq.${driverId}`)
           .eq("canceled", false)
           .neq("id", orderId || "")
-          .not("delivery_datetime", "is", null)
-          .lte("delivery_datetime", targetPickup)
-          .order("delivery_datetime", { ascending: false })
+          .lte("pickup_datetime", targetPickup)
+          .order("pickup_datetime", { ascending: false })
           .limit(100);
 
         let origin = YARD_COORDS;
