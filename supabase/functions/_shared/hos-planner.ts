@@ -55,7 +55,7 @@ export function wallTime(value: string, timeZone: string): number {
 }
 export const hours = (minutes: number) => `${Math.floor(Math.max(0, minutes) / 60)}h ${Math.round(Math.max(0, minutes) % 60)}m`;
 
-function simulate(input: HosPlanInput, optimistic: boolean) {
+function simulate(input: HosPlanInput, optimistic: boolean, extensions: number[] = []) {
   const zone = input.timeZone || HOS_DEFAULTS.timeZone;
   const c = input.clock!;
   let time = input.now, drive = Math.min(660, c.drive), shift = Math.min(840, c.shift);
@@ -71,6 +71,11 @@ function simulate(input: HosPlanInput, optimistic: boolean) {
   let restartAt = restarted ? time - rest * MINUTE : -Infinity;
   const assumptions = new Set<string>();
   const lateStops: string[] = [];
+  const restPoints: number[] = [];
+  const restLegIndices: number[] = [];
+  const arrivals: number[] = [];
+  let extendedRest = 0;
+  let waitingMinutes = 0, existingLate = false;
   const targetStopMinutes = input.legs.filter(leg=>!leg.existing).length === 2 ? 120 : 60;
   function tick(kind: 'drive' | 'on' | 'off', count: number) {
     for (let m = 0; m < Math.ceil(count); m++) {
@@ -115,7 +120,7 @@ function simulate(input: HosPlanInput, optimistic: boolean) {
   if (rest >= 2040) cycle = 4200;
   let failed: string | undefined, arrival = time;
   const horizon = input.now + 21 * 86400000;
-  for (const leg of input.legs) {
+  for (const [legIndex, leg] of input.legs.entries()) {
     // Unknown remaining work gets a best-case second pass before issuing red.
     if (optimistic && leg.existing && leg.uncertain) continue;
     let remaining = Math.ceil(leg.miles / HOS_DEFAULTS.mph * 60);
@@ -124,7 +129,11 @@ function simulate(input: HosPlanInput, optimistic: boolean) {
         tick('off', 1); // Recap or 34h restart can reopen the cycle, whichever comes first.
         assumptions.add('Cycle recovery/rest is included in the forecast.');
       } else if (drive < 1 || shift < 1) {
-        tick('off', Math.max(1, 600 - rest)); dailyRestCount++;
+        restPoints.push(time);
+        restLegIndices.push(legIndex);
+        const extra = extensions[dailyRestCount] || 0;
+        tick('off', Math.max(1, 600 - rest) + extra); dailyRestCount++;
+        extendedRest += extra;
       } else if (breakLeft < 1) {
         tick('off', 30);
       } else {
@@ -133,18 +142,58 @@ function simulate(input: HosPlanInput, optimistic: boolean) {
     }
     if (time >= horizon) { failed = 'The load exceeds the 21-day planning horizon.'; break; }
     arrival = time;
+    arrivals[legIndex] = arrival;
+    if (leg.existing && Number.isFinite(leg.end) && arrival > leg.end! + 30*MINUTE) existingLate = true;
     if (!leg.existing && Number.isFinite(leg.end)) {
       const buffer = Math.floor((leg.end! - arrival) / MINUTE);
       minBuffer = Math.min(minBuffer, buffer);
       if (buffer < -30) { failed = `${leg.label} is reached ${hours(-buffer)} after its appointment window.`; break; }
       if (buffer < 0) lateStops.push(`${leg.label} is reached ${hours(-buffer)} after its appointment window (within the 30-minute yellow tolerance).`);
     }
-    if (Number.isFinite(leg.start) && leg.start! > time) tick('off', (leg.start! - time) / MINUTE);
+    if (Number.isFinite(leg.start) && leg.start! > time) {
+      waitingMinutes += (leg.start! - time) / MINUTE;
+      tick('off', (leg.start! - time) / MINUTE);
+    }
     tick('on', leg.serviceMinutes ?? (leg.existing ? HOS_DEFAULTS.stopMinutes : targetStopMinutes));
   }
   if (dailyRestCount) assumptions.add(`${dailyRestCount} qualifying 10-hour rest period(s) included.`);
+  if (extendedRest) assumptions.add(`Includes ${hours(extendedRest)} of additional rest to preserve the shift for later appointments.`);
+  if (existingLate) assumptions.add('An existing load is forecast late; confirm its actual progress and appointment window.');
   if (usedEstimatedRecap) assumptions.add(`Uses ${hours(recaps)} of estimated recap hours from observed duty history.`);
-  return { failed, arrival, minBuffer, cycle, recaps, uncertainRecap, usedEstimatedRecap, assumptions: [...assumptions, ...lateStops] };
+  return { failed, arrival, minBuffer, cycle, recaps, uncertainRecap, usedEstimatedRecap, restPoints, restLegIndices, arrivals, waitingMinutes, existingLate, assumptions: [...assumptions, ...lateStops] };
+}
+
+/** Earliest departure is not always the best schedule: it can spend the shift
+ * waiting at a later pickup. Move that idle time into an earlier qualifying
+ * rest, keeping preceding commitments within their windows. Search is bounded
+ * and incomplete searches are advisory yellow rather than a confident red. */
+function planRest(input: HosPlanInput, optimistic: boolean) {
+  const baseline = simulate(input, optimistic);
+  if (!baseline.failed || !baseline.restPoints.length || baseline.waitingMinutes<1) return {...baseline, searchLimited:false};
+  const limits = input.legs.map((leg,i) => leg.existing && Number.isFinite(leg.end)
+    ? Math.max(leg.end!, baseline.arrivals[i] ?? leg.end!) : Infinity);
+  let best = baseline, bestExtensions: number[] = [], attempts = 0;
+  // Two passes allow moving waiting time across more than one rest period.
+  for (let pass=0; pass<2; pass++) {
+    let improved = false;
+    for (let point=0; point<best.restPoints.length; point++) {
+      const legIndex=best.restLegIndices[point];
+      const slack=limits[legIndex]-best.arrivals[legIndex];
+      const maximum=Math.min(1440,Math.max(0,Math.floor(slack/MINUTE)+(bestExtensions[point]||0)));
+      for (let extra=30; extra<=maximum; extra+=30) {
+        if (++attempts>192) return {...best,searchLimited:true};
+        const extensions = [...bestExtensions]; extensions[point]=extra;
+        const candidate = simulate(input,optimistic,extensions);
+        if (candidate.arrivals.some((arrival,i)=>arrival>limits[i])) continue;
+        if (!candidate.failed) return {...candidate,searchLimited:false};
+        if (candidate.arrival < best.arrival) {
+          best=candidate; bestExtensions=extensions; improved=true;
+        }
+      }
+    }
+    if (!improved) break;
+  }
+  return {...best,searchLimited:true};
 }
 
 export function assessHos(input: HosPlanInput): HosAssessment {
@@ -160,15 +209,16 @@ export function assessHos(input: HosPlanInput): HosAssessment {
   if (target.length < 2 || target.some(l => !Number.isFinite(l.miles) || l.miles < 0 || !Number.isFinite(l.start) || !Number.isFinite(l.end))) return yellow('Complete the stop windows and route miles to check HOS.');
   if (target.some(l => l.end! < l.start!) || target.some(l => l.start! > input.now + 21 * 86400000)) return yellow('Check the appointment windows; planning supports up to 21 days.');
   if (target[0].end! < input.now - 15 * MINUTE) return yellow('Historical load: current HOS cannot assess a past pickup.');
-  const planned = simulate(input, false);
+  const planned = planRest(input, false);
   const reasons = [`Current clocks: drive ${hours(c.drive)}, shift ${hours(c.shift)}, cycle ${hours(c.cycle)}.`,
     ...(input.uncertainties || []), ...planned.assumptions, `Estimated at 55 mph with ${target.length===2 ? 120 : 60} minutes per stop for this load; stop times use local time. Up to 30 minutes late is yellow.`];
   if (planned.failed) {
-    const best = simulate(input, true);
+    const best = planRest(input, true);
+    if (best.failed && best.searchLimited) return yellow('The rest schedule needs dispatcher review before confirming feasibility.', [...reasons, 'A bounded search of longer rest periods could not confirm a schedule.']);
     if (best.failed) return {...base, color:'red', summary:best.failed, reasons, earliestArrival:new Date(best.arrival).toISOString(), bufferMinutes:best.minBuffer};
     return yellow('Feasibility depends on unconfirmed recaps or remaining work.', [...reasons, 'More history is needed before confirming this schedule.']);
   }
-  const uncertain = input.uncertainties?.length || planned.usedEstimatedRecap || (planned.uncertainRecap && planned.cycle < 60);
+  const uncertain = input.uncertainties?.length || planned.existingLate || planned.usedEstimatedRecap || (planned.uncertainRecap && planned.cycle < 60);
   const tight = planned.minBuffer < HOS_DEFAULTS.bufferMinutes || planned.cycle < 60;
   return {...base, color:uncertain || tight ? 'yellow' : 'green', summary:planned.minBuffer<0 ? `Schedule is ${hours(-planned.minBuffer)} late, within the 30-minute yellow tolerance.` : uncertain ? 'Schedule fits, with estimates to confirm.' : tight ? 'Schedule fits with a small HOS buffer.' : 'HOS friendly: schedule fits with a buffer.', reasons,
     earliestArrival:new Date(planned.arrival).toISOString(), bufferMinutes:Number.isFinite(planned.minBuffer) ? planned.minBuffer : undefined, cycleRemainingMinutes:Math.max(0,planned.cycle), recapMinutes:planned.recaps};

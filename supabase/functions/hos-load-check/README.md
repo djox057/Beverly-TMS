@@ -1,5 +1,7 @@
 # HOS friendly load planning
 
+If immediate departure after a daily rest fails, the planner tries extending earlier rests in 30-minute increments (up to 24 extra hours, at most 192 trials). This can move pickup waiting time out of the next shift. Candidates may not make preceding deliveries late or worsen an already-late commitment. Existing late work remains yellow for progress confirmation. If the bounded search cannot confirm a schedule, it returns yellow for dispatcher review rather than treating the failed greedy schedule as proof of impossibility. Rest and appointment waiting assume the driver is actually off duty.
+
 `hos-load-check` computes the same server assessment for the booking light and the saved-order alert. Preview requests authenticate the user and respect existing driver/order RLS before privileged reads. No client color, recipient, email content, or HOS reading is trusted for notifications.
 
 Green means the standard solo 70/8 forecast fits with a one-hour buffer. Yellow means tight, stale, incomplete, estimated recap, unsupported team clocks, or uncertain remaining work. Red means the schedule still misses an appointment in a best-case pass allowing missing recaps. That pass may omit uncertain remaining current work or bookings with missing mileage; it always retains known future commitments. Red does not prevent booking. Click the HOS light to see its explanation, including in the prebook assignment dialog.

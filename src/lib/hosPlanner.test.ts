@@ -8,6 +8,40 @@ const fixture=(overrides:Partial<HosPlanInput>={}):HosPlanInput=>({now,clock:{dr
   {label:'Delivery',miles:110,start:at('2026-10-19T16:00:00'),end:at('2026-10-19T18:00:00')},
 ],...overrides});
 describe('HOS load forecasts',()=>{
+  const deanCase=():HosPlanInput=>{
+    const snapshot=Date.parse('2026-10-20T16:15:45.939Z');
+    const east=(v:string)=>wallTime(v,'America/New_York');
+    return fixture({now:snapshot,clock:{drive:542,shift:706,break:480,cycle:3624,status:'ON',updatedAt:new Date(snapshot).toISOString()},legs:[
+      {label:'Previous pickup',miles:133,start:east('2026-10-20T13:30:00'),end:east('2026-10-20T13:30:00'),existing:true,serviceMinutes:60},
+      {label:'Previous delivery',miles:374,start:east('2026-10-21T04:00:00'),end:east('2026-10-21T13:30:00'),existing:true,serviceMinutes:60},
+      {label:'Pickup',miles:43,start:east('2026-10-21T17:00:00'),end:east('2026-10-21T17:00:00'),serviceMinutes:60},
+      {label:'Delivery',miles:300,start:east('2026-10-22T05:05:00'),end:east('2026-10-22T05:05:00'),serviceMinutes:60},
+    ]});
+  };
+  it('extends an earlier rest to avoid wasting the shift at Dean’s next pickup',()=>{
+    const result=assessHos(deanCase());
+    expect(result.color).toBe('yellow'); // Earlier pickup is already late: do not certify it green.
+    expect(result.earliestArrival).toBe('2026-10-22T03:28:45.939Z');
+    expect(result.reasons.some(r=>r.includes('additional rest'))).toBe(true);
+    expect(result.reasons).toContain('1 qualifying 10-hour rest period(s) included.');
+    expect(result.reasons.some(r=>r.includes('existing load is forecast late'))).toBe(true);
+  });
+  it('confirms a longer-rest plan when the preceding windows also fit',()=>{
+    const input=deanCase();
+    input.legs[0].end=wallTime('2026-10-20T15:00:00','America/New_York');
+    expect(assessHos(input).color).toBe('green');
+    // Apply the current two-hour allowance to all four single-load stops too.
+    input.legs.forEach(leg=>leg.serviceMinutes=120);
+    expect(assessHos(input).color).not.toBe('red');
+  });
+  it('does not move a preceding delivery beyond its window to rescue the new load',()=>{
+    const input=deanCase();
+    input.legs[0].end=wallTime('2026-10-20T15:00:00','America/New_York');
+    input.legs[1].end=wallTime('2026-10-21T09:00:00','America/New_York');
+    const result=assessHos(input);
+    expect(result.color).toBe('yellow');
+    expect(result.summary).toContain('rest schedule needs dispatcher review');
+  });
   it('uses two hours for each single-load stop and one hour for each multi-load stop',()=>{
     expect(hosStopMinutes([{type:'pickup'},{type:'delivery'}])).toBe(120);
     expect(hosStopMinutes([{type:'pickup'},{type:'delivery'},{type:'delivery'}])).toBe(60);
