@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { calculateDhMiles, geocodeAddress } from "@/utils/mapboxRouteCalculator";
 import { suggestedPrebookTrucks } from "@/utils/truckProximity";
 import { getCompanySuffix } from "@/utils/formatInternalLoadNumber";
+import { canAssignPrebookTruck } from "@/lib/prebookCompanyAssignment";
 import { useHosAssessment, checkCreatedOrderHos } from "@/hooks/useHosAssessment";
 import { HosLoadLight } from "@/components/HosLoadLight";
 import { previousDelivery } from "@/utils/previousDelivery";
@@ -113,7 +114,7 @@ export function AssignRecoveryLoadDialog({
     enabled: open && isPrebook && !!orderId,
     queryFn: async () => {
       const {data,error} = await supabase.from('orders')
-        .select('loaded_miles,pickup_drops(type,datetime,end_datetime,latitude,longitude,sequence_number)').eq('id',orderId!).single();
+        .select('loaded_miles,booked_by_company:companies!orders_booked_by_company_id_fkey(name),pickup_drops(type,datetime,end_datetime,latitude,longitude,sequence_number)').eq('id',orderId!).single();
       if(error) throw error;
       return data;
     },
@@ -160,7 +161,7 @@ export function AssignRecoveryLoadDialog({
   const truckOptions = useMemo(
     () => {
       const names = new Map(drivers.map((driver) => [driver.id, driver.name]));
-      return trucks.map((truck) => {
+      return trucks.filter(truck => !isPrebook || canAssignPrebookTruck(hosOrder?.booked_by_company?.name, truck.company?.name)).map((truck) => {
         const driverNames = [truck.driver1_id, truck.driver2_id]
           .filter((id, index, ids) => id && ids.indexOf(id) === index)
           .map((id) => names.get(id!)).filter(Boolean).join(" / ");
@@ -168,7 +169,7 @@ export function AssignRecoveryLoadDialog({
         return { value: truck.id, label: `${company ? `${company} ` : ""}${truck.truck_number || "—"}${driverNames ? ` - ${driverNames}` : ""}` };
       });
     },
-    [trucks, drivers]
+    [trucks, drivers, isPrebook, hosOrder?.booked_by_company?.name]
   );
   const driverOptions = useMemo(
     () => drivers.map((d: any) => ({ value: d.id, label: d.name || "—" })),
@@ -247,6 +248,11 @@ export function AssignRecoveryLoadDialog({
     if (!orderId) return;
     if (isPrebook && (!truckId || !driverId)) {
       toast({ title: "Select a truck and driver", variant: "destructive" });
+      return;
+    }
+    const selectedTruck = trucks.find(truck => truck.id === truckId);
+    if (isPrebook && (hosOrderError || !canAssignPrebookTruck(hosOrder?.booked_by_company?.name, selectedTruck?.company?.name))) {
+      toast({ title: "Truck company is not allowed", description: "Choose a truck allowed for this load's booking company.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -410,7 +416,7 @@ export function AssignRecoveryLoadDialog({
             Cancel
           </Button>
           {isPrebook && <HosLoadLight {...hos} error={hosOrderError || hos.error} loading={loadingHosOrder || hos.loading || calculatingDh} />}
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || (isPrebook && (!hosOrder || !!hosOrderError || !truckOptions.some(option => option.value === truckId)))}>
             {saving ? "Saving..." : "Assign"}
           </Button>
         </DialogFooter>
