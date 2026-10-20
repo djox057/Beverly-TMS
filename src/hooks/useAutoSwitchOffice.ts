@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { isValidUUID } from "@/utils/validation";
+import { reportSearchTerms } from "@/lib/reportsSearch";
 
 /**
  * Word-boundary match: term matches the start of any word in `text`,
@@ -41,6 +42,14 @@ type OfficeResult =
   | { type: "error"; error: Error };
 
 type SearchStatus = "idle" | "searching" | "found" | "not_found";
+
+export async function lookupReportOffices(search: string, lookup: (term: string) => Promise<OfficeResult>): Promise<OfficeResult> {
+  const results = await Promise.all(reportSearchTerms(search).map(lookup));
+  const offices = [...new Set(results.flatMap(result => result.type === 'found' ? [result.office] : result.type === 'ambiguous' ? result.offices : []))];
+  if (offices.length === 1) return {type:'found', office:offices[0]};
+  if (offices.length > 1) return {type:'ambiguous', offices};
+  return results.find(result => result.type === 'error') || {type:'not_found'};
+}
 
 /**
  * Auto-switch engine for /reports page.
@@ -180,7 +189,7 @@ export function useAutoSwitchOffice({
    * Only returns offices whose best rank equals the global best rank,
    * so substring false positives are dropped when an exact match exists somewhere.
    */
-  const findOfficeMatches = useCallback((
+  const findSingleOfficeMatches = useCallback((
     filterType: "truck" | "dispatch" | "load",
     searchTerm: string,
   ): Array<{ office: string; rank: number }> => {
@@ -262,6 +271,12 @@ export function useAutoSwitchOffice({
     const minRank = Math.min(...all.map((m) => m.rank));
     return all.filter((m) => m.rank === minRank);
   }, [groupedReports, normalizeToKnownOffice]);
+
+  const findOfficeMatches = useCallback((filterType: "truck" | "dispatch" | "load", searchTerm: string) => {
+    const terms = filterType === 'load' ? [searchTerm] : reportSearchTerms(searchTerm);
+    const matches = terms.flatMap(term => findSingleOfficeMatches(filterType, term));
+    return [...new Set(matches.map(match => match.office))].map(office => ({office, rank: Math.min(...matches.filter(match => match.office === office).map(match => match.rank))}));
+  }, [findSingleOfficeMatches]);
 
   /**
    * Check ALL loaded office data, not just the active tab.
@@ -692,7 +707,7 @@ export function useAutoSwitchOffice({
       isSearchingRef.current = true;
       setTruckSearchStatus("searching");
       try {
-        const result = await lookupTruckDriverOffice(debouncedTruckDriver);
+        const result = await lookupReportOffices(debouncedTruckDriver, lookupTruckDriverOffice);
         if (!enabledRef.current || generation !== searchGeneration.current) return;
 
         // Reset circuit breaker on successful DB call (even if not_found)
@@ -850,7 +865,7 @@ export function useAutoSwitchOffice({
       isSearchingRef.current = true;
       setDispatchSearchStatus("searching");
       try {
-        const result = await lookupDispatcherOffice(debouncedDispatchName);
+        const result = await lookupReportOffices(debouncedDispatchName, lookupDispatcherOffice);
         if (!enabledRef.current || generation !== searchGeneration.current) return;
 
         if (result.type !== "error") {

@@ -8,6 +8,19 @@ const groups = [{ office: "BG", dispatcher: "Matt", trucks: [team] }, { office: 
 const base = { today: "2026-09-30", driverIds: ["a", "b"] };
 
 describe("Reports row search in coverage and office views", () => {
+  it('matches any comma-separated dispatcher, ignoring case, whitespace and empty entries', () => {
+    expect(filterReportGroups(groups, {...base, dispatch:' matt, , CONNOR, matt, '}).map(group=>group.dispatcher)).toEqual(['Matt','Connor']);
+    expect(filterReportGroups(groups, {...base, dispatch:'missing, connor'}).map(group=>group.dispatcher)).toEqual(['Connor']);
+  });
+  it('matches any comma-separated unit while retaining exact numeric matching', () => {
+    expect(filterReportGroups(groups, {...base, unit:'460, 800, '}).flatMap(group=>group.trucks)).toEqual([team,other]);
+    expect(filterReportGroups(groups, {...base, unit:'46, 800'}).flatMap(group=>group.trucks)).toEqual([other]);
+    expect(filterReportGroups(groups, {...base, unit:'jane, sam'}).flatMap(group=>group.trucks)).toEqual([team,other]);
+  });
+  it('combines the comma-separated lists with AND between dispatcher and unit fields', () => {
+    expect(filterReportGroups(groups, {...base, dispatch:'matt,missing', unit:'460,1460'}).flatMap(group=>group.trucks)).toEqual([team]);
+    expect(filterReportGroups(groups, {...base, driverIds:['a'], unit:'460,1460'}).flatMap(group=>group.trucks)).toEqual([team]);
+  });
   it.each(["460", "john", "Jane", "team", "t460"])("narrows %s to one team row across office boundaries", unit => {
     expect(filterReportGroups(groups, { ...base, unit }).flatMap(g => g.trucks)).toEqual([team]);
   });

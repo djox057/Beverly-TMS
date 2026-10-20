@@ -1,12 +1,19 @@
 const text = (value: unknown) => String(value ?? "").toLowerCase();
+export const reportSearchTerms = (search: string) => [...new Set(search.split(',').map(term => term.trim().toLowerCase()).filter(Boolean))];
+export function matchesReportDispatcher(dispatcher: unknown, search: string): boolean {
+  const terms = reportSearchTerms(search);
+  return !terms.length || terms.some(term => text(dispatcher).includes(term));
+}
 
 export function matchesReportUnit(truck: any, search: string): boolean {
-  const term = search.trim().toLowerCase();
-  if (!term) return true;
-  const numeric = /^\d+$/.test(term);
-  const matchesNumber = (value: unknown) => numeric ? text(value) === term : text(value).includes(term);
-  return matchesNumber(truck.truckNumber) || matchesNumber(truck.trailerNumber) ||
-    [truck.driver, truck.driver1Name, truck.driver2Name].some(name => text(name).includes(term));
+  const terms = reportSearchTerms(search);
+  if (!terms.length) return true;
+  return terms.some(term => {
+    const numeric = /^\d+$/.test(term);
+    const matchesNumber = (value: unknown) => numeric ? text(value) === term : text(value).includes(term);
+    return matchesNumber(truck.truckNumber) || matchesNumber(truck.trailerNumber) ||
+      [truck.driver, truck.driver1Name, truck.driver2Name].some(name => text(name).includes(term));
+  });
 }
 
 export function matchesReportLoad(order: any, search: string, today?: string): boolean {
@@ -37,7 +44,7 @@ export function filterReportGroups(groups: any[] | null, filters: ReportSearchFi
   const allowed = filters.driverIds ? new Set(filters.driverIds) : null;
   return (groups ?? [])
     .filter(group => (!filters.offices || filters.offices.includes(group.office)) &&
-      text(group.dispatcher).includes(text(filters.dispatch).trim()))
+      matchesReportDispatcher(group.dispatcher, filters.dispatch ?? ""))
     .map(group => ({ ...group, trucks: (group.trucks ?? []).filter((truck: any) =>
       (!allowed || allowed.has(truck.driverId)) &&
       (!filters.company || truck.companyName === filters.company) &&

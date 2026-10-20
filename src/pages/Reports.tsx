@@ -4493,6 +4493,7 @@ const Reports = () => {
               <div className="relative">
                 <Input
                   placeholder="Unit# /driver name"
+                  title="Separate unit numbers or driver names with commas"
                   value={truckDriverFilter}
                   onChange={(e) => setTruckDriverFilter(e.target.value)}
                   className={cn(
@@ -4541,6 +4542,7 @@ const Reports = () => {
               <div className="relative">
                 <Input
                   placeholder="Dispatch name"
+                  title="Separate dispatcher names with commas, e.g. nate, wayne, rick"
                   value={dispatchNameFilter}
                   onChange={(e) => setDispatchNameFilter(e.target.value)}
                   className={cn(
