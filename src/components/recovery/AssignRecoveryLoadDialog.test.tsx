@@ -66,7 +66,7 @@ function openDialog() {
 }
 it('shows both team names beside the truck and previews the selected driver with saved future stops', async () => {
   openDialog();
-  await screen.findByRole('option', { name: 'BFP 157 - Driver One / Driver Two' });
+  await screen.findByRole('option', { name: /BFP 157 - Driver One/ });
   fireEvent.change(screen.getByRole('combobox', { name: 'Select truck' }), { target: { value: 'truck-157' } });
   expect(screen.getByRole('combobox', { name: 'Select driver' })).toHaveValue('driver-1');
   await waitFor(() => expect(fixture.invoke).toHaveBeenCalledWith('hos-load-check', { body: { mode: 'preview', draft: expect.objectContaining({
@@ -78,7 +78,8 @@ it('shows both team names beside the truck and previews the selected driver with
 });
 it('clears the old driver, trailer and deadhead when switching to an unassigned truck', async () => {
   openDialog();
-  await screen.findByRole('option', { name: 'BFP 157 - Driver One / Driver Two' });
+  fireEvent.click(screen.getByRole('switch', {name: 'Suggested trucks'}));
+  await screen.findByRole('option', { name: /BFP 157 - Driver One/ });
   const trucks = screen.getByRole('combobox', { name: 'Select truck' });
   fireEvent.change(trucks, { target: { value: 'truck-157' } });
   await waitFor(() => expect(fixture.route).toHaveBeenCalled());
@@ -93,11 +94,9 @@ it('shows unavailable when the saved prebook cannot be loaded', async () => {
   expect(await screen.findByRole('button', { name: /HOS yellow: HOS check unavailable/ })).toBeInTheDocument();
   expect(fixture.invoke).not.toHaveBeenCalled();
 });
-it('loads date-specific nearby suggestions only when enabled, sorts by distance and restores all trucks', async () => {
+it('defaults to date-specific suggestions, sorts by distance and allows viewing all trucks', async () => {
   openDialog();
-  await screen.findByRole('option', {name: 'BFP 999'});
-  expect(fixture.query.mock.calls.some(call => call[1] === 'select' && call[2].includes('orders!'))).toBe(false);
-  fireEvent.click(screen.getByRole('switch', {name: 'Suggested trucks'}));
+  expect(screen.getByRole('switch', {name: 'Suggested trucks'})).toBeChecked();
   await screen.findByRole('option', {name: 'AP 156 - Driver One · ~45 mi'});
   const options = (screen.getByRole('combobox', {name: 'Select truck'}) as HTMLSelectElement).options;
   expect(Array.from(options).map(option => option.text)).toEqual(['Select truck', 'AP 156 - Driver One · ~45 mi', 'BFP 157 - Driver One / Driver Two · ~90 mi']);
@@ -109,17 +108,17 @@ it('loads date-specific nearby suggestions only when enabled, sorts by distance 
 it('restricts Beverly Freight loads in both full and Suggested truck lists', async () => {
   fixture.bookingCompany = 'Beverly Freight Inc';
   openDialog();
-  await screen.findByRole('option', {name: 'BF 777 - Driver One'});
+  await screen.findByRole('option', {name: 'BF 777 - Driver One · ~22 mi'});
   expect(screen.queryByRole('option', {name: /BFP 157/})).not.toBeInTheDocument();
   expect(screen.queryByRole('option', {name: /AP 156/})).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('switch', {name: 'Suggested trucks'}));
-  await screen.findByRole('option', {name: 'BF 777 - Driver One · ~22 mi'});
+  await screen.findByRole('option', {name: 'BF 777 - Driver One'});
   const options = (screen.getByRole('combobox', {name: 'Select truck'}) as HTMLSelectElement).options;
   expect(options).toHaveLength(2);
 });
 it('blocks saving if the booking company changes after a truck was selected', async () => {
   const client = openDialog();
-  await screen.findByRole('option', {name: 'BFP 157 - Driver One / Driver Two'});
+  await screen.findByRole('option', {name: /BFP 157 - Driver One/});
   fireEvent.change(screen.getByRole('combobox', {name: 'Select truck'}), {target:{value:'truck-157'}});
   expect(screen.getByRole('button', {name:'Assign'})).toBeEnabled();
   fixture.bookingCompany = 'Beverly Freight Inc';

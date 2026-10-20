@@ -51,7 +51,7 @@ export function AssignRecoveryLoadDialog({
   const [dhMiles, setDhMiles] = useState("");
   const [saving, setSaving] = useState(false);
   const [calculatingDh, setCalculatingDh] = useState(false);
-  const [suggestedOnly, setSuggestedOnly] = useState(false);
+  const [suggestedOnly, setSuggestedOnly] = useState(isPrebook);
 
   useEffect(() => {
     if (open) {
@@ -61,9 +61,9 @@ export function AssignRecoveryLoadDialog({
       setDriverRate("");
       setDhMiles("");
       setCalculatingDh(false);
-      setSuggestedOnly(false);
+      setSuggestedOnly(isPrebook);
     }
-  }, [open, orderId]);
+  }, [open, orderId, isPrebook]);
 
   const { data: trucks = [] } = useQuery({
     queryKey: ["recovery-assign-trucks", "all"],
