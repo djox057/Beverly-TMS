@@ -40,7 +40,7 @@ export async function processHosChecks(db:any, targetOrder:string|null=null, fet
         <p>This is a planning estimate. Review the driver's ELD and appointment schedule.</p>
         <p><a href="https://beverlytms.com/edit-order/${encodeURIComponent(order.id)}">Open load</a></p>`;
       const response=await fetcher('https://api.resend.com/emails',{method:'POST',signal:AbortSignal.timeout(15000),headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json','Idempotency-Key':`hos-red-${event.id}`},
-        body:JSON.stringify({from:'Beverly TMS <bob.i@bfprime.net>',to:[auth.data.user.email],subject:`Red HOS warning — Load ${order.broker_load_number||order.internal_load_number}`,html})});
+        body:JSON.stringify({from:'Beverly TMS <jon@bfprime.net>',to:[auth.data.user.email],subject:`Red HOS warning — Load ${order.broker_load_number||order.internal_load_number}`,html})});
       const payload=await response.json();
       if(!response.ok) throw new Error(`Email service rejected the alert (${response.status}).`);
       await finish(db,event.id,{status:'done',notified_at:new Date().toISOString(),recipient_user_id:manager.user_id,provider_message_id:payload.id,last_error:null});

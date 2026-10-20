@@ -45,7 +45,7 @@ Deno.test('red saved load routes one alert to the unique office manager, with st
   await processHosChecks(db,null,fetcher);await processHosChecks(db,null,fetcher);
   assert(sent.length===1,'A completed/claimed check cannot send twice');
   assert(sent[0].headers['Idempotency-Key']==='hos-red-event-1');
-  const body=JSON.parse(sent[0].body);assert(body.to[0]==='manager@example.test');assert(body.html.includes('&lt;late&gt;'));
+  const body=JSON.parse(sent[0].body);assert(body.from==='Beverly TMS <jon@bfprime.net>');assert(body.to[0]==='manager@example.test');assert(body.html.includes('&lt;late&gt;'));
   assert(body.html.includes('pickup: 10/20/2026 06:30-14:00'));
   assert(body.html.includes('delivery: 10/21/2026 08:00-12:00'));
   assert(!body.html.includes('2026-10-20T'));
