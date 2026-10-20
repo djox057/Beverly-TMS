@@ -1,5 +1,6 @@
 import { loadHosPlan, savedDraft } from './model.ts';
 import { resolveManager } from '../send-pod-message/model.ts';
+import { formatHosStopWindow } from './format-stop-window.ts';
 
 const escape=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export async function processHosChecks(db:any, targetOrder:string|null=null, fetcher:typeof fetch=fetch) {
@@ -35,7 +36,7 @@ export async function processHosChecks(db:any, targetOrder:string|null=null, fet
       const html=`<h2>Red HOS warning — load created/assigned</h2><p><strong>${escape(assessment.summary)}</strong></p>
         <p>Dispatcher: ${escape(dispatcher.data.full_name)}<br>Office: ${escape(dispatcher.data.office)}<br>Driver: ${escape(driver.data?.name)}<br>Truck: ${escape(truck.data?.truck_number)}<br>Internal load: ${escape(order.internal_load_number)}<br>Broker load: ${escape(order.broker_load_number)}</p>
         <ul>${assessment.reasons.map((r:string)=>`<li>${escape(r)}</li>`).join('')}</ul>
-        <p>${draft.stops.map((s:any)=>`${escape(s.type)}: ${escape(s.datetime)} – ${escape(s.end_datetime||s.datetime)} (local stop time)`).join('<br>')}</p>
+        <p>${draft.stops.map((s:any)=>`${escape(s.type)}: ${escape(formatHosStopWindow(s.datetime,s.end_datetime))} (local stop time)`).join('<br>')}</p>
         <p>This is a planning estimate. Review the driver's ELD and appointment schedule.</p>
         <p><a href="https://beverlytms.com/edit-order/${encodeURIComponent(order.id)}">Open load</a></p>`;
       const response=await fetcher('https://api.resend.com/emails',{method:'POST',signal:AbortSignal.timeout(15000),headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json','Idempotency-Key':`hos-red-${event.id}`},

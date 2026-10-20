@@ -13,7 +13,7 @@ function mockDb(color='red',office:string|null='Čačak',managers=1) {
         update(value:any){update=value;return this;},then(resolve:any,reject:any){
           if(update) {patches.push(update);Object.assign(event,update);return Promise.resolve({data:null}).then(resolve,reject);}
           let data:any;
-          if(table==='orders') data={id:'order-1',driver1_id:'driver-1',truck_id:'truck-1',loaded_miles:550,dh_miles:55,broker_load_number:'B<123>',internal_load_number:1019001,pickup_drops:[{type:'pickup'},{type:'delivery'}]};
+          if(table==='orders') data={id:'order-1',driver1_id:'driver-1',truck_id:'truck-1',loaded_miles:550,dh_miles:55,broker_load_number:'B<123>',internal_load_number:1019001,pickup_drops:[{type:'pickup',datetime:'2026-10-20T06:30:00+00:00',end_datetime:'2026-10-20T14:00:00+00:00'},{type:'delivery',datetime:'2026-10-21T08:00:00+00:00',end_datetime:'2026-10-21T12:00:00+00:00'}]};
           if(table==='profiles') data=single ? {user_id:'dispatcher-1',office,full_name:'Dispatcher'} : Array.from({length:managers},(_,i)=>({user_id:`manager-${i}`,office:'Čačak',full_name:'Manager'}));
           if(table==='user_roles') data=[{user_id:'manager-0'}];
           if(table==='drivers') data={name:'Driver'};
@@ -31,6 +31,9 @@ Deno.test('red saved load routes one alert to the unique office manager, with st
   assert(sent.length===1,'A completed/claimed check cannot send twice');
   assert(sent[0].headers['Idempotency-Key']==='hos-red-event-1');
   const body=JSON.parse(sent[0].body);assert(body.to[0]==='manager@example.test');assert(body.html.includes('&lt;late&gt;'));
+  assert(body.html.includes('pickup: 10/20/2026 06:30-14:00'));
+  assert(body.html.includes('delivery: 10/21/2026 08:00-12:00'));
+  assert(!body.html.includes('2026-10-20T'));
   assert(patches.some(p=>p.notified_at && p.status==='done'));
 });
 Deno.test('green and yellow checks do not send email',async()=>{
