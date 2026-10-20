@@ -10,7 +10,7 @@ export interface HosClock {
 export interface HosDay { date: string; onDutyMinutes: number; observedMinutes: number; missingMinutes: number }
 export interface HosLeg {
   miles: number; start?: number; end?: number; label: string;
-  serviceMinutes?: number; existing?: boolean;
+  serviceMinutes?: number; existing?: boolean; uncertain?: boolean;
 }
 export interface HosPlanInput {
   now: number; clock: HosClock | null; days: HosDay[]; legs: HosLeg[];
@@ -110,7 +110,7 @@ function simulate(input: HosPlanInput, optimistic: boolean) {
   const horizon = input.now + 21 * 86400000;
   for (const leg of input.legs) {
     // Unknown remaining work gets a best-case second pass before issuing red.
-    if (optimistic && leg.existing && input.uncertainties?.length) continue;
+    if (optimistic && leg.existing && leg.uncertain) continue;
     let remaining = Math.ceil(leg.miles / HOS_DEFAULTS.mph * 60);
     while (remaining > 0 && time < horizon) {
       if (cycle < 1) {

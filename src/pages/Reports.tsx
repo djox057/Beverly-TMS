@@ -1,4 +1,5 @@
 import { useChicagoToday, useMandatoryYardRepairs } from "@/hooks/useMandatoryYardRepairs";
+import { estimatedRoadMiles } from "@/utils/truckProximity";
 import { getActiveMandatoryYardRepairAlerts, hasActiveMandatoryYardRepairDueWithin, hasOverdueTruckRequirement } from "@/lib/yardRepairDue";
 import { TruckRepairDeadlines } from "@/components/reports/TruckRepairDeadlines";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
@@ -1247,21 +1248,11 @@ const Reports = () => {
       if (!proximityAddress.trim()) setProximityMatchedTrucks(null);
       return;
     }
-    const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-      const R = 3959;
-      const dLat = ((lat2 - lat1) * Math.PI) / 180;
-      const dLon = ((lon2 - lon1) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    };
     const matched = new Map<string, number>();
     if (proximityMode === "live") {
       // Match against current GPS locations (Samsara).
       for (const loc of samsaraLocations || []) {
-        const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, loc.latitude, loc.longitude);
-        const roadMiles = Math.round(straightLine * 1.3);
+        const roadMiles = estimatedRoadMiles(proximityCoords, { lat: loc.latitude, lon: loc.longitude });
         if (roadMiles >= proximityRange.min && roadMiles <= proximityRange.max) {
           matched.set(loc.truck_id, roadMiles);
         }
@@ -1271,8 +1262,7 @@ const Reports = () => {
       // remain matched even when the visible date window shifts away from the
       // order that produced the coordinates.
       for (const [truckId, entry] of truckLastDeliveryRef.current.entries()) {
-        const straightLine = haversine(proximityCoords.lat, proximityCoords.lon, entry.lat, entry.lon);
-        const roadMiles = Math.round(straightLine * 1.3);
+        const roadMiles = estimatedRoadMiles(proximityCoords, entry);
         const inRange = roadMiles >= proximityRange.min && roadMiles <= proximityRange.max;
         if (inRange) {
           matched.set(truckId, roadMiles);

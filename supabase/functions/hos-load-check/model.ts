@@ -86,9 +86,14 @@ export async function loadHosPlan(db: any, draft: any, now = Date.now()): Promis
     if(Number.isFinite(lastEnd)) previousCommitmentEnd=Math.max(previousCommitmentEnd,lastEnd!);
     if(start<now) {
       uncertainties.push('Remaining work on the current load needs confirmation.');
+      for (const leg of remaining.legs) leg.uncertain = true;
       // Fresh telemetry measures only the first remaining leg; other legs retain their share.
       const telemetry=order.truck_id ? await db.from('truck_telemetry').select('miles_away,miles_away_updated_at').eq('truck_id',order.truck_id).maybeSingle() : {data:null};
       if(telemetry.data?.miles_away!=null && now-Date.parse(telemetry.data.miles_away_updated_at)<20*60000 && remaining.legs[0]) remaining.legs[0].miles=Number(telemetry.data.miles_away);
+    }
+    if (order.loaded_miles == null || order.dh_miles == null) {
+      uncertainties.push('An existing load is missing route mileage.');
+      for (const leg of remaining.legs) leg.uncertain = true;
     }
     existing.push(...remaining.legs);
   }

@@ -34,6 +34,9 @@ interface ComboboxProps {
   contentClassName?: string;
   disabled?: boolean;
   modal?: boolean;
+  dropdownHeader?: React.ReactNode;
+  preserveOrder?: boolean;
+  selectedLabel?: string;
 }
 
 export function Combobox({
@@ -47,6 +50,9 @@ export function Combobox({
   contentClassName,
   disabled,
   modal,
+  dropdownHeader,
+  preserveOrder,
+  selectedLabel,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -63,7 +69,7 @@ export function Combobox({
           disabled={disabled}
         >
           <span className="min-w-0 flex-1 truncate text-left">
-            {selectedOption ? selectedOption.label : placeholder}
+            {selectedOption ? selectedOption.label : selectedLabel || placeholder}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -72,7 +78,8 @@ export function Combobox({
         align="start"
         className={cn("w-[--radix-popover-trigger-width] p-0 pointer-events-auto", contentClassName)}
       >
-        <Command className="pointer-events-auto">
+        {dropdownHeader}
+        <Command className="pointer-events-auto" filter={preserveOrder ? (value, search) => value.toLowerCase().includes(search.trim().toLowerCase()) ? 1 : 0 : undefined}>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList
             className="max-h-[240px] overscroll-contain"

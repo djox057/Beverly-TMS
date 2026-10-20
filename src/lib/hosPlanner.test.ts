@@ -56,7 +56,24 @@ describe('HOS load forecasts',()=>{
     const input=fixture();input.legs.unshift({label:'Existing delivery',miles:550,existing:true});
     expect(assessHos(input).color).toBe('red');
     input.uncertainties=['Remaining current-load miles are uncertain.'];
+    input.legs[0].uncertain=true;
     expect(assessHos(input).color).toBe('yellow');
+  });
+  it('retains known future bookings in the best-case pass despite uncertain current work',()=>{
+    const input=fixture();
+    input.uncertainties=['Remaining current-load miles are uncertain.'];
+    input.legs.unshift(
+      {label:'Current delivery',miles:55,existing:true,uncertain:true},
+      {label:'Already booked pickup',miles:0,start:at('2026-10-19T09:00:00'),end:at('2026-10-19T10:00:00'),existing:true},
+      {label:'Already booked delivery',miles:550,start:at('2026-10-20T08:00:00'),end:at('2026-10-20T10:00:00'),existing:true},
+    );
+    expect(assessHos(input).color).toBe('red');
+  });
+  it('does not skip known bookings because a stop timezone or recap is uncertain',()=>{
+    const input=fixture();
+    input.uncertainties=['Stop timezone defaults to Chicago because coordinates are missing.'];
+    input.legs.unshift({label:'Existing delivery',miles:550,existing:true});
+    expect(assessHos(input).color).toBe('red');
   });
   it('keeps missing/malformed stop windows yellow',()=>{
     const input=fixture();input.legs[1].end=NaN;expect(assessHos(input).color).toBe('yellow');

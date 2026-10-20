@@ -11,9 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
-import { calculateDhMiles } from "@/utils/mapboxRouteCalculator";
+import { calculateDhMiles, geocodeAddress } from "@/utils/mapboxRouteCalculator";
+import { suggestedPrebookTrucks } from "@/utils/truckProximity";
 import { useHosAssessment, checkCreatedOrderHos } from "@/hooks/useHosAssessment";
 import { HosLoadLight } from "@/components/HosLoadLight";
 import { previousDelivery } from "@/utils/previousDelivery";
@@ -47,6 +49,7 @@ export function AssignRecoveryLoadDialog({
   const [dhMiles, setDhMiles] = useState("");
   const [saving, setSaving] = useState(false);
   const [calculatingDh, setCalculatingDh] = useState(false);
+  const [suggestedOnly, setSuggestedOnly] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -55,6 +58,8 @@ export function AssignRecoveryLoadDialog({
       setTrailerId("");
       setDriverRate("");
       setDhMiles("");
+      setCalculatingDh(false);
+      setSuggestedOnly(false);
     }
   }, [open, orderId]);
 
@@ -102,7 +107,7 @@ export function AssignRecoveryLoadDialog({
     staleTime: 60000,
   });
 
-  const { data: hosOrder } = useQuery({
+  const { data: hosOrder, isFetching: loadingHosOrder, error: hosOrderError } = useQuery({
     queryKey: ['hos-prebook-order', orderId],
     enabled: open && isPrebook && !!orderId,
     queryFn: async () => {
@@ -122,14 +127,56 @@ export function AssignRecoveryLoadDialog({
       .map((s:any)=>({type:s.type,datetime:s.datetime,end_datetime:s.end_datetime,latitude:s.latitude,longitude:s.longitude})),
   } : null, open && isPrebook);
 
+  const firstPickup = useMemo(() => [...(hosOrder?.pickup_drops || [])]
+    .filter(stop => stop.type === 'pickup').sort((a, b) => a.sequence_number - b.sequence_number)[0], [hosOrder]);
+  const { data: suggestions = [], isFetching: loadingSuggestions, error: suggestionsError } = useQuery({
+    queryKey: ['prebook-suggested-trucks', orderId, firstPickup, pickupAddress],
+    enabled: open && isPrebook && suggestedOnly && !!firstPickup?.datetime,
+    queryFn: async () => {
+      const pickup = firstPickup!;
+      const coords = pickup.latitude != null && pickup.longitude != null
+        ? { lat: Number(pickup.latitude), lon: Number(pickup.longitude) }
+        : await geocodeAddress(pickupAddress || '');
+      if (!coords) throw new Error('Pickup location is unavailable.');
+      // Limit the embedded relation per truck, rather than downloading fleet load history.
+      const { data, error } = await supabase.from('trucks')
+        .select('id,orders!orders_truck_id_fkey(delivery_datetime,delivery_end_datetime,pickup_drops(type,datetime,end_datetime,latitude,longitude,sequence_number))')
+        .eq('is_active', true).not('driver1_id', 'is', null)
+        .eq('orders.canceled', false).neq('orders.id', orderId!)
+        .or('notes.is.null,notes.neq.GAME|OVER', { referencedTable: 'orders' })
+        .not('orders.driver1_id', 'is', null)
+        .lte('orders.pickup_datetime', pickup.datetime!)
+        .order('pickup_datetime', { referencedTable: 'orders', ascending: false })
+        .order('id', { referencedTable: 'orders', ascending: false })
+        .limit(1, { referencedTable: 'orders' });
+      if (error) throw error;
+      return suggestedPrebookTrucks(data || [], coords, pickup.datetime!);
+    },
+    staleTime: 30000,
+    retry: false,
+  });
+
   const truckOptions = useMemo(
-    () => trucks.map((t: any) => ({ value: t.id, label: t.truck_number || "—" })),
-    [trucks]
+    () => {
+      const names = new Map(drivers.map((driver) => [driver.id, driver.name]));
+      return trucks.map((truck) => {
+        const driverNames = [truck.driver1_id, truck.driver2_id]
+          .filter((id, index, ids) => id && ids.indexOf(id) === index)
+          .map((id) => names.get(id!)).filter(Boolean).join(" / ");
+        return { value: truck.id, label: `${truck.truck_number || "—"}${driverNames ? ` - ${driverNames}` : ""}` };
+      });
+    },
+    [trucks, drivers]
   );
   const driverOptions = useMemo(
     () => drivers.map((d: any) => ({ value: d.id, label: d.name || "—" })),
     [drivers]
   );
+  const visibleTruckOptions = suggestedOnly && isPrebook
+    ? suggestions.flatMap(suggestion => {
+      const option = truckOptions.find(truck => truck.value === suggestion.id);
+      return option ? [{ ...option, label: `${option.label} · ~${suggestion.miles} mi` }] : [];
+    }) : truckOptions;
   const trailerOptions = useMemo(
     () => trailers.map((t: any) => ({ value: t.id, label: t.trailer_number || "—" })),
     [trailers]
@@ -139,9 +186,10 @@ export function AssignRecoveryLoadDialog({
   const handleTruckChange = (nextTruckId: string) => {
     setTruckId(nextTruckId);
     const truck = trucks.find((t: any) => t.id === nextTruckId) as any;
-    if (!truck) return;
-    if (truck.driver1_id) setDriverId(truck.driver1_id);
-    if (truck.trailer_id) setTrailerId(truck.trailer_id);
+    setDriverId(truck?.driver1_id || "");
+    setTrailerId(truck?.trailer_id || "");
+    setDhMiles("");
+    setCalculatingDh(false);
   };
 
   // Auto-calculate DH miles from the assigned driver's last delivery to this load's pickup
@@ -191,7 +239,7 @@ export function AssignRecoveryLoadDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, driverId, orderId, pickupAddress, hosOrder]);
+  }, [open, truckId, driverId, orderId, pickupAddress, hosOrder]);
 
   const handleSave = async () => {
     if (!orderId) return;
@@ -291,12 +339,24 @@ export function AssignRecoveryLoadDialog({
           <div className="space-y-1.5">
             <Label>Truck #</Label>
             <Combobox
-              options={truckOptions}
+              options={visibleTruckOptions}
               value={truckId}
+              selectedLabel={truckOptions.find(truck => truck.value === truckId)?.label}
               onValueChange={handleTruckChange}
               placeholder="Select truck"
-              searchPlaceholder="Search truck#..."
+              searchPlaceholder="Search truck# or driver..."
               modal={false}
+              preserveOrder={suggestedOnly}
+              emptyText={loadingSuggestions ? 'Finding suggested trucks…' : suggestionsError ? 'Could not load suggested trucks.' : suggestedOnly ? 'No trucks within 150 miles for this pickup.' : 'No results found.'}
+              dropdownHeader={isPrebook ? <div className="space-y-1 border-b px-3 py-2">
+                <label className="flex items-center justify-between gap-3 text-sm">
+                  <span>Suggested</span>
+                  <Switch aria-label="Suggested trucks" checked={suggestedOnly} onCheckedChange={setSuggestedOnly} />
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  {suggestedOnly && loadingSuggestions ? 'Finding nearby trucks…' : suggestedOnly && suggestionsError ? 'Could not load suggestions. Toggle off to view all trucks.' : suggestedOnly && !firstPickup?.datetime ? 'Pickup date is unavailable.' : `Within 150 mi${firstPickup?.datetime ? ` · Pickup ${firstPickup.datetime.slice(5, 10).replace('-', '/')}` : ''} · Closest first`}
+                </p>
+              </div> : undefined}
             />
           </div>
           <div className="space-y-1.5">
@@ -347,7 +407,7 @@ export function AssignRecoveryLoadDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          {isPrebook && <HosLoadLight {...hos} loading={hos.loading || calculatingDh} />}
+          {isPrebook && <HosLoadLight {...hos} error={hosOrderError || hos.error} loading={loadingHosOrder || hos.loading || calculatingDh} />}
           <Button onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Assign"}
           </Button>
