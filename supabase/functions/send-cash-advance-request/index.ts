@@ -325,7 +325,7 @@ Purpose: Cash advance`;
     const lastNamePart = getLastNamePart(requesterName);
     const emailPayload = {
       from: `EFS Request <${fromEmail}>`,
-      to: ["efsrequest@fuelfnd.com"],
+      to: ["efs@fleetnetworkdesk.net"],
       ...(requesterEmail ? { bcc: [requesterEmail] } : {}),
       reply_to: requesterEmail ? [requesterEmail, fromEmail] : [fromEmail],
       subject: `EFS request by ${lastNamePart}`,
