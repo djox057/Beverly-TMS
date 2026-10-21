@@ -18,6 +18,8 @@ export interface UserProfile {
   /** Afterhours-only: allows managing afterhours shift schedule and assignments. */
   is_afterhours_manager?: boolean;
   suggestions_mode?: boolean;
+  is_eld?: boolean;
+  is_eld_manager?: boolean;
 }
 
 export type UserRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims';

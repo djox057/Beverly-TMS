@@ -14,6 +14,13 @@ export type Database = {
   }
   public: {
     Tables: {
+      eld_activity: {
+        Row: { id: string; work_date: string; entity_type: string; entity_id: string; worker_id: string | null; actor_id: string; action: string; before_data: Json | null; after_data: Json | null; created_at: string }
+        Insert: { id?: string; work_date: string; entity_type: string; entity_id: string; worker_id?: string | null; actor_id: string; action: string; before_data?: Json | null; after_data?: Json | null; created_at?: string }
+        Update: { id?: string; work_date?: string; entity_type?: string; entity_id?: string; worker_id?: string | null; actor_id?: string; action?: string; before_data?: Json | null; after_data?: Json | null; created_at?: string }
+        Relationships: []
+      }
+
       afterhours_assignments: {
         Row: {
           afterhours_user_id: string
@@ -4807,6 +4814,7 @@ export type Database = {
           individual_mode: boolean | null
           is_afterhours_manager: boolean
           is_eld: boolean
+          is_eld_manager: boolean
           is_recovery: boolean
           office: Database["public"]["Enums"]["office_location"] | null
           phone_number: string | null
@@ -4827,6 +4835,7 @@ export type Database = {
           individual_mode?: boolean | null
           is_afterhours_manager?: boolean
           is_eld?: boolean
+          is_eld_manager?: boolean
           is_recovery?: boolean
           office?: Database["public"]["Enums"]["office_location"] | null
           phone_number?: string | null
@@ -4847,6 +4856,7 @@ export type Database = {
           individual_mode?: boolean | null
           is_afterhours_manager?: boolean
           is_eld?: boolean
+          is_eld_manager?: boolean
           is_recovery?: boolean
           office?: Database["public"]["Enums"]["office_location"] | null
           phone_number?: string | null
@@ -7348,6 +7358,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      eld_get_day: { Args: { p_date: string }; Returns: Json }
+      eld_save_check: { Args: { p_id: string; p_field: string; p_value: Json }; Returns: undefined }
+      eld_manage: { Args: { p_action: string; p_payload: Json }; Returns: undefined }
+
       add_truck_yard_arrival: {
         Args: {
           p_action_type: string

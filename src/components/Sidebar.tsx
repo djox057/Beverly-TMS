@@ -163,6 +163,7 @@ const navigation = [
   },
   { name: "Turnover List", href: "/turnover-list", icon: RefreshCw, roles: ["admin"] },
   { name: "Roadside Inspection", href: "/roadside-inspection", icon: AlertTriangle },
+  { name: "ELD", href: "/eld", icon: ClipboardCheck, roles: ["admin", "maintenance"], strict: true },
   { name: "Live Oil Change", href: "/live-oil-change", icon: Droplet },
   {
     name: "Pre Trip Inspection",
@@ -434,6 +435,7 @@ export const Sidebar = () => {
         "/transfer-list",
         "/roadside-inspection",
         "/live-oil-change",
+        "/eld",
         "/pretrip-inspection",
       ];
       return [

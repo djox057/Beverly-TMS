@@ -138,3 +138,17 @@ describe("Upcoming Drivers direct URL access", () => {
     expect(screen.queryByRole("heading", { name: "Login" })).not.toBeInTheDocument();
   });
 });
+
+describe('ELD navigation access', () => {
+  it.each(['admin', 'maintenance', 'manager', 'supervisor', 'safety', 'accounting', 'dispatch', 'afterhours'])(
+    'shows ELD only to exact admin/maintenance roles: %s', role => {
+      auth.primaryRole = role;
+      render(<MemoryRouter><Sidebar /></MemoryRouter>);
+      if (role === 'admin' || role === 'maintenance') {
+        expect(screen.getByRole('link', { name: 'ELD' })).toHaveAttribute('href', '/eld');
+      } else {
+        expect(screen.queryByRole('link', { name: 'ELD' })).not.toBeInTheDocument();
+      }
+    },
+  );
+});

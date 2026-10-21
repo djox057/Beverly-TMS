@@ -43,6 +43,8 @@ interface User {
   gross_percent: number | null;
   cut_percent: number | null;
   suggestions_enabled: boolean;
+  is_eld: boolean;
+  is_eld_manager?: boolean;
 }
 
 const AdminUsers = () => {
@@ -73,6 +75,7 @@ const AdminUsers = () => {
   const [editDailyEdit, setEditDailyEdit] = useState(false);
   const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
   const [editIsEld, setEditIsEld] = useState(false);
+  const [editIsEldManager, setEditIsEldManager] = useState(false);
   const [editIsRecovery, setEditIsRecovery] = useState(false);
   const [editIsAfterhoursManager, setEditIsAfterhoursManager] = useState(false);
   const [editGrossPercent, setEditGrossPercent] = useState<string>('');
@@ -455,7 +458,8 @@ const AdminUsers = () => {
     setEditDailyView(user.daily_report_can_view);
     setEditDailyEdit(user.daily_report_can_edit);
     setEditSuggestionsEnabled(user.suggestions_enabled);
-    setEditIsEld(!!(user as any).is_eld);
+    setEditIsEld(user.is_eld);
+    setEditIsEldManager(user.is_eld_manager ?? false);
     setEditIsRecovery(!!(user as any).is_recovery);
     setEditIsAfterhoursManager(!!(user as any).is_afterhours_manager);
     setEditGrossPercent(user.gross_percent != null ? String(user.gross_percent) : (user.roles.includes('dispatch') ? '1' : ''));
@@ -529,6 +533,9 @@ const AdminUsers = () => {
           .update({
             suggestions_enabled: editSuggestionsEnabled,
             is_eld: editRole === 'maintenance' ? editIsEld : false,
+            ...(typeof userToEdit.is_eld_manager === 'boolean'
+              ? { is_eld_manager: editRole === 'maintenance' ? editIsEldManager : false }
+              : {}),
             is_recovery: editRole === 'dispatch' ? editIsRecovery : false,
             is_afterhours_manager: editRole === 'afterhours' ? editIsAfterhoursManager : false,
           })
@@ -1398,7 +1405,7 @@ const AdminUsers = () => {
             {editRole === 'maintenance' && (
               <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Weekend Schedule</p>
+                  <p className="text-sm font-semibold text-foreground">ELD</p>
                 </div>
                 <div className="flex items-center justify-between">
                   <Label htmlFor="edit-is-eld" className="text-sm cursor-pointer">
@@ -1410,6 +1417,11 @@ const AdminUsers = () => {
                     onCheckedChange={setEditIsEld}
                   />
                 </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="edit-is-eld-manager" className="text-sm cursor-pointer">ELD manager</Label>
+                  <Switch id="edit-is-eld-manager" checked={editIsEldManager} onCheckedChange={setEditIsEldManager} disabled={typeof userToEdit?.is_eld_manager !== 'boolean'} />
+                </div>
+                <p className="text-xs text-muted-foreground">ELD managers can view all ELD work, assign drivers and add side tasks.</p>
               </div>
             )}
 
