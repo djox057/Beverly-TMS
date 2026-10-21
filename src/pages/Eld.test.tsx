@@ -4,9 +4,10 @@ import type { EldDay } from '@/lib/eld';
 import { eldToday } from '@/lib/eld';
 import Eld from './Eld';
 
-const mocks = vi.hoisted(() => ({ day: {} as { data: EldDay }, save: vi.fn(), manage: vi.fn() }));
+const mocks = vi.hoisted(() => ({ day: {} as { data: EldDay }, save: vi.fn(), manage: vi.fn(), pendingCheckKeys: new Set<string>() }));
 vi.mock('@/hooks/useEld', () => ({ useEldDay: () => ({
   day: { ...mocks.day, refetch: vi.fn() },
+  pendingCheckKeys: mocks.pendingCheckKeys, pendingAssignments: new Set<string>(), pendingTasks: new Set<string>(), addingTask: false, hasPendingWrites: false,
   saveCheck: { mutate: mocks.save, mutateAsync: mocks.save, isPending: false },
   manage: { mutate: mocks.manage, mutateAsync: mocks.manage, isPending: false },
 }) }));
@@ -14,6 +15,7 @@ vi.mock('@/components/eld/EldActivityLog', () => ({ EldActivityLog: () => <div>A
 const today = eldToday();
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.pendingCheckKeys = new Set();
   mocks.day = { data: { today, can_manage: false, can_work: true, workers: [{ user_id: 'worker', name: 'ELD Person' }], tasks: [], checks: [{
     id: 'check', work_date: today, driver_id: 'driver', driver_name: 'Assigned Driver', truck_number: '460', worker_id: 'worker', worker_name: 'ELD Person',
     yesterday_log: false, forms: false, pti: false, comment: '', updated_by: null, updated_at: new Date().toISOString(),
@@ -26,6 +28,13 @@ describe('ELD page', () => {
     expect(mocks.save).toHaveBeenCalledWith({ id: 'check', field: 'yesterday_log', value: true });
     expect(screen.queryByRole('combobox', { name: /Assign ELD person/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Team overview' })).not.toBeInTheDocument();
+  });
+  it('keeps other controls usable while one checkbox is saving', () => {
+    mocks.pendingCheckKeys.add('check:pti');
+    render(<Eld />);
+    expect(screen.getByRole('checkbox', { name: 'pti for Assigned Driver' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: 'forms for Assigned Driver' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add comment' })).toBeEnabled();
   });
   it('exposes assignment and team overview to ELD managers', () => {
     mocks.day.data.can_manage = true;
