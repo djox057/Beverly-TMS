@@ -35,7 +35,7 @@ it("opens Prebook first, keeping recovery separate and archiving canceled preboo
   expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
   expect(screen.queryByRole("columnheader", { name: "Booked By" })).not.toBeInTheDocument();
   expect(screen.queryByRole("columnheader", { name: "Cancels At" })).not.toBeInTheDocument();
-  expect(screen.getByText("Loaded")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "View status for PREBOOK-1" })).toHaveTextContent("Loaded");
   expect(screen.getByRole("button", { name: "View status for PREBOOK-1" })).toHaveClass("text-sky-700");
   expect(screen.getByText("Original Booker")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Assign" })).not.toBeInTheDocument();
@@ -93,7 +93,7 @@ it("offers Available and Covered without a cancellation option", async () => {
   access.role = "admin";
   render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
   fireEvent.click(await screen.findByRole("button", { name: "View status for PREBOOK-1" }));
-  expect(screen.getAllByRole("option").map(option => option.textContent)).toEqual(["Available", "Covered"]);
+  expect(within(screen.getByLabelText("Prebook status")).getAllByRole("option").map(option => option.textContent)).toEqual(["Available", "Covered"]);
 });
 it("shows all prebooks in Statistics, including canceled and POD-completed loads", async () => {
   access.role = "admin";
