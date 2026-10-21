@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -361,17 +362,19 @@ const RecoveryLoads = () => {
           />
         </div>
         {activeTab === "prebook" && (
-          <select
-            aria-label="Filter by status"
+          <SearchableSelect
             value={prebookStatusFilter}
-            onChange={(event) => setPrebookStatusFilter(event.target.value)}
-            className="flex h-10 w-full sm:w-[180px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="all">All statuses</option>
-            <option value="Available">Available</option>
-            <option value="Covered">Covered</option>
-            <option value="Loaded">Loaded</option>
-          </select>
+            onValueChange={setPrebookStatusFilter}
+            options={[
+              { value: "all", label: "All statuses" },
+              { value: "Available", label: "Available" },
+              { value: "Covered", label: "Covered" },
+              { value: "Loaded", label: "Loaded" },
+            ]}
+            placeholder="Filter by status"
+            searchPlaceholder="Search statuses..."
+            className="w-full sm:w-[180px]"
+          />
         )}
       </div>
 
