@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardCheck, Plus, RefreshCw, Search } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
+import { useEldCompanies } from '@/hooks/useEldCompanies';
 import { useEldDay } from '@/hooks/useEld';
 import { EldChecksTable } from '@/components/eld/EldChecksTable';
 import { EldActivityLog } from '@/components/eld/EldActivityLog';
@@ -24,6 +25,7 @@ export default function Eld() {
   const [search, setSearch] = useState('');
   const [worker, setWorker] = useState('all');
   const [status, setStatus] = useState('all');
+  const [company, setCompany] = useState('all');
   const [taskOpen, setTaskOpen] = useState(false);
   const [taskWorker, setTaskWorker] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
@@ -48,7 +50,16 @@ export default function Eld() {
   const checks = data?.checks ?? EMPTY_CHECKS;
   const workers = data?.workers ?? [];
   const tasks = data?.tasks ?? [];
-  const rows = useMemo(() => filterEldChecks(checks, search, worker, status), [checks, search, worker, status]);
+  const companyQuery = useEldCompanies(checks);
+  const companyData = companyQuery.data;
+  const companyFor = (row: EldCheck) => companyData?.trucks.get(row.truck_number) || companyData?.drivers.get(row.driver_id) || null;
+  const companyOptions = [...new Set(checks.map(companyFor).filter((id): id is string => !!id))]
+    .map(id => ({ id, name: companyData?.names.get(id) || 'Unknown company' }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const rows = useMemo(() => filterEldChecks(checks, search, worker, status).filter(row => {
+    const id = companyData?.trucks.get(row.truck_number) || companyData?.drivers.get(row.driver_id) || null;
+    return company === 'all' || (company === 'none' ? !id : id === company);
+  }), [checks, search, worker, status, company, companyData]);
   const completed = rows.filter(eldComplete).length;
   const workerNames = new Map(workers.map(w => [w.user_id, w.name]));
   checks.forEach(c => { if (c.worker_id && c.worker_name && !workerNames.has(c.worker_id)) workerNames.set(c.worker_id, c.worker_name); });
@@ -93,6 +104,8 @@ export default function Eld() {
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-52 max-w-md"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" aria-label="Search drivers, trucks or ELD person" placeholder="Search truck, driver or ELD person…" value={search} onChange={e => setSearch(e.target.value)} /></div>
             {manager && <Select value={worker} onValueChange={setWorker}><SelectTrigger className="w-52" aria-label="Filter ELD person"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All ELD people</SelectItem><SelectItem value="unassigned">Unassigned</SelectItem>{[...workerNames].map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}</SelectContent></Select>}
+            <Select value={company} onValueChange={setCompany} disabled={companyQuery.isPending || companyQuery.isError}><SelectTrigger className="w-56" aria-label="Filter company"><SelectValue placeholder="Company" /></SelectTrigger><SelectContent><SelectItem value="all">All companies</SelectItem><SelectItem value="none">No company</SelectItem>{companyOptions.map(option => <SelectItem key={option.id} value={option.id}>{option.name}</SelectItem>)}</SelectContent></Select>
+            {companyQuery.isError && <span role="alert" className="text-sm text-destructive">Could not load companies. <Button variant="link" onClick={() => companyQuery.refetch()}>Retry</Button></span>}
             <Select value={status} onValueChange={setStatus}><SelectTrigger className="w-44" aria-label="Filter completion"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All checks</SelectItem><SelectItem value="incomplete">Incomplete</SelectItem><SelectItem value="complete">Completed</SelectItem></SelectContent></Select>
             <span className="text-sm text-muted-foreground ml-auto">{rows.length} drivers</span>
           </div>
