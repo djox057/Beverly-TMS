@@ -725,15 +725,15 @@ const LiveOilChange = () => {
   const mileageSummary = useMileageUpdateSummary(showMileageUpdates);
   const periodView = mileageSummary.view === "updated" || mileageSummary.view === "remaining";
   const categoryTrucks = useMemo(() => statisticsSelection ? filtered.filter(truck => matchesStatisticsSelection(truck, statisticsSelection)) : filtered, [filtered, statisticsSelection]);
-  const displayedTrucks = useMemo(() => filterMileageUpdateTrucks(categoryTrucks, mileageSummary.edits, mileageSummary.view),
-    [categoryTrucks, mileageSummary.edits, mileageSummary.view]);
+  const displayedTrucks = useMemo(() => filterMileageUpdateTrucks(categoryTrucks, mileageSummary.edits, mileageSummary.view, mileageSummary.scope),
+    [categoryTrucks, mileageSummary.edits, mileageSummary.view, mileageSummary.scope]);
 
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(displayedTrucks.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   useEffect(() => { setPage(previous => Math.min(previous, pageCount)); }, [pageCount]);
   const pageTrucks = useMemo(() => displayedTrucks.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), [displayedTrucks, currentPage]);
-  useEffect(() => { setPage(1); }, [statisticsSelection, search, companyFilter, sourceFilter, milesFilter, dispatcherFilter, officeFilter, mileageSummary.view, mileageSummary.period.start, mileageSummary.period.end]);
+  useEffect(() => { setPage(1); }, [statisticsSelection, search, companyFilter, sourceFilter, milesFilter, dispatcherFilter, officeFilter, mileageSummary.scope, mileageSummary.view, mileageSummary.period.start, mileageSummary.period.end]);
   const tableLoading = isLoading || !!(periodView && mileageSummary.bounds && mileageSummary.isPending);
   const tableError = periodView && !mileageSummary.bounds ? "Select a valid mileage update period."
     : trucksError || (periodView && mileageSummary.isError) ? "Could not load trucks or mileage updates. Refresh the page and try again." : null;

@@ -12,8 +12,8 @@ export function MileageUpdateSummary({ trucks, trucksLoading, trucksError, summa
   trucksLoading: boolean;
   trucksError: boolean;
 }) {
-  const { month, setMonth, preset, setPreset, setCustom, period, bounds, edits, isPending, isError, view, setView } = summary;
-  const counts = useMemo(() => countMileageUpdates(filterMileageUpdateTrucks(trucks, edits, "assigned"), edits), [trucks, edits]);
+  const { month, setMonth, preset, setPreset, setCustom, period, bounds, edits, isPending, isError, scope, setScope, view, setView } = summary;
+  const counts = useMemo(() => countMileageUpdates(filterMileageUpdateTrucks(trucks, edits, "all", scope), edits), [trucks, edits, scope]);
 
   return (
     <section className="mb-4 space-y-3 rounded-md border bg-muted/20 p-3" aria-label="Mileage updates by period">
@@ -37,22 +37,29 @@ export function MileageUpdateSummary({ trucks, trucksLoading, trucksError, summa
             onChange={(event) => { setCustom({ ...period, end: event.target.value }); setPreset("custom"); }} />
         </div>
       </div>
-      <div className="flex flex-wrap gap-2" aria-label="Filter trucks by mileage updates">
-        {([['all', 'All trucks'], ['assigned', 'Assigned trucks'], ['updated', 'Updated assigned'], ['remaining', 'Not updated assigned']] as const).map(([value, label]) => (
-          <Button key={value} size="sm" variant={view === value ? "default" : "outline"} aria-pressed={view === value} onClick={() => setView(value)}>{label}</Button>
-        ))}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex gap-2" role="group" aria-label="Truck scope">
+          {([['all', 'All trucks'], ['assigned', 'Assigned trucks']] as const).map(([value, label]) => (
+            <Button key={value} size="sm" variant={scope === value ? "default" : "outline"} aria-pressed={scope === value} onClick={() => setScope(value)}>{label}</Button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Mileage update status">
+          {([['all', 'All updates'], ['updated', 'Updated'], ['remaining', 'Not updated']] as const).map(([value, label]) => (
+            <Button key={value} size="sm" variant={view === value ? "default" : "outline"} aria-pressed={view === value} onClick={() => setView(value)}>{label}</Button>
+          ))}
+        </div>
       </div>
       <div role="status" aria-live="polite" className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
         {!bounds ? <span className="text-destructive">Select a valid period with From on or before To.</span>
           : isError || trucksError ? <span className="text-destructive">Could not load mileage update counts.</span>
           : isPending || trucksLoading ? <span className="text-muted-foreground">Loading mileage update counts…</span>
           : <>
-            <span>Assigned trucks updated <strong>{counts.updated} / {counts.total}</strong></span>
+            <span>{scope === "assigned" ? "Assigned trucks updated" : "All trucks updated"} <strong>{counts.updated} / {counts.total}</strong></span>
             <span className="text-muted-foreground">{counts.remaining} remaining</span>
             <span>People who updated mileage <strong>{counts.people}</strong></span>
           </>}
       </div>
-      <p className="text-xs text-muted-foreground">Recorded total-mileage changes for trucks with an assigned driver in the current filters. Each truck and person counts once. Dates use Chicago time.</p>
+      <p className="text-xs text-muted-foreground">Recorded total-mileage changes for {scope === "assigned" ? "trucks with an assigned driver" : "all trucks"} in the current filters. Each truck and person counts once. Dates use Chicago time.</p>
     </section>
   );
 }

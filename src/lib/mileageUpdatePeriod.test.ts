@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countMileageUpdates, mileagePeriodBounds, mileagePresetPeriod } from "./mileageUpdatePeriod";
+import { filterMileageUpdateTrucks, countMileageUpdates, mileagePeriodBounds, mileagePresetPeriod } from "./mileageUpdatePeriod";
 
 describe("Mileage update periods", () => {
   it("uses the exact inclusive preset days in the selected month", () => {
@@ -48,5 +48,21 @@ describe("Mileage update counters", () => {
   it("handles empty results and repeated truck IDs", () => {
     expect(countMileageUpdates([], [])).toEqual({ updated: 0, total: 0, remaining: 0, people: 0 });
     expect(countMileageUpdates([{ id: "a" }, { id: "a" }], [])).toEqual({ updated: 0, total: 1, remaining: 1, people: 0 });
+  });
+});
+
+describe("Combined mileage filters", () => {
+  const trucks = [{ id: "assigned-updated", driver1_id: "driver" }, { id: "assigned-pending", driver1_id: "driver" },
+    { id: "unassigned-updated", driver1_id: null }, { id: "unassigned-pending", driver1_id: null }];
+  const edits = [{ truck_id: "assigned-updated", changed_by: "user" }, { truck_id: "unassigned-updated", changed_by: "user" }];
+  it.each([
+    ["all", "all", trucks.map(truck => truck.id)],
+    ["assigned", "all", ["assigned-updated", "assigned-pending"]],
+    ["all", "updated", ["assigned-updated", "unassigned-updated"]],
+    ["all", "remaining", ["assigned-pending", "unassigned-pending"]],
+    ["assigned", "updated", ["assigned-updated"]],
+    ["assigned", "remaining", ["assigned-pending"]],
+  ] as const)("combines %s scope with %s status", (scope, view, expected) => {
+    expect(filterMileageUpdateTrucks(trucks, edits, view, scope).map(truck => truck.id)).toEqual(expected);
   });
 });

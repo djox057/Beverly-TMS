@@ -51,13 +51,13 @@ it("does not rebuild truck cells when opening mileage updates or changing the mo
   expect(mocks.historyRequests).toBe(0);
   mocks.cellRender.mockClear();
   fireEvent.click(screen.getByRole("button", { name: "Mileage updates" }));
-  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Assigned trucks updated 1 / 499"));
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("All trucks updated 1 / 499"));
   expect(mocks.cellRender).not.toHaveBeenCalled();
   fireEvent.click(screen.getByLabelText("Month"));
   fireEvent.click(screen.getByRole("button", { name: "September" }));
-  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Assigned trucks updated 1 / 499"));
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("All trucks updated 1 / 499"));
   expect(mocks.cellRender).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Updated assigned" }));
+  fireEvent.click(screen.getByRole("button", { name: "Updated" }));
   await screen.findByRole("link", { name: "Open service log for truck 0499" });
   expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(1);
   expect(screen.getByRole("status")).toHaveTextContent("1 / 499");

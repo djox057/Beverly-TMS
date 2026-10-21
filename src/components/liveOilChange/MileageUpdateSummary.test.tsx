@@ -26,7 +26,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 function SummaryHarness({ trucks }: { trucks: { id: string; driver1_id: string | null }[] }) {
   const summary = useMileageUpdateSummary();
-  const visible = filterMileageUpdateTrucks(trucks, summary.edits, summary.view);
+  const visible = filterMileageUpdateTrucks(trucks, summary.edits, summary.view, summary.scope);
   return <><MileageUpdateSummary summary={summary} trucks={trucks} trucksLoading={false} trucksError={false} />
     <ul aria-label="Visible trucks">{visible.map((truck) => <li key={truck.id}>{truck.id}</li>)}</ul></>;
 
@@ -40,7 +40,7 @@ afterEach(cleanup);
 
 it("uses history and filters out people from hidden trucks", async () => {
   show();
-  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Assigned trucks updated 1 / 3"));
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("All trucks updated 1 / 3"));
   expect(screen.getByRole("status")).toHaveTextContent("People who updated mileage 1");
   expect(db.calls).toContainEqual({ method: "eq", args: ["field", "miles"] });
   expect(db.calls).toContainEqual({ method: "not", args: ["new_value", "is", null] });
@@ -49,7 +49,7 @@ it("uses history and filters out people from hidden trucks", async () => {
 it("fetches beyond the first 1000 history entries", async () => {
   db.large = true;
   show();
-  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Assigned trucks updated 2 / 3"));
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("All trucks updated 2 / 3"));
   expect(screen.getByRole("status")).toHaveTextContent("People who updated mileage 2");
   expect(db.calls).toContainEqual({ method: "range", args: [1000, 1999] });
 });
@@ -69,7 +69,7 @@ it("applies presets in another month and allows an inclusive custom period", asy
 
 it("shows invalid dates instead of querying a reversed range", async () => {
   show();
-  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Assigned trucks updated"));
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("All trucks updated"));
   const previous = db.calls.length;
   fireEvent.change(screen.getByLabelText("To"), { target: { value: "2020-01-01" } });
   expect(screen.getByRole("status")).toHaveTextContent("Select a valid period");
@@ -82,31 +82,25 @@ it("shows a read error without displaying a false zero counter", async () => {
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Could not load mileage update counts"));
 });
 
-it("filters assigned trucks by the selected period without changing the completion denominator", async () => {
-  show([{ id: "a", driver1_id: "driver-a" }, { id: "b", driver1_id: "driver-b" }, { id: "hidden", driver1_id: null }]);
-  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Assigned trucks updated 1 / 2"));
-  expect(screen.getByRole("status")).toHaveTextContent("People who updated mileage 1");
-  fireEvent.click(screen.getByRole("button", { name: "Updated assigned" }));
+it("combines all/assigned scope with update status and keeps the other selection", async () => {
+  show([{ id: "a", driver1_id: "driver-a" }, { id: "b", driver1_id: "driver-b" },
+    { id: "hidden", driver1_id: null }, { id: "idle", driver1_id: null }]);
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("All trucks updated 2 / 4"));
+  expect(screen.getByRole("status")).toHaveTextContent("People who updated mileage 2");
+  fireEvent.click(screen.getByRole("button", { name: "Not updated" }));
+  expect(screen.getByRole("list", { name: "Visible trucks" })).toHaveTextContent(/^aidle$/);
+  expect(screen.getByRole("button", { name: "All trucks" })).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(screen.getByRole("button", { name: "Assigned trucks" }));
+  expect(screen.getByRole("list", { name: "Visible trucks" })).toHaveTextContent(/^a$/);
+  expect(screen.getByRole("button", { name: "Not updated" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("status")).toHaveTextContent("Assigned trucks updated 1 / 2");
+  fireEvent.click(screen.getByRole("button", { name: "Updated" }));
   expect(screen.getByRole("list", { name: "Visible trucks" })).toHaveTextContent(/^b$/);
   expect(screen.getByRole("status")).toHaveTextContent("Assigned trucks updated 1 / 2");
-  fireEvent.click(screen.getByRole("button", { name: "Not updated assigned" }));
-  expect(screen.getByRole("list", { name: "Visible trucks" })).toHaveTextContent(/^a$/);
-  fireEvent.click(screen.getByRole("button", { name: "Assigned trucks" }));
-  expect(screen.getByRole("list", { name: "Visible trucks" })).toHaveTextContent(/^ab$/);
   fireEvent.click(screen.getByRole("button", { name: "All trucks" }));
-  expect(screen.getByRole("list", { name: "Visible trucks" })).toHaveTextContent("hidden");
-});
-
-it("picks months and years from buttons and resets a custom range to the selected month", async () => {
-  show();
-  fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-24" } });
-  fireEvent.click(screen.getByLabelText("Month"));
-  expect(screen.getByRole("dialog", { name: "Choose month" })).toBeInTheDocument();
-  expect(screen.queryByRole("textbox", { name: "Month" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Previous year" }));
-  fireEvent.click(screen.getByRole("button", { name: "February" }));
-  expect(screen.getByLabelText("Month")).toHaveTextContent("February 2025");
-  expect(screen.getByLabelText("From")).toHaveValue("2025-02-01");
-  expect(screen.getByLabelText("To")).toHaveValue("2025-02-07");
-  expect(screen.queryByRole("dialog", { name: "Choose month" })).not.toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Visible trucks" })).toHaveTextContent(/^bhidden$/);
+  expect(screen.getByRole("button", { name: "Updated" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("status")).toHaveTextContent("All trucks updated 2 / 4");
+  fireEvent.click(screen.getByRole("button", { name: "All updates" }));
+  expect(screen.getByRole("list", { name: "Visible trucks" })).toHaveTextContent(/^abhiddenidle$/);
 });

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { chicagoTodayISO } from "@/lib/mileageUpdateStatus";
-import { mileagePeriodBounds, mileagePresetPeriod, type MileageEdit, type MileagePeriodPreset, type MileageUpdateView } from "@/lib/mileageUpdatePeriod";
+import { mileagePeriodBounds, mileagePresetPeriod, type MileageEdit, type MileagePeriodPreset, type MileageUpdateView, type MileageTruckScope } from "@/lib/mileageUpdatePeriod";
 
 export function useMileageUpdateSummary(enabled = true) {
   const today = chicagoTodayISO();
@@ -35,6 +35,7 @@ export function useMileageUpdateSummary(enabled = true) {
       return [...edits.values()];
     },
   });
+  const [scope, setScope] = useState<MileageTruckScope>("all");
   const [view, setView] = useState<MileageUpdateView>("all");
-  return { month, setMonth, preset, setPreset, setCustom, period, bounds, edits, isPending, isError, view, setView };
+  return { month, setMonth, preset, setPreset, setCustom, period, bounds, edits, isPending, isError, scope, setScope, view, setView };
 }

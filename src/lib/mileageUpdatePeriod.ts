@@ -37,16 +37,15 @@ export function countMileageUpdates(trucks: readonly { id: string }[], edits: re
   return { updated: updated.size, total: visible.size, remaining: visible.size - updated.size, people: people.size };
 }
 
-export type MileageUpdateView = "all" | "assigned" | "updated" | "remaining";
+export type MileageTruckScope = "all" | "assigned";
+export type MileageUpdateView = "all" | "updated" | "remaining";
 
-/** Restrict period views to trucks that currently have a driver assigned. */
+/** Combine the truck scope with the update status for the selected period. */
 export function filterMileageUpdateTrucks<T extends { id: string; driver1_id: string | null }>(
-  trucks: readonly T[], edits: readonly MileageEdit[], view: MileageUpdateView,
+  trucks: readonly T[], edits: readonly MileageEdit[], view: MileageUpdateView, scope: MileageTruckScope = "all",
 ): readonly T[] {
-  if (view === "all") return trucks;
-  if (view === "assigned") return trucks.filter(truck => !!truck.driver1_id);
-  const updatedIds = new Set(edits.map((edit) => edit.truck_id));
-  return trucks.filter((truck) => !!truck.driver1_id && (
-    view === "updated" ? updatedIds.has(truck.id) : !updatedIds.has(truck.id)
-  ));
+  const scoped = scope === "assigned" ? trucks.filter(truck => !!truck.driver1_id) : trucks;
+  if (view === "all") return scoped;
+  const updatedIds = new Set(edits.map(edit => edit.truck_id));
+  return scoped.filter(truck => view === "updated" ? updatedIds.has(truck.id) : !updatedIds.has(truck.id));
 }
