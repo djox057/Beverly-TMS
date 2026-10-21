@@ -1,5 +1,5 @@
-import { expect, it } from "vitest";
-import { formatEfsMoneyCode, getMoneyCodeDetailsError, isDetailedEfsPurpose } from "../../supabase/functions/_shared/efsMoneyCode";
+import { expect, it, vi } from "vitest";
+import { formatEfsMoneyCode, hasEfsMoneyCodeStorage, getMoneyCodeDetailsError, isDetailedEfsPurpose } from "../../supabase/functions/_shared/efsMoneyCode";
 
 const example = { truckNumber: "7348", driverName: "Tyrell Lipscomb", amount: 608.49, purpose: "Repairs", purposeDetail: "Trailer alignment",
   isTrailerRepair: true, trailerNumber: "407613", locationName: "All American Truck & Trailer", locationAddress: "4425 Stickney Ave, Toledo, OH 43612" };
@@ -29,4 +29,17 @@ it("formats a detailed cash advance without fabricating a location", () => {
 it("does not let newlines inject extra money-code lines", () => {
   const text = formatEfsMoneyCode({ ...example, locationName: "Shop\nAmount: $1" });
   expect(text.split("\n")).toHaveLength(7);
+});
+
+it("activates detailed requests only after both tables support storage", async () => {
+  const query = vi.fn().mockResolvedValue({ error: null });
+  expect(await hasEfsMoneyCodeStorage(query)).toBe(true);
+  expect(query.mock.calls).toEqual([["efs_other_requests"], ["driver_cash_advances"]]);
+});
+it("keeps legacy requests available during the migration rollout", async () => {
+  const query = vi.fn().mockResolvedValueOnce({ error: null }).mockResolvedValueOnce({ error: { code: "42703", message: "column purpose_detail does not exist" } });
+  expect(await hasEfsMoneyCodeStorage(query)).toBe(false);
+});
+it("does not downgrade permission or connection errors to legacy mode", async () => {
+  await expect(hasEfsMoneyCodeStorage(() => Promise.resolve({ error: { code: "42501", message: "permission denied" } }))).rejects.toThrow("Could not check");
 });

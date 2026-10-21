@@ -1,4 +1,4 @@
-import { formatEfsMoneyCode, getMoneyCodeDetailsError, readMoneyCodeDetails } from "../_shared/efsMoneyCode.ts";
+import { formatEfsMoneyCode, getMoneyCodeDetailsError, hasEfsMoneyCodeStorage, readMoneyCodeDetails } from "../_shared/efsMoneyCode.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { getTruckRequirementError } from "./truckRequirement.ts";
@@ -131,9 +131,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { driverId, driverName, companyName, amount, purpose, city, state, quantity, receiptPath } = body;
     const truckNumber = typeof body.truckNumber === "string" ? body.truckNumber.trim() : "";
     const details = readMoneyCodeDetails(body as unknown as Record<string, unknown>);
-    const detailError = getMoneyCodeDetailsError(details, purpose || "");
-    if (detailError) return new Response(JSON.stringify({ success: false, error: detailError }),
-      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
+
 
     // Prefer resolving requester identity from the JWT
     let requesterEmail = body.requesterEmail;
@@ -158,6 +156,13 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const moneyStorageClient = createClient(supabaseUrl, supabaseServiceKey);
+    const storageReady = await hasEfsMoneyCodeStorage(table => moneyStorageClient.from(table).select("purpose_detail, entered_in_stuff").limit(0));
+    const detailError = storageReady ? getMoneyCodeDetailsError(details, purpose || "")
+      : details.purposeDetail ? "Detailed Money Code storage is pending a database update. No request was sent." : null;
+    if (detailError) return new Response(JSON.stringify({ success: false, error: detailError }),
+      { status: storageReady ? 400 : 409, headers: { "Content-Type": "application/json", ...corsHeaders } });
+
 
     // Resolve requester from JWT (role-independent)
     const authHeader = req.headers.get("Authorization");
@@ -251,7 +256,8 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    const emailBody = formatEfsMoneyCode({ ...details, truckNumber, driverName, amount, purpose });
+    const emailBody = storageReady ? formatEfsMoneyCode({ ...details, truckNumber, driverName, amount, purpose })
+      : `Unit: ${truckNumber || "N/A"}\nDriver: ${driverName}\nAmount: $${amount.toFixed(2)}\nPurpose: ${purpose}${isFuelRequest && city && state ? `\nLocation: ${city}, ${state}` : ""}`;
 
     // Determine sender email based on company
     const fromEmail = getEfsEmail(companyName);
@@ -336,11 +342,13 @@ const handler = async (req: Request): Promise<Response> => {
       quantity: quantity || null,
       receipt_path: receiptPath || null,
       resend_email_id: resendEmailId,
-      purpose_detail: details.purposeDetail,
-      is_trailer_repair: details.isTrailerRepair,
-      trailer_number: details.isTrailerRepair ? details.trailerNumber : null,
-      location_name: details.locationName || null,
-      location_address: details.locationAddress || null,
+      ...(storageReady ? {
+        purpose_detail: details.purposeDetail,
+        is_trailer_repair: details.isTrailerRepair,
+        trailer_number: details.isTrailerRepair ? details.trailerNumber : null,
+        location_name: details.locationName || null,
+        location_address: details.locationAddress || null,
+      } : {}),
     });
 
     if (dbError) {

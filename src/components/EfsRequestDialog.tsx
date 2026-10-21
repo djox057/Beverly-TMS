@@ -1,5 +1,5 @@
 import { EfsMoneyCodeFields, emptyMoneyCodeDetails } from "@/components/EfsMoneyCodeFields";
-import { getMoneyCodeDetailsError } from "../../supabase/functions/_shared/efsMoneyCode";
+import { getMoneyCodeDetailsError, hasEfsMoneyCodeStorage } from "../../supabase/functions/_shared/efsMoneyCode";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
 import { useDriverMissingFuelReceipt } from "@/hooks/useDriverMissingFuelReceipt";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface EfsRequestDialogProps {
   open: boolean;
@@ -50,6 +50,13 @@ export function EfsRequestDialog({
 }: EfsRequestDialogProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("cash-advance");
+  const { data: moneyDetailsReady = false, isPending: checkingMoneyDetails, isError: moneyDetailsError } = useQuery({
+    queryKey: ["efs-money-code-storage"], enabled: open, staleTime: 10000,
+    queryFn: () => hasEfsMoneyCodeStorage(async table => {
+      const { error } = await supabase.from(table).select("purpose_detail, entered_in_stuff").limit(0);
+      return { error };
+    }),
+  });
   const [cashDetails, setCashDetails] = useState(emptyMoneyCodeDetails);
   const [otherDetails, setOtherDetails] = useState(emptyMoneyCodeDetails);
   
@@ -93,7 +100,7 @@ export function EfsRequestDialog({
   }, [open]);
 
   const handleCashAdvanceRequest = async () => {
-    const detailError = getMoneyCodeDetailsError(cashDetails, "Cash Advance");
+    const detailError = moneyDetailsReady ? getMoneyCodeDetailsError(cashDetails, "Cash Advance") : null;
     if (detailError) { toast({ title: "Request details required", description: detailError, variant: "destructive" }); return; }
     setIsRequestingCashAdvance(true);
     try {
@@ -104,7 +111,7 @@ export function EfsRequestDialog({
           truckNumber,
           companyName,
           amount: cashAdvanceAmount,
-          ...cashDetails,
+          ...(moneyDetailsReady ? cashDetails : {}),
           requesterEmail,
           requesterName,
         },
@@ -165,7 +172,7 @@ export function EfsRequestDialog({
     }
     
     const details = otherDetails;
-    const detailError = getMoneyCodeDetailsError(details, purposeLabel);
+    const detailError = moneyDetailsReady ? getMoneyCodeDetailsError(details, purposeLabel) : null;
     if (detailError) { toast({ title: "Request details required", description: detailError, variant: "destructive" }); return; }
     setIsRequestingOther(true);
     try {
@@ -181,7 +188,7 @@ export function EfsRequestDialog({
           companyName,
           amount: parseFloat(otherAmount),
           purpose: purposeLabel,
-          ...details,
+          ...(moneyDetailsReady ? details : {}),
           requesterEmail,
           requesterName,
           // Fuel-specific fields (city and state only)
@@ -238,6 +245,9 @@ export function EfsRequestDialog({
           <p><strong>Truck:</strong> #{truckNumber}</p>
         </div>
 
+        {!checkingMoneyDetails && !moneyDetailsReady && <p role="status" className="text-sm text-muted-foreground">
+          {moneyDetailsError ? "Could not check Money Code details. Try reopening this form." : "Saved Money Code details are pending a database update. Existing requests are still available."}
+        </p>}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="cash-advance">Cash Advance</TabsTrigger>
@@ -302,7 +312,7 @@ export function EfsRequestDialog({
                   </div>
                 )}
 
-                {cashAdvanceData?.canRequest && <EfsMoneyCodeFields value={cashDetails} onChange={setCashDetails} purpose="Cash Advance" idPrefix="cash-code" disabled={isRequestingCashAdvance} />}
+                {moneyDetailsReady && cashAdvanceData?.canRequest && <EfsMoneyCodeFields value={cashDetails} onChange={setCashDetails} purpose="Cash Advance" idPrefix="cash-code" disabled={isRequestingCashAdvance} />}
 
                 {/* Actions */}
                 <div className="flex gap-2 justify-end pt-2">
@@ -316,7 +326,7 @@ export function EfsRequestDialog({
                   {!isCashAdvanceLoading && cashAdvanceData?.canRequest && (
                     <Button 
                       onClick={handleCashAdvanceRequest}
-                      disabled={isRequestingCashAdvance || cashAdvanceAmount <= 0 || !!getMoneyCodeDetailsError(cashDetails, "Cash Advance")}
+                      disabled={checkingMoneyDetails || moneyDetailsError || isRequestingCashAdvance || cashAdvanceAmount <= 0 || (moneyDetailsReady && !!getMoneyCodeDetailsError(cashDetails, "Cash Advance"))}
                     >
                       {isRequestingCashAdvance ? (
                         <>
@@ -369,7 +379,7 @@ export function EfsRequestDialog({
               </div>
             )}
             
-            {otherPurpose && <EfsMoneyCodeFields value={otherDetails} onChange={setOtherDetails} purpose={purposeLabel} idPrefix="other-code" disabled={isRequestingOther} />}
+            {moneyDetailsReady && otherPurpose && <EfsMoneyCodeFields value={otherDetails} onChange={setOtherDetails} purpose={purposeLabel} idPrefix="other-code" disabled={isRequestingOther} />}
 
             {/* Fuel-specific fields */}
             {otherPurpose === "fuel" && hasMissingFuelReceipt && (
@@ -453,7 +463,8 @@ export function EfsRequestDialog({
                   parseFloat(otherAmount) >= 5000 ||
                   (otherPurpose === "custom" && !customPurpose.trim()) ||
                   (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim())) ||
-                  !!getMoneyCodeDetailsError(otherDetails, purposeLabel) ||
+                  checkingMoneyDetails || moneyDetailsError ||
+                  (moneyDetailsReady && !!getMoneyCodeDetailsError(otherDetails, purposeLabel)) ||
                   fuelBlocked ||
                   (otherPurpose === "fuel" && isMissingReceiptsLoading)
                 }
