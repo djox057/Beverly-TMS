@@ -1768,6 +1768,14 @@ export type Database = {
       }
       driver_cash_advances: {
         Row: {
+          purpose_detail: string | null
+          is_trailer_repair: boolean
+          trailer_number: string | null
+          location_name: string | null
+          location_address: string | null
+          entered_in_stuff: boolean
+          stuff_entered_at: string | null
+          stuff_entered_by: string | null
           voided_at: string | null
           voided_by: string | null
           void_reason: string | null
@@ -1781,6 +1789,14 @@ export type Database = {
           truck_number: string | null
         }
         Insert: {
+          purpose_detail?: string | null
+          is_trailer_repair?: boolean
+          trailer_number?: string | null
+          location_name?: string | null
+          location_address?: string | null
+          entered_in_stuff?: boolean
+          stuff_entered_at?: string | null
+          stuff_entered_by?: string | null
           voided_at?: string | null
           voided_by?: string | null
           void_reason?: string | null
@@ -1794,6 +1810,14 @@ export type Database = {
           truck_number?: string | null
         }
         Update: {
+          purpose_detail?: string | null
+          is_trailer_repair?: boolean
+          trailer_number?: string | null
+          location_name?: string | null
+          location_address?: string | null
+          entered_in_stuff?: boolean
+          stuff_entered_at?: string | null
+          stuff_entered_by?: string | null
           voided_at?: string | null
           voided_by?: string | null
           void_reason?: string | null
@@ -2923,6 +2947,14 @@ export type Database = {
       }
       efs_other_requests: {
         Row: {
+          purpose_detail: string | null
+          is_trailer_repair: boolean
+          trailer_number: string | null
+          location_name: string | null
+          location_address: string | null
+          entered_in_stuff: boolean
+          stuff_entered_at: string | null
+          stuff_entered_by: string | null
           voided_at: string | null
           voided_by: string | null
           void_reason: string | null
@@ -2947,6 +2979,14 @@ export type Database = {
           truck_number: string | null
         }
         Insert: {
+          purpose_detail?: string | null
+          is_trailer_repair?: boolean
+          trailer_number?: string | null
+          location_name?: string | null
+          location_address?: string | null
+          entered_in_stuff?: boolean
+          stuff_entered_at?: string | null
+          stuff_entered_by?: string | null
           voided_at?: string | null
           voided_by?: string | null
           void_reason?: string | null
@@ -2971,6 +3011,14 @@ export type Database = {
           truck_number?: string | null
         }
         Update: {
+          purpose_detail?: string | null
+          is_trailer_repair?: boolean
+          trailer_number?: string | null
+          location_name?: string | null
+          location_address?: string | null
+          entered_in_stuff?: boolean
+          stuff_entered_at?: string | null
+          stuff_entered_by?: string | null
           voided_at?: string | null
           voided_by?: string | null
           void_reason?: string | null

@@ -1290,6 +1290,7 @@ const Reports = () => {
     driverId: string;
     driverName: string;
     truckNumber: string;
+    trailerNumber: string;
     companyName: string;
   } | null>(null);
 
@@ -5975,6 +5976,7 @@ const Reports = () => {
                                                                         driverId: truck.driverId!,
                                                                         driverName: truck.driver1Name,
                                                                         truckNumber: truck.truckNumber,
+                                                                        trailerNumber: truck.trailerNumber || "",
                                                                         companyName: truck.companyName || "",
                                                                       });
                                                                     }}
@@ -6080,6 +6082,7 @@ const Reports = () => {
                                                                         driverId: truck.driver2Id!,
                                                                         driverName: truck.driver2Name!,
                                                                         truckNumber: truck.truckNumber,
+                                                                        trailerNumber: truck.trailerNumber || "",
                                                                         companyName: truck.companyName || "",
                                                                       });
                                                                     }}
@@ -6413,6 +6416,7 @@ const Reports = () => {
                                                                           driverId: truck.driverId!,
                                                                           driverName: truck.driver,
                                                                           truckNumber: truck.truckNumber,
+                                                                        trailerNumber: truck.trailerNumber || "",
                                                                           companyName: truck.companyName || "",
                                                                         });
                                                                       }}
@@ -9133,6 +9137,7 @@ const Reports = () => {
         driverId={efsRequestDialog?.driverId || ""}
         driverName={efsRequestDialog?.driverName || ""}
         truckNumber={efsRequestDialog?.truckNumber || ""}
+        trailerNumber={efsRequestDialog?.trailerNumber || ""}
         companyName={efsRequestDialog?.companyName || ""}
       />
 

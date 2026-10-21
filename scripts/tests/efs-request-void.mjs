@@ -114,5 +114,37 @@ await check('cash advance values cannot be edited by void permission','dispatch'
 await check('cannot create pre-voided request','admin',async()=>{
   await assert.rejects(db.query("INSERT INTO efs_other_requests (id,amount,purpose,voided_at,void_reason,voided_by) VALUES (gen_random_uuid(),1,'Fuel',now(),'Reason',$1)",[userId]),/cannot be created as voided/);
 });
+await db.exec(await readFile(new URL('../../supabase/migrations/20261021165254_efs_money_code_details_and_stuff.sql', import.meta.url), 'utf8'));
+for (const role of ['admin','accounting','manager','supervisor','dispatch','afterhours']) {
+  for (const [table,id] of [['efs_other_requests',requestId],['driver_cash_advances',cashId]]) {
+    await check(`${role} can save money code details and Stuff audit on ${table}`,role,async()=>{
+      const result=await db.query(`UPDATE ${table} SET purpose_detail='Trailer alignment',is_trailer_repair=true,trailer_number='407613',location_name='Shop',location_address='4425 Stickney Ave, Toledo, OH 43612',entered_in_stuff=true WHERE id=$1 RETURNING *`,[id]);
+      assert.equal(result.rows.length,1);
+      assert.equal(result.rows[0].purpose_detail,'Trailer alignment');
+      assert.equal(result.rows[0].stuff_entered_by,userId);
+      assert.ok(result.rows[0].stuff_entered_at);
+      assert.equal(Number(result.rows[0].amount),100);
+      const cleared=await db.query(`UPDATE ${table} SET entered_in_stuff=false WHERE id=$1 RETURNING *`,[id]);
+      assert.equal(cleared.rows[0].stuff_entered_by,null);
+      assert.equal(cleared.rows[0].stuff_entered_at,null);
+    });
+  }
+}
+for (const role of ['safety','claims','maintenance','chicago_management','driver']) {
+  await check(`${role} cannot change money code details`,role,async()=>{
+    try { const result=await db.query('UPDATE efs_other_requests SET entered_in_stuff=true WHERE id=$1 RETURNING id',[requestId]); assert.equal(result.rows.length,0); }
+    catch(error) { assert.match(error.message,/permission to update money code details/); }
+  });
+}
+await check('cash money code permission cannot change its financial amount','dispatch',async()=>{
+  await assert.rejects(db.query("UPDATE driver_cash_advances SET purpose_detail='Personal meals',amount=1 WHERE id=$1",[cashId]),/only be updated/);
+});
+await check('Stuff actor cannot be forged','admin',async()=>{
+  await assert.rejects(db.query('UPDATE driver_cash_advances SET stuff_entered_by=$1 WHERE id=$2',[userId,cashId]),/audit fields/);
+});
+await check('voiding still works after the metadata migration','dispatch',async()=>{
+  await voidRequest('driver_cash_advances',cashId);
+  await assert.rejects(db.query('UPDATE driver_cash_advances SET entered_in_stuff=true WHERE id=$1',[cashId]),/cannot be changed/);
+});
 await db.close();
 console.log(`${passed} database permission and void lifecycle checks passed`);
