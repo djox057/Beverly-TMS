@@ -1,3 +1,4 @@
+import { fetchActiveEfsRows } from "@/lib/activeEfsRequests";
 import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { Badge } from "@/components/ui/badge";
@@ -381,13 +382,16 @@ const fetchEfsDeductionsForStatement = async (
 
   // Fetch EFS other requests for the driver within the week
   // EXCLUDE fuel requests since they go to the dedicated fuel section
-  const { data: efsOther, error: efsError } = await supabase
-    .from("efs_other_requests")
-    .select("amount, purpose, requested_at")
-    .eq("driver_id", driverId)
-    .gte("requested_at", weekStartISO)
-    .lt("requested_at", weekEndISO)
-    .order("requested_at", { ascending: true });
+  const { data: efsOther, error: efsError } = await fetchActiveEfsRows((activeOnly) => {
+    const query = supabase
+      .from("efs_other_requests")
+      .select("amount, purpose, requested_at")
+      .eq("driver_id", driverId)
+      .gte("requested_at", weekStartISO)
+      .lt("requested_at", weekEndISO)
+      .order("requested_at", { ascending: true });
+    return activeOnly ? query.is("voided_at", null) : query;
+  });
 
   if (efsError) {
     console.error("Error fetching EFS other requests:", efsError);

@@ -1,3 +1,4 @@
+import { fetchActiveEfsRows } from "@/lib/activeEfsRequests";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getEfsReceiptCutoff } from "@/lib/efsReceiptWindow";
@@ -22,14 +23,17 @@ export function useEfsMissingReceipts() {
   const { data: fuelRequests = [], isLoading, refetch } = useQuery({
     queryKey: ["efs-fuel-missing-data"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("efs_other_requests")
-        .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path, requested_by")
-        .eq("purpose", "Fuel")
-        .eq("receipt_bypassed", false)
-        .gte("requested_at", getEfsReceiptCutoff())
-        .or("receipt_path.is.null,quantity.is.null")
-        .order("requested_at", { ascending: false });
+      const { data, error } = await fetchActiveEfsRows((activeOnly) => {
+        const query = supabase
+          .from("efs_other_requests")
+          .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path, requested_by")
+          .eq("purpose", "Fuel")
+          .eq("receipt_bypassed", false)
+          .gte("requested_at", getEfsReceiptCutoff())
+          .or("receipt_path.is.null,quantity.is.null")
+          .order("requested_at", { ascending: false });
+        return activeOnly ? query.is("voided_at", null) : query;
+      });
 
       if (error) throw error;
       return data as EfsFuelMissingData[];
@@ -39,11 +43,13 @@ export function useEfsMissingReceipts() {
 
   const uploadReceiptMutation = useMutation({
     mutationFn: async ({ requestId, file }: { requestId: string; file: File }) => {
-      const { data: request, error: fetchError } = await supabase
-        .from("efs_other_requests")
-        .select("driver_id")
-        .eq("id", requestId)
-        .single();
+      const { data: request, error: fetchError } = await fetchActiveEfsRows((activeOnly) => {
+        const query = supabase
+          .from("efs_other_requests")
+          .select("driver_id")
+          .eq("id", requestId);
+        return (activeOnly ? query.is("voided_at", null) : query).single();
+      });
 
       if (fetchError) throw fetchError;
 
@@ -74,11 +80,13 @@ export function useEfsMissingReceipts() {
   const updateGallonsMutation = useMutation({
     mutationFn: async ({ requestId, quantity }: { requestId: string; quantity: number }) => {
       // First get the EFS request details to create fuel transaction
-      const { data: efsRequest, error: fetchError } = await supabase
-        .from("efs_other_requests")
-        .select("driver_name, truck_number, amount, city, state, company_name, requested_at")
-        .eq("id", requestId)
-        .single();
+      const { data: efsRequest, error: fetchError } = await fetchActiveEfsRows((activeOnly) => {
+        const query = supabase
+          .from("efs_other_requests")
+          .select("driver_name, truck_number, amount, city, state, company_name, requested_at")
+          .eq("id", requestId);
+        return (activeOnly ? query.is("voided_at", null) : query).single();
+      });
 
       if (fetchError) throw fetchError;
 

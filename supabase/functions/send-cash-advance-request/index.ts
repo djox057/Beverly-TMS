@@ -200,11 +200,16 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Time boundaries (UTC):", { weekStart });
 
     // Check this week's cash advances with amounts (no daily limit)
-    const { data: weekAdvances, error: weekError } = await supabase
+    const weeklyAdvancesQuery = () => supabase
       .from("driver_cash_advances")
       .select("id, amount")
       .eq("driver_id", driverId)
       .gte("requested_at", weekStart);
+    let { data: weekAdvances, error: weekError } = await weeklyAdvancesQuery().is("voided_at", null);
+    // Preserve requests during the staged rollout before the void migration.
+    if (weekError?.code === "42703" && weekError.message.includes("voided_at")) {
+      ({ data: weekAdvances, error: weekError } = await weeklyAdvancesQuery());
+    }
 
     if (weekError) {
       console.error("Error checking week's advances:", weekError);

@@ -1,3 +1,4 @@
+import { fetchActiveEfsRows } from "@/lib/activeEfsRequests";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getEfsReceiptCutoff } from "@/lib/efsReceiptWindow";
@@ -9,14 +10,17 @@ export function useEfsMissingByDriver() {
   const { data: driverIdsWithMissingData = new Set<string>(), isLoading } = useQuery({
     queryKey: ["efs-missing-by-driver"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("efs_other_requests")
-        .select("driver_id")
-        .eq("purpose", "Fuel")
-        .eq("receipt_bypassed", false)
-        .gte("requested_at", getEfsReceiptCutoff())
-        .or("receipt_path.is.null,quantity.is.null")
-        .not("driver_id", "is", null);
+      const { data, error } = await fetchActiveEfsRows((activeOnly) => {
+        const query = supabase
+          .from("efs_other_requests")
+          .select("driver_id")
+          .eq("purpose", "Fuel")
+          .eq("receipt_bypassed", false)
+          .gte("requested_at", getEfsReceiptCutoff())
+          .or("receipt_path.is.null,quantity.is.null")
+          .not("driver_id", "is", null);
+        return activeOnly ? query.is("voided_at", null) : query;
+      });
 
       if (error) throw error;
 

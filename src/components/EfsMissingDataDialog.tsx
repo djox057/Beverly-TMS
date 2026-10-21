@@ -1,3 +1,4 @@
+import { fetchActiveEfsRows } from "@/lib/activeEfsRequests";
 import { useState, useRef } from "react";
 import {
   Dialog,
@@ -51,13 +52,16 @@ export function EfsMissingDataDialog({
   const { data: fuelRequests = [], isLoading } = useQuery({
     queryKey: ["efs-fuel-missing-data-driver", driverId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("efs_other_requests")
-        .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path, requested_by")
-        .eq("purpose", "Fuel")
-        .eq("driver_id", driverId)
-        .or("receipt_path.is.null,quantity.is.null")
-        .order("requested_at", { ascending: false });
+      const { data, error } = await fetchActiveEfsRows((activeOnly) => {
+        const query = supabase
+          .from("efs_other_requests")
+          .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path, requested_by")
+          .eq("purpose", "Fuel")
+          .eq("driver_id", driverId)
+          .or("receipt_path.is.null,quantity.is.null")
+          .order("requested_at", { ascending: false });
+        return activeOnly ? query.is("voided_at", null) : query;
+      });
 
       if (error) throw error;
       return data as EfsFuelRequest[];
@@ -96,11 +100,13 @@ export function EfsMissingDataDialog({
   const updateGallonsMutation = useMutation({
     mutationFn: async ({ requestId, quantity }: { requestId: string; quantity: number }) => {
       // First get the EFS request details to create fuel transaction
-      const { data: efsRequest, error: fetchError } = await supabase
-        .from("efs_other_requests")
-        .select("driver_name, truck_number, amount, city, state, company_name, requested_at")
-        .eq("id", requestId)
-        .single();
+      const { data: efsRequest, error: fetchError } = await fetchActiveEfsRows((activeOnly) => {
+        const query = supabase
+          .from("efs_other_requests")
+          .select("driver_name, truck_number, amount, city, state, company_name, requested_at")
+          .eq("id", requestId);
+        return (activeOnly ? query.is("voided_at", null) : query).single();
+      });
 
       if (fetchError) throw fetchError;
 

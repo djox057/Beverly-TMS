@@ -1,3 +1,4 @@
+import { fetchActiveEfsRows } from "@/lib/activeEfsRequests";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -60,11 +61,14 @@ export function useDriverCashAdvance(driverId: string | null) {
       const weekStart = getChicagoWeekStartUTC();
 
       // Fetch this week's advances with amounts
-      const { data: weekAdvances, error: weekError } = await supabase
-        .from("driver_cash_advances")
-        .select("id, amount")
-        .eq("driver_id", driverId)
-        .gte("requested_at", weekStart);
+      const { data: weekAdvances, error: weekError } = await fetchActiveEfsRows((activeOnly) => {
+        const query = supabase
+          .from("driver_cash_advances")
+          .select("id, amount")
+          .eq("driver_id", driverId)
+          .gte("requested_at", weekStart);
+        return activeOnly ? query.is("voided_at", null) : query;
+      });
 
       if (weekError) {
         console.error("Error fetching week's advances:", weekError);
