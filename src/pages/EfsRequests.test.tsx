@@ -1,6 +1,6 @@
 import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import EfsRequests from "./EfsRequests";
 
@@ -79,16 +79,15 @@ it("preserves the request list and explains why voiding is unavailable before mi
   expect(screen.getByRole("button", { name: "Delete request" })).toBeInTheDocument();
 });
 
-it("saves and copies detailed money code text for an older request", async () => {
+it("shows and copies plain request text without an edit form or a database write", async () => {
   show(); fireEvent.click(await screen.findByRole("button", { name: "Money Code" }));
-  const copy = screen.getByRole("button", { name: "Save & copy" });
-  expect(copy).toBeDisabled();
-  fireEvent.change(screen.getByLabelText("Detailed purpose in English (required)"), { target: { value: "Diesel purchase for the next trip" } });
-  fireEvent.change(screen.getByLabelText("Business name (required)"), { target: { value: "Road Ranger" } });
-  fireEvent.change(screen.getByLabelText("Full address (required)"), { target: { value: "123 Main St, Toledo, OH 43612" } });
-  fireEvent.click(copy);
-  await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("EFS Money Code\n\nUnit: 123\nDriver: Test Driver\nPurpose: Diesel purchase for the next trip\nAmount: $100.00\nLocation: Road Ranger 123 Main St, Toledo, OH 43612"));
-  expect(mock.updates).toContainEqual({ table: "efs_other_requests", values: expect.objectContaining({ purpose_detail: "Diesel purchase for the next trip", location_name: "Road Ranger" }) });
+  const dialog = within(screen.getByRole("dialog", { name: "EFS Money Code" }));
+  expect(dialog.queryByRole("textbox")).not.toBeInTheDocument();
+  expect(dialog.queryByText(/pending a database update/)).not.toBeInTheDocument();
+  expect(dialog.queryByLabelText("Detailed purpose in English (required)")).not.toBeInTheDocument();
+  fireEvent.click(dialog.getByRole("button", { name: "Copy text" }));
+  await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("EFS Money Code\n\nUnit: 123\nDriver: Test Driver\nPurpose: Fuel\nAmount: $100.00\nLocation: N/A"));
+  expect(mock.updates).toHaveLength(0);
 });
 it("persists a manually checked Stuff status", async () => {
   mock.roles = ["accounting"]; show();

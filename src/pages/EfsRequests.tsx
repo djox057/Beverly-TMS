@@ -812,7 +812,7 @@ export default function EfsRequests() {
         </div>
       )}
 
-      <EfsMoneyCodeDialog request={moneyCodeItem} onClose={() => setMoneyCodeItem(null)} canEdit={canVoidRequest} onSaved={invalidateRequests} />
+      <EfsMoneyCodeDialog request={moneyCodeItem} onClose={() => setMoneyCodeItem(null)} />
 
       <AlertDialog open={!!voidItem} onOpenChange={(open) => { if (!open && !voidMutation.isPending) setVoidItem(null); }}>
         <AlertDialogContent>
