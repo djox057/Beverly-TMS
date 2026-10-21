@@ -24,8 +24,6 @@ export default function Eld() {
   const [search, setSearch] = useState('');
   const [worker, setWorker] = useState('all');
   const [status, setStatus] = useState('all');
-  const [commentRow, setCommentRow] = useState<EldCheck | null>(null);
-  const [comment, setComment] = useState('');
   const [taskOpen, setTaskOpen] = useState(false);
   const [taskWorker, setTaskWorker] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
@@ -37,7 +35,6 @@ export default function Eld() {
       if (next !== today) {
         setToday(next);
         setDate(selected => selected === today ? next : selected);
-        setCommentRow(null);
         setTaskOpen(false);
       }
     }, 15_000);
@@ -48,7 +45,6 @@ export default function Eld() {
   const weekday = isEldWeekday(date);
   const editable = weekday && (manager || (date === data?.today && !!data?.can_work));
   const current = date === data?.today;
-  const savingComment = !!commentRow && pendingCheckKeys.has(`${commentRow.id}:comment`);
   const checks = data?.checks ?? EMPTY_CHECKS;
   const workers = data?.workers ?? [];
   const tasks = data?.tasks ?? [];
@@ -58,17 +54,14 @@ export default function Eld() {
   checks.forEach(c => { if (c.worker_id && c.worker_name && !workerNames.has(c.worker_id)) workerNames.set(c.worker_id, c.worker_name); });
   const selectDate = (next: string) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(next) || next > today) return;
-    setDate(next); setCommentRow(null); setTaskOpen(false); setWorker('all');
+    setDate(next); setTaskOpen(false); setWorker('all');
   };
-  const openComment = useCallback((row: EldCheck) => { setCommentRow(row); setComment(row.comment); }, []);
   const { mutate: changeCheck } = saveCheck;
   const { mutate: changeAssignment } = manage;
   const saveField = useCallback((id: string, field: EldCheckField, value: boolean) => changeCheck({ id, field, value }), [changeCheck]);
   const assignWorker = useCallback((driverId: string, workerId: string | null) => changeAssignment({ action: 'assign', payload: { driver_id: driverId, worker_id: workerId } }), [changeAssignment]);
-  const saveComment = async () => {
-    if (!commentRow) return;
-    try { await saveCheck.mutateAsync({ id: commentRow.id, field: 'comment', value: comment }); setCommentRow(null); } catch { /* Mutation displays the error and retains the draft. */ }
-  };
+  const { mutateAsync: changeNote } = saveCheck;
+  const saveNote = useCallback(async (id: string, value: string) => { await changeNote({ id, field: 'comment', value }); }, [changeNote]);
   const addTask = async () => {
     try {
       await manage.mutateAsync({ action: 'add_task', payload: { work_date: date, worker_id: taskWorker, description: taskDescription.trim() } });
@@ -105,7 +98,7 @@ export default function Eld() {
           </div>
           <EldChecksTable rows={rows} workers={workers} editable={editable} assignable={manager && current}
             pendingCheckKeys={pendingCheckKeys} pendingAssignments={pendingAssignments}
-            onSave={saveField} onAssign={assignWorker} onComment={openComment}
+            onSave={saveField} onAssign={assignWorker} onSaveNote={saveNote}
             emptyMessage={!weekday ? 'No weekend checklist.' : !checks.length ? manager ? 'No saved driver checks for this date.' : 'No drivers assigned to you for this date.' : 'No drivers match these filters.'} />
         </TabsContent>
         <TabsContent value="tasks" className="space-y-3">
@@ -119,7 +112,7 @@ export default function Eld() {
         <TabsContent value="activity"><EldActivityLog key={date} date={date} workers={workers} /></TabsContent>
       </Tabs>
     </>}
-    <Dialog open={!!commentRow} onOpenChange={open => { if (!open && !savingComment) setCommentRow(null); }}><DialogContent><DialogHeader><DialogTitle>Comment · {commentRow?.driver_name}</DialogTitle><DialogDescription>{date} · Truck {commentRow?.truck_number || '—'}</DialogDescription></DialogHeader><Textarea aria-label="Driver ELD comment" rows={6} maxLength={5000} value={comment} readOnly={!editable} onChange={e => setComment(e.target.value)} /><DialogFooter><Button variant="outline" disabled={savingComment} onClick={() => setCommentRow(null)}>Close</Button>{editable && <Button disabled={savingComment || comment === commentRow?.comment} onClick={saveComment}>{savingComment ? 'Saving…' : 'Save comment'}</Button>}</DialogFooter></DialogContent></Dialog>
+
     <Dialog open={taskOpen} onOpenChange={open => { if (!addingTask) setTaskOpen(open); }}><DialogContent><DialogHeader><DialogTitle>Add side task</DialogTitle><DialogDescription>Assign additional work for {date}.</DialogDescription></DialogHeader><Label>ELD person</Label><Select value={taskWorker} onValueChange={setTaskWorker}><SelectTrigger aria-label="Side task ELD person"><SelectValue placeholder="Select ELD person" /></SelectTrigger><SelectContent>{workers.map(w => <SelectItem key={w.user_id} value={w.user_id}>{w.name}</SelectItem>)}</SelectContent></Select><Label htmlFor="eld-task-description">Task</Label><Textarea id="eld-task-description" rows={4} maxLength={2000} value={taskDescription} onChange={e => setTaskDescription(e.target.value)} /><DialogFooter><Button variant="outline" disabled={addingTask} onClick={() => setTaskOpen(false)}>Cancel</Button><Button disabled={!taskWorker || !taskDescription.trim() || addingTask} onClick={addTask}>{addingTask ? 'Adding…' : 'Add task'}</Button></DialogFooter></DialogContent></Dialog>
   </div>;
 }

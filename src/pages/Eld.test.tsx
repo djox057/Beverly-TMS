@@ -34,7 +34,7 @@ describe('ELD page', () => {
     render(<Eld />);
     expect(screen.getByRole('checkbox', { name: 'pti for Assigned Driver' })).toBeDisabled();
     expect(screen.getByRole('checkbox', { name: 'forms for Assigned Driver' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Add comment' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Edit Note · Assigned Driver/ })).toBeEnabled();
   });
   it('exposes assignment and team overview to ELD managers', () => {
     mocks.day.data.can_manage = true;
@@ -47,12 +47,12 @@ describe('ELD page', () => {
     render(<Eld />);
     expect(screen.getByRole('checkbox', { name: 'pti for Assigned Driver' })).toBeDisabled();
   });
-  it('retains comment drafts until explicitly saved', async () => {
+  it('uses the Live Oil Change note editor and saves only after explicit Save', async () => {
     render(<Eld />);
-    fireEvent.click(screen.getByRole('button', { name: 'Add comment' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Driver ELD comment' }), { target: { value: 'Reviewed shipping forms' } });
+    fireEvent.click(screen.getByRole('button', { name: /Edit Note · Assigned Driver/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: /Note · Assigned Driver/ }), { target: { value: 'Reviewed shipping forms' } });
     expect(mocks.save).not.toHaveBeenCalled();
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save comment' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save' })); });
     expect(mocks.save).toHaveBeenCalledWith({ id: 'check', field: 'comment', value: 'Reviewed shipping forms' });
   });
 });

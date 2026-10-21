@@ -43,7 +43,7 @@ export function EldActivityLog({ date, workers }: { date: string; workers: EldWo
         <TableCell className="min-w-40">{String(row.after_data?.driver_name || row.after_data?.description || row.entity_type)}</TableCell>
         <TableCell className="min-w-64 text-sm">{Object.entries(row.after_data ?? {}).filter(([key]) => !['driver_name', 'description'].includes(key)).map(([key, value]) => {
           const display = (v: unknown) => typeof v === 'boolean' ? v ? 'Checked' : 'Unchecked' : key === 'worker_id' ? v ? query.data.names.get(String(v)) || 'ELD worker' : 'Unassigned' : String(v ?? '');
-          return <div key={key}><span className="font-medium">{key.replace(/_/g, ' ')}:</span> {display(row.before_data?.[key])} → {display(value)}</div>;
+          return <div key={key}><span className="font-medium">{key === 'comment' ? 'Note' : key.replace(/_/g, ' ')}:</span> {display(row.before_data?.[key])} → {display(value)}</div>;
         })}{row.action === 'created' && 'Side task added'}</TableCell>
       </TableRow>)}{!query.data.rows.length && <TableRow><TableCell colSpan={5} className="text-center h-24 text-muted-foreground">No activity for this date.</TableCell></TableRow>}</TableBody>
     </Table></div>
