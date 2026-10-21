@@ -1,3 +1,4 @@
+import { formatEfsMoneyCode, getMoneyCodeDetailsError, readMoneyCodeDetails } from "../_shared/efsMoneyCode.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
@@ -15,6 +16,11 @@ interface CashAdvanceRequest {
   amount: number;
   requesterEmail?: string;
   requesterName?: string;
+  purposeDetail: string;
+  isTrailerRepair?: boolean;
+  trailerNumber?: string;
+  locationName?: string;
+  locationAddress?: string;
 }
 
 // Extract last word from name (e.g., "David Mijailovic-Dom" -> "Dom")
@@ -127,13 +133,17 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const body: CashAdvanceRequest = await req.json();
     const { driverId, driverName, truckNumber, companyName, amount } = body;
+    const details = readMoneyCodeDetails(body as unknown as Record<string, unknown>);
+    const detailError = getMoneyCodeDetailsError(details, "Cash Advance");
+    if (detailError) return new Response(JSON.stringify({ success: false, error: detailError }),
+      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
 
     // Prefer resolving requester identity from the JWT (more reliable than client-provided fields)
     let requesterEmail = body.requesterEmail;
     let requesterName = body.requesterName;
 
     // Validate amount
-    if (amount < 0 || amount > 150) {
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 150) {
       return new Response(
         JSON.stringify({ success: false, error: "Amount must be between $0 and $150" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
@@ -245,6 +255,11 @@ const handler = async (req: Request): Promise<Response> => {
         amount,
         truck_number: truckNumber,
         requested_by: requesterId,
+        purpose_detail: details.purposeDetail,
+        is_trailer_repair: details.isTrailerRepair,
+        trailer_number: details.isTrailerRepair ? details.trailerNumber : null,
+        location_name: details.locationName || null,
+        location_address: details.locationAddress || null,
       })
       .select("id")
       .single();
@@ -300,10 +315,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Send email
-    const emailBody = `Unit: ${truckNumber || "N/A"}
-Driver: ${driverName}
-Amount: $${amount}
-Purpose: Cash advance`;
+    const emailBody = formatEfsMoneyCode({ ...details, truckNumber, driverName, amount, purpose: "Cash Advance" });
 
     console.log("Sending email from:", fromEmail);
     console.log("Email body:", emailBody);

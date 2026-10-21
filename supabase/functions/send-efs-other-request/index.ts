@@ -1,3 +1,4 @@
+import { formatEfsMoneyCode, getMoneyCodeDetailsError, readMoneyCodeDetails } from "../_shared/efsMoneyCode.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { getTruckRequirementError } from "./truckRequirement.ts";
@@ -16,6 +17,11 @@ interface EfsOtherRequest {
   purpose: string;
   requesterEmail?: string;
   requesterName?: string;
+  purposeDetail: string;
+  isTrailerRepair?: boolean;
+  trailerNumber?: string;
+  locationName?: string;
+  locationAddress?: string;
   // Fuel-specific fields
   city?: string;
   state?: string;
@@ -124,6 +130,10 @@ const handler = async (req: Request): Promise<Response> => {
     const body: EfsOtherRequest = await req.json();
     const { driverId, driverName, companyName, amount, purpose, city, state, quantity, receiptPath } = body;
     const truckNumber = typeof body.truckNumber === "string" ? body.truckNumber.trim() : "";
+    const details = readMoneyCodeDetails(body as unknown as Record<string, unknown>);
+    const detailError = getMoneyCodeDetailsError(details, purpose || "");
+    if (detailError) return new Response(JSON.stringify({ success: false, error: detailError }),
+      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
 
     // Prefer resolving requester identity from the JWT
     let requesterEmail = body.requesterEmail;
@@ -213,7 +223,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Validate amount
-    if (amount < 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       return new Response(
         JSON.stringify({ success: false, error: "Amount must be positive" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -241,16 +251,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Format the email body
-    let emailBody = `Unit: ${truckNumber || "N/A"}
-Driver: ${driverName}
-Amount: $${amount.toFixed(2)}
-Purpose: ${purpose}`;
-
-    if (isFuelRequest && city && state) {
-      emailBody += `
-Location: ${city}, ${state}`;
-    }
+    const emailBody = formatEfsMoneyCode({ ...details, truckNumber, driverName, amount, purpose });
 
     // Determine sender email based on company
     const fromEmail = getEfsEmail(companyName);
@@ -335,6 +336,11 @@ Location: ${city}, ${state}`;
       quantity: quantity || null,
       receipt_path: receiptPath || null,
       resend_email_id: resendEmailId,
+      purpose_detail: details.purposeDetail,
+      is_trailer_repair: details.isTrailerRepair,
+      trailer_number: details.isTrailerRepair ? details.trailerNumber : null,
+      location_name: details.locationName || null,
+      location_address: details.locationAddress || null,
     });
 
     if (dbError) {

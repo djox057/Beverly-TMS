@@ -1,3 +1,5 @@
+import { Checkbox } from "@/components/ui/checkbox";
+import { EfsMoneyCodeDialog, type EfsMoneyCodeRecord } from "@/components/EfsMoneyCodeDialog";
 import { useState, useMemo } from "react";
 import { isValidUUID } from "@/utils/validation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -53,7 +55,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 
-interface EfsRequest {
+interface EfsRequest extends EfsMoneyCodeRecord {
   id: string;
   driver_name: string;
   truck_number: string | null;
@@ -166,6 +168,7 @@ export default function EfsRequests() {
   const [requestedByOpen, setRequestedByOpen] = useState(false);
   const [deleteItem, setDeleteItem] = useState<EfsRequest | null>(null);
   const [receiptToDelete, setReceiptToDelete] = useState<EfsRequest | null>(null);
+  const [moneyCodeItem, setMoneyCodeItem] = useState<EfsRequest | null>(null);
   const [voidItem, setVoidItem] = useState<EfsRequest | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
@@ -237,6 +240,14 @@ export default function EfsRequests() {
         receipt_path: item.receipt_path,
         company_name: item.company_name,
         source: 'efs' as const,
+        purpose_detail: item.purpose_detail || null,
+        is_trailer_repair: item.is_trailer_repair === true,
+        trailer_number: item.trailer_number || null,
+        location_name: item.location_name || null,
+        location_address: item.location_address || null,
+        entered_in_stuff: item.entered_in_stuff === true,
+        stuff_entered_at: item.stuff_entered_at || null,
+        money_code_supported: Object.prototype.hasOwnProperty.call(item, "entered_in_stuff"),
         voided_at: item.voided_at,
         void_reason: item.void_reason,
         void_supported: Object.prototype.hasOwnProperty.call(item, "voided_at"),
@@ -259,6 +270,14 @@ export default function EfsRequests() {
         receipt_path: null,
         company_name: (item.drivers as { name: string; company_name: string | null } | null)?.company_name || null,
         source: 'cash_advance' as const,
+        purpose_detail: item.purpose_detail || null,
+        is_trailer_repair: item.is_trailer_repair === true,
+        trailer_number: item.trailer_number || null,
+        location_name: item.location_name || null,
+        location_address: item.location_address || null,
+        entered_in_stuff: item.entered_in_stuff === true,
+        stuff_entered_at: item.stuff_entered_at || null,
+        money_code_supported: Object.prototype.hasOwnProperty.call(item, "entered_in_stuff"),
         voided_at: item.voided_at,
         void_reason: item.void_reason,
         void_supported: Object.prototype.hasOwnProperty.call(item, "voided_at"),
@@ -303,6 +322,17 @@ export default function EfsRequests() {
       setCurrentPage(1);
     },
     onError: (error: Error) => toast.error(error.message || "Failed to void request"),
+  });
+
+  const stuffMutation = useMutation({
+    mutationFn: async ({ request, entered }: { request: EfsRequest; entered: boolean }) => {
+      if (!canVoidRequest || !request.money_code_supported || request.voided_at) throw new Error("You do not have permission to change this request");
+      const { error } = await supabase.from(request.source === 'cash_advance' ? 'driver_cash_advances' : 'efs_other_requests')
+        .update({ entered_in_stuff: entered }).eq("id", request.id).is("voided_at", null).select("id").single();
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateRequests(),
+    onError: (error: Error) => toast.error(error.message || "Failed to update Stuff status"),
   });
 
   // Delete mutation (admin only)
@@ -586,6 +616,8 @@ export default function EfsRequests() {
               <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
               <TableHead className="whitespace-nowrap">Requested By</TableHead>
               <TableHead className="whitespace-nowrap">Receipt</TableHead>
+              <TableHead className="whitespace-nowrap">Money Code</TableHead>
+              <TableHead className="whitespace-nowrap">Entered in Stuff</TableHead>
               <TableHead className="whitespace-nowrap">Status / Void reason</TableHead>
               {(canDeleteRequest || canVoidRequest) && <TableHead className="w-[60px] whitespace-nowrap">Actions</TableHead>}
             </TableRow>
@@ -617,6 +649,8 @@ export default function EfsRequests() {
                     <Skeleton className="h-4 w-24" />
                   </TableCell>
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   {(canDeleteRequest || canVoidRequest) && (
                     <TableCell>
@@ -628,7 +662,7 @@ export default function EfsRequests() {
             ) : paginatedRequests.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={canDeleteRequest || canVoidRequest ? 10 : 9}
+                  colSpan={canDeleteRequest || canVoidRequest ? 12 : 11}
                   className="text-center py-8 text-muted-foreground"
                 >
                   No EFS requests found
@@ -646,14 +680,20 @@ export default function EfsRequests() {
                   <TableCell className="font-medium">
                     {request.driver_name}
                   </TableCell>
-                  <TableCell>{request.truck_number || "-"}</TableCell>
+                  <TableCell>{request.truck_number || "-"}
+                    {request.is_trailer_repair && request.trailer_number && <div className="text-xs text-muted-foreground">Trailer: {request.trailer_number}</div>}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={getPurposeBadgeVariant(request.purpose)}>
                       {request.purpose}
                     </Badge>
+                    {request.purpose_detail && <p className="mt-1 max-w-[240px] whitespace-normal text-xs">{request.purpose_detail}</p>}
                   </TableCell>
                   <TableCell>
-                    {request.city && request.state
+                    {request.location_name || request.location_address ? <div className="max-w-[280px] whitespace-normal">
+                      {request.location_name && <div>{request.location_name}</div>}
+                      {request.location_address && <div className="text-xs text-muted-foreground">{request.location_address}</div>}
+                    </div> : request.city && request.state
                       ? `${request.city}, ${request.state}`
                       : request.city || request.state || "-"}
                   </TableCell>
@@ -674,6 +714,15 @@ export default function EfsRequests() {
                     ) : (
                       <span className="text-xs text-muted-foreground">-</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="outline" size="sm" onClick={() => setMoneyCodeItem(request)}>Money Code</Button>
+                  </TableCell>
+                  <TableCell>
+                    <Checkbox aria-label={`Entered in Stuff for ${request.driver_name}`} checked={request.entered_in_stuff}
+                      title={request.stuff_entered_at ? `Entered ${format(new Date(request.stuff_entered_at), "MMM d, yyyy h:mm a")}` : "Mark once entered in Stuff"}
+                      disabled={!canVoidRequest || !request.money_code_supported || !!request.voided_at || stuffMutation.isPending}
+                      onCheckedChange={checked => stuffMutation.mutate({ request, entered: checked === true })} />
                   </TableCell>
                   <TableCell className="max-w-[320px] whitespace-normal break-words">
                     {request.voided_at ? (
@@ -762,6 +811,8 @@ export default function EfsRequests() {
           </Button>
         </div>
       )}
+
+      <EfsMoneyCodeDialog request={moneyCodeItem} onClose={() => setMoneyCodeItem(null)} canEdit={canVoidRequest} onSaved={invalidateRequests} />
 
       <AlertDialog open={!!voidItem} onOpenChange={(open) => { if (!open && !voidMutation.isPending) setVoidItem(null); }}>
         <AlertDialogContent>
