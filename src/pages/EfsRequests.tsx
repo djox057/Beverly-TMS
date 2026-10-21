@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
-import { Trash2, Search, CreditCard, ChevronLeft, ChevronRight, Check, ChevronsUpDown, Download, Loader2 } from "lucide-react";
+import { Trash2, Search, CreditCard, ChevronLeft, ChevronRight, Check, ChevronsUpDown, Download, Loader2, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,6 +69,8 @@ interface EfsRequest {
   source: 'efs' | 'cash_advance';
   resend_email_id: string | null;
   driver_id: string | null;
+  voided_at: string | null;
+  void_reason: string | null;
 }
 
 const PAGE_SIZE = 100;
@@ -135,9 +139,23 @@ const EFS_PURPOSES = [
 ];
 
 export default function EfsRequests() {
-  const { hasRole, profile } = useAuthContext();
+  const { hasRole, profile, user } = useAuthContext();
   const queryClient = useQueryClient();
   const isAdmin = hasRole("admin") || hasRole("manager");
+  // hasRole grants inherited privileges; use stored roles for these actions.
+  const { data: requestRoles = [] } = useQuery({
+    queryKey: ["efs-request-action-roles", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_roles")
+        .select("role").eq("user_id", user!.id);
+      if (error) throw error;
+      return (data || []).map(row => row.role);
+    },
+  });
+  const canDeleteRequest = requestRoles.includes("admin");
+  const canVoidRequest = requestRoles.some(role =>
+    ["admin", "accounting", "manager", "supervisor", "dispatch", "afterhours"].includes(role));
   const canDeleteReceipt = hasRole("admin") || hasRole("accounting");
   const isDispatchOnly = hasRole("dispatch") && !isAdmin && !hasRole("accounting") && !hasRole("safety") && !hasRole("chicago_management");
 
@@ -147,6 +165,9 @@ export default function EfsRequests() {
   const [requestedByOpen, setRequestedByOpen] = useState(false);
   const [deleteItem, setDeleteItem] = useState<EfsRequest | null>(null);
   const [receiptToDelete, setReceiptToDelete] = useState<EfsRequest | null>(null);
+  const [voidItem, setVoidItem] = useState<EfsRequest | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch all EFS requests and cash advances
@@ -177,7 +198,7 @@ export default function EfsRequests() {
       const efsData = await fetchAllPages<any>("efs_other_requests", "*");
       const cashData = await fetchAllPages<any>(
         "driver_cash_advances",
-        "id, amount, requested_at, requested_by, truck_number, driver_id, resend_email_id, drivers(name, company_name)"
+        "id, amount, requested_at, requested_by, truck_number, driver_id, resend_email_id, voided_at, void_reason, drivers(name, company_name)"
       );
 
       // Fetch profiles to map user_id to full_name
@@ -215,6 +236,8 @@ export default function EfsRequests() {
         receipt_path: item.receipt_path,
         company_name: item.company_name,
         source: 'efs' as const,
+        voided_at: item.voided_at,
+        void_reason: item.void_reason,
         resend_email_id: (item as any).resend_email_id || null,
         driver_id: (item as any).driver_id || null,
       }));
@@ -234,6 +257,8 @@ export default function EfsRequests() {
         receipt_path: null,
         company_name: (item.drivers as { name: string; company_name: string | null } | null)?.company_name || null,
         source: 'cash_advance' as const,
+        voided_at: item.voided_at,
+        void_reason: item.void_reason,
         resend_email_id: (item as any).resend_email_id || null,
         driver_id: item.driver_id || null,
       }));
@@ -248,20 +273,51 @@ export default function EfsRequests() {
     staleTime: 30 * 1000,
   });
 
+  const invalidateRequests = () => {
+    for (const key of ["efs-all-requests-combined", "efs-fuel-missing-data", "efs-fuel-missing-data-driver",
+      "efs-missing-by-driver", "driver-missing-fuel-receipts", "driver-cash-advances", "driver-expenses"]) {
+      queryClient.invalidateQueries({ queryKey: [key] });
+    }
+  };
+
+  const voidMutation = useMutation({
+    mutationFn: async ({ request, reason }: { request: EfsRequest; reason: string }) => {
+      if (!canVoidRequest) throw new Error("You do not have permission to void requests");
+      if (!reason.trim()) throw new Error("A reason is required");
+      const tableName = request.source === 'cash_advance' ? 'driver_cash_advances' : 'efs_other_requests';
+      const { data, error } = await supabase.from(tableName)
+        .update({ voided_at: new Date().toISOString(), void_reason: reason.trim() })
+        .eq("id", request.id).is("voided_at", null).select("id").single();
+      if (error) throw error;
+      if (!data) throw new Error("Request was not voided. Refresh and try again.");
+    },
+    onSuccess: () => {
+      toast.success("Request voided");
+      invalidateRequests();
+      setVoidItem(null);
+      setVoidReason("");
+      setCurrentPage(1);
+    },
+    onError: (error: Error) => toast.error(error.message || "Failed to void request"),
+  });
+
   // Delete mutation (admin only)
   const deleteMutation = useMutation({
     mutationFn: async (request: EfsRequest) => {
+      if (!canDeleteRequest) throw new Error("Only admins may delete requests");
       const tableName = request.source === 'cash_advance' ? 'driver_cash_advances' : 'efs_other_requests';
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from(tableName)
         .delete()
-        .eq("id", request.id);
+        .eq("id", request.id).select("id").single();
 
       if (error) throw error;
+      if (!data) throw new Error("Request was not deleted");
     },
     onSuccess: () => {
       toast.success("Request deleted");
-      queryClient.invalidateQueries({ queryKey: ["efs-all-requests-combined"] });
+      invalidateRequests();
+      setCurrentPage(1);
       setDeleteItem(null);
     },
     onError: (error) => {
@@ -306,6 +362,8 @@ export default function EfsRequests() {
 
   // Filter requests
   const filteredRequests = efsRequests.filter((request) => {
+    if (statusFilter === "active" && request.voided_at) return false;
+    if (statusFilter === "voided" && !request.voided_at) return false;
     // Dispatch-only users can only see their own requests
     if (isDispatchOnly && request.requested_by !== profile?.full_name) {
       return false;
@@ -429,6 +487,16 @@ export default function EfsRequests() {
           </SelectContent>
         </Select>
         
+        <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setCurrentPage(1); }}>
+          <SelectTrigger className="w-[180px]" aria-label="Request status">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Active requests</SelectItem>
+            <SelectItem value="voided">Voided requests</SelectItem>
+            <SelectItem value="all">All requests</SelectItem>
+          </SelectContent>
+        </Select>
         {/* Requested By searchable dropdown */}
         <Popover open={requestedByOpen} onOpenChange={setRequestedByOpen}>
           <PopoverTrigger asChild>
@@ -508,7 +576,8 @@ export default function EfsRequests() {
               <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
               <TableHead className="whitespace-nowrap">Requested By</TableHead>
               <TableHead className="whitespace-nowrap">Receipt</TableHead>
-              {isAdmin && <TableHead className="w-[60px] whitespace-nowrap">Actions</TableHead>}
+              <TableHead className="whitespace-nowrap">Status / Void reason</TableHead>
+              {(canDeleteRequest || canVoidRequest) && <TableHead className="w-[60px] whitespace-nowrap">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -537,7 +606,9 @@ export default function EfsRequests() {
                   <TableCell>
                     <Skeleton className="h-4 w-24" />
                   </TableCell>
-                  {isAdmin && (
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  {(canDeleteRequest || canVoidRequest) && (
                     <TableCell>
                       <Skeleton className="h-8 w-8" />
                     </TableCell>
@@ -547,7 +618,7 @@ export default function EfsRequests() {
             ) : paginatedRequests.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={isAdmin ? 9 : 8}
+                  colSpan={canDeleteRequest || canVoidRequest ? 10 : 9}
                   className="text-center py-8 text-muted-foreground"
                 >
                   No EFS requests found
@@ -555,7 +626,7 @@ export default function EfsRequests() {
               </TableRow>
             ) : (
               paginatedRequests.map((request) => (
-                <TableRow key={request.id}>
+                <TableRow key={`${request.source}-${request.id}`} className={request.voided_at ? "bg-muted/40" : undefined}>
                   <TableCell className="whitespace-nowrap">
                     {format(new Date(request.requested_at), "MMM d, yyyy")}
                     <div className="text-xs text-muted-foreground">
@@ -586,7 +657,7 @@ export default function EfsRequests() {
                     {request.receipt_path ? (
                       <ReceiptLink
                         path={request.receipt_path}
-                        canDelete={canDeleteReceipt}
+                        canDelete={canDeleteReceipt && !request.voided_at}
                         onDelete={() => setReceiptToDelete(request)}
                         deleting={deleteReceiptMutation.isPending && receiptToDelete?.id === request.id}
                       />
@@ -594,16 +665,34 @@ export default function EfsRequests() {
                       <span className="text-xs text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                  {isAdmin && (
+                  <TableCell className="max-w-[320px] whitespace-normal break-words">
+                    {request.voided_at ? (
+                      <div className="space-y-1">
+                        <Badge variant="destructive">Voided</Badge>
+                        <p className="text-sm whitespace-pre-wrap">{request.void_reason}</p>
+                        <p className="text-xs text-muted-foreground">{format(new Date(request.voided_at), "MMM d, yyyy h:mm a")}</p>
+                      </div>
+                    ) : <Badge variant="outline">Active</Badge>}
+                  </TableCell>
+                  {(canDeleteRequest || canVoidRequest) && (
                     <TableCell>
-                      <Button
+                      <div className="flex items-center gap-1">
+                      {canVoidRequest && !request.voided_at && (
+                        <Button variant="outline" size="sm" onClick={() => { setVoidItem(request); setVoidReason(""); }}>
+                          <Ban className="h-4 w-4 mr-1" />Void
+                        </Button>
+                      )}
+                      {canDeleteRequest && <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        aria-label="Delete request"
+                        title="Delete request permanently"
                         onClick={() => handleDelete(request)}
                       >
                         <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </Button>}
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>
@@ -662,8 +751,32 @@ export default function EfsRequests() {
         </div>
       )}
 
+      <AlertDialog open={!!voidItem} onOpenChange={(open) => { if (!open && !voidMutation.isPending) setVoidItem(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Void Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              Void the request for {voidItem?.driver_name}? It will stop counting as an active request and stay in the history.
+              This records the void in TMS; cancel any issued code with EFS separately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="efs-void-reason">Reason (required)</Label>
+            <Textarea id="efs-void-reason" value={voidReason} onChange={(event) => setVoidReason(event.target.value)}
+              placeholder="Why is this request being voided?" rows={4} disabled={voidMutation.isPending} />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={voidMutation.isPending}>Cancel</AlertDialogCancel>
+            <Button variant="destructive" disabled={!voidReason.trim() || voidMutation.isPending}
+              onClick={() => voidItem && voidMutation.mutate({ request: voidItem, reason: voidReason })}>
+              {voidMutation.isPending ? "Voiding…" : "Void request"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Delete confirmation dialog */}
-      <AlertDialog open={!!deleteItem} onOpenChange={() => setDeleteItem(null)}>
+      <AlertDialog open={!!deleteItem} onOpenChange={(open) => { if (!open && !deleteMutation.isPending) setDeleteItem(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Request</AlertDialogTitle>
@@ -674,12 +787,13 @@ export default function EfsRequests() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            <Button
+              disabled={deleteMutation.isPending}
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
-            </AlertDialogAction>
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

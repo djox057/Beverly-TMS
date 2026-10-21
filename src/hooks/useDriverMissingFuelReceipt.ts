@@ -15,6 +15,7 @@ export function useDriverMissingFuelReceipt(driverId?: string, enabled = true) {
       const { data, error } = await supabase
         .from("efs_other_requests")
         .select("id, amount, requested_at, city, state")
+        .is("voided_at", null)
         .eq("driver_id", driverId!)
         .eq("purpose", "Fuel")
         .eq("receipt_bypassed", false)

@@ -12,6 +12,7 @@ export function useEfsMissingByDriver() {
       const { data, error } = await supabase
         .from("efs_other_requests")
         .select("driver_id")
+        .is("voided_at", null)
         .eq("purpose", "Fuel")
         .eq("receipt_bypassed", false)
         .gte("requested_at", getEfsReceiptCutoff())

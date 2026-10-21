@@ -1768,6 +1768,9 @@ export type Database = {
       }
       driver_cash_advances: {
         Row: {
+          voided_at: string | null
+          voided_by: string | null
+          void_reason: string | null
           amount: number
           created_at: string
           driver_id: string
@@ -1778,6 +1781,9 @@ export type Database = {
           truck_number: string | null
         }
         Insert: {
+          voided_at?: string | null
+          voided_by?: string | null
+          void_reason?: string | null
           amount?: number
           created_at?: string
           driver_id: string
@@ -1788,6 +1794,9 @@ export type Database = {
           truck_number?: string | null
         }
         Update: {
+          voided_at?: string | null
+          voided_by?: string | null
+          void_reason?: string | null
           amount?: number
           created_at?: string
           driver_id?: string
@@ -2914,6 +2923,9 @@ export type Database = {
       }
       efs_other_requests: {
         Row: {
+          voided_at: string | null
+          voided_by: string | null
+          void_reason: string | null
           amount: number
           city: string | null
           company_name: string | null
@@ -2935,6 +2947,9 @@ export type Database = {
           truck_number: string | null
         }
         Insert: {
+          voided_at?: string | null
+          voided_by?: string | null
+          void_reason?: string | null
           amount?: number
           city?: string | null
           company_name?: string | null
@@ -2956,6 +2971,9 @@ export type Database = {
           truck_number?: string | null
         }
         Update: {
+          voided_at?: string | null
+          voided_by?: string | null
+          void_reason?: string | null
           amount?: number
           city?: string | null
           company_name?: string | null

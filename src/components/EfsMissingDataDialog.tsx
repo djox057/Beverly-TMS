@@ -54,6 +54,7 @@ export function EfsMissingDataDialog({
       const { data, error } = await supabase
         .from("efs_other_requests")
         .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path, requested_by")
+        .is("voided_at", null)
         .eq("purpose", "Fuel")
         .eq("driver_id", driverId)
         .or("receipt_path.is.null,quantity.is.null")
@@ -99,6 +100,7 @@ export function EfsMissingDataDialog({
       const { data: efsRequest, error: fetchError } = await supabase
         .from("efs_other_requests")
         .select("driver_name, truck_number, amount, city, state, company_name, requested_at")
+        .is("voided_at", null)
         .eq("id", requestId)
         .single();
 

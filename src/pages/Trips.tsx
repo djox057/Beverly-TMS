@@ -384,6 +384,7 @@ const fetchEfsDeductionsForStatement = async (
   const { data: efsOther, error: efsError } = await supabase
     .from("efs_other_requests")
     .select("amount, purpose, requested_at")
+    .is("voided_at", null)
     .eq("driver_id", driverId)
     .gte("requested_at", weekStartISO)
     .lt("requested_at", weekEndISO)

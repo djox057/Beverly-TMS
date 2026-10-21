@@ -203,6 +203,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: weekAdvances, error: weekError } = await supabase
       .from("driver_cash_advances")
       .select("id, amount")
+      .is("voided_at", null)
       .eq("driver_id", driverId)
       .gte("requested_at", weekStart);
 
