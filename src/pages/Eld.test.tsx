@@ -22,6 +22,36 @@ beforeEach(() => {
   }] } };
 });
 describe('ELD page', () => {
+  it('counts only drivers matching the selected search, worker and completion filters', () => {
+    HTMLElement.prototype.hasPointerCapture = () => false;
+    HTMLElement.prototype.scrollIntoView = () => {};
+    mocks.day.data.can_manage = true;
+    const base = mocks.day.data.checks[0];
+    mocks.day.data.checks.push(
+      { ...base, id: 'done', driver_id: 'done', driver_name: 'Completed Driver', truck_number: '461', yesterday_log: true, forms: true, pti: true },
+      { ...base, id: 'idle', driver_id: 'idle', driver_name: 'Unassigned Driver', truck_number: '462', worker_id: null, worker_name: null },
+    );
+    render(<Eld />);
+    const expectCounts = (values: number[]) => {
+      ['Drivers', 'Completed', 'Incomplete', 'Unassigned'].forEach((label, index) => {
+        expect(screen.getByText(label, { selector: 'p' }).nextElementSibling).toHaveTextContent(new RegExp(`^${values[index]}$`));
+      });
+    };
+    expectCounts([3, 1, 2, 1]);
+    const search = screen.getByRole('textbox', { name: 'Search drivers, trucks or ELD person' });
+    fireEvent.change(search, { target: { value: '461' } });
+    expectCounts([1, 1, 0, 0]);
+    fireEvent.change(search, { target: { value: '' } });
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Filter ELD person' }), { key: 'ArrowDown' });
+    fireEvent.click(screen.getByRole('option', { name: 'Unassigned' }));
+    expectCounts([1, 0, 1, 1]);
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Filter completion' }), { key: 'ArrowDown' });
+    fireEvent.click(screen.getByRole('option', { name: 'Completed' }));
+    expectCounts([0, 0, 0, 0]);
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Filter ELD person' }), { key: 'ArrowDown' });
+    fireEvent.click(screen.getByRole('option', { name: 'All ELD people' }));
+    expectCounts([1, 1, 0, 0]);
+  });
   it('saves only the selected field and hides assignment controls for a worker', () => {
     render(<Eld />);
     fireEvent.click(screen.getByRole('checkbox', { name: 'yesterday log for Assigned Driver' }));
