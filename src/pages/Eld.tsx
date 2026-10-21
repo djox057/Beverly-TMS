@@ -49,7 +49,7 @@ export default function Eld() {
   const workers = data?.workers ?? [];
   const tasks = data?.tasks ?? [];
   const rows = useMemo(() => filterEldChecks(checks, search, worker, status), [checks, search, worker, status]);
-  const completed = checks.filter(eldComplete).length;
+  const completed = rows.filter(eldComplete).length;
   const workerNames = new Map(workers.map(w => [w.user_id, w.name]));
   checks.forEach(c => { if (c.worker_id && c.worker_name && !workerNames.has(c.worker_id)) workerNames.set(c.worker_id, c.worker_name); });
   const selectDate = (next: string) => {
@@ -85,7 +85,7 @@ export default function Eld() {
       {!weekday && <p className="rounded-md border p-4 text-muted-foreground">No daily checklist is required on weekends. Select a weekday to view its history.</p>}
       {!current && <p className="text-sm text-muted-foreground">Viewing saved history for {date}.{manager ? ' Manager changes are recorded in Activity.' : ' History is read-only.'}</p>}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[['Drivers', checks.length], ['Completed', completed], ['Incomplete', checks.length - completed], ['Unassigned', checks.filter(c => !c.worker_id).length]].map(([label, value]) => <Card key={label}><CardContent className="p-4"><p className="text-sm text-muted-foreground">{label}</p><p className="text-2xl font-semibold">{value}</p></CardContent></Card>)}
+        {[['Drivers', rows.length], ['Completed', completed], ['Incomplete', rows.length - completed], ['Unassigned', rows.filter(c => !c.worker_id).length]].map(([label, value]) => <Card key={label}><CardContent className="p-4"><p className="text-sm text-muted-foreground">{label}</p><p className="text-2xl font-semibold">{value}</p></CardContent></Card>)}
       </div>
       <Tabs defaultValue="checks" className="space-y-4">
         <TabsList className="h-auto flex-wrap justify-start"><TabsTrigger value="checks">Daily checks</TabsTrigger><TabsTrigger value="tasks">Side tasks ({tasks.length})</TabsTrigger>{manager && <TabsTrigger value="team">Team overview</TabsTrigger>}<TabsTrigger value="activity">Activity</TabsTrigger></TabsList>
