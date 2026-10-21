@@ -5,6 +5,7 @@ import { eldToday } from '@/lib/eld';
 import Eld from './Eld';
 
 const mocks = vi.hoisted(() => ({ day: {} as { data: EldDay }, save: vi.fn(), manage: vi.fn(), pendingCheckKeys: new Set<string>() }));
+vi.mock('@/hooks/useEldCompanies', () => ({ useEldCompanies: () => ({ data: { trucks: new Map([['461', 'bf']]), drivers: new Map([['driver', 'ap']]), names: new Map([['bf', 'BF Prime'], ['ap', 'AP Silver']]) }, isPending: false, isError: false }) }));
 vi.mock('@/hooks/useEld', () => ({ useEldDay: () => ({
   day: { ...mocks.day, refetch: vi.fn() },
   pendingCheckKeys: mocks.pendingCheckKeys, pendingAssignments: new Set<string>(), pendingTasks: new Set<string>(), addingTask: false, hasPendingWrites: false,
@@ -50,6 +51,12 @@ describe('ELD page', () => {
     expectCounts([0, 0, 0, 0]);
     fireEvent.keyDown(screen.getByRole('combobox', { name: 'Filter ELD person' }), { key: 'ArrowDown' });
     fireEvent.click(screen.getByRole('option', { name: 'All ELD people' }));
+    expectCounts([1, 1, 0, 0]);
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Filter company' }), { key: 'ArrowDown' });
+    fireEvent.click(screen.getByRole('option', { name: 'AP Silver' }));
+    expectCounts([0, 0, 0, 0]);
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Filter company' }), { key: 'ArrowDown' });
+    fireEvent.click(screen.getByRole('option', { name: 'BF Prime' }));
     expectCounts([1, 1, 0, 0]);
   });
   it('saves only the selected field and hides assignment controls for a worker', () => {
