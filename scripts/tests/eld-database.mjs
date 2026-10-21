@@ -27,7 +27,8 @@ await db.exec(`
   insert into public.drivers values ('${ids.d1}','Driver One',null,null,true),('${ids.d2}','Driver Two',null,null,true),('${ids.inactive}','Inactive',null,null,false);
   insert into public.trucks(truck_number,is_active,driver1_id,driver2_id) values ('460',true,'${ids.d1}','${ids.d2}');
 `);
-await db.exec(await readFile(new URL('../../supabase/migrations/20261021125950_eld_daily_monitoring.sql', import.meta.url),'utf8'));
+await db.exec(await readFile(new URL('../../supabase/migrations/20261021132641_eld_daily_monitoring.sql', import.meta.url),'utf8'));
+await db.exec(await readFile(new URL('../../supabase/migrations/20261021132947_eld_history_references.sql', import.meta.url),'utf8'));
 const today = (await db.query(`select (now() at time zone 'America/Chicago')::date::text as date`)).rows[0].date;
 assert.ok((await db.query(`select extract(isodow from date '${today}') as day`)).rows[0].day <= 5, 'Run on a weekday to exercise daily roster creation');
 await db.exec(`update public.profiles set is_eld_manager=true where user_id='${ids.manager}'`);
@@ -93,5 +94,13 @@ await denied(()=>rpc('eld_save_check',[own.id,'pti',true]));
 await db.exec('reset role');
 assert.equal((await db.query(`select count(*)::int as count from public.eld_activity where entity_type='check' and actor_id='${ids.worker}'`)).rows[0].count,3);
 await db.exec(`set role anon`); await denied(()=>rpc('eld_get_day',[today])); await denied(()=>db.exec('select * from public.eld_daily_checks'));
-console.log('Passed: roster/team drivers, assignments, worker isolation/RLS, protected ELD tags, checklist fields, audit, side tasks, history, reassignment, deactivation, anonymous denial.');
+// Deleting live entities must not remove historical work or block existing deletion flows.
+await db.exec('reset role');
+await db.exec(`delete from public.drivers where id='${ids.d1}'`);
+assert.equal((await db.query(`select count(*)::int as count from public.eld_daily_checks where driver_id='${ids.d1}'`)).rows[0].count,2);
+await db.exec(`delete from public.user_roles where user_id in ('${ids.other}','${ids.worker}','${ids.admin}','${ids.manager}'); delete from public.profiles where user_id in ('${ids.other}','${ids.worker}','${ids.admin}','${ids.manager}')`);
+assert.equal((await db.query(`select worker_id from public.eld_assignments where driver_id='${ids.d2}'`)).rows[0].worker_id,null);
+assert.equal((await db.query('select count(*)::int as count from public.eld_side_tasks')).rows[0].count,1);
+assert.ok((await db.query('select count(*)::int as count from public.eld_activity')).rows[0].count>0);
+console.log('Passed: roster/team drivers, assignments, worker isolation/RLS, protected ELD tags, checklist fields, audit, side tasks, history, reassignment, deactivation, anonymous denial, driver/account deletion without loss of history.');
 await db.close();

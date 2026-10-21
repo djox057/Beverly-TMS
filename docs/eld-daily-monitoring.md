@@ -14,7 +14,7 @@ The hourly `eld-daily-roster` cron job creates weekday snapshots even if nobody 
 
 ## Deployment order
 
-1. Apply `supabase/migrations/20261021125950_eld_daily_monitoring.sql` to the TMS project (`wjkbtagwgjniilmgwutb`, FleetCarrier). It requires the existing `pg_cron` extension. This is an additive migration, but it also protects ELD tags against profile self-service changes and registers the hourly job.
+1. Apply `supabase/migrations/20261021132641_eld_daily_monitoring.sql` and then `supabase/migrations/20261021132947_eld_history_references.sql` to the TMS project (`wjkbtagwgjniilmgwutb`, FleetCarrier). It requires the existing `pg_cron` extension. This is an additive migration, but it also protects ELD tags against profile self-service changes and registers the hourly job.
 2. Deploy the frontend. The ELD page requires the migration before it can load work. Existing Users edits remain compatible with the old schema; the ELD manager toggle stays disabled until the new column exists.
 3. In Users, enable ELD manager for the appropriate maintenance user(s). Existing ELD flags remain intact; no manager tag or driver assignment is preselected.
 4. Assign active drivers in ELD. Check a row and add a side task, then verify Activity and the selected date's history.
@@ -26,4 +26,4 @@ No new account role or external ELD/HOS integration is introduced. Public tables
 - `npm test -- src/lib/eld.test.ts src/pages/Eld.test.tsx src/components/UpcomingDriversAccess.test.tsx`
 - `npm run typecheck`
 - `NODE_OPTIONS=--max-old-space-size=8192 npm run build`
-- Isolated database tests: install `@electric-sql/pglite` outside the repository and run `ELD_PGLITE_MODULE=/absolute/path/to/pglite/dist/index.js node scripts/tests/eld-database.mjs`. The migration runs unchanged against PostgreSQL; only the cron scheduler is stubbed. Run on a weekday. This covers grants/RLS, ELD tag escalation, cross-worker access, invalid fields, history, reassignment, deactivation, task completion, audit attribution and anonymous access. It does not validate the production cron service.
+- Isolated database tests: install `@electric-sql/pglite` outside the repository and run `ELD_PGLITE_MODULE=/absolute/path/to/pglite/dist/index.js node scripts/tests/eld-database.mjs`. The migration runs unchanged against PostgreSQL; only the cron scheduler is stubbed. Run on a weekday. This covers grants/RLS, ELD tag escalation, cross-worker access, invalid fields, history, reassignment, deactivation, task completion, audit attribution and anonymous access. It also checks that existing driver/account deletion remains possible while historical work is retained. It does not validate the production cron service.
