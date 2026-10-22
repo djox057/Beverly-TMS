@@ -29,8 +29,12 @@ export function suggestedPrebookTrucks(trucks: TruckDeliveryCandidate[], pickup:
     if (!order) return [];
     const lastDrop = [...order.pickup_drops].filter(stop => stop.type === 'delivery')
       .sort((a, b) => b.sequence_number - a.sequence_number)[0];
-    const end = Date.parse(lastDrop?.end_datetime || order.delivery_end_datetime || lastDrop?.datetime || order.delivery_datetime || '');
-    if (!Number.isFinite(end) || end > cutoff || lastDrop?.latitude == null || lastDrop.longitude == null) return [];
+    const deliveryDatetime = lastDrop?.end_datetime || order.delivery_end_datetime || lastDrop?.datetime || order.delivery_datetime || '';
+    const end = Date.parse(deliveryDatetime);
+    // Match the scheduled calendar dates displayed for the load, rather than
+    // suggesting trucks whose last delivery was on an earlier day.
+    if (!Number.isFinite(end) || deliveryDatetime.slice(0, 10) !== pickupDatetime.slice(0, 10)
+      || end > cutoff || lastDrop?.latitude == null || lastDrop.longitude == null) return [];
     const lat = Number(lastDrop.latitude), lon = Number(lastDrop.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return [];
     const miles = estimatedRoadMiles(pickup, { lat, lon });

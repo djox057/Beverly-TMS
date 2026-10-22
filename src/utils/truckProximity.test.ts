@@ -26,3 +26,12 @@ it('does not fall back to an older nearby delivery when the latest load finishes
   candidate.orders.push(truck('old', 40).orders[0]);
   expect(suggestedPrebookTrucks([candidate], pickup, cutoff)).toEqual([]);
 });
+it('only suggests deliveries on the pickup date, still finishing no later than pickup', () => {
+  expect(suggestedPrebookTrucks([
+    truck('previous-day', 40, '2026-10-20T08:00:00+00:00'),
+    truck('same-day', 40),
+    truck('at-pickup', 40, cutoff),
+    truck('later-same-day', 40, '2026-10-21T13:00:00+00:00'),
+    truck('next-day', 40, '2026-10-22T08:00:00+00:00'),
+  ], pickup, cutoff)).toEqual([{ id: 'at-pickup', miles: 0 }, { id: 'same-day', miles: 0 }]);
+});
