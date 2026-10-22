@@ -1795,12 +1795,16 @@ export const CompanyLoads = ({ companyId, companyName, title, storagePrefix }: C
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[60px] min-w-[60px] max-w-[60px]">
+                    <TableHead
+                      className={`w-[60px] min-w-[60px] max-w-[60px] ${selectionMode ? "cursor-pointer" : ""}`}
+                      onClick={selectionMode ? toggleSelectAll : undefined}
+                    >
                       {selectionMode ? (
                         <Checkbox
                           checked={filteredOrders.length > 0 && selectedOrderIds.size === filteredOrders.length}
                           onCheckedChange={toggleSelectAll}
-                          className="relative cursor-pointer after:absolute after:-inset-2 after:content-['']"
+                          className="cursor-pointer"
+                          onClick={(event) => event.stopPropagation()}
                           aria-label="Select all"
                         />
                       ) : (
@@ -1910,13 +1914,17 @@ export const CompanyLoads = ({ companyId, companyName, title, storagePrefix }: C
                                 : alternatingBg;
                       return (
                         <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
-                          <TableCell className="w-12 px-1">
+                          <TableCell
+                            className={`w-12 px-1 ${selectionMode ? "cursor-pointer" : ""}`}
+                            onClick={selectionMode ? () => toggleOrderSelection(order.id) : undefined}
+                          >
                             <div className="flex items-center gap-0">
                               {selectionMode && (
                                 <Checkbox
                                   checked={selectedOrderIds.has(order.id)}
                                   onCheckedChange={() => toggleOrderSelection(order.id)}
-                                  className="relative mr-1 cursor-pointer after:absolute after:-inset-2 after:content-['']"
+                                  className="mr-1 cursor-pointer"
+                                  onClick={(event) => event.stopPropagation()}
                                   aria-label={`Select load ${order.loadNumber}`}
                                 />
                               )}
