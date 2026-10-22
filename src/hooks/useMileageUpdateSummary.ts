@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useOilChangeFilterState } from "./useOilChangeFilterState";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { chicagoTodayISO } from "@/lib/mileageUpdateStatus";
@@ -6,9 +6,9 @@ import { mileagePeriodBounds, mileagePresetPeriod, type MileageEdit, type Mileag
 
 export function useMileageUpdateSummary(enabled = true) {
   const today = chicagoTodayISO();
-  const [month, setMonth] = useState(() => today.slice(0, 7));
-  const [preset, setPreset] = useState<MileagePeriodPreset>(() => Number(today.slice(8, 10)) >= 15 ? "second" : "first");
-  const [custom, setCustom] = useState(() => mileagePresetPeriod(month, preset === "second" ? "second" : "first"));
+  const [month, setMonth] = useOilChangeFilterState("month", () => today.slice(0, 7), value => typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value));
+  const [preset, setPreset] = useOilChangeFilterState<MileagePeriodPreset>("preset", () => Number(today.slice(8, 10)) >= 15 ? "second" : "first", value => ["first", "second", "custom"].includes(String(value)));
+  const [custom, setCustom] = useOilChangeFilterState("customPeriod", () => mileagePresetPeriod(month, preset === "second" ? "second" : "first"), value => typeof value === "object" && value !== null && "start" in value && "end" in value && typeof value.start === "string" && typeof value.end === "string" && (value.start === "" || /^\d{4}-\d{2}-\d{2}$/.test(value.start)) && (value.end === "" || /^\d{4}-\d{2}-\d{2}$/.test(value.end)));
   const period = preset === "custom" ? custom : mileagePresetPeriod(month, preset);
   const bounds = mileagePeriodBounds(period);
   const { data: edits = [], isPending, isError } = useQuery({
@@ -35,7 +35,7 @@ export function useMileageUpdateSummary(enabled = true) {
       return [...edits.values()];
     },
   });
-  const [scope, setScope] = useState<MileageTruckScope>("all");
-  const [view, setView] = useState<MileageUpdateView>("all");
+  const [scope, setScope] = useOilChangeFilterState<MileageTruckScope>("scope", "all", value => value === "all" || value === "assigned");
+  const [view, setView] = useOilChangeFilterState<MileageUpdateView>("view", "all", value => ["all", "updated", "remaining"].includes(String(value)));
   return { month, setMonth, preset, setPreset, setCustom, period, bounds, edits, isPending, isError, scope, setScope, view, setView };
 }
