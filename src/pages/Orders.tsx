@@ -2115,6 +2115,7 @@ const Orders = () => {
                         <Checkbox
                           checked={filteredOrders.length > 0 && selectedOrderIds.size === filteredOrders.length}
                           onCheckedChange={toggleSelectAll}
+                          className="relative cursor-pointer after:absolute after:-inset-2 after:content-['']"
                           aria-label="Select all"
                         />
                       ) : (
@@ -2232,7 +2233,7 @@ const Orders = () => {
                                 <Checkbox
                                   checked={selectedOrderIds.has(order.id)}
                                   onCheckedChange={() => toggleOrderSelection(order.id)}
-                                  className="mr-1"
+                                  className="relative mr-1 cursor-pointer after:absolute after:-inset-2 after:content-['']"
                                   aria-label={`Select load ${order.loadNumber}`}
                                 />
                               )}
