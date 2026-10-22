@@ -35,7 +35,7 @@ function show(trucks = [{ id: "a", driver1_id: "driver-a" }, { id: "b", driver1_
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={client}><SummaryHarness trucks={trucks} /></QueryClientProvider>);
 }
-beforeEach(() => { db.calls = []; db.fail = false; db.large = false; });
+beforeEach(() => { localStorage.clear(); db.calls = []; db.fail = false; db.large = false; });
 afterEach(cleanup);
 
 it("uses history and filters out people from hidden trucks", async () => {
