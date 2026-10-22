@@ -341,7 +341,7 @@ export function AssignRecoveryLoadDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px]">
+      <DialogContent className="sm:max-w-[540px]">
         <DialogHeader>
           <DialogTitle>Assign {isPrebook ? "Prebook" : "Recovery"} Load {loadNumber ? `#${loadNumber}` : ""}</DialogTitle>
         </DialogHeader>
