@@ -4,29 +4,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, User, Truck, Building2, MessageSquare, Phone, PhoneMissed, Timer } from "lucide-react";
+import { Search, User, Truck, Building2, MessageSquare } from "lucide-react";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import DispatcherTierCommentsDialog from "@/components/DispatcherTierCommentsDialog";
-import { useRingCentralActivityByUser, useCanViewPhoneActivity } from "@/hooks/useRingCentralActivity";
-import { formatDurationShort } from "@/utils/formatDuration";
-
-const monthToDateRange = () => {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const to = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  const from = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
-  return { from, to };
-};
-
 type SortKey = "name" | "currentTrucks" | "avgDrivers" | "rpm" | "gross" | "cut" | "overall";
 type SortDir = "asc" | "desc";
 
 const DispatcherTier = () => {
   const { dispatchers, loading } = useFleetManagement();
-  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [officeFilter, setOfficeFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("overall");
@@ -36,10 +24,6 @@ const DispatcherTier = () => {
   const [dispMetrics, setDispMetrics] = useState<Record<string, { freight: number; pay: number; miles: number }>>({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [commentsOpen, setCommentsOpen] = useState<{ id: string; name: string } | null>(null);
-  const canViewPhone = useCanViewPhoneActivity();
-  const phoneRange = useMemo(() => monthToDateRange(), []);
-  const { byUser: phoneByUser } = useRingCentralActivityByUser(phoneRange.from, phoneRange.to);
-
   const reloadCommentCounts = async () => {
     const { data } = await supabase.from("dispatcher_tier_comments").select("dispatcher_id");
     const acc: Record<string, number> = {};
@@ -351,8 +335,7 @@ const DispatcherTier = () => {
             {rows.map((r) => (
               <Card
                 key={r.id}
-                className={`hover:bg-muted/50 transition-colors cursor-pointer ${!r.isActive ? "opacity-60" : ""}`}
-                onClick={() => navigate(`/dispatcher-tier/${r.id}`)}
+                className={`relative hover:bg-muted/50 transition-colors cursor-pointer ${!r.isActive ? "opacity-60" : ""}`}
               >
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start gap-3">
@@ -361,7 +344,14 @@ const DispatcherTier = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold truncate hover:underline">{r.name}</h3>
+                        <h3 className="font-semibold truncate">
+                          <Link
+                            to={`/dispatcher-tier/${r.id}`}
+                            className="hover:underline after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+                          >
+                            {r.name}
+                          </Link>
+                        </h3>
                         {r.ext && <span className="text-xs text-muted-foreground whitespace-nowrap">Ext {r.ext}</span>}
                         {!r.isActive && (
                           <Badge variant="outline" className="text-xs">
@@ -371,7 +361,7 @@ const DispatcherTier = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 ml-auto"
+                          className="relative z-10 h-7 px-2 ml-auto"
                           onClick={(e) => {
                             e.stopPropagation();
                             setCommentsOpen({ id: r.id, name: r.name || "" });
@@ -406,22 +396,6 @@ const DispatcherTier = () => {
                       Overall {Number.isFinite(r.overall) ? `${r.overall.toFixed(0)}%` : "NaN"}
                     </Badge>
                   </div>
-                  {canViewPhone && phoneByUser.has(r.id) && (
-                    <div className="flex items-center gap-2 flex-wrap text-xs">
-                      <Badge variant="outline">
-                        <Phone className="h-3 w-3 mr-1" />
-                        {phoneByUser.get(r.id)!.calls.total} calls MTD
-                      </Badge>
-                      <Badge variant="outline">
-                        <PhoneMissed className="h-3 w-3 mr-1" />
-                        {phoneByUser.get(r.id)!.calls.missed} missed
-                      </Badge>
-                      <Badge variant="outline">
-                        <Timer className="h-3 w-3 mr-1" />
-                        {formatDurationShort(phoneByUser.get(r.id)!.calls.liveTalkSeconds)} talk
-                      </Badge>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}
