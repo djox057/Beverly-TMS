@@ -28,7 +28,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   },
 } }));
 const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><LiveOilChange /></MemoryRouter></QueryClientProvider>);
-beforeEach(() => { mocks.cellRender.mockClear(); mocks.tables = []; mocks.historyRequests = 0; });
+beforeEach(() => { localStorage.clear(); mocks.cellRender.mockClear(); mocks.tables = []; mocks.historyRequests = 0; });
 afterEach(cleanup);
 
 it("mounts at most 50 truck rows and searches the full fleet beyond the first page", async () => {
@@ -109,4 +109,22 @@ it("loads stored readiness with trucks without querying any service history", as
   expect(screen.getAllByText("READY / GOOD").length).toBeGreaterThan(0);
   expect(mocks.tables).not.toContain("truck_service_log_entries");
   expect(mocks.tables).not.toContain("truck_mileage_history");
+});
+
+
+it("restores report filters and mileage controls after leaving and remounting", async () => {
+  const first = mount();
+  await screen.findByText("1–50 of 499 trucks");
+  fireEvent.click(screen.getByRole("button", { name: "Mileage updates" }));
+  fireEvent.click(screen.getByRole("button", { name: "Assigned trucks" }));
+  fireEvent.click(screen.getByRole("button", { name: "Updated" }));
+  fireEvent.change(screen.getByPlaceholderText("Search unit or driver..."), { target: { value: "0499" } });
+  await screen.findByRole("link", { name: "Open service log for truck 0499" });
+  first.unmount();
+  mount();
+  expect(screen.getByPlaceholderText("Search unit or driver...")).toHaveValue("0499");
+  expect(screen.getByRole("button", { name: "Assigned trucks" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Updated" })).toHaveAttribute("aria-pressed", "true");
+  await screen.findByRole("link", { name: "Open service log for truck 0499" });
+  expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(1);
 });
