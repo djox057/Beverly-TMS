@@ -1,3 +1,4 @@
+import { useOilChangeFilterState } from "@/hooks/useOilChangeFilterState";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { Link } from "react-router-dom";
 import { useState, useMemo, useEffect, useCallback, memo } from "react";
@@ -563,7 +564,7 @@ const LiveOilChange = () => {
   // Dispatch may only edit the "Total mileage - last update" (miles) field.
   const canEditAll = !isDispatcherRole(primaryRole);
   const canEditMiles = true;
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useOilChangeFilterState("search", "");
 
   const { data: trucks = [], isLoading, isError: trucksError } = useQuery({
     queryKey: ["live-oil-change-trucks", isDispatcher ? profile?.user_id : "all"],
@@ -654,11 +655,11 @@ const LiveOilChange = () => {
     },
   });
 
-  const [companyFilter, setCompanyFilter] = useState<string>("all");
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
-  const [milesFilter, setMilesFilter] = useState<string>("all");
-  const [dispatcherFilter, setDispatcherFilter] = useState<string>("all");
-  const [officeFilter, setOfficeFilter] = useState<string>("all");
+  const [companyFilter, setCompanyFilter] = useOilChangeFilterState<string>("companyFilter", "all");
+  const [sourceFilter, setSourceFilter] = useOilChangeFilterState<string>("sourceFilter", "all");
+  const [milesFilter, setMilesFilter] = useOilChangeFilterState<string>("milesFilter", "all");
+  const [dispatcherFilter, setDispatcherFilter] = useOilChangeFilterState<string>("dispatcherFilter", "all");
+  const [officeFilter, setOfficeFilter] = useOilChangeFilterState<string>("officeFilter", "all");
 
   const enrichedTrucks = useMemo(() => {
     const dispatcherMap = new Map(allDispatchers.map((d: any) => [d.id, d]));
@@ -719,9 +720,9 @@ const LiveOilChange = () => {
     });
   }, [enrichedTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
 
-  const [statisticsSelection, setStatisticsSelection] = useState<StatisticsSelection | null>(null);
-  const [showStatistics, setShowStatistics] = useState(false);
-  const [showMileageUpdates, setShowMileageUpdates] = useState(false);
+  const [statisticsSelection, setStatisticsSelection] = useOilChangeFilterState<StatisticsSelection | null>("statisticsSelection", null, value => value === null || (typeof value === "object" && value !== null && "category" in value && ["oil", "air", "readiness"].includes(String(value.category)) && "status" in value && typeof value.status === "string"));
+  const [showStatistics, setShowStatistics] = useOilChangeFilterState("showStatistics", false);
+  const [showMileageUpdates, setShowMileageUpdates] = useOilChangeFilterState("showMileageUpdates", false);
   const mileageSummary = useMileageUpdateSummary(showMileageUpdates);
   const periodView = mileageSummary.view === "updated" || mileageSummary.view === "remaining";
   const categoryTrucks = useMemo(() => statisticsSelection ? filtered.filter(truck => matchesStatisticsSelection(truck, statisticsSelection)) : filtered, [filtered, statisticsSelection]);
