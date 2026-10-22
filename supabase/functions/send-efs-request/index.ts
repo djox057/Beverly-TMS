@@ -54,10 +54,10 @@ const handler = async (req: Request): Promise<Response> => {
     // Require authentication
     const authHeaderRequired = req.headers.get("Authorization");
     if (!authHeaderRequired) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
     {
       const supabaseUrlEarly = Deno.env.get("SUPABASE_URL")!;
@@ -67,10 +67,10 @@ const handler = async (req: Request): Promise<Response> => {
       });
       const { data: u, error: e } = await supabaseAuthEarly.auth.getUser();
       if (e || !u?.user) {
-        return new Response(
-          JSON.stringify({ error: "Unauthorized" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
     }
 
@@ -82,7 +82,15 @@ const handler = async (req: Request): Promise<Response> => {
     let requesterName = body.requesterName;
     let requesterUserId: string | null = null;
 
-    console.log("EFS Request received:", { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName, requesterEmail });
+    console.log("EFS Request received:", {
+      orderId,
+      lumperAmount,
+      truckNumber,
+      driverName,
+      loadNumber,
+      companyName,
+      requesterEmail,
+    });
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -126,18 +134,18 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Validate required fields
     if (!orderId || !lumperAmount || !truckNumber || !driverName || !loadNumber) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Missing required fields" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Hard cap: EFS requests must be under $5,000 (max $4,999.99)
     if (lumperAmount >= 5000) {
-      return new Response(
-        JSON.stringify({ error: "Amount cannot be $5,000 or more. Maximum allowed is $4,999.99." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Amount cannot be $5,000 or more. Maximum allowed is $4,999.99." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Format the email body
@@ -155,7 +163,7 @@ Purpose Lumper fee`;
     const lastNamePart = getLastNamePart(requesterName);
     const emailResponse = await resend.emails.send({
       from: `EFS Request <${fromEmail}>`,
-      to: ["efsrequest@fuelfnd.com"],
+      to: ["efs@fleetnetworkdesk.net"],
       ...(requesterEmail ? { bcc: [requesterEmail] } : {}),
       replyTo: requesterEmail ? [requesterEmail, fromEmail] : [fromEmail],
       subject: `EFS request by ${lastNamePart}`,
@@ -194,9 +202,20 @@ Purpose Lumper fee`;
     // Migrate legacy single lumper (no items yet) into first entry so the new
     // request becomes a separate Lumper 2 instead of stacking into Lumper 1.
     const itemsSum = existingItems.reduce((s, it) => s + (it.amount || 0), 0);
-    const seedItems = existingItems.length === 0 && currentLumper > 0
-      ? [{ amount: currentLumper, reason: "", file_path: null, file_name: null, requested_by: null, requested_by_name: null, requested_at: null }]
-      : existingItems;
+    const seedItems =
+      existingItems.length === 0 && currentLumper > 0
+        ? [
+            {
+              amount: currentLumper,
+              reason: "",
+              file_path: null,
+              file_name: null,
+              requested_by: null,
+              requested_by_name: null,
+              requested_at: null,
+            },
+          ]
+        : existingItems;
 
     const newItems = [
       ...seedItems,
@@ -233,20 +252,20 @@ Amount $${lumperAmount.toFixed(2)}
 Purpose Lumper fee`;
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         confirmationMessage,
         emailSent: true,
-        newLumperAmount: newLumper
+        newLumperAmount: newLumper,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: any) {
     console.error("Error in send-efs-request function:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 };
 
