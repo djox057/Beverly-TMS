@@ -58,7 +58,14 @@ export const useAfterhoursDriverMap = () => {
             .range(from, to)));
       }
 
-      if (shiftTime.shift) {
+      // Reports hands scheduled weekend coverage over at 13:00 Belgrade,
+      // even while the regular morning shift continues until 14:00.
+      const belgradeHour = Number(new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Belgrade', hour: '2-digit', hourCycle: 'h23',
+      }).format(new Date()));
+      const weekendHandoff = Boolean(scheduleData?.length) && belgradeHour >= 13 && belgradeHour < 22;
+
+      if (shiftTime.shift && !weekendHandoff) {
         const shiftData = await fetchAllRows<CoverageRow>((from, to) =>
           supabase
             .from('afterhours_shift_assignments')
