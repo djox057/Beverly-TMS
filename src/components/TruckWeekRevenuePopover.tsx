@@ -193,8 +193,8 @@ export const TruckWeekRevenuePopover = ({ orders, referenceDate, driverId, drive
         num(o.detention) +
         num(o.layover) +
         num(o.tonu) +
-        num(o.extra_stop) +
-        num(o.lumper) -
+        // Lumper reimbursement is not freight revenue in Reports.
+        num(o.extra_stop) -
         num(o.late_fee) -
         num(o.no_tracking_fee) -
         num(o.wrong_address_fee) +
