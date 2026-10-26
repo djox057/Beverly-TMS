@@ -51,7 +51,7 @@ export function AssignRecoveryLoadDialog({
   const [dhMiles, setDhMiles] = useState("");
   const [saving, setSaving] = useState(false);
   const [calculatingDh, setCalculatingDh] = useState(false);
-  const [suggestedOnly, setSuggestedOnly] = useState(isPrebook);
+  const [suggestedOnly, setSuggestedOnly] = useState(true);
 
   useEffect(() => {
     if (open) {
@@ -61,7 +61,7 @@ export function AssignRecoveryLoadDialog({
       setDriverRate("");
       setDhMiles("");
       setCalculatingDh(false);
-      setSuggestedOnly(isPrebook);
+      setSuggestedOnly(true);
     }
   }, [open, orderId, isPrebook]);
 
@@ -111,7 +111,7 @@ export function AssignRecoveryLoadDialog({
 
   const { data: hosOrder, isFetching: loadingHosOrder, error: hosOrderError } = useQuery({
     queryKey: ['hos-prebook-order', orderId],
-    enabled: open && isPrebook && !!orderId,
+    enabled: open && !!orderId,
     queryFn: async () => {
       const {data,error} = await supabase.from('orders')
         .select('loaded_miles,booked_by_company:companies!orders_booked_by_company_id_fkey(name),pickup_drops(type,datetime,end_datetime,latitude,longitude,sequence_number)').eq('id',orderId!).single();
@@ -136,7 +136,7 @@ export function AssignRecoveryLoadDialog({
     .filter(stop => stop.type === 'pickup').sort((a, b) => a.sequence_number - b.sequence_number)[0], [hosOrder]);
   const { data: suggestions = [], isFetching: loadingSuggestions, error: suggestionsError } = useQuery({
     queryKey: ['prebook-suggested-trucks', orderId, firstPickup, pickupAddress],
-    enabled: open && isPrebook && suggestedOnly && !!firstPickup?.datetime,
+    enabled: open && suggestedOnly && !!orderId && !!firstPickup?.datetime,
     queryFn: async () => {
       const pickup = firstPickup!;
       const coords = pickup.latitude != null && pickup.longitude != null
@@ -178,7 +178,7 @@ export function AssignRecoveryLoadDialog({
     () => drivers.map((d: any) => ({ value: d.id, label: d.name || "—" })),
     [drivers]
   );
-  const visibleTruckOptions = suggestedOnly && isPrebook
+  const visibleTruckOptions = suggestedOnly
     ? suggestions.flatMap(suggestion => {
       const option = truckOptions.find(truck => truck.value === suggestion.id);
       return option ? [{ ...option, label: `${option.label} · ~${suggestion.miles} mi` }] : [];
@@ -358,7 +358,7 @@ export function AssignRecoveryLoadDialog({
               modal={false}
               preserveOrder={suggestedOnly}
               emptyText={loadingSuggestions ? 'Finding suggested trucks…' : suggestionsError ? 'Could not load suggested trucks.' : suggestedOnly ? 'No trucks within 150 miles for this pickup.' : 'No results found.'}
-              dropdownHeader={isPrebook ? <div className="space-y-1 border-b px-3 py-2">
+              dropdownHeader={<div className="space-y-1 border-b px-3 py-2">
                 <label className="flex items-center justify-between gap-3 text-sm">
                   <span>Suggested</span>
                   <Switch aria-label="Suggested trucks" checked={suggestedOnly} onCheckedChange={setSuggestedOnly} />
@@ -366,7 +366,7 @@ export function AssignRecoveryLoadDialog({
                 <p className="text-xs text-muted-foreground">
                   {suggestedOnly && loadingSuggestions ? 'Finding nearby trucks…' : suggestedOnly && suggestionsError ? 'Could not load suggestions. Toggle off to view all trucks.' : suggestedOnly && !firstPickup?.datetime ? 'Pickup date is unavailable.' : `Within 150 mi${firstPickup?.datetime ? ` · Pickup ${firstPickup.datetime.slice(5, 10).replace('-', '/')}` : ''} · Closest first`}
                 </p>
-              </div> : undefined}
+              </div>}
             />
           </div>
           <div className="space-y-1.5">

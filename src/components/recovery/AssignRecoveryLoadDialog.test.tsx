@@ -59,9 +59,9 @@ beforeEach(() => {
   fixture.invoke.mockResolvedValue({ data: { color: 'green', summary: 'HOS friendly', reasons: ['Forecast includes tomorrow’s pickup.'], assessedAt: '2026-10-20T12:00:00Z' }, error: null });
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
-function openDialog() {
+function openDialog(isPrebook = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<QueryClientProvider client={client}><AssignRecoveryLoadDialog open onOpenChange={vi.fn()} orderId="prebook-1" isPrebook pickupAddress="Dallas, TX" /></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><AssignRecoveryLoadDialog open onOpenChange={vi.fn()} orderId="prebook-1" isPrebook={isPrebook} pickupAddress="Dallas, TX" /></QueryClientProvider>);
   return client;
 }
 it('shows both team names beside the truck and previews the selected driver with saved future stops', async () => {
@@ -108,12 +108,12 @@ it('shows unavailable when the saved prebook cannot be loaded', async () => {
   expect(await screen.findByRole('button', { name: /HOS yellow: HOS check unavailable/ })).toBeInTheDocument();
   expect(fixture.invoke).not.toHaveBeenCalled();
 });
-it('defaults to date-specific suggestions, sorts by distance and allows viewing all trucks', async () => {
-  openDialog();
+it.each([true, false])('defaults to date-specific suggestions, sorts by distance and allows viewing all trucks (prebook=%s)', async (isPrebook) => {
+  openDialog(isPrebook);
   expect(screen.getByRole('switch', {name: 'Suggested trucks'})).toBeChecked();
   await screen.findByRole('option', {name: 'AP 156 - Driver One · ~45 mi'});
   const options = (screen.getByRole('combobox', {name: 'Select truck'}) as HTMLSelectElement).options;
-  expect(Array.from(options).map(option => option.text)).toEqual(['Select truck', 'AP 156 - Driver One · ~45 mi', 'BFP 157 - Driver One / Driver Two · ~90 mi']);
+  expect(Array.from(options).map(option => option.text)).toEqual(isPrebook ? ['Select truck', 'AP 156 - Driver One · ~45 mi', 'BFP 157 - Driver One / Driver Two · ~90 mi'] : ['Select truck', 'BF 777 - Driver One · ~22 mi', 'AP 156 - Driver One · ~45 mi', 'BFP 157 - Driver One / Driver Two · ~90 mi']);
   expect(fixture.query).toHaveBeenCalledWith('trucks', 'lte', 'orders.pickup_datetime', '2026-10-21T19:00:00+00:00');
   expect(fixture.query).toHaveBeenCalledWith('trucks', 'limit', 1, {referencedTable: 'orders'});
   fireEvent.click(screen.getByRole('switch', {name: 'Suggested trucks'}));
