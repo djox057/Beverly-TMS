@@ -13,6 +13,17 @@ import { useDriverMissingFuelReceipt } from "@/hooks/useDriverMissingFuelReceipt
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FunctionsHttpError } from "@supabase/supabase-js";
+
+async function getRequestErrorMessage(error: unknown, fallback: string): Promise<string> {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.json();
+      if (typeof body?.error === "string") return body.error;
+    } catch { /* Keep the SDK message if the response has no JSON body. */ }
+  }
+  return error instanceof Error ? error.message : fallback;
+}
 
 interface EfsRequestDialogProps {
   open: boolean;
@@ -71,16 +82,30 @@ export function EfsRequestDialog({
   const [otherAmount, setOtherAmount] = useState<string>("");
   const [isRequestingOther, setIsRequestingOther] = useState(false);
   const purposeLabel = otherPurpose === "custom" ? customPurpose.trim() : (EFS_PURPOSE_OPTIONS.find(p => p.value === otherPurpose)?.label || otherPurpose);
+  // Match the backend's purpose check, including Custom entries such as "fuel".
+  const isFuelRequest = purposeLabel.toLowerCase() === "fuel";
+
+  const { data: isRecoveryDriver = false, isPending: checkingRecovery, isError: recoveryCheckError } = useQuery({
+    queryKey: ["efs-driver-recovery", driverId],
+    enabled: open && !!driverId,
+    staleTime: 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("drivers")
+        .select("is_recovery").eq("id", driverId).maybeSingle();
+      if (error) throw error;
+      return data?.is_recovery === true;
+    },
+  });
   
   // Fuel-specific fields
   const [fuelCity, setFuelCity] = useState<string>("");
   const [fuelState, setFuelState] = useState<string>("");
 
-  // Block fuel requests when the driver has fuel receipts missing
+  // Only a verified recovery driver is exempt from the previous receipt requirement.
   const { data: missingFuelReceipts = [], isLoading: isMissingReceiptsLoading } =
     useDriverMissingFuelReceipt(driverId, open);
   const hasMissingFuelReceipt = missingFuelReceipts.length > 0;
-  const fuelBlocked = otherPurpose === "fuel" && hasMissingFuelReceipt;
+  const fuelBlocked = isFuelRequest && !isRecoveryDriver && hasMissingFuelReceipt;
   
   const queryClient = useQueryClient();
 
@@ -140,7 +165,7 @@ export function EfsRequestDialog({
       console.error("Cash advance error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to request cash advance",
+        description: await getRequestErrorMessage(error, "Failed to request cash advance"),
         variant: "destructive",
       });
     } finally {
@@ -152,8 +177,9 @@ export function EfsRequestDialog({
     if (!otherPurpose || !otherAmount) return;
     if (otherPurpose === "custom" && !customPurpose.trim()) return;
     // Fuel requires city, state only
-    if (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim())) return;
-    if (otherPurpose === "fuel" && hasMissingFuelReceipt) {
+    if (isFuelRequest && (!fuelCity.trim() || !fuelState.trim())) return;
+    if (isFuelRequest && (checkingRecovery || recoveryCheckError)) return;
+    if (fuelBlocked) {
       toast({
         title: "Fuel request blocked",
         description: `${driverName} has ${missingFuelReceipts.length} fuel receipt(s) missing from the last 14 days. Upload the missing receipt(s) before requesting fuel again.`,
@@ -192,7 +218,7 @@ export function EfsRequestDialog({
           requesterEmail,
           requesterName,
           // Fuel-specific fields (city and state only)
-          ...(otherPurpose === "fuel" && {
+          ...(isFuelRequest && {
             city: fuelCity.trim(),
             state: fuelState.trim().toUpperCase(),
           }),
@@ -211,7 +237,7 @@ export function EfsRequestDialog({
       }
       
       // Invalidate fuel transactions query if it was a fuel request
-      if (otherPurpose === "fuel") {
+      if (isFuelRequest) {
         queryClient.invalidateQueries({ queryKey: ["fuel-transactions"] });
       }
       
@@ -225,7 +251,7 @@ export function EfsRequestDialog({
       console.error("EFS other request error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send EFS request",
+        description: await getRequestErrorMessage(error, "Failed to send EFS request"),
         variant: "destructive",
       });
     } finally {
@@ -382,7 +408,7 @@ export function EfsRequestDialog({
             {moneyDetailsReady && otherPurpose && <EfsMoneyCodeFields value={otherDetails} onChange={setOtherDetails} purpose={purposeLabel} idPrefix="other-code" disabled={isRequestingOther} />}
 
             {/* Fuel-specific fields */}
-            {otherPurpose === "fuel" && hasMissingFuelReceipt && (
+            {fuelBlocked && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                 <p className="text-sm text-destructive font-medium">
                   Fuel request blocked: {driverName} has {missingFuelReceipts.length} fuel receipt
@@ -392,7 +418,11 @@ export function EfsRequestDialog({
               </div>
             )}
 
-            {otherPurpose === "fuel" && (
+            {isFuelRequest && recoveryCheckError && (
+              <p role="alert" className="text-sm text-destructive">Could not check the driver's recovery status. Reopen this form to try again.</p>
+            )}
+
+            {isFuelRequest && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="fuel-city" className="text-sm font-medium">City</Label>
@@ -462,11 +492,11 @@ export function EfsRequestDialog({
                   parseFloat(otherAmount) <= 0 || 
                   parseFloat(otherAmount) >= 5000 ||
                   (otherPurpose === "custom" && !customPurpose.trim()) ||
-                  (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim())) ||
+                  (isFuelRequest && (!fuelCity.trim() || !fuelState.trim())) ||
                   checkingMoneyDetails || moneyDetailsError ||
                   (moneyDetailsReady && !!getMoneyCodeDetailsError(otherDetails, purposeLabel)) ||
                   fuelBlocked ||
-                  (otherPurpose === "fuel" && isMissingReceiptsLoading)
+                  (isFuelRequest && (checkingRecovery || recoveryCheckError || (!isRecoveryDriver && isMissingReceiptsLoading)))
                 }
               >
                 {isRequestingOther ? (
