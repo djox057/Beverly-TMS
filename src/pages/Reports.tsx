@@ -2,6 +2,7 @@ import { closeWatchGroups, isCloseWatchUrgent } from "@/lib/closeWatch";
 import { useChicagoToday, useMandatoryYardRepairs } from "@/hooks/useMandatoryYardRepairs";
 import { estimatedRoadMiles } from "@/utils/truckProximity";
 import { getActiveMandatoryYardRepairAlerts, hasActiveMandatoryYardRepairDueWithin, hasOverdueTruckRequirement } from "@/lib/yardRepairDue";
+import { MaintenanceNotePreview } from "@/components/reports/MaintenanceNotePreview";
 import { TruckMaintenanceNoteDialog, type MaintenanceNoteTarget } from "@/components/reports/TruckMaintenanceNoteDialog";
 import { TruckRepairDeadlines } from "@/components/reports/TruckRepairDeadlines";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
@@ -5415,41 +5416,51 @@ const Reports = () => {
                                                     };
                                                     if (alert.icon === "dot") {
                                                       return (
-                                                        <button
-                                                          type="button"
-                                                          aria-label={alert.tooltip}
-                                                          title={alert.tooltip}
-                                                          className="inline-flex"
-                                                          onClick={(e) => { e.stopPropagation(); openMaintenanceNote(truck, alert.tooltip); }}
-                                                        >
-                                                          <img
-                                                            src={dotInspectionIcon}
-                                                            alt="DOT Inspection"
-                                                            className="h-4 w-4 cursor-pointer"
-                                                            style={{
-                                                              filter:
-                                                                alert.color === "red"
-                                                                  ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
-                                                                  : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)",
-                                                            }}
-                                                          />
-                                                        </button>
+                                                        <Popover>
+                                                          <PopoverTrigger asChild>
+                                                            <button
+                                                              className="inline-flex"
+                                                              onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                              <img
+                                                                src={dotInspectionIcon}
+                                                                alt="DOT Inspection"
+                                                                className="h-4 w-4 cursor-pointer"
+                                                                style={{
+                                                                  filter:
+                                                                    alert.color === "red"
+                                                                      ? "brightness(0) saturate(100%) invert(26%) sepia(89%) saturate(6143%) hue-rotate(355deg) brightness(102%) contrast(119%)"
+                                                                      : "brightness(0) saturate(100%) invert(83%) sepia(62%) saturate(1000%) hue-rotate(359deg) brightness(103%) contrast(106%)",
+                                                                }}
+                                                              />
+                                                            </button>
+                                                          </PopoverTrigger>
+                                                          <PopoverContent className="w-auto max-w-xs p-3">
+                                                            <p className="text-xs">{alert.tooltip}</p>
+                                                          <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, alert.tooltip)} />
+                                                          </PopoverContent>
+                                                        </Popover>
                                                       );
                                                     }
                                                     const IconComp = IconMap[alert.icon];
                                                     if (!IconComp) return null;
                                                     return (
-                                                      <button
-                                                        type="button"
-                                                        aria-label={alert.tooltip}
-                                                        title={alert.tooltip}
-                                                        className="inline-flex"
-                                                        onClick={(e) => { e.stopPropagation(); openMaintenanceNote(truck, alert.tooltip); }}
-                                                      >
-                                                        <IconComp
-                                                          className={`h-3.5 w-3.5 cursor-pointer ${alert.color === "red" ? "text-red-500" : "text-yellow-500"}`}
-                                                        />
-                                                      </button>
+                                                      <Popover>
+                                                        <PopoverTrigger asChild>
+                                                          <button
+                                                            className="inline-flex"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                          >
+                                                            <IconComp
+                                                              className={`h-3.5 w-3.5 cursor-pointer ${alert.color === "red" ? "text-red-500" : "text-yellow-500"}`}
+                                                            />
+                                                          </button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto max-w-xs p-3">
+                                                          <p className="text-xs">{alert.tooltip}</p>
+                                                          <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, alert.tooltip)} />
+                                                        </PopoverContent>
+                                                      </Popover>
                                                     );
                                                   }
                                                   // 2+ alerts: show count badge with popover
@@ -5468,14 +5479,15 @@ const Reports = () => {
                                                         <p className="text-xs font-bold mb-2">Truck & Trailer Alerts</p>
                                                         <div className="space-y-1">
                                                           {truckAlerts.map((alert, i) => (
-                                                            <button key={i} type="button" className="flex items-center gap-2 w-full rounded p-1 text-left hover:bg-muted" onClick={(e) => { e.stopPropagation(); openMaintenanceNote(truck, alert.tooltip); }}>
+                                                            <div key={i} className="flex items-center gap-2">
                                                               <span
                                                                 className={`h-2 w-2 rounded-full flex-shrink-0 ${alert.color === "red" ? "bg-red-500" : "bg-yellow-500"}`}
                                                               />
                                                               <span className="text-xs">{alert.tooltip}</span>
-                                                            </button>
+                                                            </div>
                                                           ))}
                                                         </div>
+                                                        <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, truckAlerts.map(alert => alert.tooltip).join("; "))} />
                                                       </PopoverContent>
                                                     </Popover>
                                                   );
@@ -5653,10 +5665,6 @@ const Reports = () => {
                                                       key: "maintenance",
                                                       label: oilChangeLabel,
                                                       tooltip: `${oilChangeLabel}: ${maintenanceStatus.tooltip}`,
-                                                      onClick: (e) => {
-                                                        e.stopPropagation();
-                                                        openMaintenanceNote(truck, `${oilChangeLabel}: ${maintenanceStatus.tooltip}`);
-                                                      },
                                                       color: maintenanceStatus.color === "red" ? "red" : "yellow",
                                                       renderIcon: () => (
                                                         <img
@@ -5813,6 +5821,7 @@ const Reports = () => {
                                                         </PopoverTrigger>
                                                         <PopoverContent className="w-auto max-w-xs p-3">
                                                           <p className="text-xs">{icon.tooltip}</p>
+                                                          {icon.key === "maintenance" && <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, icon.tooltip)} />}
                                                         </PopoverContent>
                                                       </Popover>
                                                     );
@@ -5855,6 +5864,7 @@ const Reports = () => {
                                                                 </button>
                                                               ))}
                                                             </div>
+                                                            {maintenanceStatus.show && <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, maintenanceStatus.tooltip)} />}
                                                           </PopoverContent>
                                                         </Popover>
                                                       )}
