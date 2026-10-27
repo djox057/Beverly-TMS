@@ -328,7 +328,8 @@ export default function EfsRequests() {
     mutationFn: async ({ request, entered }: { request: EfsRequest; entered: boolean }) => {
       if (!canVoidRequest || !request.money_code_supported || request.voided_at) throw new Error("You do not have permission to change this request");
       const { error } = await supabase.from(request.source === 'cash_advance' ? 'driver_cash_advances' : 'efs_other_requests')
-        .update({ entered_in_stuff: entered }).eq("id", request.id).is("voided_at", null).select("id").single();
+        // entered_in_stuff exists in DB (migration 20261021165254) but not yet in generated types
+        .update({ entered_in_stuff: entered } as never).eq("id", request.id).is("voided_at", null).select("id").single();
       if (error) throw error;
     },
     onSuccess: () => invalidateRequests(),
