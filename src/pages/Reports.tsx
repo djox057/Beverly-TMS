@@ -6710,13 +6710,13 @@ const Reports = () => {
                                                 </div>
                                               )}
                                               {/* Show original dispatcher name for drivers belonging to off-duty dispatchers (only in active sections) */}
-                                              {(truck as any).originalDispatcherName && !(group as any).isOffDuty && (
+                                              {(truck as any).originalDispatcherName && (truck as any).originalDispatcherName.trim().toLowerCase() !== "unknown" && !(group as any).isOffDuty && (
                                                 <div className="text-[9px] text-muted-foreground italic mt-0.5">
                                                   Disp: {(truck as any).originalDispatcherName}
                                                 </div>
                                               )}
                                               {/* Show current dispatcher name for drivers in off-duty sections */}
-                                              {(truck as any).currentDispatcherName && (group as any).isOffDuty && (
+                                              {(truck as any).currentDispatcherName && (truck as any).currentDispatcherName.trim().toLowerCase() !== "unknown" && (group as any).isOffDuty && (
                                                 <div className="text-xs text-foreground font-medium mt-0.5">
                                                   Disp: {(truck as any).currentDispatcherName}
                                                 </div>
