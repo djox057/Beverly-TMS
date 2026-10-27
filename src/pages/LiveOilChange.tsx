@@ -1,3 +1,4 @@
+import { MaintenanceNoteHistory } from "@/components/reports/MaintenanceNoteHistory";
 import { MaintenanceNoteAttribution } from "@/components/reports/MaintenanceNoteAttribution";
 import { useOilChangeFilterState } from "@/hooks/useOilChangeFilterState";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
@@ -410,6 +411,7 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
                               }}
                             />
                             {t.oil_change_note && <MaintenanceNoteAttribution note={t} />}
+                            <MaintenanceNoteHistory truckId={t.id} />
                         </TableCell>
                         <TableCell>
                           <OilChangeEditCell value={t.last_oc_invoice} label={`Last OC invoice · Truck ${t.truck_number}`} multiline readOnly={!canEditAll} className={bareInput}
@@ -653,6 +655,8 @@ const LiveOilChange = () => {
       queryClient.invalidateQueries({ queryKey: ["trucks", "v2"] });
       queryClient.invalidateQueries({ queryKey: ["truck-mileage-history"] });
       queryClient.invalidateQueries({ queryKey: ["truck-service-log"] });
+      queryClient.invalidateQueries({ queryKey: ["truck-maintenance-note-history"] });
+      queryClient.invalidateQueries({ queryKey: ["truck-maintenance-note"] });
     },
     onError: (e: any) => {
       toast({ title: "Update failed", description: e.message, variant: "destructive" });

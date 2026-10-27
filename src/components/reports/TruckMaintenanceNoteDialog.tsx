@@ -69,6 +69,7 @@ export function TruckMaintenanceNoteDialog({ target, onClose }: {
       );
       void queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
       void queryClient.invalidateQueries({ queryKey: ["truck-service-log", target.truckId] });
+      void queryClient.invalidateQueries({ queryKey: ["truck-maintenance-note-history", target.truckId] });
       onClose();
     },
   });

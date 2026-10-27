@@ -1,3 +1,4 @@
+import { MaintenanceNoteHistory } from "./MaintenanceNoteHistory";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { MaintenanceNoteAttribution, MAINTENANCE_NOTE_SELECT } from "./MaintenanceNoteAttribution";
@@ -22,9 +23,12 @@ export function MaintenanceNotePreview({ truckId, onEdit }: { truckId: string; o
         : note.isError ? <p className="text-xs text-destructive">Could not load comment.</p>
         : note.data.oil_change_note ? <div className="space-y-1"><p className="text-xs whitespace-pre-wrap break-words">{note.data.oil_change_note}</p><MaintenanceNoteAttribution note={note.data} /></div>
         : <p className="text-xs text-muted-foreground">No comment yet.</p>}
+      <div className="flex items-center gap-2">
+      <MaintenanceNoteHistory truckId={truckId} />
       <Button type="button" size="sm" variant="ghost" className="h-5 px-1 text-[10px] font-normal text-muted-foreground hover:text-foreground" onClick={event => { event.stopPropagation(); onEdit(); }}>
         Add/change comment
       </Button>
+      </div>
     </div>
   );
 }

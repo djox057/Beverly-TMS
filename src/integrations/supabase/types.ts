@@ -7100,6 +7100,12 @@ export type Database = {
           },
         ]
       }
+      truck_maintenance_note_history: {
+        Row: { id: string; truck_id: string; old_note: string | null; new_note: string | null; changed_by: string | null; changed_by_name: string | null; changed_at: string }
+        Insert: { id?: string; truck_id: string; old_note?: string | null; new_note?: string | null; changed_by?: string | null; changed_by_name?: string | null; changed_at?: string }
+        Update: { id?: string; truck_id?: string; old_note?: string | null; new_note?: string | null; changed_by?: string | null; changed_by_name?: string | null; changed_at?: string }
+        Relationships: [{ foreignKeyName: "truck_maintenance_note_history_truck_id_fkey"; columns: ["truck_id"]; isOneToOne: false; referencedRelation: "trucks"; referencedColumns: ["id"] }]
+      }
       trucks: {
         Row: {
           air_filter: number | null
