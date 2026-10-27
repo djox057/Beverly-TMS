@@ -45,7 +45,7 @@ export function SetDriverStatusDialog({
   const [step, setStep] = useState<"initial" | "awaiting_recovery" | "has_recovery">("initial");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Fetch recovery drivers
+  // Recovery assignments include all recovery drivers, regardless of active status.
   const { data: recoveryDrivers = [] } = useQuery({
     queryKey: ["recovery-drivers"],
     queryFn: async () => {
@@ -53,7 +53,6 @@ export function SetDriverStatusDialog({
         .from("drivers")
         .select("id, name")
         .eq("is_recovery", true)
-        .eq("is_active", true)
         .order("name");
       
       if (error) throw error;
