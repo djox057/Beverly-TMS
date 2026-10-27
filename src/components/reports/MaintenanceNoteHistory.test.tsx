@@ -19,7 +19,7 @@ afterEach(() => { cleanup(); client.clear(); });
 function show() { render(<QueryClientProvider client={client}><MaintenanceNoteHistory truckId="truck-1" /></QueryClientProvider>); }
 it("loads only on opening and browses cleared and replaced notes with authors", async () => {
   show(); expect(api.range).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: /14-day history/ }));
+  fireEvent.click(screen.getByRole("button", { name: /3-month history/ }));
   expect(await screen.findByText(/Alex/)).toBeInTheDocument();
   expect(screen.getByText("Cleared:")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Newer note" })).toBeDisabled();
@@ -34,13 +34,13 @@ it("loads only on opening and browses cleared and replaced notes with authors", 
 });
 it("handles empty history and disables navigation", async () => {
   api.range.mockResolvedValue({ data: [], error: null }); show();
-  fireEvent.click(screen.getByRole("button", { name: /14-day history/ }));
-  expect(await screen.findByText("No note edits in the last 14 days.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /3-month history/ }));
+  expect(await screen.findByText("No note edits in the last 3 months.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Older note" })).toBeDisabled();
 });
 it("allows retrying a failed history load", async () => {
   api.range.mockResolvedValueOnce({ data: null, error: new Error("Offline") }); show();
-  fireEvent.click(screen.getByRole("button", { name: /14-day history/ }));
+  fireEvent.click(screen.getByRole("button", { name: /3-month history/ }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not load history");
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(screen.getByText(/Alex/)).toBeInTheDocument());
