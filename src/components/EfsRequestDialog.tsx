@@ -105,7 +105,7 @@ export function EfsRequestDialog({
   const { data: missingFuelReceipts = [], isLoading: isMissingReceiptsLoading } =
     useDriverMissingFuelReceipt(driverId, open);
   const hasMissingFuelReceipt = missingFuelReceipts.length > 0;
-  const fuelBlocked = isFuelRequest && !isRecoveryDriver && hasMissingFuelReceipt;
+  const fuelBlocked = isFuelRequest && !checkingRecovery && !recoveryCheckError && !isRecoveryDriver && !isMissingReceiptsLoading && hasMissingFuelReceipt;
   
   const queryClient = useQueryClient();
 

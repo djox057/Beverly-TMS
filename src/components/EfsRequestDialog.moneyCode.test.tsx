@@ -96,8 +96,10 @@ it("submits city and state for Custom fuel, matching the backend validation", as
 it("keeps fuel disabled while verifying recovery status", async () => {
   mocks.migrated = false;
   mocks.recoveryLookup.mockReturnValue(new Promise(() => {}));
+  mocks.missingReceipts = [{ id: "previous-request" }];
   show(); await fillFuel();
   await screen.findByText(/Saved Money Code details are pending/);
+  expect(screen.queryByText(/Fuel request blocked:/)).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Send Request" })).toBeDisabled();
   expect(mocks.invoke).not.toHaveBeenCalled();
 });

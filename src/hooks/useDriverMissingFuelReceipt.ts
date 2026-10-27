@@ -9,10 +9,17 @@ import { getEfsReceiptCutoff } from "@/lib/efsReceiptWindow";
  */
 export function useDriverMissingFuelReceipt(driverId?: string, enabled = true) {
   return useQuery({
-    queryKey: ["driver-missing-fuel-receipts", driverId],
+    queryKey: ["driver-missing-fuel-receipts", driverId, "recovery-exempt"],
     enabled: !!driverId && enabled,
     staleTime: 30 * 1000,
     queryFn: async () => {
+      // Apply the exemption at the data source too, so no consumer receives a
+      // blocking receipt list for a recovery driver (including stale dialogs).
+      const { data: driver, error: driverError } = await supabase.from("drivers")
+        .select("is_recovery").eq("id", driverId!).maybeSingle();
+      if (driverError) throw driverError;
+      if (driver?.is_recovery === true) return [];
+
       const { data, error } = await fetchActiveEfsRows((activeOnly) => {
         const query = supabase
           .from("efs_other_requests")
