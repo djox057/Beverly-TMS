@@ -506,8 +506,11 @@ export const getMaintenanceIconStatus = (
     if (oilMilesSince > redThr) { milesColor = "red"; oilTriggered = true; }
     else if (oilMilesSince > yellowThr) { milesColor = "yellow"; oilTriggered = true; }
   }
-  if (oilTriggered && oilMilesSince != null) {
-    dueSoon.unshift(`Oil Change: ${oilMilesSince.toLocaleString()} mi since last change`);
+  if (oilMilesSince != null && (oilTriggered || dueSoon.length > 0)) {
+    const dueMiles = Math.ceil(redThr);
+    const remaining = dueMiles - oilMilesSince;
+    const fmt = (miles: number) => Math.round(miles).toLocaleString("en-US");
+    dueSoon.unshift(`Oil Change: ${fmt(oilMilesSince)} mi since last change; ${fmt(Math.abs(remaining))} mi ${remaining < 0 ? "overdue" : "remaining"}; due at ${fmt(truck.last_oil_change_miles + dueMiles)} mi (${fmt(dueMiles)}-mi interval)`);
   }
 
   if (dueSoon.length === 0) {

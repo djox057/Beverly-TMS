@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { MaintenanceNoteAttribution, MAINTENANCE_NOTE_SELECT } from "./MaintenanceNoteAttribution";
 import { busChannel } from "@/hooks/realtimeBus";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,7 +28,7 @@ export function TruckMaintenanceNoteDialog({ target, onClose }: {
     refetchOnMount: "always",
     queryFn: async () => {
       const { data, error } = await supabase.from("trucks")
-        .select("oil_change_note").eq("id", target.truckId).single();
+        .select(MAINTENANCE_NOTE_SELECT).eq("id", target.truckId).single();
       if (error) throw error;
       return data;
     },
@@ -55,13 +56,16 @@ export function TruckMaintenanceNoteDialog({ target, onClose }: {
         _note: value,
       });
       if (error) throw error;
-      return value;
+      const { data, error: readError } = await supabase.from("trucks")
+        .select(MAINTENANCE_NOTE_SELECT).eq("id", target.truckId).single();
+      if (readError) throw readError;
+      return data;
     },
-    onSuccess: (value) => {
-      queryClient.setQueryData(queryKey, { oil_change_note: value });
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKey, saved);
       queryClient.setQueriesData<Array<{ id: string; oil_change_note: string | null }>>(
         { queryKey: ["live-oil-change-trucks"] },
-        rows => rows?.map(row => row.id === target.truckId ? { ...row, oil_change_note: value } : row),
+        rows => rows?.map(row => row.id === target.truckId ? { ...row, ...saved } : row),
       );
       void queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
       void queryClient.invalidateQueries({ queryKey: ["truck-service-log", target.truckId] });
@@ -91,6 +95,7 @@ export function TruckMaintenanceNoteDialog({ target, onClose }: {
                 onChange={event => { dirty.current = true; setDraft(event.target.value); }} />
             )}
           </div>
+          {note.data?.oil_change_note && <MaintenanceNoteAttribution note={note.data} />}
           {save.isError && <p role="alert" className="text-sm text-destructive">Could not save the note. {save.error.message}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" disabled={save.isPending} onClick={onClose}>{target.canEdit ? "Cancel" : "Close"}</Button>

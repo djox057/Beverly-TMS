@@ -16,7 +16,10 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   api.from.mockReturnValue({ select: () => ({ eq: () => ({ single: api.read }) }) });
   api.read.mockResolvedValue({ data: { oil_change_note: "Service booked Friday" }, error: null });
-  api.rpc.mockResolvedValue({ error: null });
+  api.rpc.mockImplementation(async (_name, args) => {
+    api.read.mockResolvedValue({ data: { oil_change_note: args._note }, error: null });
+    return { error: null };
+  });
 });
 afterEach(() => { cleanup(); client.clear(); });
 function mount(canEdit = true, onClose = vi.fn()) {
@@ -83,4 +86,18 @@ it("refreshes the shared note while open without replacing an unsaved draft", as
   api.refresh?.();
   await waitFor(() => expect(client.getQueryData(["truck-maintenance-note", "truck-1"])).toEqual({ oil_change_note: "Another remote change" }));
   expect(screen.getByRole("textbox")).toHaveValue("My draft");
+});
+it("shows the recorded author and Chicago time and refreshes attribution after saving", async () => {
+  const metadata = { oil_change_note_author: "Alex Dispatcher", oil_change_note_updated_at: "2026-10-27T16:24:00Z" };
+  api.read.mockResolvedValue({ data: { oil_change_note: "Booked service", ...metadata }, error: null });
+  api.rpc.mockImplementation(async (_name, args) => {
+    api.read.mockResolvedValue({ data: { oil_change_note: args._note, ...metadata }, error: null });
+    return { error: null };
+  });
+  const { onClose } = mount();
+  expect(await screen.findByText(/Alex Dispatcher.*Oct 27, 2026.*11:24 AM CT/)).toBeInTheDocument();
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "Service confirmed" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save note" }));
+  await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  expect(client.getQueryData(["truck-maintenance-note", "truck-1"])).toEqual({ oil_change_note: "Service confirmed", ...metadata });
 });

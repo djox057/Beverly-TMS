@@ -1,3 +1,4 @@
+import { MaintenanceNoteAttribution } from "@/components/reports/MaintenanceNoteAttribution";
 import { useOilChangeFilterState } from "@/hooks/useOilChangeFilterState";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { Link } from "react-router-dom";
@@ -49,6 +50,8 @@ type TruckRow = {
   fleet_pm_readiness?: string;
   last_oc_invoice: string | null;
   oil_change_note: string | null;
+  oil_change_note_author?: string | null;
+  oil_change_note_updated_at?: string | null;
   is_active: boolean;
   driver1_id: string | null;
   driver_name?: string | null;
@@ -406,6 +409,7 @@ const LiveOilChangeTable = memo(function LiveOilChangeTable({ rows, isLoading, e
                                 if (value !== (t.oil_change_note ?? null)) await onEdit({id:t.id,patch:{oil_change_note:value}});
                               }}
                             />
+                            {t.oil_change_note && <MaintenanceNoteAttribution note={t} />}
                         </TableCell>
                         <TableCell>
                           <OilChangeEditCell value={t.last_oc_invoice} label={`Last OC invoice · Truck ${t.truck_number}`} multiline readOnly={!canEditAll} className={bareInput}
@@ -573,7 +577,7 @@ const LiveOilChange = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, oil_change_note, fleet_pm_readiness, is_active, driver1_id, dispatcher_id, company_id")
+        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, oil_change_note, oil_change_note_author, oil_change_note_updated_at, fleet_pm_readiness, is_active, driver1_id, dispatcher_id, company_id")
         .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;

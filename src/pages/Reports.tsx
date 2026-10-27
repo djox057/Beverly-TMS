@@ -5660,11 +5660,11 @@ const Reports = () => {
                                                       ? oilMilesSince > oilChangeDueMiles
                                                         ? `Oil Change — ${Math.round(oilMilesSince - oilChangeDueMiles).toLocaleString("en-US")} mi overdue`
                                                         : `Oil Change — ${Math.round(oilChangeDueMiles - oilMilesSince).toLocaleString("en-US")} mi remaining`
-                                                      : "Oil Change";
+                                                      : "Maintenance";
                                                     icons.push({
                                                       key: "maintenance",
                                                       label: oilChangeLabel,
-                                                      tooltip: `${oilChangeLabel}: ${maintenanceStatus.tooltip}`,
+                                                      tooltip: maintenanceStatus.tooltip,
                                                       color: maintenanceStatus.color === "red" ? "red" : "yellow",
                                                       renderIcon: () => (
                                                         <img
