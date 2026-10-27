@@ -14,13 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      eld_activity: {
-        Row: { id: string; work_date: string; entity_type: string; entity_id: string; worker_id: string | null; actor_id: string; action: string; before_data: Json | null; after_data: Json | null; created_at: string }
-        Insert: { id?: string; work_date: string; entity_type: string; entity_id: string; worker_id?: string | null; actor_id: string; action: string; before_data?: Json | null; after_data?: Json | null; created_at?: string }
-        Update: { id?: string; work_date?: string; entity_type?: string; entity_id?: string; worker_id?: string | null; actor_id?: string; action?: string; before_data?: Json | null; after_data?: Json | null; created_at?: string }
-        Relationships: []
-      }
-
       afterhours_assignments: {
         Row: {
           afterhours_user_id: string
@@ -1768,17 +1761,6 @@ export type Database = {
       }
       driver_cash_advances: {
         Row: {
-          purpose_detail: string | null
-          is_trailer_repair: boolean
-          trailer_number: string | null
-          location_name: string | null
-          location_address: string | null
-          entered_in_stuff: boolean
-          stuff_entered_at: string | null
-          stuff_entered_by: string | null
-          voided_at: string | null
-          voided_by: string | null
-          void_reason: string | null
           amount: number
           created_at: string
           driver_id: string
@@ -1787,19 +1769,11 @@ export type Database = {
           requested_by: string | null
           resend_email_id: string | null
           truck_number: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
-          purpose_detail?: string | null
-          is_trailer_repair?: boolean
-          trailer_number?: string | null
-          location_name?: string | null
-          location_address?: string | null
-          entered_in_stuff?: boolean
-          stuff_entered_at?: string | null
-          stuff_entered_by?: string | null
-          voided_at?: string | null
-          voided_by?: string | null
-          void_reason?: string | null
           amount?: number
           created_at?: string
           driver_id: string
@@ -1808,19 +1782,11 @@ export type Database = {
           requested_by?: string | null
           resend_email_id?: string | null
           truck_number?: string | null
-        }
-        Update: {
-          purpose_detail?: string | null
-          is_trailer_repair?: boolean
-          trailer_number?: string | null
-          location_name?: string | null
-          location_address?: string | null
-          entered_in_stuff?: boolean
-          stuff_entered_at?: string | null
-          stuff_entered_by?: string | null
+          void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
-          void_reason?: string | null
+        }
+        Update: {
           amount?: number
           created_at?: string
           driver_id?: string
@@ -1829,6 +1795,9 @@ export type Database = {
           requested_by?: string | null
           resend_email_id?: string | null
           truck_number?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -2237,6 +2206,98 @@ export type Database = {
           },
         ]
       }
+      driver_hos_daily: {
+        Row: {
+          driver_id: string
+          log_date: string
+          missing_minutes: number
+          observed_minutes: number
+          on_duty_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          driver_id: string
+          log_date: string
+          missing_minutes?: number
+          observed_minutes?: number
+          on_duty_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          driver_id?: string
+          log_date?: string
+          missing_minutes?: number
+          observed_minutes?: number
+          on_duty_minutes?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_hos_daily_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_hos_state: {
+        Row: {
+          break_minutes: number | null
+          cycle_minutes: number | null
+          drive_minutes: number | null
+          driver_id: string
+          log_timezone: string
+          observed_at: string
+          rest_started_at: string | null
+          shift_minutes: number | null
+          source_at: string | null
+          status: string | null
+          truck_id: string | null
+        }
+        Insert: {
+          break_minutes?: number | null
+          cycle_minutes?: number | null
+          drive_minutes?: number | null
+          driver_id: string
+          log_timezone?: string
+          observed_at: string
+          rest_started_at?: string | null
+          shift_minutes?: number | null
+          source_at?: string | null
+          status?: string | null
+          truck_id?: string | null
+        }
+        Update: {
+          break_minutes?: number | null
+          cycle_minutes?: number | null
+          drive_minutes?: number | null
+          driver_id?: string
+          log_timezone?: string
+          observed_at?: string
+          rest_started_at?: string | null
+          shift_minutes?: number | null
+          source_at?: string | null
+          status?: string | null
+          truck_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_hos_state_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_hos_state_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_performance: {
         Row: {
           created_at: string
@@ -2564,6 +2625,7 @@ export type Database = {
           cents_per_mile: number | null
           citizen: boolean
           clearing_house: string | null
+          close_watch: boolean
           company_address: string | null
           company_id: string | null
           company_name: string | null
@@ -2571,7 +2633,6 @@ export type Database = {
           created_at: string
           criminal: boolean
           dispatcher_id: string | null
-          close_watch: boolean
           do_not_touch_hos: boolean
           email: string | null
           emergency_contact_name: string | null
@@ -2626,6 +2687,7 @@ export type Database = {
           cents_per_mile?: number | null
           citizen?: boolean
           clearing_house?: string | null
+          close_watch?: boolean
           company_address?: string | null
           company_id?: string | null
           company_name?: string | null
@@ -2633,7 +2695,6 @@ export type Database = {
           created_at?: string
           criminal?: boolean
           dispatcher_id?: string | null
-          close_watch?: boolean
           do_not_touch_hos?: boolean
           email?: string | null
           emergency_contact_name?: string | null
@@ -2688,6 +2749,7 @@ export type Database = {
           cents_per_mile?: number | null
           citizen?: boolean
           clearing_house?: string | null
+          close_watch?: boolean
           company_address?: string | null
           company_id?: string | null
           company_name?: string | null
@@ -2695,7 +2757,6 @@ export type Database = {
           created_at?: string
           criminal?: boolean
           dispatcher_id?: string | null
-          close_watch?: boolean
           do_not_touch_hos?: boolean
           email?: string | null
           emergency_contact_name?: string | null
@@ -2947,17 +3008,6 @@ export type Database = {
       }
       efs_other_requests: {
         Row: {
-          purpose_detail: string | null
-          is_trailer_repair: boolean
-          trailer_number: string | null
-          location_name: string | null
-          location_address: string | null
-          entered_in_stuff: boolean
-          stuff_entered_at: string | null
-          stuff_entered_by: string | null
-          voided_at: string | null
-          voided_by: string | null
-          void_reason: string | null
           amount: number
           city: string | null
           company_name: string | null
@@ -2977,19 +3027,11 @@ export type Database = {
           revised_rc_path: string | null
           state: string | null
           truck_number: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
-          purpose_detail?: string | null
-          is_trailer_repair?: boolean
-          trailer_number?: string | null
-          location_name?: string | null
-          location_address?: string | null
-          entered_in_stuff?: boolean
-          stuff_entered_at?: string | null
-          stuff_entered_by?: string | null
-          voided_at?: string | null
-          voided_by?: string | null
-          void_reason?: string | null
           amount?: number
           city?: string | null
           company_name?: string | null
@@ -3009,19 +3051,11 @@ export type Database = {
           revised_rc_path?: string | null
           state?: string | null
           truck_number?: string | null
-        }
-        Update: {
-          purpose_detail?: string | null
-          is_trailer_repair?: boolean
-          trailer_number?: string | null
-          location_name?: string | null
-          location_address?: string | null
-          entered_in_stuff?: boolean
-          stuff_entered_at?: string | null
-          stuff_entered_by?: string | null
+          void_reason?: string | null
           voided_at?: string | null
           voided_by?: string | null
-          void_reason?: string | null
+        }
+        Update: {
           amount?: number
           city?: string | null
           company_name?: string | null
@@ -3041,6 +3075,9 @@ export type Database = {
           revised_rc_path?: string | null
           state?: string | null
           truck_number?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -3095,6 +3132,175 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      eld_activity: {
+        Row: {
+          action: string
+          actor_id: string
+          after_data: Json | null
+          before_data: Json | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          work_date: string
+          worker_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          work_date: string
+          worker_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          work_date?: string
+          worker_id?: string | null
+        }
+        Relationships: []
+      }
+      eld_assignments: {
+        Row: {
+          driver_id: string
+          updated_at: string
+          updated_by: string | null
+          worker_id: string | null
+        }
+        Insert: {
+          driver_id: string
+          updated_at?: string
+          updated_by?: string | null
+          worker_id?: string | null
+        }
+        Update: {
+          driver_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eld_assignments_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eld_assignments_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "eld_assignments_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      eld_daily_checks: {
+        Row: {
+          comment: string
+          driver_id: string
+          driver_name: string
+          forms: boolean
+          id: string
+          pti: boolean
+          truck_number: string
+          updated_at: string
+          updated_by: string | null
+          work_date: string
+          worker_id: string | null
+          worker_name: string | null
+          yesterday_log: boolean
+        }
+        Insert: {
+          comment?: string
+          driver_id: string
+          driver_name: string
+          forms?: boolean
+          id?: string
+          pti?: boolean
+          truck_number?: string
+          updated_at?: string
+          updated_by?: string | null
+          work_date: string
+          worker_id?: string | null
+          worker_name?: string | null
+          yesterday_log?: boolean
+        }
+        Update: {
+          comment?: string
+          driver_id?: string
+          driver_name?: string
+          forms?: boolean
+          id?: string
+          pti?: boolean
+          truck_number?: string
+          updated_at?: string
+          updated_by?: string | null
+          work_date?: string
+          worker_id?: string | null
+          worker_name?: string | null
+          yesterday_log?: boolean
+        }
+        Relationships: []
+      }
+      eld_side_tasks: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          updated_at: string
+          work_date: string
+          worker_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by: string
+          description: string
+          id?: string
+          updated_at?: string
+          work_date: string
+          worker_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          updated_at?: string
+          work_date?: string
+          worker_id?: string
+        }
+        Relationships: []
       }
       exported_weeks: {
         Row: {
@@ -3349,6 +3555,75 @@ export type Database = {
           state?: string
         }
         Relationships: []
+      }
+      hos_order_checks: {
+        Row: {
+          actor_id: string | null
+          assessment: Json | null
+          attempts: number
+          available_at: string
+          created_at: string
+          dispatcher_id: string | null
+          driver_id: string
+          id: string
+          last_error: string | null
+          notified_at: string | null
+          order_id: string
+          provider_message_id: string | null
+          recipient_user_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actor_id?: string | null
+          assessment?: Json | null
+          attempts?: number
+          available_at?: string
+          created_at?: string
+          dispatcher_id?: string | null
+          driver_id: string
+          id?: string
+          last_error?: string | null
+          notified_at?: string | null
+          order_id: string
+          provider_message_id?: string | null
+          recipient_user_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actor_id?: string | null
+          assessment?: Json | null
+          attempts?: number
+          available_at?: string
+          created_at?: string
+          dispatcher_id?: string | null
+          driver_id?: string
+          id?: string
+          last_error?: string | null
+          notified_at?: string | null
+          order_id?: string
+          provider_message_id?: string | null
+          recipient_user_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hos_order_checks_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hos_order_checks_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hos_requests: {
         Row: {
@@ -3642,6 +3917,73 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      low_drive_reminders: {
+        Row: {
+          attempts: number
+          claimed_at: string
+          created_at: string
+          driver_id: string
+          email_payload: Json | null
+          id: string
+          last_error: string | null
+          order_id: string
+          provider_message_id: string | null
+          recipient_user_id: string
+          sent_at: string | null
+          stop_id: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string
+          created_at?: string
+          driver_id: string
+          email_payload?: Json | null
+          id?: string
+          last_error?: string | null
+          order_id: string
+          provider_message_id?: string | null
+          recipient_user_id: string
+          sent_at?: string | null
+          stop_id: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string
+          created_at?: string
+          driver_id?: string
+          email_payload?: Json | null
+          id?: string
+          last_error?: string | null
+          order_id?: string
+          provider_message_id?: string | null
+          recipient_user_id?: string
+          sent_at?: string | null
+          stop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "low_drive_reminders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "low_drive_reminders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "low_drive_reminders_stop_id_fkey"
+            columns: ["stop_id"]
+            isOneToOne: false
+            referencedRelation: "pickup_drops"
             referencedColumns: ["id"]
           },
         ]
@@ -4014,6 +4356,7 @@ export type Database = {
           other_charges_driver: number | null
           other_charges_items: Json | null
           other_charges_reason: string | null
+          p_status: string
           paid: boolean | null
           partial_booked_by_companies: Json | null
           partial_broker_loads: Json | null
@@ -4023,8 +4366,8 @@ export type Database = {
           po_number: string | null
           pod_force_complete: boolean
           prebook: boolean
-          prebook_original_booked_by: string | null
           prebook_note: string | null
+          prebook_original_booked_by: string | null
           pu_number: string | null
           recovery_assigned: boolean
           recovery_auto_cancel_at: string | null
@@ -4036,7 +4379,6 @@ export type Database = {
           recovery_requested_at: string | null
           recovery_requested_by: string | null
           reference_number: string | null
-          p_status: string
           retrieval: boolean
           scale_drive_axle: number | null
           scale_gross: number | null
@@ -4150,6 +4492,7 @@ export type Database = {
           other_charges_driver?: number | null
           other_charges_items?: Json | null
           other_charges_reason?: string | null
+          p_status?: string
           paid?: boolean | null
           partial_booked_by_companies?: Json | null
           partial_broker_loads?: Json | null
@@ -4159,8 +4502,8 @@ export type Database = {
           po_number?: string | null
           pod_force_complete?: boolean
           prebook?: boolean
-          prebook_original_booked_by?: string | null
           prebook_note?: string | null
+          prebook_original_booked_by?: string | null
           pu_number?: string | null
           recovery_assigned?: boolean
           recovery_auto_cancel_at?: string | null
@@ -4172,7 +4515,6 @@ export type Database = {
           recovery_requested_at?: string | null
           recovery_requested_by?: string | null
           reference_number?: string | null
-          p_status?: string
           retrieval?: boolean
           scale_drive_axle?: number | null
           scale_gross?: number | null
@@ -4286,6 +4628,7 @@ export type Database = {
           other_charges_driver?: number | null
           other_charges_items?: Json | null
           other_charges_reason?: string | null
+          p_status?: string
           paid?: boolean | null
           partial_booked_by_companies?: Json | null
           partial_broker_loads?: Json | null
@@ -4295,8 +4638,8 @@ export type Database = {
           po_number?: string | null
           pod_force_complete?: boolean
           prebook?: boolean
-          prebook_original_booked_by?: string | null
           prebook_note?: string | null
+          prebook_original_booked_by?: string | null
           pu_number?: string | null
           recovery_assigned?: boolean
           recovery_auto_cancel_at?: string | null
@@ -4308,7 +4651,6 @@ export type Database = {
           recovery_requested_at?: string | null
           recovery_requested_by?: string | null
           reference_number?: string | null
-          p_status?: string
           retrieval?: boolean
           scale_drive_axle?: number | null
           scale_gross?: number | null
@@ -6799,6 +7141,7 @@ export type Database = {
           oil_change_date: string | null
           oil_change_note: string | null
           oil_spec: string | null
+          oos: boolean
           plate: string | null
           plate_expiration_date: string | null
           pretrip_checked: boolean
@@ -6864,6 +7207,7 @@ export type Database = {
           oil_change_date?: string | null
           oil_change_note?: string | null
           oil_spec?: string | null
+          oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
           pretrip_checked?: boolean
@@ -6929,6 +7273,7 @@ export type Database = {
           oil_change_date?: string | null
           oil_change_note?: string | null
           oil_spec?: string | null
+          oos?: boolean
           plate?: string | null
           plate_expiration_date?: string | null
           pretrip_checked?: boolean
@@ -7424,10 +7769,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      eld_get_day: { Args: { p_date: string }; Returns: Json }
-      eld_save_check: { Args: { p_id: string; p_field: string; p_value: Json }; Returns: undefined }
-      eld_manage: { Args: { p_action: string; p_payload: Json }; Returns: undefined }
-
       add_truck_yard_arrival: {
         Args: {
           p_action_type: string
@@ -7458,6 +7799,60 @@ export type Database = {
       can_access_truck_service_log: {
         Args: { _entry_type?: string; _truck_id: string; _write?: boolean }
         Returns: boolean
+      }
+      claim_hos_order_checks: {
+        Args: { target_order?: string }
+        Returns: {
+          actor_id: string | null
+          assessment: Json | null
+          attempts: number
+          available_at: string
+          created_at: string
+          dispatcher_id: string | null
+          driver_id: string
+          id: string
+          last_error: string | null
+          notified_at: string | null
+          order_id: string
+          provider_message_id: string | null
+          recipient_user_id: string | null
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "hos_order_checks"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_low_drive_reminder: {
+        Args: {
+          p_driver: string
+          p_order: string
+          p_recipient: string
+          p_stop: string
+        }
+        Returns: {
+          attempts: number
+          claimed_at: string
+          created_at: string
+          driver_id: string
+          email_payload: Json | null
+          id: string
+          last_error: string | null
+          order_id: string
+          provider_message_id: string | null
+          recipient_user_id: string
+          sent_at: string | null
+          stop_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "low_drive_reminders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       claim_pretrip_form_sync: { Args: { _lease_id: string }; Returns: boolean }
       clear_truck_notes_scheduled: { Args: never; Returns: number }
@@ -7492,12 +7887,25 @@ export type Database = {
         Args: { _note: string; _truck_id: string }
         Returns: undefined
       }
+      dispatcher_update_truck_oos: {
+        Args: { _oos: boolean; _truck_id: string }
+        Returns: undefined
+      }
       dispatcher_update_truck_pretrip: {
         Args: {
           _pretrip_date: string
           _pretrip_note: string
           _truck_id: string
         }
+        Returns: undefined
+      }
+      eld_get_day: { Args: { p_date: string }; Returns: Json }
+      eld_manage: {
+        Args: { p_action: string; p_payload: Json }
+        Returns: undefined
+      }
+      eld_save_check: {
+        Args: { p_field: string; p_id: string; p_value: Json }
         Returns: undefined
       }
       estimate_locked_orders_count: {
@@ -7741,6 +8149,7 @@ export type Database = {
         Args: { p_company_id: string }
         Returns: string
       }
+      record_hos_observations: { Args: { observations: Json }; Returns: number }
       refresh_driver_last_order: {
         Args: { _driver: string }
         Returns: undefined
