@@ -62,7 +62,6 @@ test('office routing uses authenticated profile and normalizes Čačak', async (
     const { calls, response } = await runNotification(office);
     assert.equal(response.status, 200);
     const numbers = calls.filter(c => c.url.endsWith('/sms')).map(c => c.body.to[0].phoneNumber);
-    assert.ok(numbers.includes('+16304733879'));
     assert.ok(numbers.includes('+12192938764'));
     assert.ok(!numbers.includes('+19999999999'));
     assert.equal(numbers.includes('+12192938762'), office === 'BG 4th floor');

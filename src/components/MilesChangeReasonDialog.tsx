@@ -26,11 +26,7 @@ interface MilesChangeReasonDialogProps {
   changeInfo: MilesChangeInfo;
 }
 
-export function MilesChangeReasonDialog({
-  open,
-  onConfirm,
-  changeInfo,
-}: MilesChangeReasonDialogProps) {
+export function MilesChangeReasonDialog({ open, onConfirm, changeInfo }: MilesChangeReasonDialogProps) {
   const [reason, setReason] = useState("");
 
   useEffect(() => {
@@ -47,7 +43,12 @@ export function MilesChangeReasonDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {/* prevent closing */}}>
+    <Dialog
+      open={open}
+      onOpenChange={() => {
+        /* prevent closing */
+      }}
+    >
       <DialogContent
         className="sm:max-w-[450px] [&>button:last-child]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
@@ -56,17 +57,14 @@ export function MilesChangeReasonDialog({
       >
         <DialogHeader>
           <DialogTitle>Miles Changed Significantly</DialogTitle>
-          <DialogDescription>
-            You've changed miles. Please provide a reason.
-          </DialogDescription>
+          <DialogDescription>You've changed miles. Please provide a reason.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="rounded-md border bg-muted/50 p-3 space-y-1 text-sm">
             {changeInfo.dhMilesChanged && (
               <p>
-                <span className="font-medium">DH Miles:</span>{" "}
-                {changeInfo.oldDhMiles} → {changeInfo.newDhMiles}{" "}
+                <span className="font-medium">DH Miles:</span> {changeInfo.oldDhMiles} → {changeInfo.newDhMiles}{" "}
                 <span className="text-muted-foreground">
                   (Δ {Math.abs(changeInfo.newDhMiles - changeInfo.oldDhMiles)})
                 </span>
@@ -74,8 +72,8 @@ export function MilesChangeReasonDialog({
             )}
             {changeInfo.loadedMilesChanged && (
               <p>
-                <span className="font-medium">Loaded Miles:</span>{" "}
-                {changeInfo.oldLoadedMiles} → {changeInfo.newLoadedMiles}{" "}
+                <span className="font-medium">Loaded Miles:</span> {changeInfo.oldLoadedMiles} →{" "}
+                {changeInfo.newLoadedMiles}{" "}
                 <span className="text-muted-foreground">
                   (Δ {Math.abs(changeInfo.newLoadedMiles - changeInfo.oldLoadedMiles)})
                 </span>
@@ -134,7 +132,7 @@ export function getMilesChangeSmsRecipients(office: string | null | undefined): 
   if (!office) return [];
 
   // Ben and Krki always receive for all offices
-  const recipients = ["+16304733879", "+12192938764"];
+  const recipients = ["+12192938764"];
 
   // Office-specific recipients
   const upper = office.toUpperCase();
