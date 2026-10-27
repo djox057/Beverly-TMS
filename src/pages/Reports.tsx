@@ -5664,7 +5664,7 @@ const Reports = () => {
                                                     icons.push({
                                                       key: "maintenance",
                                                       label: oilChangeLabel,
-                                                      tooltip: maintenanceStatus.tooltip,
+                                                      tooltip: `${oilChangeLabel}: ${maintenanceStatus.tooltip}`,
                                                       color: maintenanceStatus.color === "red" ? "red" : "yellow",
                                                       renderIcon: () => (
                                                         <img
