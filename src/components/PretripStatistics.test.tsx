@@ -1,12 +1,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PretripStatistics } from "./PretripStatistics";
-import { fetchPretripStatisticsEvidence } from "@/lib/pretripStatisticsQuery";
+import { fetchPretripDispatcherHistory, fetchPretripStatisticsEvidence } from "@/lib/pretripStatisticsQuery";
 const state = vi.hoisted(() => ({ pending: false, error: false, from: vi.fn() }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: state.from } }));
 vi.mock("@/lib/pretripConstants", () => ({ ACTIVE_PRETRIP_SHEET_ID: "active-sheet" }));
-vi.mock("@tanstack/react-query", () => ({ useQuery: () => {
-  return { data: [{ truck_id: "t", inspection_date: "2026-09-28" }], isPending: state.pending, isError: state.error, refetch: vi.fn() };
+vi.mock("@tanstack/react-query", () => ({ useQuery: ({ queryKey }: { queryKey: string[] }) => {
+  return { data: queryKey[0] === "pretrip-dispatcher-history" ? { drivers: { a: { dispatcher_id: "d", created_at: "2026-01-01T00:00:00Z" } }, changes: [], names: { d: "Dan" } } : [{ truck_id: "t", inspection_date: "2026-09-28" }], isPending: state.pending, isError: state.error, refetch: vi.fn() };
 } }));
 vi.mock("./SearchableSelect", () => ({ SearchableSelect: ({ value, onValueChange, options, placeholder }: { value: string; onValueChange: (value: string) => void; options: { value: string; label: string }[]; placeholder: string }) => <select aria-label={placeholder} value={value} onChange={e => onValueChange(e.target.value)}>{options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select> }));
 const trucks = [{ id: "t", truck_number: "100", driver1_id: "a", driver2_id: null, driver_name: "Alice", dispatcher_id: "d", dispatcher_name: "Dan" }];
@@ -60,4 +60,34 @@ it("rejects failed data reads instead of reporting partial totals", async () => 
     return query;
   });
   await expect(fetchPretripStatisticsEvidence("2026-09-28", "2026-10-19")).rejects.toThrow("Permission denied");
+});
+
+it("loads driver baselines, paginates later changes and resolves former dispatcher names", async () => {
+  const queries: { table: string; query: Record<string, ReturnType<typeof vi.fn>> }[] = [];
+  state.from.mockImplementation((table: string) => {
+    const query: Record<string, ReturnType<typeof vi.fn>> = {};
+    for (const method of ["select", "in", "gte", "eq", "order"]) query[method] = vi.fn(() => query);
+    query.then = vi.fn(resolve => resolve({ data: table === "drivers" ? [{ id: "a", dispatcher_id: "new", created_at: "2026-01-01" }] : [{ user_id: "old", full_name: "Old dispatcher" }], error: null }));
+    query.range = vi.fn(async (offset: number) => ({ data: offset === 0 ? Array.from({ length: 1000 }, (_, index) => ({ id: String(index), driver1_id: "a", old_dispatcher_id: "old", dispatcher_id: "new", changed_at: "2026-10-28T12:00:00Z" })) : [], error: null }));
+    queries.push({ table, query }); return query;
+  });
+  const history = await fetchPretripDispatcherHistory("2026-09-28", ["a"]);
+  expect(history.drivers.a.dispatcher_id).toBe("new");
+  expect(history.changes).toHaveLength(1000);
+  expect(history.names.old).toBe("Old dispatcher");
+  const changes = queries.find(q => q.table === "assignment_history").query;
+  expect(changes.eq).toHaveBeenCalledWith("change_type", "dispatcher_assignment");
+  expect(changes.in).toHaveBeenCalledWith("driver1_id", ["a"]);
+  expect(changes.gte).toHaveBeenCalledWith("changed_at", "2026-09-28T05:00:00.000Z");
+  expect(queries.some(q => q.table === "assignment_history" && q.query.range.mock.calls.some((args: number[]) => args[0] === 1000 && args[1] === 1999))).toBe(true);
+});
+
+it("rejects unavailable driver history instead of falling back to current assignments", async () => {
+  state.from.mockImplementation(() => {
+    const query = { select: vi.fn(), in: vi.fn() };
+    query.select.mockReturnValue(query);
+    query.in.mockResolvedValue({ data: null, error: new Error("History unavailable") });
+    return query;
+  });
+  await expect(fetchPretripDispatcherHistory("2026-09-28", ["a"])).rejects.toThrow("History unavailable");
 });
