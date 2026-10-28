@@ -580,7 +580,6 @@ const LiveOilChange = () => {
       const { data, error } = await supabase
         .from("trucks")
         .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, oil_change_note, oil_change_note_author, oil_change_note_updated_at, fleet_pm_readiness, is_active, driver1_id, dispatcher_id, company_id")
-        .eq("is_active", true)
         .order("truck_number");
       if (error) throw error;
       const truckRows = (data ?? []) as TruckRow[];
@@ -609,7 +608,7 @@ const LiveOilChange = () => {
         };
       });
       if (isDispatcher && profile?.user_id) {
-        // Keep unassigned active trucks visible alongside the dispatcher's fleet.
+        // Keep unassigned trucks visible alongside the dispatcher's fleet.
         return rows.filter((t) => t.dispatcher_id === profile.user_id || !t.dispatcher_id || !t.driver1_id);
       }
       return rows;

@@ -8,7 +8,7 @@ HTMLElement.prototype.setPointerCapture = () => {};
 HTMLElement.prototype.releasePointerCapture = () => {};
 HTMLElement.prototype.scrollIntoView = () => {};
 
-const mocks = vi.hoisted(() => ({ cellRender: vi.fn(), tables: [] as string[], historyRequests: 0, role: "maintenance", assignmentFixtures: false }));
+const mocks = vi.hoisted(() => ({ cellRender: vi.fn(), tables: [] as string[], historyRequests: 0, role: "maintenance", assignmentFixtures: false, inactiveFixture: false }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ getPrimaryRole: () => mocks.role, profile: { user_id: "user1" }, user: { email: "test@example.com" } }) }));
 vi.mock("@/hooks/realtimeBus", () => ({ busChannel: () => { const c = { on: () => c, subscribe: () => c, unsubscribe: vi.fn() }; return c; } }));
 vi.mock("@/components/TruckSourceSelect", () => ({ TruckSourceSelect: ({ ariaLabel }: { ariaLabel: string }) => { mocks.cellRender(ariaLabel); return <button aria-label={ariaLabel}>Source</button>; } }));
@@ -28,8 +28,9 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
         { id: "other", truck_number: "OTHER", dispatcher_id: "other", driver1_id: "driver1" },
       ].map(truck => ({ ...trucks[0], ...truck })),
     );
-    const data = table === "trucks" ? trucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: null, company_id: null }] : table === "companies" ? [{ id: "company1", name: "Test Company" }] : table === "user_roles" ? [{ user_id: "user1" }] : table === "profiles" ? [{ user_id: "user1", id: "user1", full_name: "Test Dispatcher", office: "Chicago" }] : [];
-    const q = { select: () => q, eq: () => q, in: () => q, order: () => q, not: () => q, gte: () => q, lt: () => q,
+    if (mocks.inactiveFixture) trucks.push({ ...trucks[0], id: "truck6270", truck_number: "6270", is_active: false, driver1_id: null, dispatcher_id: "other" });
+    let data = table === "trucks" ? trucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: null, company_id: null }] : table === "companies" ? [{ id: "company1", name: "Test Company" }] : table === "user_roles" ? [{ user_id: "user1" }] : table === "profiles" ? [{ user_id: "user1", id: "user1", full_name: "Test Dispatcher", office: "Chicago" }] : [];
+    const q = { select: () => q, eq: (field: string, value: unknown) => { if (table === "trucks" && field === "is_active") data = trucks.filter(truck => truck.is_active === value); return q; }, in: () => q, order: () => q, not: () => q, gte: () => q, lt: () => q,
       range: async () => { mocks.historyRequests++; return { data: [{ truck_id: "truck498", changed_by: "user1" }], error: null }; },
       then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data, error: null }).then(resolve),
     };
@@ -37,7 +38,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   },
 } }));
 const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><LiveOilChange /></MemoryRouter></QueryClientProvider>);
-beforeEach(() => { localStorage.clear(); mocks.role = "maintenance"; mocks.assignmentFixtures = false; mocks.cellRender.mockClear(); mocks.tables = []; mocks.historyRequests = 0; });
+beforeEach(() => { localStorage.clear(); mocks.role = "maintenance"; mocks.assignmentFixtures = false; mocks.inactiveFixture = false; mocks.cellRender.mockClear(); mocks.tables = []; mocks.historyRequests = 0; });
 afterEach(cleanup);
 
 it("mounts at most 50 truck rows and searches the full fleet beyond the first page", async () => {
@@ -165,4 +166,13 @@ it.each([
   mount();
   await screen.findByText(`1–${units.length} of ${units.length} trucks`);
   expect(screen.getByRole("combobox", { name: "Truck assignment" })).toHaveTextContent(option);
+});
+
+it.each(["maintenance", "dispatch", "supervisor"])("includes inactive truck 6270 without a driver in the %s report", async role => {
+  mocks.role = role;
+  mocks.inactiveFixture = true;
+  mount();
+  fireEvent.change(screen.getByPlaceholderText("Search unit or driver..."), { target: { value: "6270" } });
+  await screen.findByRole("link", { name: "Open service log for truck 6270" });
+  expect(screen.getByText("1–1 of 1 trucks")).toBeInTheDocument();
 });
