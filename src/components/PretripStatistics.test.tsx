@@ -1,22 +1,23 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PretripStatistics } from "./PretripStatistics";
-import { fetchPretripDispatcherHistory, fetchPretripStatisticsEvidence } from "@/lib/pretripStatisticsQuery";
-const state = vi.hoisted(() => ({ pending: false, error: false, from: vi.fn() }));
+import { fetchPretripDispatcherHistory, fetchPretripHistoricalTruckCounts, fetchPretripStatisticsEvidence } from "@/lib/pretripStatisticsQuery";
+const state = vi.hoisted(() => ({ pending: false, error: false, countsEmpty: false, countsError: false, from: vi.fn() }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: state.from } }));
 vi.mock("@/lib/pretripConstants", () => ({ ACTIVE_PRETRIP_SHEET_ID: "active-sheet" }));
 vi.mock("@tanstack/react-query", () => ({ useQuery: ({ queryKey }: { queryKey: string[] }) => {
-  return { data: queryKey[0] === "pretrip-dispatcher-history" ? { drivers: { a: { dispatcher_id: "d", created_at: "2026-01-01T00:00:00Z" } }, changes: [], names: { d: "Dan" } } : [{ truck_id: "t", inspection_date: "2026-09-28" }], isPending: state.pending, isError: state.error, refetch: vi.fn() };
+  return { data: queryKey[0] === "pretrip-dispatcher-history" ? { drivers: { a: { dispatcher_id: "d", created_at: "2026-01-01T00:00:00Z" } }, changes: [], names: { d: "Dan" } } : queryKey[0] === "pretrip-historical-truck-counts" ? { counts: (state.countsEmpty ? [] : ["2026-09-28", "2026-10-05", "2026-10-12", "2026-10-19"]).map(date => ({ dispatcher_id: "d", date, truck_count: 10, driver_count: 10 })), names: { d: "Dan" } } : [{ truck_id: "t", inspection_date: "2026-09-28" }], isPending: state.pending, isError: state.error || (queryKey[0] === "pretrip-historical-truck-counts" && state.countsError), refetch: vi.fn() };
 } }));
 vi.mock("./SearchableSelect", () => ({ SearchableSelect: ({ value, onValueChange, options, placeholder }: { value: string; onValueChange: (value: string) => void; options: { value: string; label: string }[]; placeholder: string }) => <select aria-label={placeholder} value={value} onChange={e => onValueChange(e.target.value)}>{options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select> }));
 const trucks = [{ id: "t", truck_number: "100", driver1_id: "a", driver2_id: null, driver_name: "Alice", dispatcher_id: "d", dispatcher_name: "Dan" }];
-beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-28T16:00:00Z")); state.pending = false; state.error = false; });
+beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-28T16:00:00Z")); state.pending = false; state.error = false; state.countsEmpty = false; state.countsError = false; });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 it("defaults to completed weeks and supports dispatcher/weekly views and search", () => {
   render(<PretripStatistics trucks={trucks} rosterLoading={false} rosterError={false} scope="all" />);
   expect(screen.getByLabelText("From week")).toHaveValue("2026-09-28");
   expect(screen.getByLabelText("Through week")).toHaveValue("2026-10-19");
   expect(screen.getByText("Alice")).toBeInTheDocument();
+  expect(screen.getByText("Expected truck-weeks").parentElement).toHaveTextContent("40");
   expect(screen.getByRole("columnheader", { name: "Trucks" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Dispatchers" }));
   expect(screen.getByText("Dan")).toBeInTheDocument();
@@ -90,4 +91,37 @@ it("rejects unavailable driver history instead of falling back to current assign
     return query;
   });
   await expect(fetchPretripDispatcherHistory("2026-09-28", ["a"])).rejects.toThrow("History unavailable");
+});
+
+it("paginates Analytics' saved daily counts for the selected weeks and dispatcher scope", async () => {
+  const queries: { table: string; query: Record<string, ReturnType<typeof vi.fn>> }[] = [];
+  state.from.mockImplementation((table: string) => {
+    const query: Record<string, ReturnType<typeof vi.fn>> = {};
+    for (const method of ["select", "gte", "lte", "eq", "in", "order"]) query[method] = vi.fn(() => query);
+    query.range = vi.fn(async (offset: number) => ({ data: offset === 0 ? Array.from({ length: 1000 }, () => ({ dispatcher_id: "d", date: "2026-10-05", truck_count: 10, driver_count: 10 })) : [], error: null }));
+    query.then = vi.fn(resolve => resolve({ data: [{ user_id: "d", full_name: "Dan" }], error: null }));
+    queries.push({ table, query }); return query;
+  });
+  const result = await fetchPretripHistoricalTruckCounts("2026-09-28", "2026-10-05", "d");
+  expect(result.counts).toHaveLength(1000);
+  expect(result.names.d).toBe("Dan");
+  const query = queries.find(q => q.table === "dispatcher_daily_driver_counts").query;
+  expect(query.eq).toHaveBeenCalledWith("dispatcher_id", "d");
+  expect(query.gte).toHaveBeenCalledWith("date", "2026-09-28");
+  expect(query.lte).toHaveBeenCalledWith("date", "2026-10-11");
+  expect(queries.some(q => q.query.range.mock.calls.some((args: number[]) => args[0] === 1000))).toBe(true);
+});
+
+it("shows unavailable historical totals instead of current-fleet expected counts", () => {
+  state.countsEmpty = true;
+  render(<PretripStatistics trucks={trucks} rosterLoading={false} rosterError={false} scope="all" />);
+  expect(screen.getByText(/Historical truck counts are unavailable/)).toBeInTheDocument();
+  expect(screen.getByText("Expected truck-weeks").parentElement).toHaveTextContent("—");
+});
+
+it("blocks partial totals if historical count reads fail", () => {
+  state.countsError = true;
+  render(<PretripStatistics trucks={trucks} rosterLoading={false} rosterError={false} scope="all" />);
+  expect(screen.getByRole("alert")).toBeInTheDocument();
+  expect(screen.queryByText("Expected truck-weeks")).not.toBeInTheDocument();
 });

@@ -1,3 +1,4 @@
+import type { HistoricalTruckCounts } from "./pretripExpectedCounts";
 import { supabase } from "@/integrations/supabase/client";
 import { ACTIVE_PRETRIP_SHEET_ID } from "./pretripConstants";
 import { pretripWeekEnd } from "./pretripDates";
@@ -52,6 +53,28 @@ export async function fetchPretripDispatcherHistory(from: string, driverIds: str
   ].filter(Boolean))] as string[];
   for (let start = 0; start < dispatcherIds.length; start += 100) {
     const { data, error } = await supabase.from("profiles").select("user_id, full_name, email").in("user_id", dispatcherIds.slice(start, start + 100));
+    if (error) throw error;
+    for (const profile of data ?? []) result.names[profile.user_id] = profile.full_name || profile.email || "Unknown dispatcher";
+  }
+  return result;
+}
+
+export async function fetchPretripHistoricalTruckCounts(from: string, through: string, scope: string): Promise<HistoricalTruckCounts> {
+  const result: HistoricalTruckCounts = { counts: [], names: {} };
+  // Match Analytics' saved daily counts, including dispatchers with no trucks today.
+  for (let offset = 0; ; offset += 1000) {
+    let query = supabase.from("dispatcher_daily_driver_counts")
+      .select("dispatcher_id, driver_count, truck_count, date")
+      .gte("date", from).lte("date", pretripWeekEnd(through));
+    if (scope !== "all") query = query.eq("dispatcher_id", scope);
+    const { data, error } = await query.order("date").order("dispatcher_id").range(offset, offset + 999);
+    if (error) throw error;
+    result.counts.push(...(data ?? []));
+    if ((data ?? []).length < 1000) break;
+  }
+  const ids = [...new Set(result.counts.map(row => row.dispatcher_id))];
+  for (let start = 0; start < ids.length; start += 100) {
+    const { data, error } = await supabase.from("profiles").select("user_id, full_name, email").in("user_id", ids.slice(start, start + 100));
     if (error) throw error;
     for (const profile of data ?? []) result.names[profile.user_id] = profile.full_name || profile.email || "Unknown dispatcher";
   }

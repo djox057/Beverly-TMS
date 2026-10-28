@@ -9,7 +9,7 @@ export type StatisticsTruck = {
   dispatcher_id?: string | null; dispatcher_name?: string | null;
 };
 export type CompletionEvidence = { truck_id: string | null; inspection_date: string | null };
-export type StatisticsRow = { id: string; name: string; units: string[]; expected: number; completed: number; missing: number; rate: number };
+export type StatisticsRow = { id: string; name: string; units: string[]; expected: number; completed: number; missing: number; rate: number; expectedAvailable?: boolean };
 
 export type DispatcherChange = {
   id: string; driver1_id: string | null; changed_at: string;
