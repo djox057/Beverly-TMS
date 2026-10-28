@@ -178,6 +178,7 @@ const PreTripInspection = () => {
   const { getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
   const isDispatcher = isDispatcherRole(primaryRole);
+  const canViewStatistics = primaryRole !== "dispatch";
   const { allDispatchers } = useFleetManagement();
   const [pageView, setPageView] = useState<"report" | "statistics">("report");
   const [search, setSearch] = useState("");
@@ -435,7 +436,7 @@ const PreTripInspection = () => {
             <p className="mt-1 text-muted-foreground">One pre-trip inspection per truck each week · Any day, Monday–Sunday (Chicago)</p>
           </div>
         </div>
-        {pageView === "report" && <div className="relative ml-auto w-72 max-w-full">
+        {(!canViewStatistics || pageView === "report") && <div className="relative ml-auto w-72 max-w-full">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search unit or driver..."
@@ -448,9 +449,9 @@ const PreTripInspection = () => {
 
       <div className="flex gap-2 px-2">
         <Button variant={pageView === "report" ? "default" : "outline"} onClick={() => setPageView("report")}>Inspection report</Button>
-        <Button variant={pageView === "statistics" ? "default" : "outline"} onClick={() => setPageView("statistics")}>Statistics</Button>
+        {canViewStatistics && <Button variant={pageView === "statistics" ? "default" : "outline"} onClick={() => setPageView("statistics")}>Statistics</Button>}
       </div>
-      {pageView === "statistics" ? <PretripStatistics trucks={enrichedTrucks} rosterLoading={isLoading} rosterError={trucksError} scope={isDispatcher ? profile?.user_id ?? "" : "all"} /> : <>
+      {canViewStatistics && pageView === "statistics" ? <PretripStatistics trucks={enrichedTrucks} rosterLoading={isLoading} rosterError={trucksError} scope={isDispatcher ? profile?.user_id ?? "" : "all"} /> : <>
       {formError && <p className="text-sm text-destructive">Could not load Google Form submissions.</p>}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">

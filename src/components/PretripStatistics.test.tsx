@@ -17,8 +17,11 @@ it("defaults to completed weeks and supports dispatcher/weekly views and search"
   expect(screen.getByLabelText("From week")).toHaveValue("2026-09-28");
   expect(screen.getByLabelText("Through week")).toHaveValue("2026-10-19");
   expect(screen.getByText("Alice")).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", { name: "Trucks" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Dispatchers" }));
   expect(screen.getByText("Dan")).toBeInTheDocument();
+  expect(screen.queryByRole("columnheader", { name: "Trucks" })).not.toBeInTheDocument();
+  expect(screen.getAllByRole("columnheader")).toHaveLength(5);
   fireEvent.change(screen.getByLabelText("Search statistics"), { target: { value: "nobody" } });
   expect(screen.getByText("No matching statistics.")).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Through week"), { target: { value: "2026-10-26" } });

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { pretripDueDate } from "@/lib/pretripDates";
 import PreTripInspection from "./PreTripInspection";
 
-const state = vi.hoisted(() => ({ loading: false, error: false }));
+const state = vi.hoisted(() => ({ loading: false, error: false, role: "admin" }));
 const trucks = [
   { id: "submitted", truck_number: "1001", is_active: true, driver1_id: "a", driver2_id: null },
   { id: "manual", truck_number: "1002", is_active: true, driver1_id: null, driver2_id: "b" },
@@ -21,7 +21,7 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuthContext: () => ({ getPrimaryRole: () => "admin", roles: ["admin"], profile: { user_id: "viewer" } }),
+  useAuthContext: () => ({ getPrimaryRole: () => state.role, roles: [state.role], profile: { user_id: "viewer" } }),
 }));
 const allDispatchers: never[] = [];
 vi.mock("@/hooks/useFleetManagement", () => ({ useFleetManagement: () => ({ allDispatchers }) }));
@@ -44,7 +44,7 @@ vi.mock("@/components/PretripPhotosCell", () => ({
 }));
 vi.mock("@/components/PretripProblemsCell", () => ({ PretripProblemsCell: () => null }));
 
-beforeEach(() => { state.loading = false; state.error = false; });
+beforeEach(() => { state.loading = false; state.error = false; state.role = "admin"; });
 afterEach(cleanup);
 
 it("shows assigned trucks and one completion per truck despite repeated forms and photos", () => {
@@ -93,5 +93,12 @@ it("opens statistics with only active assigned trucks and returns to the inspect
   expect(screen.getByText("Statistics roster: 3, scope: all")).toBeInTheDocument();
   expect(screen.queryByPlaceholderText("Search unit or driver...")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Inspection report" }));
+  expect(screen.getByRole("status")).toHaveTextContent("Completed 2 / 3 trucks");
+});
+
+it("hides statistics for the dispatcher role while keeping the inspection report available", () => {
+  state.role = "dispatch";
+  render(<PreTripInspection />);
+  expect(screen.queryByRole("button", { name: "Statistics" })).not.toBeInTheDocument();
   expect(screen.getByRole("status")).toHaveTextContent("Completed 2 / 3 trucks");
 });
