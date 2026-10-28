@@ -1,3 +1,4 @@
+import { PretripStatistics } from "@/components/PretripStatistics";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -35,6 +36,7 @@ type TruckRow = {
   driver1_id: string | null;
   driver2_id: string | null;
   driver_name?: string | null;
+  driver2_name?: string | null;
   dispatcher_id?: string | null;
   dispatcher_name?: string | null;
   dispatcher_office?: string | null;
@@ -177,6 +179,7 @@ const PreTripInspection = () => {
   const primaryRole = getPrimaryRole();
   const isDispatcher = isDispatcherRole(primaryRole);
   const { allDispatchers } = useFleetManagement();
+  const [pageView, setPageView] = useState<"report" | "statistics">("report");
   const [search, setSearch] = useState("");
   const [photoDate, setPhotoDate] = useState<string>(() => pretripDueDate());
   const { data: formSubmissions = EMPTY_FORM_SUBMISSIONS, isPending: formsLoading, isError: formError } = usePretripSubmissions(photoDate);
@@ -260,7 +263,7 @@ const PreTripInspection = () => {
         .order("truck_number");
       if (error) throw error;
       const rows = (data ?? []) as TruckRow[];
-      const driverIds = Array.from(new Set(rows.map((truck) => truck.driver1_id ?? truck.driver2_id).filter(Boolean))) as string[];
+      const driverIds = Array.from(new Set(rows.flatMap((truck) => [truck.driver1_id, truck.driver2_id]).filter(Boolean))) as string[];
 
       // Keep truck visibility independent from optional driver/company lookups. A blocked
       // embedded relationship must not make the entire inspection report appear empty.
@@ -279,11 +282,13 @@ const PreTripInspection = () => {
       const enrichedRows = rows.map((truck) => {
         const driver = driverById.get((truck.driver1_id ?? truck.driver2_id)!);
         const companyId = truck.company_id ?? driver?.company_id;
+        const driver2 = truck.driver2_id ? driverById.get(truck.driver2_id) : undefined;
         return {
           ...truck,
           dispatcher_id: truck.dispatcher_id ?? driver?.dispatcher_id ?? null,
           company_id: companyId ?? null,
           driver_name: driver ? `${driver.first_name ?? ""} ${driver.last_name ?? ""}`.trim() || null : null,
+          driver2_name: driver2 ? `${driver2.first_name ?? ""} ${driver2.last_name ?? ""}`.trim() || null : null,
           company_name: companyId ? companyNames.get(companyId) ?? null : null,
         };
       });
@@ -430,7 +435,7 @@ const PreTripInspection = () => {
             <p className="mt-1 text-muted-foreground">One pre-trip inspection per truck each week · Any day, Monday–Sunday (Chicago)</p>
           </div>
         </div>
-        <div className="relative ml-auto w-72 max-w-full">
+        {pageView === "report" && <div className="relative ml-auto w-72 max-w-full">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search unit or driver..."
@@ -438,9 +443,14 @@ const PreTripInspection = () => {
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
-        </div>
+        </div>}
       </div>
 
+      <div className="flex gap-2 px-2">
+        <Button variant={pageView === "report" ? "default" : "outline"} onClick={() => setPageView("report")}>Inspection report</Button>
+        <Button variant={pageView === "statistics" ? "default" : "outline"} onClick={() => setPageView("statistics")}>Statistics</Button>
+      </div>
+      {pageView === "statistics" ? <PretripStatistics trucks={enrichedTrucks} rosterLoading={isLoading} rosterError={trucksError} scope={isDispatcher ? profile?.user_id ?? "" : "all"} /> : <>
       {formError && <p className="text-sm text-destructive">Could not load Google Form submissions.</p>}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
@@ -645,6 +655,7 @@ const PreTripInspection = () => {
           </div>
         </CardContent>
       </Card>
+      </>}
     </div>
   );
 };

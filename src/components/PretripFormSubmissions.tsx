@@ -10,7 +10,7 @@ import { latestDailyPretripSubmissions } from "@/lib/pretripSubmissions";
 import { isPretripVideo } from "@/lib/pretripMedia";
 
 export const PRETRIP_FORM_URL="https://docs.google.com/forms/d/e/1FAIpQLSdas-2jAuWm6_ihsVgpayT_pPACcO_CdBCjzHyBsJmdZJ38hg/viewform";
-const ACTIVE_PRETRIP_SHEET_ID="1XhvVxfi2g_cYQUJfZiAgBORbl8ciqwKFkTebBlVunBQ";
+import { ACTIVE_PRETRIP_SHEET_ID } from "@/lib/pretripConstants";
 type FormFile={category:string;drive_id:string;status:string;file_path?:string;file_name?:string;content_type?:string;error?:string};
 export type PretripSubmission={id:string;truck_id:string|null;truck_number:string;trailer_number:string;driver_name:string;email:string;inspection_date:string|null;submitted_at:string;source_timezone:string;answers:Record<string,string>;complaints:string;files:FormFile[];status:string;import_error:string|null};
 function formChoiceLabel(submission: PretripSubmission, index: number) {

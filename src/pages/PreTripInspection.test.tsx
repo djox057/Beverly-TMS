@@ -82,3 +82,16 @@ it("shows a count error instead of a misleading partial total", () => {
   render(<PreTripInspection />);
   expect(screen.getByRole("status")).toHaveTextContent("Could not load completion count");
 });
+
+vi.mock("@/components/PretripStatistics", () => ({
+  PretripStatistics: ({ trucks, scope }: { trucks: { id: string }[]; scope: string }) => <div>Statistics roster: {trucks.length}, scope: {scope}</div>,
+}));
+
+it("opens statistics with only active assigned trucks and returns to the inspection report", () => {
+  render(<PreTripInspection />);
+  fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
+  expect(screen.getByText("Statistics roster: 3, scope: all")).toBeInTheDocument();
+  expect(screen.queryByPlaceholderText("Search unit or driver...")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Inspection report" }));
+  expect(screen.getByRole("status")).toHaveTextContent("Completed 2 / 3 trucks");
+});
