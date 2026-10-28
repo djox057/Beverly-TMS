@@ -3,6 +3,7 @@ import { isDispatcherRole } from "@/lib/dispatchAccess";
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuthContext } from './AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface IndividualModeContextType {
   individualMode: boolean;
@@ -26,6 +27,15 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
   const [individualMode, setIndividualModeState] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [afterhoursDriverIds, setAfterhoursDriverIds] = useState<string[] | null>(null);
+  const { toast } = useToast();
+  const modeRef = React.useRef(false);
+  const initializedUserRef = React.useRef<string | null>(null);
+  const autoInitializedRef = React.useRef(false);
+  const saveQueueRef = React.useRef<Promise<void>>(Promise.resolve());
+  const changeVersionRef = React.useRef(0);
+  const savedModesRef = React.useRef(new Map<string, boolean>());
+  const activeUserRef = React.useRef(profile?.user_id);
+  activeUserRef.current = profile?.user_id;
 
   const primaryRole = getPrimaryRole();
 
@@ -38,8 +48,8 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
 
   // Fetch this afterhours user's weekend assignments (today + upcoming Sat/Sun)
   useEffect(() => {
+    setAfterhoursDriverIds(null);
     if (!isAfterhours || !profile?.user_id) {
-      setAfterhoursDriverIds(null);
       return;
     }
 
@@ -76,6 +86,8 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
           'Failed to load afterhours assignments for individual mode:',
           weekendRes.error || shiftRes.error
         );
+        // A failed refresh is not evidence that coverage was removed.
+        return;
       }
       const shiftRows = ((shiftRes.data || []) as any[]).filter(r =>
         r.shift === shiftTime.shift && r.scheduled_date === shiftTime.scheduledDate);
@@ -97,21 +109,25 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
   // Tracks whether the user changed the toggle themselves in this session
   const userToggledRef = React.useRef(false);
 
-  // Load initial state from profile
+  // Initialize once per account. Profile/token and assignment refreshes must not
+  // overwrite a user's in-session choice with a stale profile preference.
   useEffect(() => {
     if (authLoading) return;
-
-    if (profile && canUseIndividualMode) {
-      // Cast profile to include individual_mode since types may not be updated yet
-      const profileWithMode = profile as typeof profile & { individual_mode?: boolean };
-      const stored = profileWithMode.individual_mode ?? false;
-      // Afterhours coverage is an explicit driver list, so scope to it by default —
-      // same behaviour as weekend coverage. The user can still switch it off.
-      const autoOn =
-        isAfterhours && !userToggledRef.current && (afterhoursDriverIds?.length ?? 0) > 0;
-      setIndividualModeState(stored || autoOn);
-    } else {
-      setIndividualModeState(false);
+    const userId = profile?.user_id ?? null;
+    if (initializedUserRef.current !== userId) {
+      initializedUserRef.current = userId;
+      userToggledRef.current = false;
+      autoInitializedRef.current = false;
+      changeVersionRef.current += 1;
+      modeRef.current = profile?.individual_mode ?? false;
+      setIndividualModeState(modeRef.current);
+    }
+    if (isAfterhours && canUseIndividualMode && !autoInitializedRef.current) {
+      autoInitializedRef.current = true;
+      if (!userToggledRef.current) {
+        modeRef.current = true;
+        setIndividualModeState(true);
+      }
     }
     setIsLoading(false);
   }, [profile, canUseIndividualMode, authLoading, isAfterhours, afterhoursDriverIds]);
@@ -121,27 +137,39 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
     if (!profile?.user_id || !canUseIndividualMode) return;
 
     userToggledRef.current = true;
+    const userId = profile.user_id;
+    if (!savedModesRef.current.has(userId)) savedModesRef.current.set(userId, modeRef.current);
+    const version = ++changeVersionRef.current;
+    modeRef.current = enabled;
     // Optimistic update
     setIndividualModeState(enabled);
 
 
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ individual_mode: enabled })
-        .eq('user_id', profile.user_id);
+    // Serialize writes so rapid clicks cannot persist in reverse order.
+    const save = saveQueueRef.current.then(async () => {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ individual_mode: enabled })
+          .eq('user_id', userId);
 
-      if (error) {
-        console.error('Failed to update individual mode:', error);
-        // Revert on error
-        setIndividualModeState(!enabled);
+        if (error) {
+          throw error;
+        }
+        savedModesRef.current.set(userId, enabled);
+      } catch (err) {
+        console.error('Failed to update individual mode:', err);
+        if (activeUserRef.current === userId && changeVersionRef.current === version) {
+          const previous = savedModesRef.current.get(userId) ?? false;
+          modeRef.current = previous;
+          setIndividualModeState(previous);
+          toast({ title: 'Could not save Individual Mode', description: 'Your previous setting has been restored. Please try again.', variant: 'destructive' });
+        }
       }
-    } catch (err) {
-      console.error('Failed to update individual mode:', err);
-      // Revert on error
-      setIndividualModeState(!enabled);
-    }
-  }, [profile?.user_id, canUseIndividualMode]);
+    });
+    saveQueueRef.current = save;
+    await save;
+  }, [profile?.user_id, canUseIndividualMode, toast]);
 
   // If user can't use individual mode, always return false
   const effectiveIndividualMode = canUseIndividualMode ? individualMode : false;

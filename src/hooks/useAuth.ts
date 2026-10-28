@@ -38,6 +38,7 @@ export const useAuth = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [roles, setRoles] = useState<UserRole[]>([]);
+  const rolesUserRef = React.useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -55,6 +56,7 @@ export const useAuth = () => {
             fetchUserRoles(session.user.id, session.user.email);
           }, 0);
         } else {
+          rolesUserRef.current = null;
           setProfile(null);
           setRoles([]);
         }
@@ -124,6 +126,10 @@ export const useAuth = () => {
   };
 
   const fetchUserRoles = async (userId: string, userEmail?: string | null) => {
+    if (rolesUserRef.current !== userId) {
+      rolesUserRef.current = userId;
+      setRoles([]);
+    }
     try {
       const { data, error } = await supabase
         .from('user_roles')
@@ -144,10 +150,11 @@ export const useAuth = () => {
       if (hasMaintenanceOverride(userEmail) && !effective.includes('maintenance')) {
         effective = [...effective, 'maintenance' as UserRole];
       }
-      setRoles(effective);
+      if (rolesUserRef.current === userId) setRoles(effective);
     } catch (error) {
       console.error('Error fetching user roles:', error);
-      setRoles([]);
+      // Preserve the last successful roles during temporary lookup failures.
+      // Sign-out still explicitly clears roles.
     }
   };
 
