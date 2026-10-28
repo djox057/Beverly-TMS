@@ -8,8 +8,8 @@ HTMLElement.prototype.setPointerCapture = () => {};
 HTMLElement.prototype.releasePointerCapture = () => {};
 HTMLElement.prototype.scrollIntoView = () => {};
 
-const mocks = vi.hoisted(() => ({ cellRender: vi.fn(), tables: [] as string[], historyRequests: 0 }));
-vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ getPrimaryRole: () => "maintenance", profile: { user_id: "user1" }, user: { email: "test@example.com" } }) }));
+const mocks = vi.hoisted(() => ({ cellRender: vi.fn(), tables: [] as string[], historyRequests: 0, role: "maintenance", assignmentFixtures: false }));
+vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ getPrimaryRole: () => mocks.role, profile: { user_id: "user1" }, user: { email: "test@example.com" } }) }));
 vi.mock("@/hooks/realtimeBus", () => ({ busChannel: () => { const c = { on: () => c, subscribe: () => c, unsubscribe: vi.fn() }; return c; } }));
 vi.mock("@/components/TruckSourceSelect", () => ({ TruckSourceSelect: ({ ariaLabel }: { ariaLabel: string }) => { mocks.cellRender(ariaLabel); return <button aria-label={ariaLabel}>Source</button>; } }));
 vi.mock("@/components/liveOilChange/MileageHistoryPopover", () => ({ MileageHistoryPopover: () => null }));
@@ -19,6 +19,15 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   from: (table: string) => {
     mocks.tables.push(table);
     const trucks = Array.from({ length: 499 }, (_, i) => ({ id: `truck${i}`, truck_number: String(i + 1).padStart(4, "0"), source: "BF TRUCK", miles: 150000, fleet_pm_readiness: i === 498 ? "SERVICE OVERDUE" : "READY / GOOD", last_oil_change_miles: 130000, miles_updated_at: "2026-10-12T12:00:00Z", is_active: true, driver1_id: "driver1", company_id: i === 498 ? "company1" : null, dispatcher_id: i === 498 ? "user1" : null, ...(i === 498 ? { source: "TEL", miles: 160000 } : {}) }));
+    if (mocks.assignmentFixtures) trucks.splice(0, trucks.length,
+      ...[
+        { id: "own", truck_number: "OWN", dispatcher_id: "user1", driver1_id: "driver1" },
+        { id: "no-dispatcher", truck_number: "NO-DISPATCHER", dispatcher_id: null, driver1_id: "driver1" },
+        { id: "no-driver", truck_number: "NO-DRIVER", dispatcher_id: "other", driver1_id: null },
+        { id: "neither", truck_number: "NEITHER", dispatcher_id: null, driver1_id: null },
+        { id: "other", truck_number: "OTHER", dispatcher_id: "other", driver1_id: "driver1" },
+      ].map(truck => ({ ...trucks[0], ...truck })),
+    );
     const data = table === "trucks" ? trucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: null, company_id: null }] : table === "companies" ? [{ id: "company1", name: "Test Company" }] : table === "user_roles" ? [{ user_id: "user1" }] : table === "profiles" ? [{ user_id: "user1", id: "user1", full_name: "Test Dispatcher", office: "Chicago" }] : [];
     const q = { select: () => q, eq: () => q, in: () => q, order: () => q, not: () => q, gte: () => q, lt: () => q,
       range: async () => { mocks.historyRequests++; return { data: [{ truck_id: "truck498", changed_by: "user1" }], error: null }; },
@@ -28,7 +37,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   },
 } }));
 const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><LiveOilChange /></MemoryRouter></QueryClientProvider>);
-beforeEach(() => { localStorage.clear(); mocks.cellRender.mockClear(); mocks.tables = []; mocks.historyRequests = 0; });
+beforeEach(() => { localStorage.clear(); mocks.role = "maintenance"; mocks.assignmentFixtures = false; mocks.cellRender.mockClear(); mocks.tables = []; mocks.historyRequests = 0; });
 afterEach(cleanup);
 
 it("mounts at most 50 truck rows and searches the full fleet beyond the first page", async () => {
@@ -127,4 +136,33 @@ it("restores report filters and mileage controls after leaving and remounting", 
   expect(screen.getByRole("button", { name: "Updated" })).toHaveAttribute("aria-pressed", "true");
   await screen.findByRole("link", { name: "Open service log for truck 0499" });
   expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(1);
+});
+
+it.each(["dispatch", "supervisor"])("shows trucks missing either assignment to %s while excluding another dispatcher's fully assigned truck", async role => {
+  mocks.role = role;
+  mocks.assignmentFixtures = true;
+  mount();
+  await screen.findByText("1–4 of 4 trucks");
+  for (const unit of ["OWN", "NO-DISPATCHER", "NO-DRIVER", "NEITHER"]) {
+    expect(screen.getByRole("link", { name: `Open service log for truck ${unit}` })).toBeInTheDocument();
+  }
+  expect(screen.queryByRole("link", { name: "Open service log for truck OTHER" })).not.toBeInTheDocument();
+});
+
+it.each([
+  ["Missing dispatcher or driver", ["NO-DISPATCHER", "NO-DRIVER", "NEITHER"]],
+  ["No dispatcher", ["NO-DISPATCHER", "NEITHER"]],
+  ["No driver", ["NO-DRIVER", "NEITHER"]],
+])("filters trucks by %s and restores the selection", async (option, units) => {
+  mocks.assignmentFixtures = true;
+  const first = mount();
+  await screen.findByText("1–5 of 5 trucks");
+  fireEvent.keyDown(screen.getByRole("combobox", { name: "Truck assignment" }), { key: "ArrowDown" });
+  fireEvent.click(await screen.findByRole("option", { name: option }));
+  await waitFor(() => expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(units.length));
+  for (const unit of units) expect(screen.getByRole("link", { name: `Open service log for truck ${unit}` })).toBeInTheDocument();
+  first.unmount();
+  mount();
+  await screen.findByText(`1–${units.length} of ${units.length} trucks`);
+  expect(screen.getByRole("combobox", { name: "Truck assignment" })).toHaveTextContent(option);
 });

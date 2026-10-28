@@ -609,7 +609,8 @@ const LiveOilChange = () => {
         };
       });
       if (isDispatcher && profile?.user_id) {
-        return rows.filter((t) => t.dispatcher_id === profile.user_id);
+        // Keep unassigned active trucks visible alongside the dispatcher's fleet.
+        return rows.filter((t) => t.dispatcher_id === profile.user_id || !t.dispatcher_id || !t.driver1_id);
       }
       return rows;
     },
@@ -667,6 +668,7 @@ const LiveOilChange = () => {
   const [sourceFilter, setSourceFilter] = useOilChangeFilterState<string>("sourceFilter", "all");
   const [milesFilter, setMilesFilter] = useOilChangeFilterState<string>("milesFilter", "all");
   const [dispatcherFilter, setDispatcherFilter] = useOilChangeFilterState<string>("dispatcherFilter", "all");
+  const [assignmentFilter, setAssignmentFilter] = useOilChangeFilterState("assignmentFilter", "all", value => ["all", "missing", "no-dispatcher", "no-driver"].includes(String(value)));
   const [officeFilter, setOfficeFilter] = useOilChangeFilterState<string>("officeFilter", "all");
 
   const enrichedTrucks = useMemo(() => {
@@ -712,6 +714,9 @@ const LiveOilChange = () => {
           (t.driver_name ?? "").toLowerCase().includes(q);
         if (!matches) return false;
       }
+      if (assignmentFilter === "missing" && t.dispatcher_id && t.driver1_id) return false;
+      if (assignmentFilter === "no-dispatcher" && t.dispatcher_id) return false;
+      if (assignmentFilter === "no-driver" && t.driver1_id) return false;
       if (companyFilter !== "all" && t.company_id !== companyFilter) return false;
       if (sourceFilter !== "all" && (t.source ?? "") !== sourceFilter) return false;
       if (dispatcherFilter !== "all" && t.dispatcher_id !== dispatcherFilter) return false;
@@ -726,7 +731,7 @@ const LiveOilChange = () => {
       }
       return true;
     });
-  }, [enrichedTrucks, search, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
+  }, [enrichedTrucks, search, assignmentFilter, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
 
   const [statisticsSelection, setStatisticsSelection] = useOilChangeFilterState<StatisticsSelection | null>("statisticsSelection", null, value => value === null || (typeof value === "object" && value !== null && "category" in value && ["oil", "air", "readiness"].includes(String(value.category)) && "status" in value && typeof value.status === "string"));
   const [showStatistics, setShowStatistics] = useOilChangeFilterState("showStatistics", false);
@@ -742,7 +747,7 @@ const LiveOilChange = () => {
   const currentPage = Math.min(page, pageCount);
   useEffect(() => { setPage(previous => Math.min(previous, pageCount)); }, [pageCount]);
   const pageTrucks = useMemo(() => displayedTrucks.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), [displayedTrucks, currentPage]);
-  useEffect(() => { setPage(1); }, [statisticsSelection, search, companyFilter, sourceFilter, milesFilter, dispatcherFilter, officeFilter, mileageSummary.scope, mileageSummary.view, mileageSummary.period.start, mileageSummary.period.end]);
+  useEffect(() => { setPage(1); }, [statisticsSelection, search, assignmentFilter, companyFilter, sourceFilter, milesFilter, dispatcherFilter, officeFilter, mileageSummary.scope, mileageSummary.view, mileageSummary.period.start, mileageSummary.period.end]);
   const tableLoading = isLoading || !!(periodView && mileageSummary.bounds && mileageSummary.isPending);
   const tableError = periodView && !mileageSummary.bounds ? "Select a valid mileage update period."
     : trucksError || (periodView && mileageSummary.isError) ? "Could not load trucks or mileage updates. Refresh the page and try again." : null;
@@ -800,6 +805,15 @@ const LiveOilChange = () => {
                 <SelectItem value="under26">≤ 26,000</SelectItem>
                 <SelectItem value="26to28">26,001 – 28,000</SelectItem>
                 <SelectItem value="over28">&gt; 28,000</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
+              <SelectTrigger aria-label="Truck assignment" className="w-52"><SelectValue placeholder="Assignment" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All assignments</SelectItem>
+                <SelectItem value="missing">Missing dispatcher or driver</SelectItem>
+                <SelectItem value="no-dispatcher">No dispatcher</SelectItem>
+                <SelectItem value="no-driver">No driver</SelectItem>
               </SelectContent>
             </Select>
             <div className="relative w-64">
