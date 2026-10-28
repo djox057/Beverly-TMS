@@ -9,6 +9,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { IndividualModeProvider } from "./contexts/IndividualModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
+import { PageTitle } from "./components/PageTitle";
 import { supabase } from "./integrations/supabase/client";
 import { useRealtimeTokenRefresh } from "./hooks/useRealtimeTokenRefresh";
 import { useReportsRealtime } from "./hooks/useReportsRealtime";
@@ -372,6 +373,7 @@ const App = () => (
       <AuthProvider>
         <IndividualModeProvider>
           <BrowserRouter>
+            <PageTitle />
             <AppContent />
           </BrowserRouter>
         </IndividualModeProvider>
