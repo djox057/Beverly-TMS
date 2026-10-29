@@ -235,7 +235,7 @@ const LaleLoads = () => {
   const [driverFilter, setDriverFilter] = useState("all-drivers");
   const [brokerFilter, setBrokerFilter] = useState("all-brokers");
   const [lockedNotInvoicedFilter, setLockedNotInvoicedFilter] = useState(false);
-  const [invoicedFilter, setInvoicedFilter] = useState(false);
+  const [invoicedFilter, setInvoicedFilter] = useState<"all" | "not-invoiced" | "invoiced">("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [pickupDateRange, setPickupDateRange] = useState<DateRange | undefined>();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -295,7 +295,11 @@ const LaleLoads = () => {
           setDriverFilter(state.driverFilter || "all-drivers");
           setBrokerFilter(state.brokerFilter || "all-brokers");
           setLockedNotInvoicedFilter(state.lockedNotInvoicedFilter || false);
-          setInvoicedFilter(state.invoicedFilter || false);
+          setInvoicedFilter(
+            state.invoicedFilter === true || state.invoicedFilter === "invoiced"
+              ? "invoiced"
+              : state.invoicedFilter === "not-invoiced" ? "not-invoiced" : "all",
+          );
           if (state.dateRange) {
             setDateRange({
               from: state.dateRange.from ? new Date(state.dateRange.from) : undefined,
@@ -431,7 +435,7 @@ const LaleLoads = () => {
       (driverFilter && driverFilter !== "all-drivers") ||
       (brokerFilter && brokerFilter !== "all-brokers") ||
       lockedNotInvoicedFilter ||
-      invoicedFilter ||
+      invoicedFilter !== "all" ||
       dateRange?.from ||
       pickupDateRange?.from
     );
@@ -494,7 +498,7 @@ const LaleLoads = () => {
       driverId,
       brokerId,
       lockedNotInvoiced: lockedNotInvoicedFilter || undefined,
-      invoiced: invoicedFilter || undefined,
+      invoiced: invoicedFilter === "all" ? undefined : invoicedFilter === "invoiced",
       deliveryDateFrom: dateRange?.from ? formatDateNoTz(dateRange.from) : undefined,
       deliveryDateTo: dateRange?.to ? formatDateNoTz(dateRange.to, true) : undefined,
       pickupDateFrom: pickupDateRange?.from ? formatDateNoTz(pickupDateRange.from) : undefined,
@@ -798,7 +802,7 @@ const LaleLoads = () => {
 
       const matchesLockedNotInvoiced =
         !lockedNotInvoicedFilter || (order.locked && !order.invoiced && (order.totalFreightAmount || 0) > 0);
-      const matchesInvoiced = !invoicedFilter || order.invoiced === true;
+      const matchesInvoiced = invoicedFilter === "all" || (order.invoiced === true) === (invoicedFilter === "invoiced");
 
       return (
         matchesSearch &&
@@ -1694,16 +1698,19 @@ const LaleLoads = () => {
                     className="w-full"
                   />
 
-                  {/* Column 6 Row 2: Show Invoiced - hidden for dispatch/afterhours */}
+                  {/* Column 6 Row 2: Invoice status - hidden for dispatch/afterhours */}
                   {!isDispatcherRole(primaryRole) && primaryRole !== "afterhours" && (
                     <div className="flex flex-col gap-1">
                       <Button
-                        variant={invoicedFilter ? "default" : "outline"}
-                        onClick={() => setInvoicedFilter(!invoicedFilter)}
+                        variant={invoicedFilter !== "all" ? "default" : "outline"}
+                        onClick={() => setInvoicedFilter((current) =>
+                          current === "all" ? "not-invoiced" : current === "not-invoiced" ? "invoiced" : "all"
+                        )}
+                        title="Cycle: All Loads → Not Invoiced → Invoiced → All Loads"
                         className="w-full"
                       >
                         <FileText className="mr-2 h-3.5 w-3.5 shrink-0" />
-                        {invoicedFilter ? "Hide Invoiced" : "Show Invoiced"}
+                        {invoicedFilter === "all" ? "All Loads" : invoicedFilter === "not-invoiced" ? "Not Invoiced" : "Invoiced"}
                       </Button>
                       <Popover>
                         <PopoverTrigger asChild>

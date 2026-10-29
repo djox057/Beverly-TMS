@@ -298,8 +298,10 @@ Deno.serve(async (req) => {
     }
 
     // Invoiced filter
-    if (filters.invoiced) {
+    if (filters.invoiced === true) {
       query = query.eq("invoiced", true);
+    } else if (filters.invoiced === false) {
+      query = query.or("invoiced.is.null,invoiced.eq.false");
     }
 
     // Delivery date range

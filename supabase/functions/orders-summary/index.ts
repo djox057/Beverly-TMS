@@ -59,7 +59,8 @@ const applyFilters = (query: any, filters: OrdersSummaryFilters) => {
 
   if (filters.locked !== undefined) query = query.eq("locked", filters.locked);
   if (filters.lockedNotInvoiced) query = query.eq("locked", true).eq("invoiced", false);
-  if (filters.invoiced) query = query.eq("invoiced", true);
+  if (filters.invoiced === true) query = query.eq("invoiced", true);
+  else if (filters.invoiced === false) query = query.or("invoiced.is.null,invoiced.eq.false");
 
   if (filters.deliveryDateFrom) query = query.gte("delivery_datetime", filters.deliveryDateFrom);
   if (filters.deliveryDateTo) query = query.lte("delivery_datetime", filters.deliveryDateTo);
