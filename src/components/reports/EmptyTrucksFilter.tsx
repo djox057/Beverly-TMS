@@ -18,16 +18,13 @@ export function EmptyTrucksFilter({ active, today, date, onSelect, onClear }: Pr
   const [waiting, setWaiting] = useState(false);
   const id = useId();
   const timer = useRef<ReturnType<typeof setTimeout>>();
-  const closeTimer = useRef<ReturnType<typeof setTimeout>>();
   const suppressClick = useRef(false);
   const cancelHold = () => {
     clearTimeout(timer.current);
     setWaiting(false);
   };
-  const cancelClose = () => clearTimeout(closeTimer.current);
   const hold = (pressed: boolean) => {
     cancelHold();
-    cancelClose();
     if (open) return;
     setWaiting(true);
     timer.current = setTimeout(() => {
@@ -36,18 +33,11 @@ export function EmptyTrucksFilter({ active, today, date, onSelect, onClear }: Pr
       setOpen(true);
     }, 500);
   };
-  const leave = () => {
-    cancelHold();
-    cancelClose();
-    closeTimer.current = setTimeout(() => setOpen(false), 200);
-  };
   useEffect(() => () => {
     clearTimeout(timer.current);
-    clearTimeout(closeTimer.current);
   }, []);
   const select = (day: Date) => {
     cancelHold();
-    cancelClose();
     onSelect(day);
     setOpen(false);
   };
@@ -63,14 +53,13 @@ export function EmptyTrucksFilter({ active, today, date, onSelect, onClear }: Pr
           aria-expanded={open}
           aria-controls={open ? id : undefined}
           onPointerEnter={(event) => { if (event.pointerType === "mouse") hold(false); }}
-          onPointerLeave={leave}
+          onPointerLeave={cancelHold}
           onPointerDown={() => { suppressClick.current = false; hold(true); }}
           onPointerUp={cancelHold}
           onPointerCancel={() => { cancelHold(); suppressClick.current = false; }}
           onContextMenu={(event) => { if (suppressClick.current) event.preventDefault(); }}
           onClick={() => {
             cancelHold();
-            cancelClose();
             if (suppressClick.current) {
               suppressClick.current = false;
               return;
@@ -83,7 +72,6 @@ export function EmptyTrucksFilter({ active, today, date, onSelect, onClear }: Pr
             if (event.key === "ArrowDown") {
               event.preventDefault();
               cancelHold();
-              cancelClose();
               setOpen(true);
             }
           }}
@@ -100,9 +88,6 @@ export function EmptyTrucksFilter({ active, today, date, onSelect, onClear }: Pr
         aria-label="Empty for what day?"
         align="start"
         className="w-auto p-3 duration-150 motion-reduce:animate-none"
-        onPointerEnter={cancelClose}
-        onPointerLeave={leave}
-        onFocusCapture={cancelClose}
         onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
