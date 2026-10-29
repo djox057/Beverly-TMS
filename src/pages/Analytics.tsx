@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useOrdersWithProgress } from "@/hooks/useOrdersWithProgress";
+import { UninvoicedAnalyticsStats } from "@/components/UninvoicedAnalyticsStats";
 import {
   useAnalyticsAggregates,
   useAnalyticsAggregatesAllTime,
@@ -466,7 +467,11 @@ const Analytics = () => {
         bookedBy: null,
         dispatcherUserId: null,
       };
-  const { data: orders, isLoading, error, progress } = useOrdersWithProgress(orderFilterOptions);
+  const { data: orders, isLoading, error, progress } = useOrdersWithProgress({
+    ...orderFilterOptions,
+    // Invoice status is not available in the locked daily aggregates.
+    requireAllOrders: isAdmin,
+  });
   const { data: companies } = useCompanies();
   const { data: drivers } = useDrivers();
   const { data: driverDebts = {} } = useAllDriverDebts();
@@ -3432,6 +3437,10 @@ const Analytics = () => {
                         </div>
                       );
                     })()}
+
+                  {showExtraStats && !isDispatchOnly && (
+                    <UninvoicedAnalyticsStats isAdmin={isAdmin} orders={ordersForTotals} />
+                  )}
 
                   {/* "+" button bottom right */}
                   {!isDispatchOnly && (

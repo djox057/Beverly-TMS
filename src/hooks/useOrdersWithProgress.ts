@@ -19,6 +19,7 @@ interface LoadingProgress {
 interface UseOrdersWithProgressOptions {
   bookedBy?: string | null;
   dispatcherUserId?: string | null;
+  requireAllOrders?: boolean;
 }
 
 const LOCKED_BATCH_SIZE = 1000;
@@ -46,6 +47,7 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
   // Temporarily disabled — defaulting to raw order fetching (all orders loaded).
   // Set localStorage.analytics_use_precomputed = "true" to re-enable precomputed mode.
   const usePrecomputed = typeof window !== "undefined"
+    && !options?.requireAllOrders
     && localStorage.getItem("analytics_use_precomputed") === "true";
 
   const [progress, setProgress] = useState<LoadingProgress>({
@@ -65,8 +67,8 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
   const hasFilters = Boolean(bookedBy || dispatcherUserId);
 
   const queryKey = hasFilters
-    ? ["orders", "analytics-full", bookedBy, dispatcherUserId, supervisorCacheScope]
-    : ["orders", "analytics-full", supervisorCacheScope];
+    ? ["orders", "analytics-full", bookedBy, dispatcherUserId, supervisorCacheScope, usePrecomputed ? "precomputed" : "raw"]
+    : ["orders", "analytics-full", supervisorCacheScope, usePrecomputed ? "precomputed" : "raw"];
 
   useOrdersRealtime();
 
