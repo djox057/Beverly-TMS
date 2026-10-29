@@ -54,8 +54,6 @@ async function fillFuel(custom = false) {
   fireEvent.change(await screen.findByRole("combobox", { name: "Purpose category" }), { target: { value: custom ? "custom" : "fuel" } });
   if (custom) fireEvent.change(screen.getByLabelText("Custom Purpose"), { target: { value: " fuel " } });
   fireEvent.change(await screen.findByLabelText("Explanation (required)"), { target: { value: "Diesel purchase for next trip" } });
-  fireEvent.change(screen.getByLabelText("Business name (required)"), { target: { value: "Pilot" } });
-  fireEvent.change(screen.getByLabelText("Full address (required)"), { target: { value: "123 Main Street, Blue Island IL" } });
   fireEvent.change(await screen.findByLabelText("City"), { target: { value: "Blue Island" } });
   fireEvent.change(screen.getByLabelText("State"), { target: { value: "il" } });
   fireEvent.change(screen.getByLabelText("Amount ($)"), { target: { value: "300" } });
@@ -147,5 +145,19 @@ it("blocks other requests when explanation storage is unavailable", async () => 
   fireEvent.mouseDown(screen.getByRole("tab", { name: "Other" }), { button: 0, ctrlKey: false });
   fireEvent.change(await screen.findByRole("combobox", { name: "Purpose category" }), { target: { value: "escort" } });
   fireEvent.change(screen.getByLabelText("Amount ($)"), { target: { value: "50" } });
+  expect(screen.getByRole("button", { name: "Send Request" })).toBeDisabled();
+});
+
+it("allows fuel with city/state and explanation when the optional street address is incomplete", async () => {
+  show(); await fillFuel();
+  fireEvent.change(screen.getByLabelText("Full address (optional)"), { target: { value: "asddasd" } });
+  const send = screen.getByRole("button", { name: "Send Request" });
+  await waitFor(() => expect(send).toBeEnabled()); fireEvent.click(send);
+  await waitFor(() => expect(mocks.invoke).toHaveBeenCalledWith("send-efs-other-request", { body: expect.objectContaining({ purpose: "Fuel", city: "Blue Island", state: "IL" }) }));
+});
+it("shows why an explanation prevents sending", async () => {
+  show(); await fillFuel();
+  fireEvent.change(screen.getByLabelText("Explanation (required)"), { target: { value: "" } });
+  expect(screen.getByRole("alert")).toHaveTextContent(/Enter a detailed purpose/);
   expect(screen.getByRole("button", { name: "Send Request" })).toBeDisabled();
 });

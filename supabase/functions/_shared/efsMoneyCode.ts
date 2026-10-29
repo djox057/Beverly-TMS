@@ -16,7 +16,7 @@ export function isDetailedEfsPurpose(value: string): boolean {
   return value.trim().length >= 8 && !genericPurposes.test(value.trim()) && /[a-z]/i.test(value) && !/[\u0400-\u04ff]/.test(value);
 }
 export function requiresEfsLocation(purpose: string, isTrailerRepair = false): boolean {
-  return isTrailerRepair || /fuel|repair|alignment/i.test(purpose);
+  return isTrailerRepair || /repair|alignment/i.test(purpose);
 }
 export function getMoneyCodeDetailsError(details: MoneyCodeDetails, purpose: string): string | null {
   if (purpose.toLowerCase() === "cash advance" && details.purposeDetail.toLowerCase() === "cash advance") return null;

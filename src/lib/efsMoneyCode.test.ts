@@ -13,7 +13,7 @@ it("requires the trailer for a trailer repair", () => {
   expect(getMoneyCodeDetailsError({ ...example, trailerNumber: "" }, "Repairs")).toMatch(/Trailer number/);
   expect(getMoneyCodeDetailsError({ ...example, isTrailerRepair: false }, "Repairs")).toMatch(/Mark this as a trailer repair/);
 });
-it.each(["Repairs", "Fuel"])("requires a business and street address for %s", purpose => {
+it.each(["Repairs"])("requires a business and street address for %s", purpose => {
   const details = { ...example, isTrailerRepair: false, purposeDetail: "Diesel purchase for the next trip" };
   expect(getMoneyCodeDetailsError({ ...details, locationName: "" }, purpose)).toMatch(/business name/);
   expect(getMoneyCodeDetailsError({ ...details, locationAddress: "Toledo, OH" }, purpose)).toMatch(/full address/);
@@ -48,4 +48,8 @@ it("accepts the automatic explanation only for cash advances", () => {
   const details = { ...example, purposeDetail: "Cash advance", isTrailerRepair: false };
   expect(getMoneyCodeDetailsError(details, "Cash Advance")).toBeNull();
   expect(getMoneyCodeDetailsError(details, "Other")).not.toBeNull();
+});
+
+it.each(["", "asddasd"])("allows fuel without a street address (%s)", locationAddress => {
+  expect(getMoneyCodeDetailsError({ ...example, isTrailerRepair: false, purposeDetail: "Diesel for the next trip", locationName: "", locationAddress }, "Fuel")).toBeNull();
 });

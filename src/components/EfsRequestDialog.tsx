@@ -472,6 +472,12 @@ export function EfsRequestDialog({
               </p>
             )}
 
+            {moneyDetailsReady && otherPurpose && getMoneyCodeDetailsError(otherDetails, purposeLabel) && (
+              <p role="alert" className="text-xs text-destructive">
+                {getMoneyCodeDetailsError(otherDetails, purposeLabel)}
+              </p>
+            )}
+
             {/* Actions */}
             <div className="flex gap-2 justify-end pt-2">
               <Button 
