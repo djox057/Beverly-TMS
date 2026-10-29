@@ -31,9 +31,18 @@ describe("EmptyTrucksFilter", () => {
     expect(screen.getByText("Empty for what day?")).toBeTruthy();
     fireEvent.pointerUp(button);
     fireEvent.click(button);
+    fireEvent.pointerLeave(button);
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(screen.getByText("Empty for what day?")).toBeTruthy();
+    const picker = screen.getByRole("dialog");
+    fireEvent.pointerEnter(picker);
+    fireEvent.pointerLeave(picker);
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(screen.getByText("Empty for what day?")).toBeTruthy();
     expect(callbacks.onSelect).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Tomorrow" }));
     expect(callbacks.onSelect).toHaveBeenCalledWith(new Date(2026, 9, 30));
+    expect(button.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("cancels a hold when the pointer leaves early", () => {
@@ -56,6 +65,8 @@ describe("EmptyTrucksFilter", () => {
     Object.defineProperty(hover, "pointerType", { value: "mouse" });
     fireEvent(button, hover);
     act(() => { vi.advanceTimersByTime(500); });
+    fireEvent.pointerLeave(button);
+    act(() => { vi.advanceTimersByTime(2000); });
     expect(screen.getByText("Empty for what day?")).toBeTruthy();
     expect(callbacks.onSelect).not.toHaveBeenCalled();
   });
