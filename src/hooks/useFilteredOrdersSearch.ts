@@ -83,6 +83,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
   // Track current filters and pagination
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [activeFilterKey, setActiveFilterKey] = useState<(string | boolean | undefined)[] | null>(null);
   const [summary, setSummary] = useState<OrdersSummary | null>(null);
   const [isPrefetchingUnlocked, setIsPrefetchingUnlocked] = useState(false);
@@ -95,9 +96,14 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
   const hasMoreRef = useRef(false);
 
   const search = useCallback(async (filters: SearchFilters) => {
-    if (isLoadingRef.current) return;
-    
+    // A new filter always supersedes the previous request, even while loading.
     isLoadingRef.current = true;
+    setIsSearching(true);
+    setIsLoadingMore(false);
+    setIsPrefetchingUnlocked(false);
+    setTotalCount(null);
+    setSummary(null);
+    hasMoreRef.current = false;
     offsetRef.current = 0;
     
     const newQueryKey = getFilterQueryKey(filters, scope);
@@ -120,6 +126,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
           body: { filters },
         }),
       ]);
+      if (activeQueryKeyRef.current !== newQueryKey) return;
       const { data: response, error } = rowsRes;
 
       if (summaryRes.error) {
@@ -148,78 +155,83 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
         console.log(`[FilteredSearch] Found ${transformed.length} orders (total: ${response.totalCount})`);
       }
     } catch (error) {
+      if (activeQueryKeyRef.current !== newQueryKey) return;
       console.error("[FilteredSearch] Search failed:", error);
       queryClient.setQueryData(newQueryKey, []);
       setTotalCount(null);
       hasMoreRef.current = false;
       setSummary(null);
-    } finally {
-      isLoadingRef.current = false;
     }
 
-    // Eagerly prefetch additional batches until every unlocked row is in the
-    // client cache. The server returns rows in `locked asc` order, so once
-    // loaded.length >= summary.unlockedCount we know all unlocked are present.
-    // Cap at 10 batches (5,000 rows) as a safety net.
-    if (
-      summaryData &&
-      typeof summaryData.unlockedCount === "number" &&
-      summaryData.unlockedCount > 0
-    ) {
-      const cached = (queryClient.getQueryData(newQueryKey) as any[] | undefined) ?? [];
-      if (cached.length < summaryData.unlockedCount && hasMoreRef.current) {
-        setIsPrefetchingUnlocked(true);
-        try {
-          let safety = 0;
-          while (
-            // Bail if a newer search has started
-            activeQueryKeyRef.current === newQueryKey &&
-            hasMoreRef.current &&
-            safety < 10
-          ) {
-            const currentCached =
-              (queryClient.getQueryData(newQueryKey) as any[] | undefined) ?? [];
-            if (currentCached.length >= summaryData.unlockedCount) break;
+    if (activeQueryKeyRef.current !== newQueryKey) return;
 
-            const { data: more, error: moreErr } = await supabase.functions.invoke(
-              "search-orders",
-              {
-                body: {
-                  filters,
-                  offset: offsetRef.current,
-                  limit: BATCH_SIZE,
-                },
+    try {
+      // Eagerly prefetch additional batches until every unlocked row is in the
+      // client cache. The server returns rows in `locked asc` order, so once
+      // loaded.length >= summary.unlockedCount we know all unlocked are present.
+      // Cap at 10 batches (5,000 rows) as a safety net.
+      if (
+        summaryData &&
+        typeof summaryData.unlockedCount === "number" &&
+        summaryData.unlockedCount > 0
+      ) {
+        const cached = (queryClient.getQueryData(newQueryKey) as any[] | undefined) ?? [];
+        if (cached.length < summaryData.unlockedCount && hasMoreRef.current) {
+          setIsPrefetchingUnlocked(true);
+          try {
+            let safety = 0;
+            while (
+              // Bail if a newer search has started
+              activeQueryKeyRef.current === newQueryKey &&
+              hasMoreRef.current &&
+              safety < 10
+            ) {
+              const currentCached =
+                (queryClient.getQueryData(newQueryKey) as any[] | undefined) ?? [];
+              if (currentCached.length >= summaryData.unlockedCount) break;
+
+              const { data: more, error: moreErr } = await supabase.functions.invoke(
+                "search-orders",
+                {
+                  body: {
+                    filters,
+                    offset: offsetRef.current,
+                    limit: BATCH_SIZE,
+                  },
+                }
+              );
+              if (activeQueryKeyRef.current !== newQueryKey) return;
+              if (moreErr || !more?.orders) {
+                console.error("[FilteredSearch] Unlocked prefetch error:", moreErr);
+                break;
               }
-            );
-            if (moreErr || !more?.orders) {
-              console.error("[FilteredSearch] Unlocked prefetch error:", moreErr);
-              break;
+              const transformed = transformOrders(more.orders);
+              queryClient.setQueryData(newQueryKey, (old: any[] | undefined) => [
+                ...(old || []),
+                ...transformed,
+              ]);
+              hasMoreRef.current = more.hasMore;
+              offsetRef.current += more.orders.length;
+              safety += 1;
             }
-            const transformed = transformOrders(more.orders);
-            queryClient.setQueryData(newQueryKey, (old: any[] | undefined) => [
-              ...(old || []),
-              ...transformed,
-            ]);
-            hasMoreRef.current = more.hasMore;
-            offsetRef.current += more.orders.length;
-            safety += 1;
-          }
-        } finally {
-          if (activeQueryKeyRef.current === newQueryKey) {
-            setIsPrefetchingUnlocked(false);
-          } else {
-            setIsPrefetchingUnlocked(false);
+          } finally {
+            if (activeQueryKeyRef.current === newQueryKey) {
+              setIsPrefetchingUnlocked(false);
+            }
           }
         }
+      }
+    } finally {
+      if (activeQueryKeyRef.current === newQueryKey) {
+        isLoadingRef.current = false;
+        setIsSearching(false);
+        setIsPrefetchingUnlocked(false);
       }
     }
   }, [queryClient, scope]);
 
   const loadMore = useCallback(async () => {
     if (isLoadingRef.current || !hasMoreRef.current || !activeFiltersRef.current || !activeQueryKeyRef.current) {
-      if (!activeQueryKeyRef.current) {
-        console.warn('[FilteredSearch] loadMore called but no active query');
-      }
       return;
     }
     
@@ -243,6 +255,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
         }
       );
 
+      if (activeQueryKeyRef.current !== currentQueryKey) return;
       if (error) {
         console.error("[FilteredSearch] Load more error:", error);
         throw error;
@@ -264,8 +277,10 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
     } catch (error) {
       console.error("[FilteredSearch] Load more failed:", error);
     } finally {
-      isLoadingRef.current = false;
-      setIsLoadingMore(false);
+      if (activeQueryKeyRef.current === currentQueryKey) {
+        isLoadingRef.current = false;
+        setIsLoadingMore(false);
+      }
     }
   }, [queryClient]);
 
@@ -276,6 +291,9 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
       queryClient.removeQueries({ queryKey: activeQueryKeyRef.current });
     }
     activeQueryKeyRef.current = null;
+    isLoadingRef.current = false;
+    setIsSearching(false);
+    setIsLoadingMore(false);
     activeFiltersRef.current = null;
     hasMoreRef.current = false;
     setTotalCount(null);
@@ -300,7 +318,7 @@ export function useFilteredOrdersSearch(): FilteredSearchResult {
   return {
     orders: cachedOrders,
     totalCount,
-    isLoading: isLoadingRef.current || isLoadingMore,
+    isLoading: isSearching || isLoadingMore,
     hasMore: hasMoreRef.current,
     loadMore,
     search,
