@@ -28,7 +28,7 @@ const ORDER_COLUMNS = `
 
 // Slim column list for Analytics page - see get-all-locked-orders for rationale.
 const ORDER_COLUMNS_ANALYTICS = `
-  id, locked, canceled, created_at,
+  id, locked, invoiced, paid, canceled, created_at,
   pickup_datetime, delivery_datetime,
   booked_by, internal_load_number, load_company_code, broker_load_number,
   driver1_id, driver2_id, truck_id, trailer_id, company_id, booked_by_company_id,
