@@ -145,7 +145,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { Calendar } from "@/components/ui/calendar";
-import { startOfWeek, addDays, isSameDay, format } from "date-fns";
+import { startOfWeek, addDays, isSameDay, format, parseISO } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { cn, formatDateNoTimezone } from "@/lib/utils";
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
@@ -497,6 +497,8 @@ const Reports = () => {
   const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
   const { byTruck: yardRepairsByTruck } = useMandatoryYardRepairs(true);
   const repairToday = useChicagoToday();
+  // Yard alerts use a YYYY-MM-DD string; report comparisons and the picker need a Date.
+  const emptyTrucksToday = useMemo(() => parseISO(repairToday), [repairToday]);
   // A null selection follows Chicago today across midnight.
   const [emptyTrucksDate, setEmptyTrucksDate] = useState<Date | null>(null);
 
@@ -4185,7 +4187,7 @@ const Reports = () => {
 
     // Filter to show only trucks with red cells for today (any text: "Empty", "Lost day", etc.)
     // Must match the exact display logic for isMissingPickup
-    const today = emptyTrucksDate ?? repairToday;
+    const today = emptyTrucksDate ?? emptyTrucksToday;
     return reports
       .map((group) => {
         const emptyTrucks = group.trucks.filter((truck) => {
@@ -4274,7 +4276,7 @@ const Reports = () => {
     searchFilters,
     showEmptyTrucks,
     emptyTrucksDate,
-    repairToday,
+    emptyTrucksToday,
     showCloseWatch,
     showNewDrivers,
     showTwoWeekNotice,
@@ -4793,10 +4795,10 @@ const Reports = () => {
                 <div className="flex flex-wrap gap-1 sm:gap-2 sm:ml-4">
                   <EmptyTrucksFilter
                     active={showEmptyTrucks}
-                    today={repairToday}
-                    date={emptyTrucksDate ?? repairToday}
+                    today={emptyTrucksToday}
+                    date={emptyTrucksDate ?? emptyTrucksToday}
                     onSelect={(day) => {
-                      setEmptyTrucksDate(isSameDay(day, repairToday) ? null : day);
+                      setEmptyTrucksDate(isSameDay(day, emptyTrucksToday) ? null : day);
                       setShowEmptyTrucks(true);
                     }}
                     onClear={() => { setShowEmptyTrucks(false); setEmptyTrucksDate(null); }}
