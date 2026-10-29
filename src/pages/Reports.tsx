@@ -1,3 +1,4 @@
+import { EmptyTrucksFilter } from "@/components/reports/EmptyTrucksFilter";
 import { closeWatchGroups, isCloseWatchUrgent } from "@/lib/closeWatch";
 import { useChicagoToday, useMandatoryYardRepairs } from "@/hooks/useMandatoryYardRepairs";
 import { estimatedRoadMiles } from "@/utils/truckProximity";
@@ -496,6 +497,8 @@ const Reports = () => {
   const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
   const { byTruck: yardRepairsByTruck } = useMandatoryYardRepairs(true);
   const repairToday = useChicagoToday();
+  // A null selection follows Chicago today across midnight.
+  const [emptyTrucksDate, setEmptyTrucksDate] = useState<Date | null>(null);
 
   const { individualMode, setIndividualMode, individualOverrideDriverIds } = useIndividualMode();
   const { insuranceByTruckId } = useTruckInsurance();
@@ -4182,9 +4185,7 @@ const Reports = () => {
 
     // Filter to show only trucks with red cells for today (any text: "Empty", "Lost day", etc.)
     // Must match the exact display logic for isMissingPickup
-    const today = getChicagoToday();
-    const tomorrow = addDays(today, 1);
-    const todayStr = format(today, "yyyy-MM-dd");
+    const today = emptyTrucksDate ?? repairToday;
     return reports
       .map((group) => {
         const emptyTrucks = group.trucks.filter((truck) => {
@@ -4201,12 +4202,6 @@ const Reports = () => {
           const isAfterFirstPickup = firstPickupDate && today >= firstPickupDate;
           if (!isAfterFirstPickup) {
             return false; // Only show trucks that have had at least one pickup
-          }
-
-          // Check if today is within timeframe (today or tomorrow only)
-          const isWithinTimeframe = today.getTime() <= tomorrow.getTime();
-          if (!isWithinTimeframe) {
-            return false;
           }
 
           // Check if truck is in transit today
@@ -4278,6 +4273,8 @@ const Reports = () => {
     groupedReports,
     searchFilters,
     showEmptyTrucks,
+    emptyTrucksDate,
+    repairToday,
     showCloseWatch,
     showNewDrivers,
     showTwoWeekNotice,
@@ -4794,14 +4791,16 @@ const Reports = () => {
                 hasRole("dispatch") ||
                 hasRole("afterhours")) && (
                 <div className="flex flex-wrap gap-1 sm:gap-2 sm:ml-4">
-                  <Button
-                    variant={showEmptyTrucks ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
-                    className="text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
-                  >
-                    Empty trucks
-                  </Button>
+                  <EmptyTrucksFilter
+                    active={showEmptyTrucks}
+                    today={repairToday}
+                    date={emptyTrucksDate ?? repairToday}
+                    onSelect={(day) => {
+                      setEmptyTrucksDate(isSameDay(day, repairToday) ? null : day);
+                      setShowEmptyTrucks(true);
+                    }}
+                    onClear={() => { setShowEmptyTrucks(false); setEmptyTrucksDate(null); }}
+                  />
                   <Button
                     variant={showLateTrucks ? "default" : "outline"}
                     size="sm"
@@ -9465,3 +9464,4 @@ const DispatcherExtensionsPopover = ({
 };
 
 export default Reports;
+
