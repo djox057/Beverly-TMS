@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import { addDays, format, isSameDay } from "date-fns";
-import { ChevronDown } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { addDays, isSameDay } from "date-fns";
+import { Anchor as PopoverAnchor } from "@radix-ui/react-popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent } from "@/components/ui/popover";
 
 interface Props {
   active: boolean;
@@ -15,42 +15,96 @@ interface Props {
 
 export function EmptyTrucksFilter({ active, today, date, onSelect, onClear }: Props) {
   const [open, setOpen] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const id = useId();
   const timer = useRef<ReturnType<typeof setTimeout>>();
-  const cancelTimer = () => clearTimeout(timer.current);
-  const schedule = (value: boolean) => {
-    cancelTimer();
-    timer.current = setTimeout(() => setOpen(value), value ? 250 : 200);
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>();
+  const suppressClick = useRef(false);
+  const cancelHold = () => {
+    clearTimeout(timer.current);
+    setWaiting(false);
   };
-  useEffect(() => () => clearTimeout(timer.current), []);
+  const cancelClose = () => clearTimeout(closeTimer.current);
+  const hold = (pressed: boolean) => {
+    cancelHold();
+    cancelClose();
+    if (open) return;
+    setWaiting(true);
+    timer.current = setTimeout(() => {
+      suppressClick.current = pressed;
+      setWaiting(false);
+      setOpen(true);
+    }, 500);
+  };
+  const leave = () => {
+    cancelHold();
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpen(false), 200);
+  };
+  useEffect(() => () => {
+    clearTimeout(timer.current);
+    clearTimeout(closeTimer.current);
+  }, []);
   const select = (day: Date) => {
-    cancelTimer();
+    cancelHold();
+    cancelClose();
     onSelect(day);
     setOpen(false);
   };
-  const label = isSameDay(date, today) ? "Today"
-    : isSameDay(date, addDays(today, 1)) ? "Tomorrow" : format(date, "MMM d");
 
   return (
-    <Popover open={open} onOpenChange={(value) => { cancelTimer(); setOpen(value); }}>
-      <PopoverTrigger asChild>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
         <Button
           variant={active ? "default" : "outline"}
           size="sm"
-          onMouseEnter={() => schedule(true)}
-          onMouseLeave={() => schedule(false)}
-          className="gap-1 text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3 transition-colors duration-150"
+          aria-pressed={active}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={open ? id : undefined}
+          onPointerEnter={(event) => { if (event.pointerType === "mouse") hold(false); }}
+          onPointerLeave={leave}
+          onPointerDown={() => { suppressClick.current = false; hold(true); }}
+          onPointerUp={cancelHold}
+          onPointerCancel={() => { cancelHold(); suppressClick.current = false; }}
+          onContextMenu={(event) => { if (suppressClick.current) event.preventDefault(); }}
+          onClick={() => {
+            cancelHold();
+            cancelClose();
+            if (suppressClick.current) {
+              suppressClick.current = false;
+              return;
+            }
+            setOpen(false);
+            if (active) onClear();
+            else onSelect(today);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              cancelHold();
+              cancelClose();
+              setOpen(true);
+            }
+          }}
+          className="relative overflow-hidden text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3"
         >
-          Empty trucks{active && <span className="opacity-80"> · {label}</span>}
-          <ChevronDown className={`h-3 w-3 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+          Empty trucks
+          <span aria-hidden="true"
+            className={`pointer-events-none absolute bottom-0 left-0 h-0.5 w-full origin-left bg-current opacity-40 motion-reduce:transition-none ${waiting ? "transition-transform duration-500 ease-linear" : ""}`}
+            style={{ transform: waiting ? "scaleX(1)" : "scaleX(0)" }} />
         </Button>
-      </PopoverTrigger>
+      </PopoverAnchor>
       <PopoverContent
+        id={id}
+        aria-label="Empty for what day?"
         align="start"
         className="w-auto p-3 duration-150 motion-reduce:animate-none"
-        onMouseEnter={cancelTimer}
-        onMouseLeave={() => schedule(false)}
-        onFocusCapture={cancelTimer}
+        onPointerEnter={cancelClose}
+        onPointerLeave={leave}
+        onFocusCapture={cancelClose}
         onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <p className="mb-2 text-sm font-medium">Empty for what day?</p>
         <div className="mb-2 flex gap-2">
@@ -70,3 +124,4 @@ export function EmptyTrucksFilter({ active, today, date, onSelect, onClear }: Pr
     </Popover>
   );
 }
+
