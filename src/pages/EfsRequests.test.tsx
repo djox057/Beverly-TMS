@@ -46,7 +46,8 @@ it.each(["admin", "accounting", "manager", "supervisor", "dispatch", "afterhours
   await waitFor(() => expect(screen.queryByRole("button", { name: "Delete request" }) !== null).toBe(role === "admin"));
   expect(screen.queryByRole("button", { name: "Void" }) !== null).toBe(["admin", "accounting", "manager", "supervisor", "dispatch", "afterhours"].includes(role));
 });
-it("requires a nonblank reason and saves a void instead of deleting", async () => {
+it.each(["admin", "dispatch", "afterhours"])("lets %s void with a required reason and preserves the request in history", async role => {
+  mock.roles = [role];
   show(); fireEvent.click(await screen.findByRole("button", { name: "Void" }));
   const confirm = screen.getByRole("button", { name: "Void request" });
   expect(confirm).toBeDisabled();
