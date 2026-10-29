@@ -139,15 +139,17 @@ it("restores report filters and mileage controls after leaving and remounting", 
   expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(1);
 });
 
-it.each(["dispatch", "supervisor"])("shows trucks missing either assignment to %s while excluding another dispatcher's fully assigned truck", async role => {
+it.each(["dispatch", "supervisor"])("only shows the assigned fleet to %s", async role => {
   mocks.role = role;
   mocks.assignmentFixtures = true;
   mount();
-  await screen.findByText("1–4 of 4 trucks");
-  for (const unit of ["OWN", "NO-DISPATCHER", "NO-DRIVER", "NEITHER"]) {
+  await screen.findByText("1–1 of 1 trucks");
+  for (const unit of ["OWN"]) {
     expect(screen.getByRole("link", { name: `Open service log for truck ${unit}` })).toBeInTheDocument();
   }
-  expect(screen.queryByRole("link", { name: "Open service log for truck OTHER" })).not.toBeInTheDocument();
+  for (const unit of ["OTHER", "NO-DISPATCHER", "NO-DRIVER", "NEITHER"]) {
+    expect(screen.queryByRole("link", { name: `Open service log for truck ${unit}` })).not.toBeInTheDocument();
+  }
 });
 
 it.each([
@@ -168,11 +170,22 @@ it.each([
   expect(screen.getByRole("combobox", { name: "Truck assignment" })).toHaveTextContent(option);
 });
 
-it.each(["maintenance", "dispatch", "supervisor"])("includes inactive truck 6270 without a driver in the %s report", async role => {
+it.each(["maintenance"])("includes inactive truck 6270 without a driver in the %s report", async role => {
   mocks.role = role;
   mocks.inactiveFixture = true;
   mount();
   fireEvent.change(screen.getByPlaceholderText("Search unit or driver..."), { target: { value: "6270" } });
   await screen.findByRole("link", { name: "Open service log for truck 6270" });
   expect(screen.getByText("1–1 of 1 trucks")).toBeInTheDocument();
+});
+
+
+it.each(["dispatch", "supervisor"])("hides inactive trucks assigned to someone else from %s", async role => {
+  mocks.role = role;
+  mocks.inactiveFixture = true;
+  mount();
+  await screen.findByText("1–1 of 1 trucks");
+  fireEvent.change(screen.getByPlaceholderText("Search unit or driver..."), { target: { value: "6270" } });
+  await screen.findByText("0 trucks");
+  expect(screen.queryByRole("link", { name: "Open service log for truck 6270" })).not.toBeInTheDocument();
 });
