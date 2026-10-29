@@ -338,8 +338,6 @@ export function EfsRequestDialog({
                   </div>
                 )}
 
-                <p className="text-sm text-muted-foreground">Explanation: Cash advance</p>
-
                 {/* Actions */}
                 <div className="flex gap-2 justify-end pt-2">
                   <Button 

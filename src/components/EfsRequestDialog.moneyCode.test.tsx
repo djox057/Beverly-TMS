@@ -20,6 +20,9 @@ afterEach(cleanup);
 it("automatically submits Cash advance as the explanation", async () => {
   show(); const request = screen.getByRole("button", { name: "Request $50" });
   expect(screen.queryByLabelText("Explanation (required)")).not.toBeInTheDocument();
+  expect(screen.queryByText("Explanation: Cash advance")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(/Business name/)).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(/Full address/)).not.toBeInTheDocument();
   await waitFor(() => expect(request).toBeEnabled()); fireEvent.click(request);
   await waitFor(() => expect(mocks.invoke).toHaveBeenCalledWith("send-cash-advance-request", { body: expect.objectContaining({ purposeDetail: "Cash advance", amount: 50 }) }));
 });
