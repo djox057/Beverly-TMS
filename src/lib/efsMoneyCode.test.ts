@@ -43,3 +43,9 @@ it("keeps legacy requests available during the migration rollout", async () => {
 it("does not downgrade permission or connection errors to legacy mode", async () => {
   await expect(hasEfsMoneyCodeStorage(() => Promise.resolve({ error: { code: "42501", message: "permission denied" } }))).rejects.toThrow("Could not check");
 });
+
+it("accepts the automatic explanation only for cash advances", () => {
+  const details = { ...example, purposeDetail: "Cash advance", isTrailerRepair: false };
+  expect(getMoneyCodeDetailsError(details, "Cash Advance")).toBeNull();
+  expect(getMoneyCodeDetailsError(details, "Other")).not.toBeNull();
+});

@@ -19,6 +19,7 @@ export function requiresEfsLocation(purpose: string, isTrailerRepair = false): b
   return isTrailerRepair || /fuel|repair|alignment/i.test(purpose);
 }
 export function getMoneyCodeDetailsError(details: MoneyCodeDetails, purpose: string): string | null {
+  if (purpose.toLowerCase() === "cash advance" && details.purposeDetail.toLowerCase() === "cash advance") return null;
   if (!isDetailedEfsPurpose(details.purposeDetail)) return "Enter a detailed purpose in English, for example: Trailer alignment. A category alone is not enough.";
   if (details.purposeDetail.length > 1000) return "Keep the purpose under 1,000 characters.";
   if (!details.isTrailerRepair && /\btrailer\b/i.test(details.purposeDetail)

@@ -159,7 +159,7 @@ const handler = async (req: Request): Promise<Response> => {
     const moneyStorageClient = createClient(supabaseUrl, supabaseServiceKey);
     const storageReady = await hasEfsMoneyCodeStorage(table => moneyStorageClient.from(table).select("purpose_detail, entered_in_stuff").limit(0));
     const detailError = storageReady ? getMoneyCodeDetailsError(details, purpose || "")
-      : details.purposeDetail ? "Detailed Money Code storage is pending a database update. No request was sent." : null;
+      : "Explanation storage is pending a database update. No request was sent.";
     if (detailError) return new Response(JSON.stringify({ success: false, error: detailError }),
       { status: storageReady ? 400 : 409, headers: { "Content-Type": "application/json", ...corsHeaders } });
 

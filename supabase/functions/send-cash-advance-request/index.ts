@@ -133,7 +133,7 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const body: CashAdvanceRequest = await req.json();
     const { driverId, driverName, truckNumber, companyName, amount } = body;
-    const details = readMoneyCodeDetails(body as unknown as Record<string, unknown>);
+    const details = readMoneyCodeDetails({ purposeDetail: "Cash advance" });
 
 
     // Prefer resolving requester identity from the JWT (more reliable than client-provided fields)

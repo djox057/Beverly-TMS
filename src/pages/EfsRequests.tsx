@@ -613,6 +613,7 @@ export default function EfsRequests() {
               <TableHead className="whitespace-nowrap">Driver</TableHead>
               <TableHead className="whitespace-nowrap">Truck #</TableHead>
               <TableHead className="whitespace-nowrap">Type</TableHead>
+              <TableHead className="whitespace-nowrap">Explanation</TableHead>
               <TableHead className="whitespace-nowrap">Location</TableHead>
               <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
               <TableHead className="whitespace-nowrap">Requested By</TableHead>
@@ -640,6 +641,7 @@ export default function EfsRequests() {
                   <TableCell>
                     <Skeleton className="h-6 w-16" />
                   </TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell>
                     <Skeleton className="h-4 w-24" />
                   </TableCell>
@@ -663,7 +665,7 @@ export default function EfsRequests() {
             ) : paginatedRequests.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={canDeleteRequest || canVoidRequest ? 12 : 11}
+                  colSpan={canDeleteRequest || canVoidRequest ? 13 : 12}
                   className="text-center py-8 text-muted-foreground"
                 >
                   No EFS requests found
@@ -688,7 +690,10 @@ export default function EfsRequests() {
                     <Badge variant={getPurposeBadgeVariant(request.purpose)}>
                       {request.purpose}
                     </Badge>
-                    {request.purpose_detail && <p className="mt-1 max-w-[240px] whitespace-normal text-xs">{request.purpose_detail}</p>}
+
+                  </TableCell>
+                  <TableCell className="max-w-[320px] whitespace-pre-wrap break-words">
+                    {request.source === "cash_advance" ? "Cash advance" : request.purpose_detail || "-"}
                   </TableCell>
                   <TableCell>
                     {request.location_name || request.location_address ? <div className="max-w-[280px] whitespace-normal">

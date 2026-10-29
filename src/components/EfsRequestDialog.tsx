@@ -68,7 +68,7 @@ export function EfsRequestDialog({
       return { error };
     }),
   });
-  const [cashDetails, setCashDetails] = useState(emptyMoneyCodeDetails);
+  const cashDetails = { ...emptyMoneyCodeDetails(), purposeDetail: "Cash advance" };
   const [otherDetails, setOtherDetails] = useState(emptyMoneyCodeDetails);
   
   // Cash Advance tab state
@@ -119,7 +119,7 @@ export function EfsRequestDialog({
       setFuelCity("");
       setFuelState("");
       setActiveTab("cash-advance");
-      setCashDetails(emptyMoneyCodeDetails());
+
       setOtherDetails(emptyMoneyCodeDetails());
     }
   }, [open]);
@@ -198,7 +198,7 @@ export function EfsRequestDialog({
     }
     
     const details = otherDetails;
-    const detailError = moneyDetailsReady ? getMoneyCodeDetailsError(details, purposeLabel) : null;
+    const detailError = !moneyDetailsReady ? "Explanation storage is unavailable. Please try again." : getMoneyCodeDetailsError(details, purposeLabel);
     if (detailError) { toast({ title: "Request details required", description: detailError, variant: "destructive" }); return; }
     setIsRequestingOther(true);
     try {
@@ -338,7 +338,7 @@ export function EfsRequestDialog({
                   </div>
                 )}
 
-                {moneyDetailsReady && cashAdvanceData?.canRequest && <EfsMoneyCodeFields value={cashDetails} onChange={setCashDetails} purpose="Cash Advance" idPrefix="cash-code" disabled={isRequestingCashAdvance} />}
+                <p className="text-sm text-muted-foreground">Explanation: Cash advance</p>
 
                 {/* Actions */}
                 <div className="flex gap-2 justify-end pt-2">
@@ -494,7 +494,7 @@ export function EfsRequestDialog({
                   (otherPurpose === "custom" && !customPurpose.trim()) ||
                   (isFuelRequest && (!fuelCity.trim() || !fuelState.trim())) ||
                   checkingMoneyDetails || moneyDetailsError ||
-                  (moneyDetailsReady && !!getMoneyCodeDetailsError(otherDetails, purposeLabel)) ||
+                  (!moneyDetailsReady || !!getMoneyCodeDetailsError(otherDetails, purposeLabel)) ||
                   fuelBlocked ||
                   (isFuelRequest && (checkingRecovery || recoveryCheckError || (!isRecoveryDriver && isMissingReceiptsLoading)))
                 }

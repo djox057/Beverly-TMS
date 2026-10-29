@@ -18,8 +18,8 @@ export function EfsMoneyCodeFields({ value, onChange, purpose, idPrefix, disable
   const locationRequired = requiresEfsLocation(`${purpose} ${value.purposeDetail}`, value.isTrailerRepair);
   return <div className="space-y-3">
     <div className="space-y-2">
-      <Label htmlFor={`${idPrefix}-description`}>Detailed purpose in English (required)</Label>
-      <Textarea id={`${idPrefix}-description`} value={value.purposeDetail} disabled={disabled} maxLength={1000} rows={2}
+      <Label htmlFor={`${idPrefix}-description`}>Explanation (required)</Label>
+      <Textarea required id={`${idPrefix}-description`} value={value.purposeDetail} disabled={disabled} maxLength={1000} rows={2}
         placeholder={/cash/i.test(purpose) ? "e.g., Cash advance for meals and personal expenses" : "e.g., Trailer alignment or replacement of the truck's front tire"}
         onChange={event => update({ purposeDetail: event.target.value })} />
       <p className="text-xs text-muted-foreground">Describe what the code pays for. “Repair”, “Fuel”, or “Cash advance” alone is not enough.</p>
