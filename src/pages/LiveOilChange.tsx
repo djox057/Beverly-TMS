@@ -607,9 +607,9 @@ const LiveOilChange = () => {
           company_name: companyId ? companyNames.get(companyId) ?? null : null,
         };
       });
-      if (isDispatcher && profile?.user_id) {
-        // Keep unassigned trucks visible alongside the dispatcher's fleet.
-        return rows.filter((t) => t.dispatcher_id === profile.user_id || !t.dispatcher_id || !t.driver1_id);
+      if (isDispatcher) {
+        // Never expose another dispatcher's or unassigned trucks, even while the profile loads.
+        return profile?.user_id ? rows.filter((t) => t.dispatcher_id === profile.user_id) : [];
       }
       return rows;
     },
