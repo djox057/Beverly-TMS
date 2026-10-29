@@ -293,17 +293,17 @@ export function EfsRequestDialog({
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Weekly Usage</span>
                     <span className="text-sm font-semibold">
-                      ${cashAdvanceData?.weeklyAmount || 0} / $150
+                      ${cashAdvanceData?.weeklyAmount || 0} / $200
                     </span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2.5">
                     <div 
                       className="bg-primary h-2.5 rounded-full transition-all"
-                      style={{ width: `${Math.min(((cashAdvanceData?.weeklyAmount || 0) / 150) * 100, 100)}%` }}
+                      style={{ width: `${Math.min(((cashAdvanceData?.weeklyAmount || 0) / 200) * 100, 100)}%` }}
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    ${cashAdvanceData?.remainingAmount ?? 150} remaining this week
+                    ${cashAdvanceData?.remainingAmount ?? 200} remaining this week
                   </p>
                 </div>
 
@@ -315,16 +315,16 @@ export function EfsRequestDialog({
                       id="cash-advance-amount"
                       type="number"
                       min={0}
-                      max={Math.min(150, cashAdvanceData?.remainingAmount ?? 150)}
+                      max={Math.min(200, cashAdvanceData?.remainingAmount ?? 200)}
                       value={cashAdvanceAmount}
                       onChange={(e) => {
                         const val = parseInt(e.target.value) || 0;
-                        setCashAdvanceAmount(Math.min(Math.max(0, val), Math.min(150, cashAdvanceData?.remainingAmount ?? 150)));
+                        setCashAdvanceAmount(Math.min(Math.max(0, val), Math.min(200, cashAdvanceData?.remainingAmount ?? 200)));
                       }}
                       className="w-full"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Enter amount between $0 and ${Math.min(150, cashAdvanceData?.remainingAmount ?? 150)}
+                      Enter amount between $0 and ${Math.min(200, cashAdvanceData?.remainingAmount ?? 200)}
                     </p>
                   </div>
                 )}
@@ -333,7 +333,7 @@ export function EfsRequestDialog({
                 {cashAdvanceData && !cashAdvanceData.canRequest && (
                   <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                     <p className="text-sm text-destructive font-medium">
-                      Weekly amount limit ($150) reached. Resets Monday at midnight (Chicago time).
+                      Weekly amount limit ($200) reached. Resets Monday at midnight (Chicago time).
                     </p>
                   </div>
                 )}

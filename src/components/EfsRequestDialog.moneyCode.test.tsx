@@ -6,7 +6,7 @@ import { EfsRequestDialog } from "./EfsRequestDialog";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), refetch: vi.fn(), close: vi.fn(), toast: vi.fn(), recoveryLookup: vi.fn(), migrated: true, missingReceipts: [] as any[], receiptsLoading: false }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { functions: { invoke: mocks.invoke }, from: (table: string) => ({ select: () => table === "drivers" ? { eq: () => ({ maybeSingle: mocks.recoveryLookup }) } : { limit: () => Promise.resolve({ error: mocks.migrated ? null : { code: "42703", message: "column purpose_detail does not exist" } }) } }) } }));
-vi.mock("@/hooks/useDriverCashAdvance", () => ({ useDriverCashAdvance: () => ({ data: { weeklyAmount: 0, remainingAmount: 150, canRequest: true }, refetch: mocks.refetch, isLoading: false }) }));
+vi.mock("@/hooks/useDriverCashAdvance", () => ({ useDriverCashAdvance: () => ({ data: { weeklyAmount: 0, remainingAmount: 200, canRequest: true }, refetch: mocks.refetch, isLoading: false }) }));
 vi.mock("@/hooks/useDriverMissingFuelReceipt", () => ({ useDriverMissingFuelReceipt: () => ({ data: mocks.missingReceipts, isLoading: mocks.receiptsLoading }) }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: mocks.toast }) }));
 vi.mock("@/components/ui/select", () => ({

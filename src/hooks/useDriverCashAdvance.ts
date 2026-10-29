@@ -77,8 +77,8 @@ export function useDriverCashAdvance(driverId: string | null) {
 
       const weekCount = weekAdvances?.length || 0;
       const weeklyAmount = weekAdvances?.reduce((sum, adv) => sum + (adv.amount || 0), 0) || 0;
-      const remainingAmount = 150 - weeklyAmount;
-      // Only check weekly $150 limit (no daily limit)
+      const remainingAmount = 200 - weeklyAmount;
+      // Only check weekly $200 limit (no daily limit)
       const canRequest = remainingAmount > 0;
 
       return { weekCount, weeklyAmount, remainingAmount, canRequest };

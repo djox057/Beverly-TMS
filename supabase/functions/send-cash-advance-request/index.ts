@@ -141,9 +141,9 @@ const handler = async (req: Request): Promise<Response> => {
     let requesterName = body.requesterName;
 
     // Validate amount
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 150) {
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 200) {
       return new Response(
-        JSON.stringify({ success: false, error: "Amount must be between $0 and $150" }),
+        JSON.stringify({ success: false, error: "Amount must be between $0 and $200" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }
@@ -232,7 +232,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const weekCount = weekAdvances?.length || 0;
     const weeklyAmount = weekAdvances?.reduce((sum: number, adv: { amount: number }) => sum + (adv.amount || 0), 0) || 0;
-    const remainingAmount = 150 - weeklyAmount;
+    const remainingAmount = 200 - weeklyAmount;
     console.log("Week's advances:", { weekCount, weeklyAmount, remainingAmount });
 
     if (amount > remainingAmount) {
