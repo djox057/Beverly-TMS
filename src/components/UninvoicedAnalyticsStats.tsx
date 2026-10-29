@@ -11,6 +11,7 @@ export function UninvoicedAnalyticsStats({ isAdmin, orders }: Props) {
     if (!isAdmin) return result;
     for (const order of orders) {
       const freight = Number(order.totalFreightAmountNoLumper) || 0;
+      if (freight === 0) continue;
       if (order.invoiced !== true) {
         result.freight += freight;
         result.loads++;
