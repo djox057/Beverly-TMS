@@ -168,12 +168,12 @@ export function serviceSummary(truck: ServiceTruck, entries: ServiceEntry[], tod
   const baseline = truck.start_miles != null || truck.baseline_start_date || truck.baseline_note
     ? { odometer: truck.start_miles ?? null, log_date: truck.baseline_start_date ?? null, notes: truck.baseline_note ?? null }
     : dated.filter(e => e.entry_type === "Baseline Start").slice(-1)[0];
-  const readings = dated.filter(e => e.odometer != null && e.entry_type === "Mileage Check");
+  const readings = dated.filter(e => e.odometer != null && (e.entry_type === "Mileage Check" || isOilService(e.entry_type)));
   const currentReading = readings.slice(-1)[0];
   const linkedCurrent = entries.find(e => e.current_reading && e.original_odometer === truck.miles);
   const liveCurrent = linkedCurrent ? linkedCurrent.odometer : truck.miles;
   const useLoggedReading = currentReading && (truck.miles_updated_at
-    ? currentReading.log_date! > truck.miles_updated_at.slice(0, 10) || (currentReading.log_date === truck.miles_updated_at.slice(0, 10) && currentReading.created_at > truck.miles_updated_at)
+    ? currentReading.log_date! > truck.miles_updated_at.slice(0, 10) || (currentReading.log_date === truck.miles_updated_at.slice(0, 10) && (currentReading.created_at > truck.miles_updated_at || (isOilService(currentReading.entry_type) && currentReading.odometer! >= (liveCurrent ?? 0))))
     : liveCurrent == null || currentReading.odometer! > liveCurrent);
   const current = useLoggedReading ? currentReading.odometer : linkedCurrent ? linkedCurrent.odometer : truck.miles;
   const currentDate = useLoggedReading ? currentReading.log_date : linkedCurrent ? linkedCurrent.log_date : truck.miles_updated_at?.slice(0, 10) ?? null;
