@@ -1,4 +1,5 @@
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
+import { canBookLoads } from "@/lib/companyBooking";
 import { OrderFilesReadOnly } from "@/components/OrderFilesReadOnly";
 import { isMaintenanceFileViewer } from "@/lib/orderFileAccess";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -1472,13 +1473,14 @@ const EditOrderForm = () => {
             const {
               data: { session },
             } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("Please sign in again before sending email.");
             const response = await fetch(
               "https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email",
               {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
-                  Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
+                  Authorization: `Bearer ${session.access_token}`,
                 },
                 body: JSON.stringify({
                   to: driver2ForEmail?.email ? [selectedDriver.email, driver2ForEmail.email] : selectedDriver.email,
@@ -1885,7 +1887,7 @@ const EditOrderForm = () => {
   // Prepare options for dropdowns
   const companyOptions = useMemo(
     () =>
-      companies?.map((company) => ({
+      companies?.filter((company) => canBookLoads(company.name)).map((company) => ({
         value: company.id,
         label: company.name,
       })) || [],

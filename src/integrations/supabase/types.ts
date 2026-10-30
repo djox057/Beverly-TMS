@@ -857,6 +857,18 @@ export type Database = {
         }
         Relationships: []
       }
+      company_info_credentials: {
+        Row: { company_name: string; credentials: Json }
+        Insert: { company_name: string; credentials: Json }
+        Update: { company_name?: string; credentials?: Json }
+        Relationships: [{
+          foreignKeyName: "company_info_credentials_company_name_fkey"
+          columns: ["company_name"]
+          isOneToOne: true
+          referencedRelation: "companies"
+          referencedColumns: ["name"]
+        }]
+      }
       company_coi_files: {
         Row: {
           company_name: string

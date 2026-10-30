@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getCompanyBackgroundColor } from "@/pages/Reports/helpers";
 import { CompanyCoiSection } from "@/components/info/CompanyCoiSection";
+import { useCompanyInfoCredentials } from "@/hooks/useCompanyInfoCredentials";
 
 type Cred = { user: string; password: string };
 
@@ -28,107 +29,34 @@ type Company = {
 
 const companies: Company[] = [
   {
-    name: "BF PRIME LLC",
-    mc: "1130637",
-    dot: "3462417",
-    ein: "85-1486023",
-    phone: "(574) 544-5447",
-    address: "2901 Carlson Dr #300 L, Hammond IN 46323",
-    dispatchMail: { user: "dispatch.old@bfprime.net", password: "Prototips$1099" },
-    efs: { user: "BFPRIMELLC", password: "Kragujevac123" },
-    wex: { user: "dispatch@bfprime.net", password: "Kragujevac@2026" },
-    truckStop: { user: "dispatch@bfprime.net", password: "Kragujevac@2025" },
-    eldLogs: { user: "BFPrime", password: "123456" },
-    eldLiveTracking: { user: "BFPRIME1", password: "123456" },
-    samsaraInsured: { user: "accounting@bfprime.net", password: "Bfprime123" },
-    samsaraOther: { user: "dispatch@bfprime.net", password: "Dispatchbf123" },
-    samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
+    name: "BF PRIME LLC"
   },
   {
-    name: "AP SILVER TRANS LLC",
-    mc: "1770262",
-    dot: "4481860",
-    address: "100 SAUNDERS ROAD UNIT 192, LAKE FOREST, IL 60045",
-    dispatchMail: { user: "dispatch@apsilvertrans.net", password: "Egolastop@332$" },
-    transitTracking: { user: "APsliver", password: "123456" },
-    efs: { user: "APSILVERTRANSLLC", password: "Sreda2025" },
-    wex: { user: "dispatch@apsilvertrans.net", password: "Sreda2025" },
-    eldLogs: { user: "APSilver", password: "123456" },
-    eldLiveTracking: { user: "APSILVER1", password: "123456" },
-    samsaraInsured: { user: "Dispatch@apsilvertrans.net", password: "Kragujevac034" },
-    samsaraOther: { user: "dispatch@bfprime.net", password: "Dispatchbf123" },
-    samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
+    name: "AP SILVER TRANS LLC"
   },
   {
-    name: "Beverly Freight INC",
-    mc: "027435",
-    dot: "3007731",
-    ein: "36-5058802",
-    phone: "(847) 857-6129",
-    address: "5665 W 120th St, Alsip, IL 60803",
-    dispatchMail: { user: "dispatch.old@beverlyfreight.net", password: "Registration@123" },
-    efs: { user: "BEVERLYFREIGHTINC", password: "Beograd567" },
-    wex: { user: "dispatch@beverlyfreight.net", password: "Beograd@123456" },
-    truckStop: { user: "BEVERLYFREIGHTINC", password: "Kragujevac@2026" },
-    eldLogs: { user: "bgprime2", password: "123456" },
-    eldLiveTracking: { user: "beverly1", password: "123456" },
-    samsaraInsured: { user: "dispatch@beverlyfreight.net", password: "Kgjenajjaci" },
-    samsaraOther: { user: "zack@beverlyfreight.net", password: "Kragujevac123" },
-    samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
+    name: "Beverly Freight INC"
   },
   {
-    name: "UNITED ENTERPRISE SOLUTIONS INC",
-    mc: "1423086",
-    dot: "3879749",
-    address: "2340 S RIVER RD STE # 230 DES PLAINES IL 60018",
-    dispatchMail: { user: "Dispatch@unitedenterprisesolutions.net", password: "Draloye@5588" },
-    transitTracking: { user: "unitedenterprise", password: "123456" },
-    efs: { user: "UNITEDENTERPRISEINC", password: "Ponedeljak2025" },
-    wex: { user: "dispatch@unitedenterprisesolutions.net", password: "Ponedeljak2025" },
-    eldLogs: { user: "united1", password: "123456" },
-    eldLiveTracking: { user: "united", password: "123456" },
-    samsaraInsured: { user: "Dispatch@unitedenterprisesolutions.net", password: "Registration@123" },
-    samsaraOther: { user: "dispatch@bfprime.net", password: "Dispatchbf123" },
-    samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
+    name: "UNITED ENTERPRISE SOLUTIONS INC"
   },
   {
-    name: "BG PRIME INC",
-    mc: "1442603",
-    dot: "3909357",
-    ein: "88-2889825",
-    phone: "(312) 995-9909",
-    address: "1426 W ROSEMONT AVE, CHICAGO, IL 60660",
-    dispatchMail: { user: "dispatch@bgprime.net", password: "Sotokoto@3344" },
-    efs: { user: "BGPRIMEINC", password: "Subota2025" },
-    wex: { user: "dispatch@bgprime.net", password: "Ponedeljak@2026" },
-    eldLogs: { user: "bgprime2", password: "123456" },
-    eldLiveTracking: { user: "BGPRIME1", password: "123456" },
-    samsaraInsured: { user: "dispatch@bgprime.net", password: "Registration@123" },
-    samsaraOther: { user: "luka@bgprime.net", password: "Hansotro*3321" },
-    samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
+    name: "BG PRIME INC"
   },
   {
-    name: "LALE Transport LLC",
-    mc: "819580",
-    dot: "3450716",
-    ein: "85-1478640",
-    phone: "(314) 594-0345",
-    address: "3970 Max Welch Pl. Florissant, MO 63033",
-    dispatchMail: { user: "dispatch@laletransport.com", password: "Telefon26@" },
-    efs: { user: "LALETRANSPORTATIONLLC", password: "Petak26" },
-    samsaraInsured: { user: "dispatch@laletransport.com", password: "LaleT@123" },
-    samsaraTrailers: { user: "dispatch.old@beverlyfreight.net", password: "dispatch.old" },
+    name: "LALE Transport LLC"
   },
   {
-    name: "Jones Freight Lines LLC",
-    mc: "MC01822766",
-    dot: "4579508",
-    dispatchMail: { user: "dispatch@jonesfreight.net", password: "" },
+    name: "Jones Freight Lines LLC"
   },
-];
-
-const sharedAccounts: { label: string; user: string; password: string }[] = [
-  { label: "WIFI KG", user: "", password: "Beverly@2026" },
+  {
+    name: "GD Trucking Solutions LLC",
+    note: "Operating company only"
+  },
+  {
+    name: "Hart Freight Solutions LLC",
+    note: "Operating company only"
+  }
 ];
 
 const inspectionEmails = [
@@ -194,16 +122,6 @@ const reps: { mc: string; name: string; contact: string; note?: string }[] = [
 ];
 
 type Portal = { mc: string; name: string; user: string; password: string; rep?: string };
-const portalsByCompany: { company: string; portals: Portal[] }[] = [
-  {
-    company: "BF PRIME LLC",
-    portals: [
-      { mc: "033945", name: "Flock Freight", user: "dispatch@bfprime.net", password: "Dispatch@2025" },
-      { mc: "", name: "Spot Freight", user: "dispatch@bfprime.net", password: "Registration@123" },
-    ],
-  },
-  { company: "BEVERLY FREIGHT INC", portals: [] },
-];
 
 const Field = ({ label, value }: { label: string; value?: string }) => (
   <div className="flex gap-2 text-sm">
@@ -243,6 +161,12 @@ const CompanyCard = ({ c }: { c: Company }) => (
 );
 
 export default function Info() {
+  const { data: companyCredentials, isLoading, isError, refetch } = useCompanyInfoCredentials();
+  const sharedAccounts = companyCredentials?.["bf prime llc"]?.sharedAccounts ?? [];
+  const portalsByCompany: { company: string; portals: Portal[] }[] = [
+    { company: "BF PRIME LLC", portals: companyCredentials?.["bf prime llc"]?.portals ?? [] },
+    { company: "BEVERLY FREIGHT INC", portals: companyCredentials?.["beverly freight inc"]?.portals ?? [] },
+  ];
   return (
     <div className="p-6 space-y-4 max-w-[1600px] mx-auto">
       <h1 className="text-2xl font-bold">Info</h1>
@@ -254,9 +178,16 @@ export default function Info() {
         </TabsList>
 
         <TabsContent value="company" className="space-y-4">
+          {isLoading && <p className="text-sm text-muted-foreground">Loading company account details…</p>}
+          {isError && (
+            <p role="alert" className="text-sm text-destructive">
+              Unable to load company account details.{' '}
+              <button type="button" className="underline" onClick={() => refetch()}>Retry</button>
+            </p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {companies.map((c) => (
-              <CompanyCard key={c.name} c={c} />
+              <CompanyCard key={c.name} c={{ ...c, ...companyCredentials?.[c.name.toLowerCase()] }} />
             ))}
           </div>
 

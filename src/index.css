@@ -105,6 +105,10 @@
     --company-lale-foreground: 0 0% 100%;
     --company-jones: 266 75% 31%;
     --company-jones-foreground: 0 0% 100%;
+    --company-gd-trucking: 184 54% 54%;
+    --company-gd-trucking-foreground: 0 0% 0%;
+    --company-hart-freight: 274 100% 50%;
+    --company-hart-freight-foreground: 0 0% 100%;
 
     /* Manual row markers (Upcoming Drivers board) */
     --row-mark-blue: 210 90% 88%;
@@ -223,6 +227,10 @@
     --company-lale-foreground: 0 0% 100%;
     --company-jones: 266 75% 31%;
     --company-jones-foreground: 0 0% 100%;
+    --company-gd-trucking: 184 54% 54%;
+    --company-gd-trucking-foreground: 0 0% 0%;
+    --company-hart-freight: 274 100% 50%;
+    --company-hart-freight-foreground: 0 0% 100%;
 
     --row-mark-blue: 210 90% 88%;
     --row-mark-yellow: 48 96% 84%;

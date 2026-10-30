@@ -77,6 +77,16 @@ export const getCompanyBackgroundColor = (companyName: string | null) => {
       backgroundColor: "hsl(var(--company-lale))",
       color: "hsl(var(--company-lale-foreground))",
     };
+  } else if (normalizedName.includes("GD TRUCKING")) {
+    return {
+      backgroundColor: "hsl(var(--company-gd-trucking))",
+      color: "hsl(var(--company-gd-trucking-foreground))",
+    };
+  } else if (normalizedName.includes("HART FREIGHT")) {
+    return {
+      backgroundColor: "hsl(var(--company-hart-freight))",
+      color: "hsl(var(--company-hart-freight-foreground))",
+    };
   } else if (normalizedName.includes("JONES")) {
     return {
       backgroundColor: "hsl(var(--company-jones))",
