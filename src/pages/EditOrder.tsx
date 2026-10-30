@@ -1,4 +1,6 @@
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
+import { OrderFilesReadOnly } from "@/components/OrderFilesReadOnly";
+import { isMaintenanceFileViewer } from "@/lib/orderFileAccess";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -115,6 +117,16 @@ interface PickupDrop {
   longitude?: number;
 }
 const EditOrder = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { roles } = useAuthContext();
+  if (isMaintenanceFileViewer(roles) && id) {
+    return <OrderFilesReadOnly orderId={id} onBack={() => navigate(-1)} />;
+  }
+  return <EditOrderForm />;
+};
+
+const EditOrderForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
