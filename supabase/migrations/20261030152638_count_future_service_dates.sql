@@ -110,7 +110,7 @@ BEGIN
  yellow:=CASE WHEN source IN ('M&K','MK','M & K') THEN 32000 WHEN source='RYDER' THEN 42000 ELSE 26000 END;
  RETURN CASE WHEN since_oil<0 THEN 'CHECK ODOMETER' WHEN since_oil>due_miles THEN 'SERVICE OVERDUE' WHEN since_oil=due_miles THEN 'SERVICE DUE' WHEN since_oil>yellow THEN 'DUE SOON' WHEN since_oil IS NULL OR oil_date IS NULL THEN 'MISSING SERVICE DATA' ELSE 'READY / GOOD' END;
 END;
-$function$
+$function$;
 
 
 -- Refresh only derived statuses that changed under the new rule.
