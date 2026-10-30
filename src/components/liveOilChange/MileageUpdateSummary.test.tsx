@@ -116,3 +116,12 @@ it("counts saved oil services as mileage checks and deduplicates a truck already
   expect(db.calls).toContainEqual({ method: "not", args: ["odometer", "is", null] });
   expect(db.calls).toContainEqual({ method: "eq", args: ["is_deleted", false] });
 });
+
+
+it("includes oil services through the selected future period end", async () => {
+  show();
+  fireEvent.click(screen.getByLabelText("Month"));
+  fireEvent.click(screen.getByRole("button", { name: "November" }));
+  fireEvent.click(screen.getByRole("button", { name: "1st–7th" }));
+  await waitFor(() => expect(db.calls).toContainEqual({ method: "lte", args: ["log_date", "2026-11-07"] }));
+});
