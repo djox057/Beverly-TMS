@@ -28,6 +28,7 @@ import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { MileageHistoryPopover } from "@/components/liveOilChange/MileageHistoryPopover";
 import { OdometerHistoryPopover } from "@/components/liveOilChange/OdometerHistoryPopover";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
+import { buildServiceEntries, serviceSummary, type ServiceTruck } from "@/lib/truckServiceLog";
 import { getMileageUpdateStatus } from "@/lib/mileageUpdateStatus";
 import { TruckSourceSelect } from "@/components/TruckSourceSelect";
 import { TRUCK_SOURCES, normalizeTruckSource } from "@/lib/truckSources";
@@ -463,7 +464,7 @@ const LiveOilChange = () => {
           const mileageChanged = payload.eventType === "UPDATE" && queryClient.getQueriesData<TruckRow[]>({ queryKey: ["live-oil-change-trucks"] })
             .some(([, rows]) => {
               const previous = rows?.find(row => row.id === id);
-              return previous && newRec.miles !== undefined && newRec.miles !== previous.miles;
+              return previous && newRec.miles !== undefined && (newRec.miles !== previous.miles || newRec.last_oil_change_miles !== previous.last_oil_change_miles);
             });
           if (mileageChanged) queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] });
           // Directly patch cached rows so all connected clients see the update
@@ -488,6 +489,9 @@ const LiveOilChange = () => {
           );
         },
       )
+      .on("postgres_changes", { event: "*", schema: "public", table: "truck_service_log_entries" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] });
+      })
       .subscribe();
     return () => {
       channel?.unsubscribe();
@@ -674,8 +678,12 @@ const LiveOilChange = () => {
     const dispatcherMap = new Map(allDispatchers.map((d: any) => [d.id, d]));
     return trucks.map((t) => {
       const d = t.dispatcher_id ? dispatcherMap.get(t.dispatcher_id) : undefined;
+      const serviceTruck = t as unknown as ServiceTruck;
+      const summary = serviceSummary(serviceTruck, buildServiceEntries(serviceTruck, [], []));
       return {
         ...t,
+        miles: summary.current,
+        miles_updated_at: summary.currentDate === t.miles_updated_at?.slice(0, 10) ? t.miles_updated_at : summary.currentDate,
         dispatcher_name: d ? d.full_name || d.email || null : null,
         dispatcher_office: d ? d.office || null : null,
       };
