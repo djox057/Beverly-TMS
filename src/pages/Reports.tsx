@@ -5438,7 +5438,6 @@ const Reports = () => {
                                                           </PopoverTrigger>
                                                           <PopoverContent className="w-auto max-w-xs p-3">
                                                             <p className="text-xs">{alert.tooltip}</p>
-                                                          <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, alert.tooltip)} />
                                                           </PopoverContent>
                                                         </Popover>
                                                       );
@@ -5459,7 +5458,6 @@ const Reports = () => {
                                                         </PopoverTrigger>
                                                         <PopoverContent className="w-auto max-w-xs p-3">
                                                           <p className="text-xs">{alert.tooltip}</p>
-                                                          <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, alert.tooltip)} />
                                                         </PopoverContent>
                                                       </Popover>
                                                     );
@@ -5488,7 +5486,6 @@ const Reports = () => {
                                                             </div>
                                                           ))}
                                                         </div>
-                                                        <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, truckAlerts.map(alert => alert.tooltip).join("; "))} />
                                                       </PopoverContent>
                                                     </Popover>
                                                   );
@@ -5822,7 +5819,7 @@ const Reports = () => {
                                                         </PopoverTrigger>
                                                         <PopoverContent className="w-auto max-w-xs p-3">
                                                           <p className="text-xs">{icon.tooltip}</p>
-                                                          {icon.key === "maintenance" && <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, icon.tooltip)} />}
+                                                          {icon.key === "maintenance" && maintenanceStatus.oilTriggered && <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, icon.tooltip)} />}
                                                         </PopoverContent>
                                                       </Popover>
                                                     );
@@ -5865,7 +5862,7 @@ const Reports = () => {
                                                                 </button>
                                                               ))}
                                                             </div>
-                                                            {maintenanceStatus.show && <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, maintenanceStatus.tooltip)} />}
+                                                            {maintenanceStatus.oilTriggered && <MaintenanceNotePreview truckId={truck.id} onEdit={() => openMaintenanceNote(truck, maintenanceStatus.tooltip)} />}
                                                           </PopoverContent>
                                                         </Popover>
                                                       )}
