@@ -149,9 +149,10 @@ export function calculateServiceLog(entries: ServiceEntry[], source: string | nu
   });
 }
 
-export function serviceSummary(truck: ServiceTruck, entries: ServiceEntry[], today = chicagoTodayISO()) {
+export function serviceSummary(truck: ServiceTruck, entries: ServiceEntry[], _today = chicagoTodayISO()) {
   const interval = getServiceInterval(truck.source);
-  const dated = entries.filter(e => e.log_date && e.log_date <= today);
+  // Recorded service dates count even when they are in the future.
+  const dated = entries.filter(e => e.log_date);
   const datedOil = dated.filter(e => isOilService(e.entry_type)).slice(-1)[0];
   const undatedOil = entries.filter(e => isOilService(e.entry_type) && !e.log_date).slice(-1)[0];
   // A missing live date must not let older imported service mileage take over.
