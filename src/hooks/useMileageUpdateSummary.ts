@@ -22,7 +22,7 @@ export function useMileageUpdateSummary(enabled = true) {
       for (let offset = 0; ; offset += 1000) {
         const { data, error } = await supabase.from("truck_mileage_history")
           .select("truck_id, changed_by")
-          .eq("field", "miles")
+          .in("field", ["miles", "last_oil_change_miles"])
           .not("new_value", "is", null)
           .gte("changed_at", bounds.start).lt("changed_at", bounds.endExclusive)
           .order("changed_at").order("id")
@@ -30,6 +30,21 @@ export function useMileageUpdateSummary(enabled = true) {
         if (error) throw error;
         // Counts and filters only need each truck/editor pair once.
         for (const edit of data ?? []) edits.set(`${edit.truck_id}:${edit.changed_by ?? ""}`, edit);
+        if ((data ?? []).length < 1000) break;
+      }
+      // A saved oil service is also a mileage check on its service date.
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabase.from("truck_service_log_entries")
+          .select("truck_id, created_by")
+          .in("entry_type", ["Oil Change", "Air Filter + Oil change"])
+          .eq("is_deleted", false).not("odometer", "is", null)
+          .gte("log_date", period.start).lte("log_date", period.end < today ? period.end : today)
+          .order("id").range(offset, offset + 999);
+        if (error) throw error;
+        for (const entry of data ?? []) {
+          const edit = { truck_id: entry.truck_id, changed_by: entry.created_by };
+          edits.set(`${edit.truck_id}:${edit.changed_by ?? ""}`, edit);
+        }
         if ((data ?? []).length < 1000) break;
       }
       return [...edits.values()];
