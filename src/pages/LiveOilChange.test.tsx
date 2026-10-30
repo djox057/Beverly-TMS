@@ -30,8 +30,8 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
     );
     if (mocks.inactiveFixture) trucks.push({ ...trucks[0], id: "truck6270", truck_number: "6270", is_active: false, driver1_id: null, dispatcher_id: "other" });
     let data = table === "trucks" ? trucks : table === "drivers" ? [{ id: "driver1", first_name: "Jane", last_name: "Driver", dispatcher_id: null, company_id: null }] : table === "companies" ? [{ id: "company1", name: "Test Company" }] : table === "user_roles" ? [{ user_id: "user1" }] : table === "profiles" ? [{ user_id: "user1", id: "user1", full_name: "Test Dispatcher", office: "Chicago" }] : [];
-    const q = { select: () => q, eq: (field: string, value: unknown) => { if (table === "trucks" && field === "is_active") data = trucks.filter(truck => truck.is_active === value); return q; }, in: () => q, order: () => q, not: () => q, gte: () => q, lt: () => q,
-      range: async () => { mocks.historyRequests++; return { data: [{ truck_id: "truck498", changed_by: "user1" }], error: null }; },
+    const q = { select: () => q, eq: (field: string, value: unknown) => { if (table === "trucks" && field === "is_active") data = trucks.filter(truck => truck.is_active === value); return q; }, in: () => q, order: () => q, not: () => q, gte: () => q, lt: () => q, lte: () => q,
+      range: async () => { if (table === "truck_mileage_history") mocks.historyRequests++; return { data: table === "truck_mileage_history" ? [{ truck_id: "truck498", changed_by: "user1" }] : [], error: null }; },
       then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data, error: null }).then(resolve),
     };
     return q;
