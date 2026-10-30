@@ -5,17 +5,18 @@ import { filterMileageUpdateTrucks } from "@/lib/mileageUpdatePeriod";
 import { useMileageUpdateSummary } from "@/hooks/useMileageUpdateSummary";
 import { MileageUpdateSummary } from "./MileageUpdateSummary";
 
-const db = vi.hoisted(() => ({ calls: [] as { method: string; args: unknown[] }[], fail: false, large: false }));
+const db = vi.hoisted(() => ({ calls: [] as { method: string; args: unknown[] }[], fail: false, large: false, oil: false }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { from: (table: string) => {
     db.calls.push({ method: "from", args: [table] });
-    const chain: Record<string, (...args: unknown[]) => unknown> = Object.fromEntries(["select", "eq", "not", "gte", "lt", "order"].map((method) => [method, (...args: unknown[]) => {
+    const chain: Record<string, (...args: unknown[]) => unknown> = Object.fromEntries(["select", "eq", "in", "not", "gte", "lt", "lte", "order"].map((method) => [method, (...args: unknown[]) => {
       db.calls.push({ method, args }); return chain;
     }]));
     chain.range = async (...args: unknown[]) => {
       const [start, end] = args as number[];
       db.calls.push({ method: "range", args: [start, end] });
       if (db.fail) return { data: null, error: new Error("History unavailable") };
+      if (table === "truck_service_log_entries") return { data: db.oil ? [{ truck_id: "a", created_by: "person1" }, { truck_id: "b", created_by: "person2" }] : [], error: null };
       const data = db.large && start === 0 ? Array.from({ length: 1000 }, () => ({ truck_id: "a", changed_by: "person1" }))
         : [{ truck_id: "b", changed_by: "person2" }, { truck_id: "hidden", changed_by: "person3" }];
       return { data, error: null };
@@ -35,14 +36,14 @@ function show(trucks = [{ id: "a", driver1_id: "driver-a" }, { id: "b", driver1_
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={client}><SummaryHarness trucks={trucks} /></QueryClientProvider>);
 }
-beforeEach(() => { localStorage.clear(); db.calls = []; db.fail = false; db.large = false; });
+beforeEach(() => { localStorage.clear(); db.calls = []; db.fail = false; db.large = false; db.oil = false; });
 afterEach(cleanup);
 
 it("uses history and filters out people from hidden trucks", async () => {
   show();
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("All trucks updated 1 / 3"));
   expect(screen.getByRole("status")).toHaveTextContent("People who updated mileage 1");
-  expect(db.calls).toContainEqual({ method: "eq", args: ["field", "miles"] });
+  expect(db.calls).toContainEqual({ method: "in", args: ["field", ["miles", "last_oil_change_miles"]] });
   expect(db.calls).toContainEqual({ method: "not", args: ["new_value", "is", null] });
 });
 
@@ -103,4 +104,15 @@ it("combines all/assigned scope with update status and keeps the other selection
   expect(screen.getByRole("status")).toHaveTextContent("All trucks updated 2 / 4");
   fireEvent.click(screen.getByRole("button", { name: "All updates" }));
   expect(screen.getByRole("list", { name: "Visible trucks" })).toHaveTextContent(/^abhiddenidle$/);
+});
+
+
+it("counts saved oil services as mileage checks and deduplicates a truck already updated", async () => {
+  db.oil = true;
+  show();
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("All trucks updated 2 / 3"));
+  expect(screen.getByRole("status")).toHaveTextContent("People who updated mileage 2");
+  expect(db.calls).toContainEqual({ method: "in", args: ["entry_type", ["Oil Change", "Air Filter + Oil change"]] });
+  expect(db.calls).toContainEqual({ method: "not", args: ["odometer", "is", null] });
+  expect(db.calls).toContainEqual({ method: "eq", args: ["is_deleted", false] });
 });
