@@ -7123,6 +7123,7 @@ export type Database = {
           engine: string | null
           eta_minutes: number | null
           fleet_pm_readiness: string
+          fleet_service_snapshot: Json
           fuel_level: number | null
           has_apu_webasto: boolean
           has_fridge: boolean
@@ -7191,6 +7192,7 @@ export type Database = {
           engine?: string | null
           eta_minutes?: number | null
           fleet_pm_readiness?: string
+          fleet_service_snapshot?: Json
           fuel_level?: number | null
           has_apu_webasto?: boolean
           has_fridge?: boolean
@@ -7259,6 +7261,7 @@ export type Database = {
           engine?: string | null
           eta_minutes?: number | null
           fleet_pm_readiness?: string
+          fleet_service_snapshot?: Json
           fuel_level?: number | null
           has_apu_webasto?: boolean
           has_fridge?: boolean
