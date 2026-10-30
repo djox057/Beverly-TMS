@@ -334,9 +334,17 @@ describe("oil services also count as mileage checks", () => {
     const live = { ...truck, oil_change_date: "2026-09-30", last_oil_change_miles: 169000 };
     expect(serviceSummary(live, buildServiceEntries(live, [], []), "2026-10-08")).toMatchObject({ current: 169000, sinceOil: 0 });
   });
-  it("does not replace newer mileage with backdated, undated, future or mileage-free oil services", () => {
-    for (const extra of [{ log_date: "2026-09-01", odometer: 170000 }, { log_date: null, odometer: 170000 }, { log_date: "2026-11-01", odometer: 170000 }, { log_date: "2026-10-08", odometer: null }]) {
+  it("does not replace newer mileage with backdated, undated or mileage-free oil services", () => {
+    for (const extra of [{ log_date: "2026-09-01", odometer: 170000 }, { log_date: null, odometer: 170000 }, { log_date: "2026-10-08", odometer: null }]) {
       expect(serviceSummary(truck, buildServiceEntries(truck, [], [entry(extra)]), "2026-10-08").current).toBe(truck.miles);
     }
   });
+});
+
+
+it.each(["Oil Change", "Air Filter + Oil change"] as const)("counts future-dated %s in readiness and mileage", entry_type => {
+  const live = { ...truck, miles: 405618, miles_updated_at: "2026-11-02T00:00:00Z", last_oil_change_miles: 405618, oil_change_date: "2026-11-02" };
+  const saved = [entry({ entry_type, log_date: "2026-11-02", odometer: 405618 }), entry({ id: "old", log_date: "2026-06-18", odometer: 368128 })];
+  const result = serviceSummary(live, buildServiceEntries(live, [], saved), "2026-10-30");
+  expect(result).toMatchObject({ current: 405618, currentDate: "2026-11-02", oilDate: "2026-11-02", sinceOil: 0, status: "READY / GOOD" });
 });
