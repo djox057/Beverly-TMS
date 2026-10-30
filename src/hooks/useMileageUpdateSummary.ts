@@ -38,7 +38,7 @@ export function useMileageUpdateSummary(enabled = true) {
           .select("truck_id, created_by")
           .in("entry_type", ["Oil Change", "Air Filter + Oil change"])
           .eq("is_deleted", false).not("odometer", "is", null)
-          .gte("log_date", period.start).lte("log_date", period.end < today ? period.end : today)
+          .gte("log_date", period.start).lte("log_date", period.end)
           .order("id").range(offset, offset + 999);
         if (error) throw error;
         for (const entry of data ?? []) {
