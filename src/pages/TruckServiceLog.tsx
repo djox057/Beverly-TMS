@@ -103,7 +103,7 @@ export default function TruckServiceLog() {
   });
   useEffect(() => {
     if (!truckId) return;
-    const refresh = () => { queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] }); };
+    const refresh = () => { queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] }); queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] }); };
     const channel = busChannel(refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "trucks", filter: `id=eq.${truckId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "truck_mileage_history", filter: `truck_id=eq.${truckId}` }, refresh)
@@ -153,7 +153,7 @@ export default function TruckServiceLog() {
       if (result.error) throw result.error;
       if (!result.data?.length) throw new Error("Entry was not saved. Check your permissions and retry.");
     },
-    onSuccess: () => { setEditing(null); queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] }); toast({ title: "Log entry saved" }); },
+    onSuccess: () => { setEditing(null); queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] }); queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] }); toast({ title: "Log entry saved" }); },
     onError: (e: Error) => toast({ title: "Could not save entry", description: e.message, variant: "destructive" }),
   });
   const inlineSave = useMutation({
@@ -187,7 +187,7 @@ export default function TruckServiceLog() {
       }
     },
     onSuccess: async () => {
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }), queryClient.invalidateQueries({ queryKey: ["trucks"] }), queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] })]);
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }), queryClient.invalidateQueries({ queryKey: ["trucks"] }), queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] }), queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] })]);
     },
   });
   const addInlineRow = useMutation({
@@ -214,7 +214,7 @@ export default function TruckServiceLog() {
       const result = await db.from("truck_service_log_entries").insert(complete).select("id");
       if (result.error) throw result.error;
       if (!result.data?.length) throw new Error("Entries were not saved. Check your permissions and retry.");
-      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
+      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] }); queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] });
       setDraftRows(current => { const next = { ...current }; delete next[index]; return next; });
     },
   });
@@ -250,7 +250,7 @@ export default function TruckServiceLog() {
     },
     onSuccess: async () => {
       setDeleting(null);
-      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
+      await queryClient.invalidateQueries({ queryKey: ["truck-service-log", truckId] }); queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] }); queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] });
       queryClient.invalidateQueries({ queryKey: ["trucks"] });
       toast({ title: "Log entry deleted" });
     },
@@ -291,7 +291,7 @@ export default function TruckServiceLog() {
   const navigationBusy = loadingTrucks || !!truckSearchError || inlineSave.isPending || addInlineRow.isPending || save.isPending || deleteEntry.isPending || bulkDelete.isPending;
   const truck = data.truck;
   const makeModel = [truck.make, truck.model].filter(Boolean).join(" ");
-  const freshness = getMileageUpdateStatus(truck.miles_updated_at);
+  const freshness = getMileageUpdateStatus(summary.currentDate);
   const toneClass = (tone: string) => tone === "red" ? "bg-red-50 text-red-800" : tone === "yellow" ? "bg-amber-50 text-amber-800" : tone === "unknown" ? "bg-slate-50 text-slate-600" : "bg-emerald-50 text-emerald-900";
   const airFilterDue = summary.current != null && summary.sinceFilter != null && summary.sinceFilter >= 0
     ? summary.current - summary.sinceFilter + 80000 : null;
