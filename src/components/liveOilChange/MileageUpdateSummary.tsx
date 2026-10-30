@@ -59,7 +59,7 @@ export function MileageUpdateSummary({ trucks, trucksLoading, trucksError, summa
             <span>People who updated mileage <strong>{counts.people}</strong></span>
           </>}
       </div>
-      <p className="text-xs text-muted-foreground">Recorded total-mileage changes for {scope === "assigned" ? "trucks with an assigned driver" : "all trucks"} in the current filters. Each truck and person counts once. Dates use Chicago time.</p>
+      <p className="text-xs text-muted-foreground">Recorded mileage checks and oil changes for {scope === "assigned" ? "trucks with an assigned driver" : "all trucks"} in the current filters. Each truck and person counts once. Dates use Chicago time.</p>
     </section>
   );
 }
