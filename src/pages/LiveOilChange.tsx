@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parse, parseISO, isValid } from "date-fns";
 import { Droplet, Search, Upload, Eye, RefreshCcw, ChevronDown, Calendar as CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +29,7 @@ import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { MileageHistoryPopover } from "@/components/liveOilChange/MileageHistoryPopover";
 import { OdometerHistoryPopover } from "@/components/liveOilChange/OdometerHistoryPopover";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
-import { buildServiceEntries, serviceSummary, type ServiceTruck } from "@/lib/truckServiceLog";
+import { applyFleetServiceSnapshot, type FleetServiceSnapshot } from "@/lib/fleetServiceSnapshot";
 import { getMileageUpdateStatus } from "@/lib/mileageUpdateStatus";
 import { TruckSourceSelect } from "@/components/TruckSourceSelect";
 import { TRUCK_SOURCES, normalizeTruckSource } from "@/lib/truckSources";
@@ -50,6 +51,7 @@ type TruckRow = {
   miles_updated_at: string | null;
   air_filter: number | null;
   fleet_pm_readiness?: string;
+  fleet_service_snapshot?: FleetServiceSnapshot | null;
   last_oc_invoice: string | null;
   oil_change_note: string | null;
   oil_change_note_author?: string | null;
@@ -491,6 +493,7 @@ const LiveOilChange = () => {
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "truck_service_log_entries" }, () => {
         queryClient.invalidateQueries({ queryKey: ["oil-change-mileage-update-summary"] });
+        queryClient.invalidateQueries({ queryKey: ["live-oil-change-trucks"] });
       })
       .subscribe();
     return () => {
@@ -583,10 +586,10 @@ const LiveOilChange = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trucks")
-        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, oil_change_note, oil_change_note_author, oil_change_note_updated_at, fleet_pm_readiness, is_active, driver1_id, dispatcher_id, company_id")
+        .select("id, truck_number, source, oil_change_date, last_oil_change_miles, miles, miles_updated_at, air_filter, last_oc_invoice, oil_change_note, oil_change_note_author, oil_change_note_updated_at, fleet_pm_readiness, fleet_service_snapshot, is_active, driver1_id, dispatcher_id, company_id")
         .order("truck_number");
       if (error) throw error;
-      const truckRows = (data ?? []) as TruckRow[];
+      const truckRows = (data ?? []) as unknown as TruckRow[];
       const driverIds = Array.from(new Set(truckRows.map((truck) => truck.driver1_id).filter(Boolean))) as string[];
       const driversResult = driverIds.length
         ? await supabase.from("drivers").select("id, first_name, last_name, dispatcher_id, company_id").in("id", driverIds)
@@ -650,6 +653,21 @@ const LiveOilChange = () => {
         if (error) throw error;
         return;
       }
+      // When the displayed service came from the log, edit that same record.
+      // Updating only the older raw truck field would leave the row unchanged.
+      const snapshot = trucks.find(truck => truck.id === id)?.fleet_service_snapshot;
+      const oilFields: Record<string, string> = { oil_change_date: "log_date", last_oil_change_miles: "odometer", last_oc_invoice: "invoice" };
+      const serviceEntryId = snapshot?.oil_log_entry_id && patchKeys.every(key => key in oilFields)
+        ? snapshot.oil_log_entry_id
+        : snapshot?.air_filter_log_entry_id && patchKeys.length === 1 && patchKeys[0] === "air_filter"
+          ? snapshot.air_filter_log_entry_id : null;
+      if (serviceEntryId) {
+        const servicePatch = Object.fromEntries(Object.entries(patch).map(([key, value]) => [key === "air_filter" ? "odometer" : oilFields[key], value])) as Database["public"]["Tables"]["truck_service_log_entries"]["Update"];
+        const { data, error } = await supabase.from("truck_service_log_entries").update(servicePatch).eq("id", serviceEntryId).select("id");
+        if (error) throw error;
+        if (!data?.length) throw new Error("No permission to edit this service entry.");
+        return;
+      }
       const { error } = await supabase.from("trucks").update(patch as never).eq("id", id);
       if (error) throw error;
     },
@@ -678,12 +696,8 @@ const LiveOilChange = () => {
     const dispatcherMap = new Map(allDispatchers.map((d: any) => [d.id, d]));
     return trucks.map((t) => {
       const d = t.dispatcher_id ? dispatcherMap.get(t.dispatcher_id) : undefined;
-      const serviceTruck = t as unknown as ServiceTruck;
-      const summary = serviceSummary(serviceTruck, buildServiceEntries(serviceTruck, [], []));
       return {
-        ...t,
-        miles: summary.current,
-        miles_updated_at: summary.currentDate === t.miles_updated_at?.slice(0, 10) ? t.miles_updated_at : summary.currentDate,
+        ...applyFleetServiceSnapshot(t),
         dispatcher_name: d ? d.full_name || d.email || null : null,
         dispatcher_office: d ? d.office || null : null,
       };
