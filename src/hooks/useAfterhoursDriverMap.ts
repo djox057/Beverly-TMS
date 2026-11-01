@@ -21,7 +21,7 @@ const fmt = (d: Date) =>
 
 const EMPTY_MAP = new Map<string, AfterhoursDriverInfo>();
 
-/** Reports labels: weekend dates use Chicago; shift labels use Serbia 22:00–13:00.
+/** Reports labels: weekend dates use Chicago; shift labels use Serbia 22:00–14:00.
  * Shift labels always come from the active shift; personal assignment history
  * must not override the morning/night handoff. Refresh while Reports stays open.
  */
@@ -58,17 +58,7 @@ export const useAfterhoursDriverMap = () => {
             .range(from, to)));
       }
 
-      // Reports hands scheduled weekend coverage over at 13:00 Belgrade,
-      // even while the regular morning shift continues until 14:00.
-      const belgradeHour = Number(new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'Europe/Belgrade', hour: '2-digit', hourCycle: 'h23',
-      }).format(new Date()));
-      const weekendHandoff = Boolean(scheduleData?.length) && belgradeHour >= 13 && belgradeHour < 22;
-
-      // Hide morning assignment labels in Reports from 13:00 Belgrade.
-      const showShiftLabels = shiftTime.shift === 'night' ||
-        (shiftTime.shift === 'morning' && belgradeHour < 13);
-      if (showShiftLabels && !weekendHandoff) {
+      if (shiftTime.shift) {
         const shiftData = await fetchAllRows<CoverageRow>((from, to) =>
           supabase
             .from('afterhours_shift_assignments')
