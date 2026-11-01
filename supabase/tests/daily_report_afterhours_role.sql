@@ -28,7 +28,7 @@ BEGIN
     -- Scheduled UPDATE and manual delete/insert attempts cannot change the role.
     UPDATE public.user_roles SET role = 'dispatch' WHERE user_id = target;
     DELETE FROM public.user_roles WHERE user_id = target;
-    INSERT INTO public.user_roles (user_id, role) VALUES (target, 'admin'), (target, 'dispatch'), (target, 'afterhours');
+    INSERT INTO public.user_roles (user_id, role) VALUES (target, 'dispatch'), (target, 'afterhours');
     IF (SELECT array_agg(role::text) FROM public.user_roles WHERE user_id = target) IS DISTINCT FROM ARRAY['afterhours'] THEN
       RAISE EXCEPTION 'Protected role changed or another role was added';
     END IF;
@@ -47,6 +47,33 @@ BEGIN
     UPDATE public.daily_report_permissions SET can_view = true, can_edit = true WHERE user_id = target;
     IF (SELECT array_agg(role) FROM public.user_roles WHERE user_id = target) IS DISTINCT FROM ARRAY[exempt_role] THEN
       RAISE EXCEPTION 'Exempt role % was changed', exempt_role;
+    END IF;
+  END LOOP;
+  FOREACH exempt_role IN ARRAY ARRAY['admin','manager','supervisor','safety','accounting','maintenance','chicago_management','yard','recruiting','claims','driver']::public.app_role[]
+  LOOP
+    UPDATE public.daily_report_permissions SET can_view = false, can_edit = false WHERE user_id = target;
+    DELETE FROM public.user_roles WHERE user_id = target;
+    INSERT INTO public.user_roles (user_id, role) VALUES (target, 'afterhours');
+    UPDATE public.daily_report_permissions SET can_view = true, can_edit = true WHERE user_id = target;
+
+    -- The API saves a replacement before removing the protected old role.
+    INSERT INTO public.user_roles (user_id, role) VALUES (target, exempt_role)
+    ON CONFLICT (user_id, role) DO UPDATE SET role = EXCLUDED.role;
+    DELETE FROM public.user_roles WHERE user_id = target AND role <> exempt_role;
+    IF (SELECT array_agg(role) FROM public.user_roles WHERE user_id = target) IS DISTINCT FROM ARRAY[exempt_role] THEN
+      RAISE EXCEPTION 'Manual promotion to % must leave exactly the selected role', exempt_role;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.daily_report_permissions WHERE user_id = target AND can_view AND can_edit) THEN
+      RAISE EXCEPTION 'Manual promotion changed Daily Report permissions';
+    END IF;
+
+    -- Direct UPDATE is also allowed for non-dispatch role changes.
+    UPDATE public.daily_report_permissions SET can_view = false, can_edit = false WHERE user_id = target;
+    UPDATE public.user_roles SET role = 'afterhours' WHERE user_id = target;
+    UPDATE public.daily_report_permissions SET can_view = true, can_edit = true WHERE user_id = target;
+    UPDATE public.user_roles SET role = exempt_role WHERE user_id = target;
+    IF (SELECT array_agg(role) FROM public.user_roles WHERE user_id = target) IS DISTINCT FROM ARRAY[exempt_role] THEN
+      RAISE EXCEPTION 'Direct role update to % was blocked', exempt_role;
     END IF;
   END LOOP;
 END;

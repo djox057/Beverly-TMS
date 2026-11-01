@@ -15,8 +15,8 @@ async function requestRole(permissions, roles, requestedRole = 'dispatch', permi
     from(table) {
       let operation = 'select';
       const chain = {};
-      for (const method of ['select', 'eq']) chain[method] = () => chain;
-      for (const method of ['insert', 'delete', 'update']) chain[method] = value => {
+      for (const method of ['select', 'eq', 'neq']) chain[method] = () => chain;
+      for (const method of ['insert', 'upsert', 'delete', 'update']) chain[method] = value => {
         operation = method; writes.push({ table, operation, value }); return chain;
       };
       chain.single = async () => ({ data: { role: 'admin' }, error: null });
@@ -48,7 +48,7 @@ for (const [name, permissions] of [
   const { response, body, writes } = await requestRole(permissions, ['afterhours']);
   assert.equal(response.status, 200);
   assert.equal(body.role, 'afterhours');
-  assert.equal(writes.find(w => w.operation === 'insert').value.role, 'afterhours');
+  assert.equal(writes.find(w => w.operation === 'upsert').value.role, 'afterhours');
 });
 
 for (const role of ['admin','manager','supervisor','safety','accounting','maintenance','chicago_management','yard','recruiting','claims','driver']) {
@@ -73,3 +73,17 @@ test('an exempt account switching to dispatch with permission becomes afterhours
   const { body } = await requestRole({ can_view: true, can_edit: false }, ['manager'], 'dispatch');
   assert.equal(body.role, 'afterhours');
 });
+
+for (const role of ['admin','manager','supervisor','safety','accounting','maintenance','chicago_management','yard','recruiting','claims','driver']) {
+  for (const permissions of [{can_view:true,can_edit:false}, {can_view:false,can_edit:true}, {can_view:true,can_edit:true}]) {
+    test(`afterhours can change to ${role} with permissions ${JSON.stringify(permissions)}`, async () => {
+      const { response, body, writes } = await requestRole(permissions, ['afterhours'], role);
+      assert.equal(response.status, 200);
+      assert.equal(body.role, role);
+      const roleWrites = writes.filter(w => w.table === 'user_roles');
+      assert.equal(roleWrites[0].operation, 'upsert');
+      assert.equal(roleWrites[0].value.role, role);
+      assert.equal(roleWrites[1].operation, 'delete');
+    });
+  }
+}

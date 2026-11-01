@@ -73,10 +73,9 @@ const AdminUsers = () => {
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [editDailyView, setEditDailyView] = useState(false);
   const [editDailyEdit, setEditDailyEdit] = useState(false);
-  // Daily Report locks dispatch/afterhours accounts; other roles keep their role.
-  const dailyReportRoleLocked = !!userToEdit?.roles.length && userToEdit.roles.every(role => role === 'dispatch' || role === 'afterhours') && (editDailyView || editDailyEdit);
-  const effectiveEditRole = dailyReportRoleLocked || (!userToEdit?.roles.includes('admin') && (editDailyView || editDailyEdit) && editRole === 'dispatch')
-    ? 'afterhours' : editRole;
+  // Daily Report blocks the dispatch role, while manual changes to other roles remain available.
+  const dailyReportEnabled = !userToEdit?.roles.includes('admin') && (editDailyView || editDailyEdit);
+  const effectiveEditRole = dailyReportEnabled && editRole === 'dispatch' ? 'afterhours' : editRole;
   const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
   const [editIsEld, setEditIsEld] = useState(false);
   const [editIsEldManager, setEditIsEldManager] = useState(false);
@@ -1211,7 +1210,7 @@ const AdminUsers = () => {
             
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
-              <Select value={effectiveEditRole} disabled={dailyReportRoleLocked} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims') => setEditRole(value)}>
+              <Select value={effectiveEditRole} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims') => setEditRole(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1231,8 +1230,8 @@ const AdminUsers = () => {
                     <SelectItem value="driver">Driver</SelectItem>
                 </SelectContent>
               </Select>
-              {dailyReportRoleLocked && (
-                <p className="text-xs text-muted-foreground">Daily Report access requires After Hours. Turn off both Daily Report permissions to change the role.</p>
+              {dailyReportEnabled && (
+                <p className="text-xs text-muted-foreground">Daily Report access prevents switching to Dispatch. You can still select Manager, Supervisor, or another role.</p>
               )}
             </div>
 

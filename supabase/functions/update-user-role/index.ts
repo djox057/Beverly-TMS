@@ -72,21 +72,15 @@ Deno.serve(async (req) => {
       throw new Error(`Invalid role: ${requestedRole}`)
     }
 
-    // Explicit Daily Report access pins this user to afterhours, including
-    // requests from older clients and scheduled role changes.
+    // Daily Report prevents dispatch flips. Explicit administrative role selections
+    // such as manager and supervisor must remain available.
     const { data: dailyPermissions, error: dailyPermissionsError } = await supabaseAdmin
       .from('daily_report_permissions')
       .select('can_view, can_edit')
       .eq('user_id', targetUserId)
       .maybeSingle()
     if (dailyPermissionsError) throw dailyPermissionsError
-    const { data: targetRoles, error: targetRolesError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', targetUserId)
-    if (targetRolesError) throw targetRolesError
-    const hasOtherRole = targetRoles?.some(row => row.role !== 'dispatch' && row.role !== 'afterhours')
-    const role = (!hasOtherRole || requestedRole === 'dispatch' || requestedRole === 'afterhours') && (dailyPermissions?.can_view || dailyPermissions?.can_edit)
+    const role = requestedRole === 'dispatch' && (dailyPermissions?.can_view || dailyPermissions?.can_edit)
       ? 'afterhours' : requestedRole
 
     // ---- Optional email change (auth + profile + login alias) ----
@@ -168,28 +162,26 @@ Deno.serve(async (req) => {
     }
 
 
-    // Delete existing roles for the user
+    // Save the selected role first. The Daily Report guard keeps afterhours
+    // until its replacement exists, so delete-first would block manual promotions.
+    const { error: insertError } = await supabaseAdmin
+      .from('user_roles')
+      .upsert({ user_id: targetUserId, role }, { onConflict: 'user_id,role' })
+
+    if (insertError) {
+      console.error('Error saving new role:', insertError)
+      throw new Error('Failed to save new role')
+    }
+
     const { error: deleteError } = await supabaseAdmin
       .from('user_roles')
       .delete()
       .eq('user_id', targetUserId)
+      .neq('role', role)
 
     if (deleteError) {
-      console.error('Error deleting existing roles:', deleteError)
-      throw new Error('Failed to update roles')
-    }
-
-    // Insert new role
-    const { error: insertError } = await supabaseAdmin
-      .from('user_roles')
-      .insert({
-        user_id: targetUserId,
-        role: role,
-      })
-
-    if (insertError) {
-      console.error('Error inserting new role:', insertError)
-      throw new Error('Failed to insert new role')
+      console.error('Error deleting previous roles:', deleteError)
+      throw new Error('Failed to remove previous roles')
     }
 
     // Update profile (full_name, office, and/or ext) if provided
