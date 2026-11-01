@@ -75,7 +75,8 @@ const AdminUsers = () => {
   const [editDailyEdit, setEditDailyEdit] = useState(false);
   // Daily Report locks dispatch/afterhours accounts; other roles keep their role.
   const dailyReportRoleLocked = !!userToEdit?.roles.length && userToEdit.roles.every(role => role === 'dispatch' || role === 'afterhours') && (editDailyView || editDailyEdit);
-  const effectiveEditRole = dailyReportRoleLocked ? 'afterhours' : editRole;
+  const effectiveEditRole = dailyReportRoleLocked || (!userToEdit?.roles.includes('admin') && (editDailyView || editDailyEdit) && editRole === 'dispatch')
+    ? 'afterhours' : editRole;
   const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
   const [editIsEld, setEditIsEld] = useState(false);
   const [editIsEldManager, setEditIsEldManager] = useState(false);

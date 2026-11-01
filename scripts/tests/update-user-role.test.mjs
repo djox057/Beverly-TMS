@@ -68,3 +68,8 @@ test('permission lookup failure stops before role writes', async () => {
   assert.equal(response.status, 400);
   assert.equal(writes.length, 0);
 });
+
+test('an exempt account switching to dispatch with permission becomes afterhours', async () => {
+  const { body } = await requestRole({ can_view: true, can_edit: false }, ['manager'], 'dispatch');
+  assert.equal(body.role, 'afterhours');
+});

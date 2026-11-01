@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
       .eq('user_id', targetUserId)
     if (targetRolesError) throw targetRolesError
     const hasOtherRole = targetRoles?.some(row => row.role !== 'dispatch' && row.role !== 'afterhours')
-    const role = !hasOtherRole && (dailyPermissions?.can_view || dailyPermissions?.can_edit)
+    const role = (!hasOtherRole || requestedRole === 'dispatch' || requestedRole === 'afterhours') && (dailyPermissions?.can_view || dailyPermissions?.can_edit)
       ? 'afterhours' : requestedRole
 
     // ---- Optional email change (auth + profile + login alias) ----
