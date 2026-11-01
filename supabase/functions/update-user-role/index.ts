@@ -58,19 +58,36 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { userId: targetUserId, role, office, fullName, ext, phoneNumber, grossPercent, cutPercent, email } = await req.json()
+    const { userId: targetUserId, role: requestedRole, office, fullName, ext, phoneNumber, grossPercent, cutPercent, email } = await req.json()
 
-    console.log('Request body:', { targetUserId, role, office, fullName, ext, email })
+    console.log('Request body:', { targetUserId, requestedRole, office, fullName, ext, email })
 
-    if (!targetUserId || !role) {
+    if (!targetUserId || !requestedRole) {
       throw new Error('Invalid request. userId and role are required.')
     }
 
     // Validate role
     const validRoles = ['admin', 'manager', 'supervisor', 'safety', 'dispatch', 'afterhours', 'driver', 'accounting', 'maintenance', 'chicago_management', 'yard', 'recruiting', 'claims']
-    if (!validRoles.includes(role)) {
-      throw new Error(`Invalid role: ${role}`)
+    if (!validRoles.includes(requestedRole)) {
+      throw new Error(`Invalid role: ${requestedRole}`)
     }
+
+    // Explicit Daily Report access pins this user to afterhours, including
+    // requests from older clients and scheduled role changes.
+    const { data: dailyPermissions, error: dailyPermissionsError } = await supabaseAdmin
+      .from('daily_report_permissions')
+      .select('can_view, can_edit')
+      .eq('user_id', targetUserId)
+      .maybeSingle()
+    if (dailyPermissionsError) throw dailyPermissionsError
+    const { data: targetRoles, error: targetRolesError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', targetUserId)
+    if (targetRolesError) throw targetRolesError
+    const hasOtherRole = targetRoles?.some(row => row.role !== 'dispatch' && row.role !== 'afterhours')
+    const role = !hasOtherRole && (dailyPermissions?.can_view || dailyPermissions?.can_edit)
+      ? 'afterhours' : requestedRole
 
     // ---- Optional email change (auth + profile + login alias) ----
     let emailChangedTo: string | null = null

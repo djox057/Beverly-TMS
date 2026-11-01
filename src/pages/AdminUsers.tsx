@@ -73,6 +73,9 @@ const AdminUsers = () => {
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [editDailyView, setEditDailyView] = useState(false);
   const [editDailyEdit, setEditDailyEdit] = useState(false);
+  // Daily Report locks dispatch/afterhours accounts; other roles keep their role.
+  const dailyReportRoleLocked = !!userToEdit?.roles.length && userToEdit.roles.every(role => role === 'dispatch' || role === 'afterhours') && (editDailyView || editDailyEdit);
+  const effectiveEditRole = dailyReportRoleLocked ? 'afterhours' : editRole;
   const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
   const [editIsEld, setEditIsEld] = useState(false);
   const [editIsEldManager, setEditIsEldManager] = useState(false);
@@ -446,7 +449,8 @@ const AdminUsers = () => {
 
   const openEditDialog = (user: User) => {
     setUserToEdit(user);
-    setEditRole(user.roles[0] || 'dispatch');
+    setEditRole(user.roles.length > 0 && user.roles.every(role => role === 'dispatch' || role === 'afterhours') && (user.daily_report_can_view || user.daily_report_can_edit)
+      ? 'afterhours' : user.roles[0] || 'dispatch');
     setEditFullName(user.full_name || '');
     setEditEmail(user.email || '');
     setEditEmailError(undefined);
@@ -480,31 +484,6 @@ const AdminUsers = () => {
 
     setIsUpdatingRoles(true);
     try {
-      // Update role, full name, office, ext and (optionally) email via edge function
-      const { data, error } = await supabase.functions.invoke('update-user-role', {
-        body: { 
-          userId: userToEdit.user_id,
-          role: editRole,
-          fullName: editFullName,
-          office: editOffice,
-          ext: editExt || null,
-          phoneNumber: editPhoneNumber ? `+1 ${editPhoneNumber.replace(/^\+1\s?/, '')}` : null,
-          grossPercent: editRole === 'dispatch' ? (editGrossPercent === '' ? null : Number(editGrossPercent)) : null,
-          cutPercent: editRole === 'dispatch' ? (editCutPercent === '' ? null : Number(editCutPercent)) : null,
-          email: emailChanged ? trimmedEmail : undefined
-        }
-      });
-
-
-      if (error) {
-        console.error('Error updating role:', error);
-        throw new Error(error.message || 'Failed to update role');
-      }
-      
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
       // Persist Daily Report permissions (skip for admins — they always have access)
       const isAdminUser = userToEdit.roles.includes('admin');
       if (!isAdminUser) {
@@ -526,18 +505,43 @@ const AdminUsers = () => {
         }
       }
 
+      // Update role, full name, office, ext and (optionally) email via edge function
+      const { data, error } = await supabase.functions.invoke('update-user-role', {
+        body: { 
+          userId: userToEdit.user_id,
+          role: effectiveEditRole,
+          fullName: editFullName,
+          office: editOffice,
+          ext: editExt || null,
+          phoneNumber: editPhoneNumber ? `+1 ${editPhoneNumber.replace(/^\+1\s?/, '')}` : null,
+          grossPercent: effectiveEditRole === 'dispatch' ? (editGrossPercent === '' ? null : Number(editGrossPercent)) : null,
+          cutPercent: effectiveEditRole === 'dispatch' ? (editCutPercent === '' ? null : Number(editCutPercent)) : null,
+          email: emailChanged ? trimmedEmail : undefined
+        }
+      });
+
+
+      if (error) {
+        console.error('Error updating role:', error);
+        throw new Error(error.message || 'Failed to update role');
+      }
+      
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       // Persist Suggestions permission and ELD flag on the profile row
       {
         const { error: sugError } = await (supabase as any)
           .from('profiles')
           .update({
             suggestions_enabled: editSuggestionsEnabled,
-            is_eld: editRole === 'maintenance' ? editIsEld : false,
+            is_eld: effectiveEditRole === 'maintenance' ? editIsEld : false,
             ...(typeof userToEdit.is_eld_manager === 'boolean'
-              ? { is_eld_manager: editRole === 'maintenance' ? editIsEldManager : false }
+              ? { is_eld_manager: effectiveEditRole === 'maintenance' ? editIsEldManager : false }
               : {}),
-            is_recovery: editRole === 'dispatch' ? editIsRecovery : false,
-            is_afterhours_manager: editRole === 'afterhours' ? editIsAfterhoursManager : false,
+            is_recovery: effectiveEditRole === 'dispatch' ? editIsRecovery : false,
+            is_afterhours_manager: effectiveEditRole === 'afterhours' ? editIsAfterhoursManager : false,
           })
           .eq('user_id', userToEdit.user_id);
         if (sugError) {
@@ -1206,7 +1210,7 @@ const AdminUsers = () => {
             
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
-              <Select value={editRole} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims') => setEditRole(value)}>
+              <Select value={effectiveEditRole} disabled={dailyReportRoleLocked} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard' | 'recruiting' | 'claims') => setEditRole(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -1226,6 +1230,9 @@ const AdminUsers = () => {
                     <SelectItem value="driver">Driver</SelectItem>
                 </SelectContent>
               </Select>
+              {dailyReportRoleLocked && (
+                <p className="text-xs text-muted-foreground">Daily Report access requires After Hours. Turn off both Daily Report permissions to change the role.</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -1365,6 +1372,7 @@ const AdminUsers = () => {
                   checked={editDailyView || editDailyEdit}
                   onCheckedChange={(checked) => {
                     setEditDailyView(checked);
+                    if (checked && (editRole === 'dispatch' || editRole === 'afterhours')) setEditRole('afterhours');
                     if (!checked) setEditDailyEdit(false);
                   }}
                   disabled={userToEdit?.roles.includes('admin')}
@@ -1379,7 +1387,10 @@ const AdminUsers = () => {
                   checked={editDailyEdit}
                   onCheckedChange={(checked) => {
                     setEditDailyEdit(checked);
-                    if (checked) setEditDailyView(true);
+                    if (checked) {
+                      setEditDailyView(true);
+                      if (editRole === 'dispatch' || editRole === 'afterhours') setEditRole('afterhours');
+                    }
                   }}
                   disabled={userToEdit?.roles.includes('admin')}
                 />
