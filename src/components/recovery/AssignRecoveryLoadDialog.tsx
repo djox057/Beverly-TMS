@@ -32,6 +32,7 @@ interface AssignRecoveryLoadDialogProps {
   pickupAddress?: string;
   onAssigned?: () => void;
   isPrebook?: boolean;
+  directAssignment?: boolean;
 }
 
 export function AssignRecoveryLoadDialog({
@@ -42,10 +43,12 @@ export function AssignRecoveryLoadDialog({
   pickupAddress,
   onAssigned,
   isPrebook = false,
+  directAssignment = false,
 }: AssignRecoveryLoadDialogProps) {
   const { toast } = useToast();
   const [truckId, setTruckId] = useState("");
   const [driverId, setDriverId] = useState("");
+  const [driver2Id, setDriver2Id] = useState("");
   const [trailerId, setTrailerId] = useState("");
   const [driverRate, setDriverRate] = useState("");
   const [dhMiles, setDhMiles] = useState("");
@@ -57,13 +60,14 @@ export function AssignRecoveryLoadDialog({
     if (open) {
       setTruckId("");
       setDriverId("");
+      setDriver2Id("");
       setTrailerId("");
       setDriverRate("");
       setDhMiles("");
       setCalculatingDh(false);
-      setSuggestedOnly(true);
+      setSuggestedOnly(!directAssignment);
     }
-  }, [open, orderId, isPrebook]);
+  }, [open, orderId, isPrebook, directAssignment]);
 
   const { data: trucks = [] } = useQuery({
     queryKey: ["recovery-assign-trucks", "all"],
@@ -111,7 +115,7 @@ export function AssignRecoveryLoadDialog({
 
   const { data: hosOrder, isFetching: loadingHosOrder, error: hosOrderError } = useQuery({
     queryKey: ['hos-prebook-order', orderId],
-    enabled: open && !!orderId,
+    enabled: open && !!orderId && !directAssignment,
     queryFn: async () => {
       const {data,error} = await supabase.from('orders')
         .select('loaded_miles,booked_by_company:companies!orders_booked_by_company_id_fkey(name),pickup_drops(type,datetime,end_datetime,latitude,longitude,sequence_number)').eq('id',orderId!).single();
@@ -136,7 +140,7 @@ export function AssignRecoveryLoadDialog({
     .filter(stop => stop.type === 'pickup').sort((a, b) => a.sequence_number - b.sequence_number)[0], [hosOrder]);
   const { data: suggestions = [], isFetching: loadingSuggestions, error: suggestionsError } = useQuery({
     queryKey: ['prebook-suggested-trucks', orderId, firstPickup, pickupAddress],
-    enabled: open && suggestedOnly && !!orderId && !!firstPickup?.datetime,
+    enabled: open && !directAssignment && suggestedOnly && !!orderId && !!firstPickup?.datetime,
     queryFn: async () => {
       const pickup = firstPickup!;
       const coords = pickup.latitude != null && pickup.longitude != null
@@ -193,6 +197,7 @@ export function AssignRecoveryLoadDialog({
     setTruckId(nextTruckId);
     const truck = trucks.find((t: any) => t.id === nextTruckId) as any;
     setDriverId(truck?.driver1_id || "");
+    setDriver2Id(truck?.driver2_id || "");
     setTrailerId(truck?.trailer_id || "");
     setDhMiles("");
     setCalculatingDh(false);
@@ -200,7 +205,7 @@ export function AssignRecoveryLoadDialog({
 
   // Auto-calculate DH miles from the assigned driver's last delivery to this load's pickup
   useEffect(() => {
-    if (!open || !driverId) return;
+    if (!open || !driverId || directAssignment) return;
     let cancelled = false;
 
     const run = async () => {
@@ -244,10 +249,19 @@ export function AssignRecoveryLoadDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, truckId, driverId, orderId, pickupAddress, hosOrder]);
+  }, [open, truckId, driverId, orderId, pickupAddress, hosOrder, directAssignment]);
 
   const handleSave = async () => {
     if (!orderId) return;
+    if (saving) return;
+    if (directAssignment && (!truckId || !trailerId || !driverId)) {
+      toast({ title: "Select a truck, trailer and Driver 1", variant: "destructive" });
+      return;
+    }
+    if (directAssignment && driverId === driver2Id) {
+      toast({ title: "Driver 1 and Driver 2 must be different", variant: "destructive" });
+      return;
+    }
     if (isPrebook && (!truckId || !driverId)) {
       toast({ title: "Select a truck and driver", variant: "destructive" });
       return;
@@ -264,7 +278,7 @@ export function AssignRecoveryLoadDialog({
     // Booked by becomes the dispatcher of the assigned driver/truck
     let bookedBy: string | null = null;
     const dispatcherLookupDriverId = driverId || truck?.driver1_id || null;
-    if (dispatcherLookupDriverId) {
+    if (dispatcherLookupDriverId && !directAssignment) {
       const { data: driverRow, error: driverError } = await supabase
         .from("drivers")
         .select("dispatcher_id")
@@ -305,12 +319,14 @@ export function AssignRecoveryLoadDialog({
     const payload: Record<string, unknown> = {
       truck_id: truckId || null,
       driver1_id: driverId || null,
-      driver2_id: truck?.driver2_id ?? null,
+      driver2_id: directAssignment ? driver2Id || null : truck?.driver2_id ?? null,
       trailer_id: trailerId || null,
-      driver_price: driverRate ? parseFloat(driverRate) : null,
-      dh_miles: dhMiles ? parseInt(dhMiles, 10) : null,
+      ...(!directAssignment ? {
+        driver_price: driverRate ? parseFloat(driverRate) : null,
+        dh_miles: dhMiles ? parseInt(dhMiles, 10) : null,
+        prebook: isPrebook,
+      } : {}),
       retrieval: false,
-      prebook: isPrebook,
       ...(isPrebook ? { p_status: "Covered" } : {}),
       recovery_assigned: !isPrebook,
       recovery_auto_cancel_at: null,
@@ -318,107 +334,126 @@ export function AssignRecoveryLoadDialog({
     };
     if (bookedBy) payload.booked_by = bookedBy;
 
-    const { data: updated, error } = await supabase
-      .from("orders")
-      .update(payload as never)
-      .eq("id", orderId)
-      .select("id");
-    setSaving(false);
+    try {
+      const { data: updated, error } = await supabase
+        .from("orders")
+        .update(payload as never)
+        .eq("id", orderId)
+        .select("id");
 
-    if (error || !updated?.length) {
-      toast({
-        title: "Assignment failed",
-        description: error?.message || "The load was not updated. Check your permissions.",
-        variant: "destructive",
-      });
-      return;
+      if (error || !updated?.length) {
+        toast({
+          title: "Assignment failed",
+          description: error?.message || "The load was not updated. Check your permissions.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: "Assigned", description: `Load ${loadNumber || ""} updated.${directAssignment ? " No recovery emails sent." : ""}` });
+      if (isPrebook) void checkCreatedOrderHos(orderId);
+      onOpenChange(false);
+      onAssigned?.();
+    } catch (error) {
+      toast({ title: "Assignment failed", description: error instanceof Error ? error.message : "Could not assign the load. Please try again.", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-    toast({ title: "Assigned", description: `Load ${loadNumber || ""} updated.` });
-    if (isPrebook) void checkCreatedOrderHos(orderId);
-    onOpenChange(false);
-    onAssigned?.();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!saving) onOpenChange(nextOpen); }}>
       <DialogContent className="sm:max-w-[540px]">
         <DialogHeader>
-          <DialogTitle>Assign {isPrebook ? "Prebook" : "Recovery"} Load {loadNumber ? `#${loadNumber}` : ""}</DialogTitle>
+          <DialogTitle>{directAssignment ? "Reassign" : `Assign ${isPrebook ? "Prebook" : "Recovery"}`} Load {loadNumber ? `#${loadNumber}` : ""}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>Truck #</Label>
-            <Combobox
-              options={visibleTruckOptions}
-              value={truckId}
-              selectedLabel={truckOptions.find(truck => truck.value === truckId)?.label}
-              onValueChange={handleTruckChange}
-              placeholder="Select truck"
-              searchPlaceholder="Search truck# or driver..."
-              modal={false}
-              preserveOrder={suggestedOnly}
-              emptyText={loadingSuggestions ? 'Finding suggested trucks…' : suggestionsError ? 'Could not load suggested trucks.' : suggestedOnly ? 'No trucks within 150 miles for this pickup.' : 'No results found.'}
-              dropdownHeader={<div className="space-y-1 border-b px-3 py-2">
-                <label className="flex items-center justify-between gap-3 text-sm">
-                  <span>Suggested</span>
-                  <Switch aria-label="Suggested trucks" checked={suggestedOnly} onCheckedChange={setSuggestedOnly} />
-                </label>
-                <p className="text-xs text-muted-foreground">
-                  {suggestedOnly && loadingSuggestions ? 'Finding nearby trucks…' : suggestedOnly && suggestionsError ? 'Could not load suggestions. Toggle off to view all trucks.' : suggestedOnly && !firstPickup?.datetime ? 'Pickup date is unavailable.' : `Within 150 mi${firstPickup?.datetime ? ` · Pickup ${firstPickup.datetime.slice(5, 10).replace('-', '/')}` : ''} · Closest first`}
-                </p>
-              </div>}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Driver</Label>
-            <Combobox
-              options={driverOptions}
-              value={driverId}
-              onValueChange={setDriverId}
-              placeholder="Select driver"
-              searchPlaceholder="Search driver..."
-              modal={false}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Trailer #</Label>
-            <Combobox
-              options={trailerOptions}
-              value={trailerId}
-              onValueChange={setTrailerId}
-              placeholder="Select trailer"
-              searchPlaceholder="Search trailer#..."
-              modal={false}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+          {directAssignment && <p className="text-sm text-muted-foreground">Assign directly without sending recovery emails. Rates and mileage stay the same.</p>}
+          <fieldset disabled={saving} className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Driver Rate</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={driverRate}
-                onChange={(e) => setDriverRate(e.target.value)}
-                placeholder="0.00"
+              <Label>Truck #</Label>
+              <Combobox
+                options={visibleTruckOptions}
+                value={truckId}
+                selectedLabel={truckOptions.find(truck => truck.value === truckId)?.label}
+                onValueChange={handleTruckChange}
+                placeholder="Select truck"
+                searchPlaceholder="Search truck# or driver..."
+                modal={false}
+                preserveOrder={suggestedOnly}
+                emptyText={loadingSuggestions ? 'Finding suggested trucks…' : suggestionsError ? 'Could not load suggested trucks.' : suggestedOnly ? 'No trucks within 150 miles for this pickup.' : 'No results found.'}
+                dropdownHeader={!directAssignment && <div className="space-y-1 border-b px-3 py-2">
+                  <label className="flex items-center justify-between gap-3 text-sm">
+                    <span>Suggested</span>
+                    <Switch aria-label="Suggested trucks" checked={suggestedOnly} onCheckedChange={setSuggestedOnly} />
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    {suggestedOnly && loadingSuggestions ? 'Finding nearby trucks…' : suggestedOnly && suggestionsError ? 'Could not load suggestions. Toggle off to view all trucks.' : suggestedOnly && !firstPickup?.datetime ? 'Pickup date is unavailable.' : `Within 150 mi${firstPickup?.datetime ? ` · Pickup ${firstPickup.datetime.slice(5, 10).replace('-', '/')}` : ''} · Closest first`}
+                  </p>
+                </div>}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>DH Miles</Label>
-              <Input
-                type="number"
-                value={dhMiles}
-                onChange={(e) => setDhMiles(e.target.value)}
-                placeholder={calculatingDh ? "Calculating..." : "0"}
+              <Label>{directAssignment ? "Driver 1" : "Driver"}</Label>
+              <Combobox
+                options={driverOptions}
+                value={driverId}
+                onValueChange={setDriverId}
+                placeholder={directAssignment ? "Select Driver 1" : "Select driver"}
+                searchPlaceholder="Search driver..."
+                modal={false}
               />
             </div>
-          </div>
+            {directAssignment && <div className="space-y-1.5">
+              <Label>Driver 2 (optional)</Label>
+              <Combobox
+                options={[{ value: "", label: "No second driver" }, ...driverOptions.filter(driver => driver.value !== driverId)]}
+                value={driver2Id}
+                onValueChange={setDriver2Id}
+                placeholder="Select Driver 2 (optional)"
+                searchPlaceholder="Search driver..."
+                modal={false}
+              />
+            </div>}
+            <div className="space-y-1.5">
+              <Label>Trailer #</Label>
+              <Combobox
+                options={trailerOptions}
+                value={trailerId}
+                onValueChange={setTrailerId}
+                placeholder="Select trailer"
+                searchPlaceholder="Search trailer#..."
+                modal={false}
+              />
+            </div>
+            {!directAssignment && <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Driver Rate</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={driverRate}
+                  onChange={(e) => setDriverRate(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>DH Miles</Label>
+                <Input
+                  type="number"
+                  value={dhMiles}
+                  onChange={(e) => setDhMiles(e.target.value)}
+                  placeholder={calculatingDh ? "Calculating..." : "0"}
+                />
+              </div>
+            </div>}
+          </fieldset>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
           {isPrebook && <HosLoadLight {...hos} error={hosOrderError || hos.error} loading={loadingHosOrder || hos.loading || calculatingDh} />}
-          <Button onClick={handleSave} disabled={saving || (isPrebook && (!hosOrder || !!hosOrderError || !truckOptions.some(option => option.value === truckId)))}>
+          <Button onClick={handleSave} disabled={saving || (directAssignment && (!truckId || !trailerId || !driverId || driverId === driver2Id)) || (isPrebook && (!hosOrder || !!hosOrderError || !truckOptions.some(option => option.value === truckId)))}>
             {saving ? "Saving..." : "Assign"}
           </Button>
         </DialogFooter>
