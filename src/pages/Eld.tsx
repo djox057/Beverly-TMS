@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardCheck, Plus, RefreshCw, Search } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useEldCompanies } from '@/hooks/useEldCompanies';
 import { useEldDay } from '@/hooks/useEld';
@@ -19,6 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 
 const EMPTY_CHECKS: EldCheck[] = [];
+const COMPANY_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c', '#0891b2', '#db2777', '#64748b', '#ca8a04', '#4f46e5', '#0d9488', '#7c3aed'];
 
 export default function Eld() {
   const [today, setToday] = useState(eldToday);
@@ -71,6 +73,12 @@ export default function Eld() {
   const completed = rows.filter(eldComplete).length;
   const workerNames = new Map(workers.map(w => [w.user_id, w.name]));
   checks.forEach(c => { if (c.worker_id && c.worker_name && !workerNames.has(c.worker_id)) workerNames.set(c.worker_id, c.worker_name); });
+  const companyColorIds = [...(companyData?.names.keys() ?? [])].sort();
+  const companyBreakdown = (assigned: EldCheck[]) => {
+    const totals = new Map<string, number>();
+    assigned.forEach(row => { const id = companyFor(row) ?? 'none'; totals.set(id, (totals.get(id) ?? 0) + 1); });
+    return [...totals].map(([id, value]) => ({ id, value, name: id === 'none' ? 'No company' : companyData?.names.get(id) ?? 'Unknown company', color: id === 'none' ? '#94a3b8' : COMPANY_COLORS[Math.max(0, companyColorIds.indexOf(id)) % COMPANY_COLORS.length] })).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+  };
   const selectDate = (next: string) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(next) || next > today) return;
     setDate(next); setTaskOpen(false); setBulkOpen(false); setWorker('all');
@@ -143,10 +151,20 @@ export default function Eld() {
           <div className="flex justify-between items-center gap-3"><p className="text-sm text-muted-foreground">Additional tasks assigned for this date. Tasks stay in this day’s history.</p>{manager && current && weekday && <Button onClick={() => setTaskOpen(true)}><Plus className="mr-2 h-4 w-4" />Add side task</Button>}</div>
           <div className="rounded-md border overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Done</TableHead><TableHead>Task</TableHead><TableHead>ELD person</TableHead><TableHead>Completed at (Chicago)</TableHead></TableRow></TableHeader><TableBody>{tasks.map(task => <TableRow key={task.id}><TableCell><Checkbox aria-label={`Complete ${task.description}`} checked={task.completed} disabled={!editable || pendingTasks.has(task.id)} onCheckedChange={value => manage.mutate({ action: 'complete_task', payload: { id: task.id, completed: value === true } })} /></TableCell><TableCell className="min-w-64 whitespace-pre-wrap break-words">{task.description}</TableCell><TableCell>{workerNames.get(task.worker_id) || 'Former ELD worker'}</TableCell><TableCell className="whitespace-nowrap">{task.completed_at ? formatInTimeZone(task.completed_at, 'America/Chicago', 'MM/dd/yyyy HH:mm') : '—'}</TableCell></TableRow>)}{!tasks.length && <TableRow><TableCell colSpan={4} className="h-24 text-center text-muted-foreground">No side tasks for this date.</TableCell></TableRow>}</TableBody></Table></div>
         </TabsContent>
-        {manager && <TabsContent value="team"><div className="rounded-md border overflow-x-auto"><Table><TableHeader><TableRow><TableHead>ELD person</TableHead><TableHead>Drivers</TableHead><TableHead>Yesterday log</TableHead><TableHead>Forms</TableHead><TableHead>PTI</TableHead><TableHead>Fully checked</TableHead><TableHead>Side tasks done</TableHead></TableRow></TableHeader><TableBody>{[...workerNames].map(([id, name]) => {
+        {manager && <TabsContent value="team" className="space-y-4"><div className="rounded-md border overflow-x-auto"><Table><TableHeader><TableRow><TableHead>ELD person</TableHead><TableHead>Drivers</TableHead><TableHead>Yesterday log</TableHead><TableHead>Forms</TableHead><TableHead>PTI</TableHead><TableHead>Fully checked</TableHead><TableHead>Side tasks done</TableHead></TableRow></TableHeader><TableBody>{[...workerNames].map(([id, name]) => {
           const assigned = groupedChecks.filter(c => (c.members ?? [c]).some(m => m.worker_id === id)); const assignedTasks = tasks.filter(t => t.worker_id === id);
           return <TableRow key={id}><TableCell>{name}</TableCell><TableCell>{assigned.length}</TableCell>{(['yesterday_log', 'forms', 'pti'] as const).map(field => <TableCell key={field}>{assigned.filter(c => c[field]).length} / {assigned.length}</TableCell>)}<TableCell>{assigned.filter(eldComplete).length} / {assigned.length}</TableCell><TableCell>{assignedTasks.filter(t => t.completed).length} / {assignedTasks.length}</TableCell></TableRow>;
-        })}{!workerNames.size && <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Enable ELD tags in Users to assign work.</TableCell></TableRow>}</TableBody></Table></div></TabsContent>}
+        })}{!workerNames.size && <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">Enable ELD tags in Users to assign work.</TableCell></TableRow>}</TableBody></Table></div>
+          <p className="text-sm text-muted-foreground">Company distribution by ELD person · Teams count as one. Company membership reflects the current truck or driver company.</p>
+          {companyQuery.isPending && checks.length > 0 ? <p>Loading company breakdown…</p> : companyQuery.isError ? <p role="alert">Unable to load company breakdown. <Button variant="link" onClick={() => companyQuery.refetch()}>Retry</Button></p> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{[...workerNames].map(([id, name]) => {
+            const assigned = groupedChecks.filter(row => (row.members ?? [row]).some(member => member.worker_id === id));
+            const breakdown = companyBreakdown(assigned);
+            return <Card key={id}><CardContent className="p-4"><h3 className="font-semibold">{name}</h3><p className="text-sm text-muted-foreground mb-3">{assigned.length} drivers / teams</p>
+              {!assigned.length ? <p className="text-sm text-muted-foreground">No assigned drivers.</p> : <><div role="img" aria-label={`Company distribution for ${name}`} className="flex justify-center overflow-hidden"><PieChart width={240} height={200}><Pie data={breakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} isAnimationActive={false}>{breakdown.map(part => <Cell key={part.id} fill={part.color} />)}</Pie><Tooltip formatter={(value: number) => [value, 'Drivers / teams']} /></PieChart></div>
+              <table className="w-full text-sm" aria-label={`Company counts for ${name}`}><thead><tr className="border-b"><th className="text-left py-2">Company</th><th className="text-right">Count</th><th className="text-right">Share</th></tr></thead><tbody>{breakdown.map(part => <tr key={part.id}><td className="py-1"><span className="inline-block h-2.5 w-2.5 rounded-full mr-2" style={{ backgroundColor: part.color }} />{part.name}</td><td className="text-right">{part.value}</td><td className="text-right">{Math.round(part.value / assigned.length * 100)}%</td></tr>)}</tbody></table></>}
+            </CardContent></Card>;
+          })}</div>}
+        </TabsContent>}
         <TabsContent value="activity"><EldActivityLog key={date} date={date} workers={workers} /></TabsContent>
       </Tabs>
     </>}

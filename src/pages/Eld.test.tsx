@@ -168,3 +168,19 @@ it('searches dispatchers in bulk assignment and keeps the selected dispatcher', 
   fireEvent.click(screen.getByRole('option', { name: 'Alex (4 trucks)' }));
   expect(screen.getByRole('combobox', { name: 'Bulk assignment group' })).toHaveTextContent('Alex (4 trucks)');
 });
+
+it('shows company counts and a pie for each ELD person with teams counted once', () => {
+  mocks.day.data.can_manage = true;
+  const base = mocks.day.data.checks[0];
+  mocks.day.data.checks.push(
+    { ...base, id: 'teammate', driver_id: 'second-driver', driver_name: 'Second Driver' },
+    { ...base, id: 'bf-driver', driver_id: 'bf-driver', truck_number: '461', driver_name: 'BF Driver' },
+  );
+  render(<Eld />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Team overview' }), { button: 0, ctrlKey: false });
+  expect(screen.getByRole('img', { name: 'Company distribution for ELD Person' })).toBeInTheDocument();
+  const table = screen.getByRole('table', { name: 'Company counts for ELD Person' });
+  expect(table).toHaveTextContent('AP Silver150%');
+  expect(table).toHaveTextContent('BF Prime150%');
+  expect(screen.getByText('2 drivers / teams')).toBeInTheDocument();
+});
