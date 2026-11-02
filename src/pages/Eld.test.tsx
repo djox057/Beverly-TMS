@@ -115,3 +115,16 @@ it('bulk assigns a dispatcher group to the selected ELD worker', async () => {
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Assign all trucks' })); });
   expect(mocks.manage).toHaveBeenCalledWith({ action: 'bulk_assign', payload: { scope: 'dispatcher', group_id: 'dispatch', worker_id: 'worker' } });
 });
+
+it('keeps bulk assignment visible across tabs for managers', () => {
+  mocks.day.data.can_manage = true;
+  render(<Eld />);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: 'Team overview' }), { button: 0, ctrlKey: false });
+  expect(screen.getByRole('button', { name: 'Bulk assign trucks' })).toBeEnabled();
+});
+it('shows a disabled bulk assignment button on historical dates', () => {
+  mocks.day.data.can_manage = true;
+  mocks.day.data.today = '2099-01-01';
+  render(<Eld />);
+  expect(screen.getByRole('button', { name: 'Bulk assign trucks' })).toBeDisabled();
+});

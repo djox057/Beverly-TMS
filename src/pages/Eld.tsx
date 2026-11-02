@@ -95,6 +95,7 @@ export default function Eld() {
     <div className="flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20 bg-background py-3 border-b">
       <div><h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardCheck className="h-6 w-6" />ELD</h1><p className="text-sm text-muted-foreground">Daily driver checks · Chicago time · Monday–Friday</p></div>
       <div className="flex flex-wrap items-center gap-2">
+        {manager && <Button title={current ? 'Assign trucks by dispatcher or company' : 'Select Today to assign trucks'} disabled={!current || hasPendingWrites} onClick={() => setBulkOpen(true)}><Plus className="mr-2 h-4 w-4" />Bulk assign trucks</Button>}
         <Label htmlFor="eld-work-date">Date / history</Label>
         <Input id="eld-work-date" type="date" className="w-40" value={date} max={today} onChange={event => selectDate(event.target.value)} />
         <Button variant="outline" onClick={() => selectDate(today)} disabled={date === today}>Today</Button>
@@ -121,7 +122,7 @@ export default function Eld() {
             <Select value={status} onValueChange={setStatus}><SelectTrigger className="w-44" aria-label="Filter completion"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All checks</SelectItem><SelectItem value="incomplete">Incomplete</SelectItem><SelectItem value="complete">Completed</SelectItem></SelectContent></Select>
             <span className="text-sm text-muted-foreground ml-auto">{rows.length} drivers</span>
           </div>
-          {manager && current && <div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={hasPendingWrites} onClick={() => setBulkOpen(true)}>Bulk assign trucks</Button><p className="text-sm text-muted-foreground">Done drivers stay for 24 hours, or until Deleted accounts is checked.</p></div>}
+          <p className="text-sm text-muted-foreground">Done drivers stay for 24 hours, or until Deleted accounts is checked.</p>
           <EldChecksTable rows={rows} workers={workers} editable={editable} assignable={manager && current && !bulkAssigning}
             pendingCheckKeys={pendingCheckKeys} pendingAssignments={pendingAssignments}
             onSave={saveField} onAssign={assignWorker} onSaveNote={saveNote}
