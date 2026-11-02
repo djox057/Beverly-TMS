@@ -178,6 +178,10 @@ export default function Info() {
         </TabsList>
 
         <TabsContent value="company" className="space-y-4">
+          <Card className="p-4 space-y-1 select-text">
+            <h2 className="font-semibold">Yard address</h2>
+            <p className="text-sm">3301 Wireton Rd, Blue Island, IL 60406</p>
+          </Card>
           {isLoading && <p className="text-sm text-muted-foreground">Loading company account details…</p>}
           {isError && (
             <p role="alert" className="text-sm text-destructive">
