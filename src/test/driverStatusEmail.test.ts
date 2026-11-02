@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildEmail, segments, tenure, weekStart, weeklySummary } from '../../supabase/functions/send-driver-status-email/report';
 import { processEmails } from '../../supabase/functions/send-driver-status-email/worker';
 
-const occurred='2026-11-02T22:00:00Z';
+const occurred='2026-11-03T22:00:00Z';
 const order=(extra:Record<string,any>={})=>({id:'load',driver1_id:'driver',delivery_datetime:'2026-10-30T12:00:00Z',driver_price:1000,loaded_miles:400,dh_miles:90,additional_miles:10,...extra});
 const event=(action='done')=>({id:'event',driver_id:'driver',driver_snapshot:{name:'Chris <Tafolla>',company:'AP Silver Trans LLC',hire_date:'2026-05-20',termination_date:'2026-11-02'},action,occurred_at:occurred,is_test:true});
 
@@ -12,6 +12,28 @@ describe('driver status emails',()=>{
     expect(weekStart('2026-11-03')).toBe('2026-11-03');
     expect(weekStart('2027-01-01')).toBe('2026-12-29');
   });
+  it('keeps Oct 27–Nov 2 as last week throughout Nov 3–9',()=>{
+    for(let day=3;day<=9;day++) {
+      const when=`2026-11-${String(day).padStart(2,'0')}T22:00:00Z`;
+      const weeks=weeklySummary([order(),order({id:'ongoing',delivery_datetime:'2026-11-03T12:00:00Z',driver_price:9999})],'driver',when);
+      expect(weeks.map(w=>[w.start,w.end])).toEqual([['2026-10-27','2026-11-02'],['2026-10-20','2026-10-26'],['2026-10-13','2026-10-19']]);
+      expect(weeks[0].freight).toBe(1000);
+    }
+  });
+  it('advances at Tuesday midnight in Chicago and handles year boundaries',()=>{
+    expect(weeklySummary([],'driver','2026-11-10T05:59:59Z')[0].start).toBe('2026-10-27');
+    expect(weeklySummary([],'driver','2026-11-10T06:00:00Z')[0].start).toBe('2026-11-03');
+    expect(weeklySummary([],'driver','2027-01-01T18:00:00Z')[0]).toMatchObject({start:'2026-12-22',end:'2026-12-28'});
+  });
+  it('labels the email last week without current-week or to-date wording',()=>{
+    const email=buildEmail(event(),[order()]);
+    expect(email.html).toContain('LAST WEEK');
+    expect(email.text).toContain('(last week)');
+    for(const content of [email.html,email.text]) {
+      expect(content.toLowerCase()).not.toContain('current week');
+      expect(content.toLowerCase()).not.toContain('to date');
+    }
+  });
   it('uses driver additions/deductions, all miles, and weighted RPM',()=>{
     const weeks=weeklySummary([order({detention_driver:200,lumper_driver:50,late_fee_driver:100,other_charges_driver:25,other_additionals_driver:75}),order({id:'other',driver_price:300,loaded_miles:100,dh_miles:0,additional_miles:0})],'driver',occurred);
     expect(weeks[0]).toMatchObject({start:'2026-10-27',freight:1500,miles:600,rpm:2.5,loads:2});
@@ -19,7 +41,7 @@ describe('driver status emails',()=>{
     expect(weeks[2].freight).toBe(0);
   });
   it('includes team driver 2 once, skips future and unpaid cancellations, includes TONU',()=>{
-    const w=weeklySummary([order({driver2_id:'driver'}),order({id:'future',delivery_datetime:'2026-11-03T12:00:00Z'}),order({id:'cancel',canceled:true}),order({id:'tonu',canceled:true,driver_price:0,tonu_driver:150,loaded_miles:0,dh_miles:0,additional_miles:0})],'driver',occurred);
+    const w=weeklySummary([order({driver2_id:'driver'}),order({id:'future',delivery_datetime:'2026-11-04T12:00:00Z'}),order({id:'cancel',canceled:true}),order({id:'tonu',canceled:true,driver_price:0,tonu_driver:150,loaded_miles:0,dh_miles:0,additional_miles:0})],'driver',occurred);
     expect(w[0]).toMatchObject({freight:1150,miles:500,loads:2});
     expect(weeklySummary([order({driver1_id:'other',driver2_id:'driver'})],'driver',occurred)[0].freight).toBe(1000);
   });

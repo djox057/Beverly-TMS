@@ -8,10 +8,12 @@ clearing the notice, preventing a duplicate cancellation email.
 
 The subject and heading contain the driver's name and event. The body contains
 the driver's phone, email, home city/state, carrier company, and tenure from recorded hire date (to termination
-date for Done; otherwise event date). Unknown dates remain explicitly unknown. Missing contact details display Not recorded. The weekly table uses aligned numeric columns, alternating backgrounds, a highlighted current week, and a total row with weighted RPM.
+date for Done; otherwise event date). Unknown dates remain explicitly unknown. Missing contact details display Not recorded. The weekly table uses aligned numeric columns, alternating backgrounds, a highlighted last week, and a total row with weighted RPM.
 
-The table contains three Tuesday–Monday payroll weeks: the current week to date
-plus the two preceding weeks. Freight amount means driver-side pay including
+The table contains the last three completed Tuesday–Monday payroll weeks. The
+newest row is labelled Last week. The date window advances on Tuesday at midnight
+in America/Chicago: Oct 27–Nov 2 remains Last week throughout Nov 3–9, then
+Nov 3–9 becomes Last week on Nov 10. Freight amount means driver-side pay including
 driver additions and deductions. Miles include loaded, deadhead, and additional
 miles. RPM is total Freight amount divided by total miles. Recovery/transfer
 segments are attributed to their drivers, including driver 2; weekly overrides
@@ -46,7 +48,8 @@ including original and intermediate transfer assignments, with pagination.
 
 ## Rollout and operation
 
-The deployed settings default to `enabled=false`. Test events are explicit,
+Fresh deployments default to `enabled=false`. The reviewed production rollout is
+enabled after merging the completed-week email update. Test events are explicit,
 marked `[TEST]`, and do not change any driver records. Normal driver updates
 do not enqueue emails while disabled. Review the four test emails before enabling.
 
