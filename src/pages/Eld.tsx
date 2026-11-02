@@ -26,10 +26,14 @@ export default function Eld() {
   const [worker, setWorker] = useState('all');
   const [status, setStatus] = useState('all');
   const [company, setCompany] = useState('all');
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkScope, setBulkScope] = useState<'dispatcher' | 'company'>('dispatcher');
+  const [bulkGroup, setBulkGroup] = useState('');
+  const [bulkWorker, setBulkWorker] = useState('');
   const [taskOpen, setTaskOpen] = useState(false);
   const [taskWorker, setTaskWorker] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
-  const { day, saveCheck, manage, pendingCheckKeys, pendingAssignments, pendingTasks, addingTask, hasPendingWrites } = useEldDay(date);
+  const { day, saveCheck, manage, pendingCheckKeys, pendingAssignments, pendingTasks, addingTask, bulkAssigning, hasPendingWrites } = useEldDay(date);
   // A tab left open overnight follows Chicago midnight, including DST changes.
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -37,7 +41,7 @@ export default function Eld() {
       if (next !== today) {
         setToday(next);
         setDate(selected => selected === today ? next : selected);
-        setTaskOpen(false);
+        setTaskOpen(false); setBulkOpen(false);
       }
     }, 15_000);
     return () => window.clearInterval(timer);
@@ -45,9 +49,11 @@ export default function Eld() {
   const data = day.data;
   const manager = !!data?.can_manage;
   const weekday = isEldWeekday(date);
-  const editable = weekday && (manager || (date === data?.today && !!data?.can_work));
+  const editable = (weekday || date === today) && (manager || (date === data?.today && !!data?.can_work));
   const current = date === data?.today;
   const checks = data?.checks ?? EMPTY_CHECKS;
+  const groups = data?.assignment_groups ?? [];
+  const selectedGroup = groups.find(g => g.scope === bulkScope && g.id === bulkGroup);
   const workers = data?.workers ?? [];
   const tasks = data?.tasks ?? [];
   const companyQuery = useEldCompanies(checks);
@@ -65,7 +71,7 @@ export default function Eld() {
   checks.forEach(c => { if (c.worker_id && c.worker_name && !workerNames.has(c.worker_id)) workerNames.set(c.worker_id, c.worker_name); });
   const selectDate = (next: string) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(next) || next > today) return;
-    setDate(next); setTaskOpen(false); setWorker('all');
+    setDate(next); setTaskOpen(false); setBulkOpen(false); setWorker('all');
   };
   const { mutate: changeCheck } = saveCheck;
   const { mutate: changeAssignment } = manage;
@@ -73,6 +79,12 @@ export default function Eld() {
   const assignWorker = useCallback((driverId: string, workerId: string | null) => changeAssignment({ action: 'assign', payload: { driver_id: driverId, worker_id: workerId } }), [changeAssignment]);
   const { mutateAsync: changeNote } = saveCheck;
   const saveNote = useCallback(async (id: string, value: string) => { await changeNote({ id, field: 'comment', value }); }, [changeNote]);
+  const bulkAssign = async () => {
+    try {
+      await manage.mutateAsync({ action: 'bulk_assign', payload: { scope: bulkScope, group_id: bulkGroup, worker_id: bulkWorker } });
+      setBulkOpen(false); setBulkGroup(''); setBulkWorker('');
+    } catch { /* Keep selections on failure. */ }
+  };
   const addTask = async () => {
     try {
       await manage.mutateAsync({ action: 'add_task', payload: { work_date: date, worker_id: taskWorker, description: taskDescription.trim() } });
@@ -93,7 +105,7 @@ export default function Eld() {
     {day.error && <div role="alert" className="rounded-md border border-destructive p-4 text-destructive">Unable to load ELD work: {day.error.message}<Button variant="outline" className="ml-3" onClick={() => day.refetch()}>Retry</Button></div>}
     {data && <>
       {!data.can_manage && !data.can_work && <p className="rounded-md border p-4 text-muted-foreground">No ELD work is assigned to this account. An admin can enable the ELD tag in Users.</p>}
-      {!weekday && <p className="rounded-md border p-4 text-muted-foreground">No daily checklist is required on weekends. Select a weekday to view its history.</p>}
+      {!weekday && <p className="rounded-md border p-4 text-muted-foreground">No regular daily checklist is required on weekends. Recently done drivers remain here until their 24-hour window expires or Deleted accounts is checked.</p>}
       {!current && <p className="text-sm text-muted-foreground">Viewing saved history for {date}.{manager ? ' Manager changes are recorded in Activity.' : ' History is read-only.'}</p>}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[['Drivers', rows.length], ['Completed', completed], ['Incomplete', rows.length - completed], ['Unassigned', rows.filter(c => !c.worker_id).length]].map(([label, value]) => <Card key={label}><CardContent className="p-4"><p className="text-sm text-muted-foreground">{label}</p><p className="text-2xl font-semibold">{value}</p></CardContent></Card>)}
@@ -109,7 +121,8 @@ export default function Eld() {
             <Select value={status} onValueChange={setStatus}><SelectTrigger className="w-44" aria-label="Filter completion"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All checks</SelectItem><SelectItem value="incomplete">Incomplete</SelectItem><SelectItem value="complete">Completed</SelectItem></SelectContent></Select>
             <span className="text-sm text-muted-foreground ml-auto">{rows.length} drivers</span>
           </div>
-          <EldChecksTable rows={rows} workers={workers} editable={editable} assignable={manager && current}
+          {manager && current && <div className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={hasPendingWrites} onClick={() => setBulkOpen(true)}>Bulk assign trucks</Button><p className="text-sm text-muted-foreground">Done drivers stay for 24 hours, or until Deleted accounts is checked.</p></div>}
+          <EldChecksTable rows={rows} workers={workers} editable={editable} assignable={manager && current && !bulkAssigning}
             pendingCheckKeys={pendingCheckKeys} pendingAssignments={pendingAssignments}
             onSave={saveField} onAssign={assignWorker} onSaveNote={saveNote}
             emptyMessage={!weekday ? 'No weekend checklist.' : !checks.length ? manager ? 'No saved driver checks for this date.' : 'No drivers assigned to you for this date.' : 'No drivers match these filters.'} />
@@ -126,6 +139,13 @@ export default function Eld() {
       </Tabs>
     </>}
 
+    <Dialog open={bulkOpen} onOpenChange={open => { if (!bulkAssigning) setBulkOpen(open); }}><DialogContent><DialogHeader><DialogTitle>Bulk assign trucks</DialogTitle><DialogDescription>Assign all active drivers on a dispatcher’s or company’s active trucks to one ELD person. Existing ELD assignments will be replaced.</DialogDescription></DialogHeader>
+      <Label>Assign by</Label><Select value={bulkScope} onValueChange={value => { setBulkScope(value as 'dispatcher' | 'company'); setBulkGroup(''); }} disabled={bulkAssigning}><SelectTrigger aria-label="Bulk assignment type"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="dispatcher">Dispatcher</SelectItem><SelectItem value="company">Company</SelectItem></SelectContent></Select>
+      <Label>{bulkScope === 'dispatcher' ? 'Dispatcher' : 'Company'}</Label><Select value={bulkGroup} onValueChange={setBulkGroup} disabled={bulkAssigning}><SelectTrigger aria-label="Bulk assignment group"><SelectValue placeholder={`Select ${bulkScope}`} /></SelectTrigger><SelectContent>{groups.filter(g => g.scope === bulkScope).map(g => <SelectItem key={g.id} value={g.id}>{g.name} ({g.trucks} trucks)</SelectItem>)}</SelectContent></Select>
+      <Label>ELD person</Label><Select value={bulkWorker} onValueChange={setBulkWorker} disabled={bulkAssigning}><SelectTrigger aria-label="Bulk assignment ELD person"><SelectValue placeholder="Select ELD person" /></SelectTrigger><SelectContent>{workers.map(w => <SelectItem key={w.user_id} value={w.user_id}>{w.name}</SelectItem>)}</SelectContent></Select>
+      {selectedGroup && <p className="text-sm">{selectedGroup.trucks} trucks · {selectedGroup.drivers} drivers, including team drivers</p>}
+      <DialogFooter><Button variant="outline" disabled={bulkAssigning} onClick={() => setBulkOpen(false)}>Cancel</Button><Button disabled={!selectedGroup || !bulkWorker || hasPendingWrites} onClick={bulkAssign}>{bulkAssigning ? 'Assigning…' : 'Assign all trucks'}</Button></DialogFooter>
+    </DialogContent></Dialog>
     <Dialog open={taskOpen} onOpenChange={open => { if (!addingTask) setTaskOpen(open); }}><DialogContent><DialogHeader><DialogTitle>Add side task</DialogTitle><DialogDescription>Assign additional work for {date}.</DialogDescription></DialogHeader><Label>ELD person</Label><Select value={taskWorker} onValueChange={setTaskWorker}><SelectTrigger aria-label="Side task ELD person"><SelectValue placeholder="Select ELD person" /></SelectTrigger><SelectContent>{workers.map(w => <SelectItem key={w.user_id} value={w.user_id}>{w.name}</SelectItem>)}</SelectContent></Select><Label htmlFor="eld-task-description">Task</Label><Textarea id="eld-task-description" rows={4} maxLength={2000} value={taskDescription} onChange={e => setTaskDescription(e.target.value)} /><DialogFooter><Button variant="outline" disabled={addingTask} onClick={() => setTaskOpen(false)}>Cancel</Button><Button disabled={!taskWorker || !taskDescription.trim() || addingTask} onClick={addTask}>{addingTask ? 'Adding…' : 'Add task'}</Button></DialogFooter></DialogContent></Dialog>
   </div>;
 }

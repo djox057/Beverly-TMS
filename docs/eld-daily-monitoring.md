@@ -4,20 +4,21 @@ The `/eld` page and navigation item are restricted to the exact `admin` and `mai
 
 ## Daily work
 
-Each active driver has zero or one assigned ELD worker. Admins and ELD managers assign eligible maintenance users directly in the ELD person column. Team drivers have separate checklist rows and may share a truck number.
+Each active driver has zero or one assigned ELD worker. Admins and ELD managers assign eligible maintenance users directly in the ELD person column. Team drivers have separate checklist rows and may share a truck number. Managers can also use Bulk assign trucks to assign all active drivers on the active trucks of one dispatcher or one truck company. The dialog shows the truck/driver count; both team members are included, existing ELD assignments are replaced, and each changed assignment is audited. Bulk assignment runs as one transaction and reconciles the roster once.
 
 Each Monday–Friday, in `America/Chicago`, the page shows fresh Yesterday log, Forms, and PTI checkboxes plus an empty comment. All three checks are required for the row to be complete. Previous days retain their driver/truck/worker snapshots, comments and checks. Workers can edit today only; managers can correct past entries. Every saved field change, assignment, and task change is attributed in Activity.
 
 Side tasks have a description, assignee, work date, completion actor and timestamp. Managers add tasks for today; tasks stay on their original date. Nothing carries into the next day.
 
-The hourly `eld-daily-roster` cron job creates weekday snapshots even if nobody opens the page. Loading today's page also reconciles the roster. Open pages refresh every minute and follow Chicago midnight automatically. Inactive drivers disappear from today's view while their saved history remains.
+The hourly `eld-daily-roster` cron job creates weekday snapshots even if nobody opens the page. Loading today's page also reconciles the roster. Open pages refresh every minute and follow Chicago midnight automatically. Drivers marked Done remain visible for 24 hours from deactivation, including across midnight and on weekends. Their last truck number and ELD assignment are preserved. The assigned ELD worker or a manager can check Deleted accounts to remove them sooner; this records account cleanup and does not delete TMS driver records. Reactivating a driver resets this state. Existing inactive drivers are not restored because their precise deactivation time is unknown. Historical checks remain available.
 
 ## Deployment order
 
 1. Apply `supabase/migrations/20261021132641_eld_daily_monitoring.sql` and then `supabase/migrations/20261021132947_eld_history_references.sql` to the TMS project (`wjkbtagwgjniilmgwutb`, FleetCarrier). It requires the existing `pg_cron` extension. This is an additive migration, but it also protects ELD tags against profile self-service changes and registers the hourly job.
-2. Deploy the frontend. The ELD page requires the migration before it can load work. Existing Users edits remain compatible with the old schema; the ELD manager toggle stays disabled until the new column exists.
-3. In Users, enable ELD manager for the appropriate maintenance user(s). Existing ELD flags remain intact; no manager tag or driver assignment is preselected.
-4. Assign active drivers in ELD. Check a row and add a side task, then verify Activity and the selected date's history.
+2. Apply `supabase/migrations/20261102150551_eld_bulk_assignment_departures.sql` before deploying the bulk-assignment/departure frontend.
+3. Deploy the frontend. The ELD page requires the migration before it can load work. Existing Users edits remain compatible with the old schema; the ELD manager toggle stays disabled until the new column exists.
+4. In Users, enable ELD manager for the appropriate maintenance user(s). Existing ELD flags remain intact; no manager tag or driver assignment is preselected.
+5. Assign active drivers in ELD. Check a row and add a side task, then verify Activity and the selected date's history.
 
 No new account role or external ELD/HOS integration is introduced. Public tables have read-only authenticated grants and RLS; all writes use validated RPCs. Privileged implementations are in the non-exposed `eld_private` schema. Assignment changes and roster refreshes share a transaction lock to prevent stale assignment snapshots.
 

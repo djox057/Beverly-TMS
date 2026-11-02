@@ -1,8 +1,9 @@
 import { formatInTimeZone } from 'date-fns-tz';
 
-export type EldCheckField = 'yesterday_log' | 'forms' | 'pti' | 'comment';
+export type EldCheckField = 'yesterday_log' | 'forms' | 'pti' | 'comment' | 'deleted_accounts';
 export type EldWorker = { user_id: string; name: string };
 export type EldCheck = {
+  inactive_at?: string | null; deleted_accounts?: boolean;
   id: string; work_date: string; driver_id: string; driver_name: string;
   truck_number: string; worker_id: string | null; worker_name: string | null;
   yesterday_log: boolean; forms: boolean; pti: boolean; comment: string;
@@ -13,7 +14,9 @@ export type EldTask = {
   completed: boolean; completed_by: string | null; completed_at: string | null;
   created_by: string; created_at: string; updated_at: string;
 };
+export type EldAssignmentGroup = { scope: 'dispatcher' | 'company'; id: string; name: string; trucks: number; drivers: number };
 export type EldDay = {
+  assignment_groups?: EldAssignmentGroup[];
   today: string; can_manage: boolean; can_work: boolean;
   checks: EldCheck[]; workers: EldWorker[]; tasks: EldTask[];
 };

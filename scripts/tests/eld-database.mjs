@@ -29,6 +29,13 @@ await db.exec(`
 `);
 await db.exec(await readFile(new URL('../../supabase/migrations/20261021132641_eld_daily_monitoring.sql', import.meta.url),'utf8'));
 await db.exec(await readFile(new URL('../../supabase/migrations/20261021132947_eld_history_references.sql', import.meta.url),'utf8'));
+await db.exec(`
+  create table public.companies(id uuid primary key,name text);
+  alter table public.trucks add column dispatcher_id uuid, add column company_id uuid;
+  insert into public.companies values ('${ids.ordinary}','Test Company');
+  update public.trucks set dispatcher_id='${ids.dispatch}',company_id='${ids.ordinary}';
+`);
+await db.exec(await readFile(new URL('../../supabase/migrations/20261102150551_eld_bulk_assignment_departures.sql', import.meta.url),'utf8'));
 const today = (await db.query(`select (now() at time zone 'America/Chicago')::date::text as date`)).rows[0].date;
 assert.ok((await db.query(`select extract(isodow from date '${today}') as day`)).rows[0].day <= 5, 'Run on a weekday to exercise daily roster creation');
 await db.exec(`update public.profiles set is_eld_manager=true where user_id='${ids.manager}'`);
@@ -88,9 +95,37 @@ await as('worker'); assert.equal((await rpc('eld_get_day',[today])).checks.lengt
 assert.equal((await rpc('eld_get_day',[history.work_date.toISOString().slice(0,10)])).checks.length,1);
 await denied(()=>rpc('eld_save_check',[own.id,'pti',true]));
 await as('other'); assert.equal((await rpc('eld_get_day',[today])).checks.length,2);
-await db.exec('reset role'); await db.exec(`update public.drivers set is_active=false where id='${ids.d1}'`);
+// Bulk scopes include both team drivers, validate authorization and worker eligibility.
+await as('worker'); await denied(()=>rpc('eld_manage',['bulk_assign',{scope:'dispatcher',group_id:ids.dispatch,worker_id:ids.worker}]));
+await as('manager');
+assert.equal((await rpc('eld_get_day',[today])).assignment_groups.length,2);
+await denied(()=>rpc('eld_manage',['bulk_assign',{scope:'company',group_id:ids.ordinary,worker_id:ids.ordinary}]));
+await rpc('eld_manage',['bulk_assign',{scope:'dispatcher',group_id:ids.dispatch,worker_id:ids.worker}]);
+assert.ok((await rpc('eld_get_day',[today])).checks.every(c=>c.worker_id===ids.worker));
+await rpc('eld_manage',['bulk_assign',{scope:'company',group_id:ids.ordinary,worker_id:ids.other}]);
+assert.ok((await rpc('eld_get_day',[today])).checks.every(c=>c.worker_id===ids.other));
+await denied(()=>rpc('eld_save_check',[own.id,'deleted_accounts',true]));
+await db.exec('reset role'); await db.exec(`update public.drivers set is_active=false where id='${ids.d1}'; update public.trucks set driver1_id=null;`);
+await as('manager');
+day=await rpc('eld_get_day',[today]); assert.equal(day.checks.length,2);
+assert.equal(day.checks.find(c=>c.driver_id===ids.d1).truck_number,'460');
+assert.ok(day.checks.find(c=>c.driver_id===ids.d1).inactive_at);
+await as('worker'); await denied(()=>rpc('eld_save_check',[own.id,'deleted_accounts',true]));
+await as('other'); await rpc('eld_save_check',[own.id,'pti',true]);
+await rpc('eld_save_check',[own.id,'deleted_accounts',true]);
+assert.equal((await rpc('eld_get_day',[today])).checks.length,1);
+await denied(()=>rpc('eld_save_check',[own.id,'pti',false]));
+// Reactivation clears the departure; subsequent done starts a fresh 24-hour window.
+await db.exec('reset role');
+await db.exec(`update public.drivers set is_active=true where id='${ids.d1}'; update public.trucks set driver1_id='${ids.d1}'; update public.drivers set is_active=false where id='${ids.d1}';`);
+await as('manager'); assert.equal((await rpc('eld_get_day',[today])).checks.length,2);
+// A fresh daily roster carries recently done drivers across midnight.
+await db.exec('reset role'); await db.exec(`delete from public.eld_daily_checks where driver_id='${ids.d1}' and work_date=date '${today}'; select eld_private.sync_today();`);
+await as('manager'); day=await rpc('eld_get_day',[today]); assert.equal(day.checks.length,2);
+const carried=day.checks.find(c=>c.driver_id===ids.d1); assert.equal(carried.truck_number,'460');
+await db.exec('reset role'); await db.exec(`update eld_private.departures set inactive_at=now()-interval '24 hours' where driver_id='${ids.d1}'`);
 await as('manager'); assert.equal((await rpc('eld_get_day',[today])).checks.length,1);
-await denied(()=>rpc('eld_save_check',[own.id,'pti',true]));
+await denied(()=>rpc('eld_save_check',[carried.id,'pti',true]));
 await db.exec('reset role');
 assert.equal((await db.query(`select count(*)::int as count from public.eld_activity where entity_type='check' and actor_id='${ids.worker}'`)).rows[0].count,3);
 await db.exec(`set role anon`); await denied(()=>rpc('eld_get_day',[today])); await denied(()=>db.exec('select * from public.eld_daily_checks'));

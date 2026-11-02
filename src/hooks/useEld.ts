@@ -7,6 +7,7 @@ import type { EldCheck, EldCheckField, EldDay } from '@/lib/eld';
 
 type CheckChange = { id: string; field: EldCheckField; value: string | boolean };
 type ManageChange =
+  | { action: 'bulk_assign'; payload: { scope: 'dispatcher' | 'company'; group_id: string; worker_id: string } }
   | { action: 'assign'; payload: { driver_id: string; worker_id: string | null } }
   | { action: 'add_task'; payload: { work_date: string; worker_id: string; description: string } }
   | { action: 'complete_task'; payload: { id: string; completed: boolean } };
@@ -65,7 +66,7 @@ export function useEldDay(date: string) {
       patch(value);
       return { key, date, rollback: () => { if (isLatest() && previous !== undefined) patch(previous); } };
     },
-    onSuccess: activityChanged,
+    onSuccess: (_data, change, context) => { activityChanged(); if (change.field === 'deleted_accounts') refreshDates.current.add(context.date); },
     onError: reportError,
     onSettled: settled,
   });
@@ -102,7 +103,7 @@ export function useEldDay(date: string) {
     },
     onSuccess: (_data, change, context) => {
       activityChanged();
-      if (change.action === 'add_task') refreshDates.current.add(context.date);
+      if (change.action === 'add_task' || change.action === 'bulk_assign') refreshDates.current.add(context.date);
     },
     onError: reportError,
     onSettled: settled,
@@ -119,6 +120,7 @@ export function useEldDay(date: string) {
   const pendingAssignments = useMemo(() => new Set(pendingChanges.flatMap(change => change.action === 'assign' ? [change.payload.driver_id] : [])), [pendingChanges]);
   const pendingTasks = useMemo(() => new Set(pendingChanges.flatMap(change => change.action === 'complete_task' ? [change.payload.id] : [])), [pendingChanges]);
   return { day, saveCheck, manage, pendingCheckKeys, pendingAssignments, pendingTasks,
+    bulkAssigning: pendingChanges.some(change => change.action === 'bulk_assign'),
     addingTask: pendingChanges.some(change => change.action === 'add_task'),
     hasPendingWrites: !!(pendingChecks.length || pendingChanges.length) };
 }

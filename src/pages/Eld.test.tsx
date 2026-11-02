@@ -93,3 +93,25 @@ describe('ELD page', () => {
     expect(mocks.save).toHaveBeenCalledWith({ id: 'check', field: 'comment', value: 'Reviewed shipping forms' });
   });
 });
+
+it('shows Deleted accounts only as editable for recently done drivers', () => {
+  mocks.day.data.checks[0].inactive_at = new Date().toISOString();
+  render(<Eld />);
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Deleted accounts for Assigned Driver' }));
+  expect(mocks.save).toHaveBeenCalledWith({ id: 'check', field: 'deleted_accounts', value: true });
+});
+it('bulk assigns a dispatcher group to the selected ELD worker', async () => {
+  HTMLElement.prototype.hasPointerCapture = () => false;
+  HTMLElement.prototype.scrollIntoView = () => {};
+  mocks.day.data.can_manage = true;
+  mocks.day.data.assignment_groups = [{ scope: 'dispatcher', id: 'dispatch', name: 'Dispatcher A', trucks: 3, drivers: 4 }];
+  render(<Eld />);
+  fireEvent.click(screen.getByRole('button', { name: 'Bulk assign trucks' }));
+  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Bulk assignment group' }), { key: 'ArrowDown' });
+  fireEvent.click(screen.getByRole('option', { name: 'Dispatcher A (3 trucks)' }));
+  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Bulk assignment ELD person' }), { key: 'ArrowDown' });
+  fireEvent.click(screen.getByRole('option', { name: 'ELD Person' }));
+  expect(screen.getByText('3 trucks · 4 drivers, including team drivers')).toBeInTheDocument();
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Assign all trucks' })); });
+  expect(mocks.manage).toHaveBeenCalledWith({ action: 'bulk_assign', payload: { scope: 'dispatcher', group_id: 'dispatch', worker_id: 'worker' } });
+});
