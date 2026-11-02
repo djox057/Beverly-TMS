@@ -42,13 +42,27 @@ describe('driver status emails',()=>{
   it('makes all four tests explicit and escapes driver names in HTML',()=>{
     for(const action of ['two_week_notice','done','two_week_cancelled','continued_driving']) {
       const email=buildEmail(event(action),[order()]);
-      expect(email.to).toEqual(['jon@bfprime.net']);
+      expect(email.to).toEqual(['ugo@pointxinc.com']);
       expect(email.subject).toContain('[TEST] Chris <Tafolla>');
       expect(email.html).toContain('Chris &lt;Tafolla&gt;');
       expect(email.text).toContain('no driver status was changed');
       expect(email.html).toContain('Freight amount');
+      expect(email.from).toBe('Beverly TMS <jon@bfprime.net>');
     }
     expect(buildEmail(event(),[]).html).toContain('N/A');
+  });
+  it('includes driver contacts and home location and omits changed-by from both versions',()=>{
+    const e=event();
+    const email=buildEmail({...e,actor_name:'Simulated test requested by Djordje',driver_snapshot:{...e.driver_snapshot,phone:'555-0100',email:'driver@example.com',home_city:'Dallas',home_state:'TX'}},[order()]);
+    for(const content of [email.html,email.text]) {
+      expect(content).toContain('555-0100');
+      expect(content).toContain('driver@example.com');
+      expect(content).toContain('Dallas, TX');
+      expect(content).not.toContain('Changed by');
+      expect(content).not.toContain('Djordje');
+    }
+    expect(email.html).toContain('3-WEEK TOTAL');
+    expect(buildEmail(event(),[]).text).toContain('Phone: Not recorded');
   });
   it('does not invent hire dates and measures done tenure to termination',()=>{
     expect(tenure({},occurred,'done')).toContain('Unknown');

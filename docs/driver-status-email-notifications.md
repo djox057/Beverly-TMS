@@ -1,14 +1,14 @@
 # Driver status notification emails
 
-Four driver transitions notify `jon@bfprime.net`: 2-week notice given, Done,
+Four driver transitions send from `jon@bfprime.net` to `ugo@pointxinc.com`: 2-week notice given, Done,
 2-week notice cancelled, and Start/reactivated (continued driving). Changing an
 existing notice date also sends an update. The database trigger covers Drivers,
 Reports, Yard Arrivals, and other authorized updates. Done takes priority over
 clearing the notice, preventing a duplicate cancellation email.
 
 The subject and heading contain the driver's name and event. The body contains
-the driver's carrier company and tenure from recorded hire date (to termination
-date for Done; otherwise event date). Unknown dates remain explicitly unknown.
+the driver's phone, email, home city/state, carrier company, and tenure from recorded hire date (to termination
+date for Done; otherwise event date). Unknown dates remain explicitly unknown. Missing contact details display Not recorded. The weekly table uses aligned numeric columns, alternating backgrounds, a highlighted current week, and a total row with weighted RPM.
 
 The table contains three Tuesday–Monday payroll weeks: the current week to date
 plus the two preceding weeks. Freight amount means driver-side pay including
@@ -34,7 +34,7 @@ tables use RLS, with no anon/authenticated grants. Internal trigger and cron
 functions live in a private schema and revoke public execution. The service RPC
 uses SECURITY INVOKER and grants execution only to service_role.
 
-Events snapshot name/company/hire/termination dates at the transition. A worker
+Events snapshot name/company/hire/termination dates and driver contact details at the transition. The email omits the Changed by field. A worker
 persists the exact email payload before delivery; retries reuse that payload and
 the provider idempotency key. Workers lease one event at a time, send at most 10
 per invocation, and use a 15-second provider timeout. Five bounded attempts use
