@@ -62,5 +62,5 @@ export function groupEldChecks(checks: EldCheck[], companyFor: (row: EldCheck) =
       deleted_accounts: members.every(m => m.deleted_accounts),
       comment: sameNote ? first.comment : members.filter(m => m.comment).map(m => `${m.driver_name}: ${m.comment}`).join('\n'),
     };
-  });
+  }).sort((a, b) => Number(!!b.inactive_at) - Number(!!a.inactive_at));
 }
