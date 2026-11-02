@@ -1711,7 +1711,7 @@ const Trips = () => {
       let resolvedCompanyName = companyName;
       try {
         // Use the company active at the start of the statement week.
-        const { data: historyRows } = await supabase
+        const { data: historyRows, error: historyError } = await supabase
           .from("driver_company_history")
           .select("company_name_snapshot, started_at, ended_at")
           .eq("driver_id", firstOrder.driver1Id)
@@ -1719,17 +1719,19 @@ const Trips = () => {
           .or(`ended_at.is.null,ended_at.gte.${weekStartDate.toISOString()}`)
           .order("started_at", { ascending: false })
           .limit(1);
+        if (historyError) throw historyError;
         const snapshot = historyRows?.[0]?.company_name_snapshot;
         if (snapshot) {
           resolvedCompanyName = snapshot;
         }
       } catch (e) {
-        console.warn("driver_company_history lookup failed; falling back to current company", e);
+        console.error("Unable to resolve statement company history", e);
+        throw e;
       }
 
       // Check if driver is a company driver - use company driver template regardless of company
       if (driver?.is_company_driver) {
-        await exportCompanyDriverTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
+        await exportCompanyDriverTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions, resolvedCompanyName);
       } else if (resolvedCompanyName === "BF Prime United LLC") {
         await exportBFPrimeTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else if (
@@ -1775,6 +1777,7 @@ const Trips = () => {
     firstOrder: any,
     driver: any,
     scheduledDeductions: ScheduledDeduction[] = [],
+    statementCompanyName: string = "",
   ) => {
     try {
       // Load the Company Driver template
@@ -1787,6 +1790,38 @@ const Trips = () => {
 
       if (!worksheet) {
         throw new Error("Template worksheet not found");
+      }
+
+
+      // Keep the per-mile company-driver layout, but use the operating company's
+      // logo from the statement period instead of the BF Prime logo baked into it.
+      const brandingTemplates: Record<string, string> = {
+        "AP Silver Trans LLC": new URL("../assets/templates/AP_Silver_Trans.xlsx", import.meta.url).toString(),
+        "Beverly Freight Inc": new URL("../assets/templates/Beverly_Freight.xlsx", import.meta.url).toString(),
+        "BG Prime Inc": new URL("../assets/templates/BG_Inc.xlsx", import.meta.url).toString(),
+        "BF Prime United LLC": new URL("../assets/templates/BF_Prime_United.xlsx", import.meta.url).toString(),
+        "United Enterprise Solutions INC": new URL("../assets/templates/United_Enterprise_Solutions.xlsx", import.meta.url).toString(),
+        "Lale Transport LLC": new URL("../assets/templates/Lale_Transport.xlsx", import.meta.url).toString(),
+        "Jones Freight Lines LLC": new URL("../assets/templates/Jones_Freight.xlsx", import.meta.url).toString(),
+      };
+      const brandingUrl = brandingTemplates[statementCompanyName];
+      if (brandingUrl) {
+        const brandingResponse = await fetch(brandingUrl);
+        if (!brandingResponse.ok) throw new Error("Unable to load statement company branding");
+        const brandingWorkbook = new ExcelJS.Workbook();
+        await brandingWorkbook.xlsx.load(await brandingResponse.arrayBuffer());
+        const brandingSheet = brandingWorkbook.getWorksheet(1);
+        const logo = brandingSheet?.getImages()[0];
+        const targetLogo = worksheet.getImages()[0];
+        if (!logo || !targetLogo) throw new Error("Statement company logo not found");
+        const sourceImage = brandingWorkbook.getImage(Number(logo.imageId));
+        const targetImage = workbook.getImage(Number(targetLogo.imageId));
+        // Preserve the company-driver image anchor and media index so the clean
+        // workbook export copies the replacement logo into the existing layout.
+        targetImage.buffer = sourceImage.buffer;
+        targetImage.base64 = sourceImage.base64;
+        targetImage.extension = sourceImage.extension;
+        targetImage.filename = sourceImage.filename;
       }
 
       // Sort orders ascending by date for statement export
