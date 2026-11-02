@@ -321,7 +321,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/eld" element={
-          <ProtectedRoute strictAllowedRoles={['admin', 'maintenance']}>
+          <ProtectedRoute strictAllowedRoles={['admin', 'maintenance', 'manager']}>
             <Layout><Eld /></Layout>
           </ProtectedRoute>
         } />
