@@ -55,12 +55,15 @@ export const IndividualModeProvider: React.FC<{ children: ReactNode }> = ({ chil
 
     let cancelled = false;
     const load = async () => {
-      const fmt = (d: Date) =>
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      // Weekend coverage keeps Chicago dates; afterhours shifts use Serbia time.
-      const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
-      const todayStr = fmt(today);
-      const shiftTime = getAfterhoursShiftTime();
+      // Use one instant for both clocks. Morning coverage ends at 14:00
+      // Europe/Belgrade, regardless of Chicago/browser DST differences.
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(now);
+      const part = (type: string) => parts.find(p => p.type === type)!.value;
+      const todayStr = `${part('year')}-${part('month')}-${part('day')}`;
+      const shiftTime = getAfterhoursShiftTime(now);
 
       const [weekendRes, shiftRes] = await Promise.all([
         supabase
