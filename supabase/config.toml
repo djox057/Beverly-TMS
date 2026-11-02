@@ -162,3 +162,7 @@ verify_jwt = false
 
 [functions.send-low-drive-reminders]
 verify_jwt = false
+
+[functions.send-driver-status-email]
+# Validates the existing CRON_SECRET inside the handler.
+verify_jwt = false
