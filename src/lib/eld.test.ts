@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eldComplete, eldToday, filterEldChecks, isEldWeekday, type EldCheck } from './eld';
+import { eldComplete, eldToday, groupEldChecks, filterEldChecks, isEldWeekday, type EldCheck } from './eld';
 
 const row = (overrides: Partial<EldCheck> = {}): EldCheck => ({
   id: 'check', driver_id: 'driver', work_date: '2026-10-21', driver_name: 'Driver One', truck_number: '460',
@@ -31,5 +31,26 @@ describe('ELD daily work', () => {
     expect(filterEldChecks(rows, 'driver TWO', 'worker-two', 'complete').map(r => r.id)).toEqual(['done']);
     expect(filterEldChecks(rows, 'ELD One', 'worker-one', 'incomplete').map(r => r.id)).toEqual(['check']);
     expect(filterEldChecks(rows, '', 'all', 'complete').map(r => r.id)).toEqual(['done']);
+  });
+});
+
+describe('ELD teams', () => {
+  it('groups before searching and requires every teammate to complete each check', () => {
+    const checks = [row({ pti: true }), row({ id: 'second', driver_id: 'second', driver_name: 'Other Person', forms: true })];
+    const grouped = groupEldChecks(checks);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]).toMatchObject({ driver_name: 'Team', forms: false, pti: false });
+    expect(grouped[0].members).toHaveLength(2);
+    expect(filterEldChecks(grouped, 'Other Person', 'all', 'all')).toHaveLength(1);
+  });
+  it('keeps untrucked drivers, different companies and done drivers separate', () => {
+    expect(groupEldChecks([row({ truck_number: '' }), row({ id: 'two', truck_number: '' })])).toHaveLength(2);
+    expect(groupEldChecks([row(), row({ id: 'two', inactive_at: '2026-11-02T12:00:00Z' })])).toHaveLength(2);
+    expect(groupEldChecks([row(), row({ id: 'two' })], r => r.id)).toHaveLength(2);
+  });
+  it('shows mixed assignments without hiding a matching teammate', () => {
+    const grouped = groupEldChecks([row(), row({ id: 'two', worker_id: 'worker-two', worker_name: 'ELD Two' })]);
+    expect(grouped[0].worker_name).toBe('Mixed assignments');
+    expect(filterEldChecks(grouped, '', 'worker-two', 'all')).toHaveLength(1);
   });
 });

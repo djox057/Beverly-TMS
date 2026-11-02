@@ -5,7 +5,7 @@ import { eldToday } from '@/lib/eld';
 import Eld from './Eld';
 
 const mocks = vi.hoisted(() => ({ day: {} as { data: EldDay }, save: vi.fn(), manage: vi.fn(), pendingCheckKeys: new Set<string>() }));
-vi.mock('@/hooks/useEldCompanies', () => ({ useEldCompanies: () => ({ data: { trucks: new Map([['461', 'bf']]), drivers: new Map([['driver', 'ap']]), names: new Map([['bf', 'BF Prime'], ['ap', 'AP Silver']]) }, isPending: false, isError: false }) }));
+vi.mock('@/hooks/useEldCompanies', () => ({ useEldCompanies: () => ({ data: { trucks: new Map([['461', 'bf']]), drivers: new Map([['driver', 'ap'], ['second-driver', 'ap']]), names: new Map([['bf', 'BF Prime'], ['ap', 'AP Silver']]) }, isPending: false, isError: false }) }));
 vi.mock('@/hooks/useEld', () => ({ useEldDay: () => ({
   day: { ...mocks.day, refetch: vi.fn() },
   pendingCheckKeys: mocks.pendingCheckKeys, pendingAssignments: new Set<string>(), pendingTasks: new Set<string>(), addingTask: false, hasPendingWrites: false,
@@ -111,7 +111,7 @@ it('bulk assigns a dispatcher group to the selected ELD worker', async () => {
   fireEvent.click(screen.getByRole('option', { name: 'Dispatcher A (3 trucks)' }));
   fireEvent.keyDown(screen.getByRole('combobox', { name: 'Bulk assignment ELD person' }), { key: 'ArrowDown' });
   fireEvent.click(screen.getByRole('option', { name: 'ELD Person' }));
-  expect(screen.getByText('3 trucks · 4 drivers, including team drivers')).toBeInTheDocument();
+  expect(screen.getByText('3 trucks · teams count as one assignment')).toBeInTheDocument();
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Assign all trucks' })); });
   expect(mocks.manage).toHaveBeenCalledWith({ action: 'bulk_assign', payload: { scope: 'dispatcher', group_id: 'dispatch', worker_id: 'worker' } });
 });
@@ -127,4 +127,26 @@ it('shows a disabled bulk assignment button on historical dates', () => {
   mocks.day.data.today = '2099-01-01';
   render(<Eld />);
   expect(screen.getByRole('button', { name: 'Bulk assign trucks' })).toBeDisabled();
+});
+
+it('counts a team once, reveals names, and assigns/checks both drivers', () => {
+  HTMLElement.prototype.hasPointerCapture = () => false;
+  HTMLElement.prototype.scrollIntoView = () => {};
+  mocks.day.data.can_manage = true;
+  mocks.day.data.checks.push({ ...mocks.day.data.checks[0], id: 'second', driver_id: 'second-driver', driver_name: 'Second Driver' });
+  render(<Eld />);
+  expect(screen.getByText('Drivers', { selector: 'p' }).nextElementSibling).toHaveTextContent(/^1$/);
+  expect(screen.queryByText('Second Driver')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Show team names for truck 460' }));
+  expect(screen.getByText('Assigned Driver')).toBeInTheDocument();
+  expect(screen.getByText('Second Driver')).toBeInTheDocument();
+  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Assign ELD person for Team' }), { key: 'ArrowDown' });
+  fireEvent.click(screen.getByRole('option', { name: 'Unassigned' }));
+  expect(mocks.manage).toHaveBeenCalledWith({ action: 'assign', payload: { driver_id: 'driver', worker_id: null } });
+  expect(mocks.manage).toHaveBeenCalledWith({ action: 'assign', payload: { driver_id: 'second-driver', worker_id: null } });
+  fireEvent.click(screen.getByRole('checkbox', { name: 'pti for Team' }));
+  expect(mocks.save).toHaveBeenCalledWith({ id: 'check', field: 'pti', value: true });
+  expect(mocks.save).toHaveBeenCalledWith({ id: 'second', field: 'pti', value: true });
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search drivers, trucks or ELD person' }), { target: { value: 'Second Driver' } });
+  expect(screen.getByRole('button', { name: 'Show team names for truck 460' })).toBeInTheDocument();
 });
