@@ -11,7 +11,8 @@ export function DispatcherLoadBadges({ data, isError, isFetching }: Props) {
   const counts = [
     { name: "Prebook", value: data?.prebookCount, color: "bg-blue-600 hover:bg-blue-600" },
     { name: "Recovery", value: data?.recoveryCount, color: "bg-red-600 hover:bg-red-600" },
-  ];
+  ].filter(({ value }) => isError || value !== 0);
+  if (counts.length === 0) return null;
   return (
     <span className="ml-auto flex shrink-0 items-center gap-1" aria-live="polite" aria-busy={isFetching}>
       {counts.map(({ name, value, color }) => {

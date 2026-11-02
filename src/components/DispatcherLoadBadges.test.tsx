@@ -3,11 +3,15 @@ import { afterEach, expect, it } from "vitest";
 import { DispatcherLoadBadges } from "./DispatcherLoadBadges";
 
 afterEach(cleanup);
-it("shows separate blue prebook and red recovery counts, including zero", () => {
-  render(<DispatcherLoadBadges data={{ prebookCount: 3, recoveryCount: 0, truckIds: [], orderIds: [] }} isError={false} isFetching={false} />);
+it("hides each zero count and removes the badge group when both counts reach zero", () => {
+  const { rerender, container } = render(<DispatcherLoadBadges data={{ prebookCount: 3, recoveryCount: 0, truckIds: [], orderIds: [] }} isError={false} isFetching={false} />);
   expect(screen.getByLabelText(/^Prebook: 3/)).toHaveClass("bg-blue-600");
-  expect(screen.getByLabelText(/^Recovery: 0/)).toHaveClass("bg-red-600");
-  expect(screen.getByLabelText(/^Recovery: 0/)).toHaveTextContent("0");
+  expect(screen.queryByLabelText(/^Recovery:/)).not.toBeInTheDocument();
+  rerender(<DispatcherLoadBadges data={{ prebookCount: 0, recoveryCount: 2, truckIds: [], orderIds: [] }} isError={false} isFetching={false} />);
+  expect(screen.queryByLabelText(/^Prebook:/)).not.toBeInTheDocument();
+  expect(screen.getByLabelText(/^Recovery: 2/)).toHaveClass("bg-red-600");
+  rerender(<DispatcherLoadBadges data={{ prebookCount: 0, recoveryCount: 0, truckIds: [], orderIds: [] }} isError={false} isFetching={false} />);
+  expect(container).toBeEmptyDOMElement();
 });
 it("distinguishes loading and failed refreshes from zero matches", () => {
   const { rerender } = render(<DispatcherLoadBadges isError={false} isFetching={true} />);
