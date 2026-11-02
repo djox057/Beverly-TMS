@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardCheck, Plus, RefreshCw, Search } from 'lucide-react';
+import { getCompanyBackgroundColor } from '@/pages/Reports/helpers';
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useEldCompanies } from '@/hooks/useEldCompanies';
@@ -20,7 +21,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 
 const EMPTY_CHECKS: EldCheck[] = [];
-const COMPANY_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c', '#0891b2', '#db2777', '#64748b', '#ca8a04', '#4f46e5', '#0d9488', '#7c3aed'];
 
 export default function Eld() {
   const [today, setToday] = useState(eldToday);
@@ -73,11 +73,10 @@ export default function Eld() {
   const completed = rows.filter(eldComplete).length;
   const workerNames = new Map(workers.map(w => [w.user_id, w.name]));
   checks.forEach(c => { if (c.worker_id && c.worker_name && !workerNames.has(c.worker_id)) workerNames.set(c.worker_id, c.worker_name); });
-  const companyColorIds = [...(companyData?.names.keys() ?? [])].sort();
   const companyBreakdown = (assigned: EldCheck[]) => {
     const totals = new Map<string, number>();
     assigned.forEach(row => { const id = companyFor(row) ?? 'none'; totals.set(id, (totals.get(id) ?? 0) + 1); });
-    return [...totals].map(([id, value]) => ({ id, value, name: id === 'none' ? 'No company' : companyData?.names.get(id) ?? 'Unknown company', color: id === 'none' ? '#94a3b8' : COMPANY_COLORS[Math.max(0, companyColorIds.indexOf(id)) % COMPANY_COLORS.length] })).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+    return [...totals].map(([id, value]) => ({ id, value, name: id === 'none' ? 'No company' : companyData?.names.get(id) ?? 'Unknown company', color: getCompanyBackgroundColor(companyData?.names.get(id) ?? null).backgroundColor ?? '#94a3b8' })).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
   };
   const selectDate = (next: string) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(next) || next > today) return;
