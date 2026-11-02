@@ -6,7 +6,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Truck, Users, ChevronDown, ChevronRight, Building2, MapPin } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { groupTeamDriverRows } from "@/lib/afterhoursAutoAssign";
 
 interface Driver {
@@ -156,6 +155,18 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
     });
   };
 
+  // Bulk company selection spans offices/dispatchers and uses drivers.company_id
+  // (enriched as company_name), never the truck's company.
+  const companyDrivers = availableDrivers.filter((driver) => companyFilter !== 'all' && driver.company_name === companyFilter);
+  const companySelected = companyDrivers.length > 0 && companyDrivers.every((driver) => selectedIds.has(driver.id));
+  const toggleCompany = () => {
+    if (!companyDrivers.length) return;
+    toggleDispatcher(companyDrivers);
+    // Reveal the full company so a search/office filter cannot hide the scope.
+    setSearch('');
+    setOfficeFilter('all');
+  };
+
   const toggleCollapse = (dispId: string) => {
     setCollapsedDispatchers((prev) => {
       const next = new Set(prev);
@@ -246,6 +257,23 @@ const AssignAfterhoursDriversDialog: React.FC<AssignAfterhoursDriversDialogProps
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={companyDrivers.length === 0 || submitting}
+            onClick={toggleCompany}
+          >
+            <Building2 className="mr-2 h-4 w-4" />
+            {companySelected ? 'Deselect company' : 'Select company'}
+            {companyDrivers.length > 0 ? ` (${companyDrivers.length})` : ''}
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {companyFilter === 'all' ? 'Choose a driver company first.' : 'All available drivers in this company, across offices.'}
+          </span>
         </div>
 
         <div className="flex-1 min-h-0 max-h-[60vh] overflow-y-auto border rounded-md">
