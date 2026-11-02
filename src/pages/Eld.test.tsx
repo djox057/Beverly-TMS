@@ -15,6 +15,7 @@ vi.mock('@/hooks/useEld', () => ({ useEldDay: () => ({
 vi.mock('@/components/eld/EldActivityLog', () => ({ EldActivityLog: () => <div>Activity log</div> }));
 const today = eldToday();
 beforeEach(() => {
+  globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
   vi.clearAllMocks();
   mocks.pendingCheckKeys = new Set();
   mocks.day = { data: { today, can_manage: false, can_work: true, workers: [{ user_id: 'worker', name: 'ELD Person' }], tasks: [], checks: [{
@@ -107,7 +108,7 @@ it('bulk assigns a dispatcher group to the selected ELD worker', async () => {
   mocks.day.data.assignment_groups = [{ scope: 'dispatcher', id: 'dispatch', name: 'Dispatcher A', trucks: 3, drivers: 4 }];
   render(<Eld />);
   fireEvent.click(screen.getByRole('button', { name: 'Bulk assign trucks' }));
-  fireEvent.keyDown(screen.getByRole('combobox', { name: 'Bulk assignment group' }), { key: 'ArrowDown' });
+  fireEvent.click(screen.getByRole('combobox', { name: 'Bulk assignment group' }));
   fireEvent.click(screen.getByRole('option', { name: 'Dispatcher A (3 trucks)' }));
   fireEvent.keyDown(screen.getByRole('combobox', { name: 'Bulk assignment ELD person' }), { key: 'ArrowDown' });
   fireEvent.click(screen.getByRole('option', { name: 'ELD Person' }));
@@ -149,4 +150,21 @@ it('counts a team once, reveals names, and assigns/checks both drivers', () => {
   expect(mocks.save).toHaveBeenCalledWith({ id: 'second', field: 'pti', value: true });
   fireEvent.change(screen.getByRole('textbox', { name: 'Search drivers, trucks or ELD person' }), { target: { value: 'Second Driver' } });
   expect(screen.getByRole('button', { name: 'Show team names for truck 460' })).toBeInTheDocument();
+});
+
+it('searches dispatchers in bulk assignment and keeps the selected dispatcher', () => {
+  HTMLElement.prototype.scrollIntoView = () => {};
+  globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
+  mocks.day.data.can_manage = true;
+  mocks.day.data.assignment_groups = [
+    { scope: 'dispatcher', id: 'ace', name: 'Ace', trucks: 5, drivers: 6 },
+    { scope: 'dispatcher', id: 'alex', name: 'Alex', trucks: 4, drivers: 4 },
+  ];
+  render(<Eld />);
+  fireEvent.click(screen.getByRole('button', { name: 'Bulk assign trucks' }));
+  fireEvent.click(screen.getByRole('combobox', { name: 'Bulk assignment group' }));
+  fireEvent.change(screen.getByPlaceholderText('Search dispatchers…'), { target: { value: 'alex' } });
+  expect(screen.queryByRole('option', { name: /Ace/ })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('option', { name: 'Alex (4 trucks)' }));
+  expect(screen.getByRole('combobox', { name: 'Bulk assignment group' })).toHaveTextContent('Alex (4 trucks)');
 });

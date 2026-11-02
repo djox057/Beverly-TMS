@@ -3,6 +3,7 @@ import { ClipboardCheck, Plus, RefreshCw, Search } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useEldCompanies } from '@/hooks/useEldCompanies';
 import { useEldDay } from '@/hooks/useEld';
+import { SearchableSelect } from '@/components/SearchableSelect';
 import { EldChecksTable } from '@/components/eld/EldChecksTable';
 import { EldActivityLog } from '@/components/eld/EldActivityLog';
 import { eldComplete, eldToday, groupEldChecks, filterEldChecks, isEldWeekday, type EldCheck, type EldCheckField } from '@/lib/eld';
@@ -152,7 +153,11 @@ export default function Eld() {
 
     <Dialog open={bulkOpen} onOpenChange={open => { if (!bulkAssigning) setBulkOpen(open); }}><DialogContent><DialogHeader><DialogTitle>Bulk assign trucks</DialogTitle><DialogDescription>Assign all active drivers on a dispatcher’s or company’s active trucks to one ELD person. Existing ELD assignments will be replaced.</DialogDescription></DialogHeader>
       <Label>Assign by</Label><Select value={bulkScope} onValueChange={value => { setBulkScope(value as 'dispatcher' | 'company'); setBulkGroup(''); }} disabled={bulkAssigning}><SelectTrigger aria-label="Bulk assignment type"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="dispatcher">Dispatcher</SelectItem><SelectItem value="company">Company</SelectItem></SelectContent></Select>
-      <Label>{bulkScope === 'dispatcher' ? 'Dispatcher' : 'Company'}</Label><Select value={bulkGroup} onValueChange={setBulkGroup} disabled={bulkAssigning}><SelectTrigger aria-label="Bulk assignment group"><SelectValue placeholder={`Select ${bulkScope}`} /></SelectTrigger><SelectContent>{groups.filter(g => g.scope === bulkScope).map(g => <SelectItem key={g.id} value={g.id}>{g.name} ({g.trucks} trucks)</SelectItem>)}</SelectContent></Select>
+      <Label>{bulkScope === 'dispatcher' ? 'Dispatcher' : 'Company'}</Label>{bulkScope === 'dispatcher' ? <SearchableSelect
+        key="bulk-dispatcher" value={bulkGroup} onValueChange={setBulkGroup}
+        options={groups.filter(g => g.scope === 'dispatcher').map(g => ({ value: g.id, label: `${g.name} (${g.trucks} trucks)` }))}
+        placeholder="Select dispatcher" searchPlaceholder="Search dispatchers…" ariaLabel="Bulk assignment group" className="w-full" disabled={bulkAssigning}
+      /> : <Select value={bulkGroup} onValueChange={setBulkGroup} disabled={bulkAssigning}><SelectTrigger aria-label="Bulk assignment group"><SelectValue placeholder={`Select ${bulkScope}`} /></SelectTrigger><SelectContent>{groups.filter(g => g.scope === bulkScope).map(g => <SelectItem key={g.id} value={g.id}>{g.name} ({g.trucks} trucks)</SelectItem>)}</SelectContent></Select>}
       <Label>ELD person</Label><Select value={bulkWorker} onValueChange={setBulkWorker} disabled={bulkAssigning}><SelectTrigger aria-label="Bulk assignment ELD person"><SelectValue placeholder="Select ELD person" /></SelectTrigger><SelectContent>{workers.map(w => <SelectItem key={w.user_id} value={w.user_id}>{w.name}</SelectItem>)}</SelectContent></Select>
       {selectedGroup && <p className="text-sm">{selectedGroup.trucks} trucks · teams count as one assignment</p>}
       <DialogFooter><Button variant="outline" disabled={bulkAssigning} onClick={() => setBulkOpen(false)}>Cancel</Button><Button disabled={!selectedGroup || !bulkWorker || hasPendingWrites} onClick={bulkAssign}>{bulkAssigning ? 'Assigning…' : 'Assign all trucks'}</Button></DialogFooter>

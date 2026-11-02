@@ -14,6 +14,8 @@ export function SearchableSelect({
   placeholder,
   searchPlaceholder,
   className,
+  disabled = false,
+  ariaLabel,
 }: {
   value: string;
   onValueChange: (value: string) => void;
@@ -21,6 +23,8 @@ export function SearchableSelect({
   placeholder: string;
   searchPlaceholder: string;
   className?: string;
+  disabled?: boolean;
+  ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
@@ -33,6 +37,8 @@ export function SearchableSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-label={ariaLabel}
+          disabled={disabled}
           className={cn("justify-between font-normal", className)}
         >
           <span className="truncate">{selected?.label ?? placeholder}</span>
