@@ -50,6 +50,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useYardLoadsCount } from "@/hooks/useYardLoadsCount";
 import { useRecoveryLoadsCount } from "@/hooks/useRecoveryLoadsCount";
+import { useDispatcherLoadOpportunities } from "@/hooks/useDispatcherLoadOpportunities";
+import { DispatcherLoadBadges } from "@/components/DispatcherLoadBadges";
 import { usePretripMissingCount } from "@/hooks/usePretripMissingCount";
 import { useDispatchAlertCount } from "@/hooks/useDispatchAlertCount";
 import { useDailyReportPermissions } from "@/hooks/useDailyReportPermissions";
@@ -213,7 +215,9 @@ export const Sidebar = () => {
   const canViewRecoveryLoads = ["dispatch", "supervisor", "manager", "admin"].includes(
     getPrimaryRole() || ""
   );
-  const { data: recoveryLoads } = useRecoveryLoadsCount({ enabled: canViewRecoveryLoads });
+  const isDispatch = getPrimaryRole() === "dispatch";
+  const opportunities = useDispatcherLoadOpportunities(user?.id, getPrimaryRole());
+  const { data: recoveryLoads } = useRecoveryLoadsCount({ enabled: canViewRecoveryLoads && !isDispatch });
   const { canView: canViewDailyReport } = useDailyReportPermissions();
   const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
   const [scheduledDates, setScheduledDates] = useState<string[]>([]);
@@ -645,7 +649,10 @@ export const Sidebar = () => {
                                   {dispatchAlertCount}
                                 </Badge>
                               )}
-                              {item.href === "/recovery-loads" && (recoveryLoads?.count ?? 0) > 0 && (
+                              {item.href === "/recovery-loads" && isDispatch && (
+                                <DispatcherLoadBadges data={opportunities.data} isError={opportunities.isError} isFetching={opportunities.isFetching} />
+                              )}
+                              {item.href === "/recovery-loads" && !isDispatch && (recoveryLoads?.count ?? 0) > 0 && (
                                 <Badge
                                   variant={recoveryLoads?.hasMine ? "destructive" : "secondary"}
                                   className="ml-auto"

@@ -8094,6 +8094,15 @@ export type Database = {
           previous_truck_number: string
         }[]
       }
+      get_dispatcher_load_opportunities: {
+        Args: never
+        Returns: {
+          prebook_count: number
+          recovery_count: number
+          truck_ids: string[]
+          order_ids: string[]
+        }[]
+      }
       get_recovery_loads_badge: {
         Args: never
         Returns: {
