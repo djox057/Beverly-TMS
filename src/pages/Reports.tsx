@@ -1,4 +1,5 @@
 import { EmptyTrucksFilter } from "@/components/reports/EmptyTrucksFilter";
+import { AssignRecoveryLoadDialog } from "@/components/recovery/AssignRecoveryLoadDialog";
 import { closeWatchGroups, isCloseWatchUrgent } from "@/lib/closeWatch";
 import { useChicagoToday, useMandatoryYardRepairs } from "@/hooks/useMandatoryYardRepairs";
 import { estimatedRoadMiles } from "@/utils/truckProximity";
@@ -1091,6 +1092,7 @@ const Reports = () => {
   const [zoomedRecovery, setZoomedRecovery] = useState<boolean | null>(null);
   const [zoomedHasBol, setZoomedHasBol] = useState(false);
   const [recoveryConfirmOpen, setRecoveryConfirmOpen] = useState(false);
+  const [directRecoveryAssignOpen, setDirectRecoveryAssignOpen] = useState(false);
   const applyRecoveryToggle = async () => {
     if (!zoomedLoad?.orderId) return;
     const next = !zoomedRecovery;
@@ -9302,6 +9304,15 @@ const Reports = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRecoveryConfirmOpen(false);
+                setDirectRecoveryAssignOpen(true);
+              }}
+            >
+              Skip emails &amp; assign
+            </Button>
             <AlertDialogAction
               onClick={() => {
                 setRecoveryConfirmOpen(false);
@@ -9313,6 +9324,20 @@ const Reports = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AssignRecoveryLoadDialog
+        open={directRecoveryAssignOpen && !!zoomedLoad}
+        onOpenChange={setDirectRecoveryAssignOpen}
+        orderId={zoomedLoad?.orderId ?? null}
+        loadNumber={zoomedLoad?.loadNumber}
+        directAssignment
+        onAssigned={() => {
+          setZoomedRecovery(false);
+          setZoomedLoad(null);
+          void queryClient.invalidateQueries({ queryKey: ["recovery-loads"] });
+          void queryClient.invalidateQueries({ queryKey: ["recovery-loads-count"] });
+        }}
+      />
 
       <WeightBolDialog
         open={bolWeightDialogOpen}
