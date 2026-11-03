@@ -6,6 +6,7 @@ import { AssignRecoveryLoadDialog } from './AssignRecoveryLoadDialog';
 const fixture = vi.hoisted(() => ({
   orderError: null as Error | null,
   bookingCompany: 'BF Prime LLC',
+  missingDispatcher: false,
   invoke: vi.fn(),
   route: vi.fn(),
   query: vi.fn(),
@@ -26,18 +27,21 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: {
   functions: { invoke: (...args: unknown[]) => fixture.invoke(...args) },
   from: (table: string) => {
     let single = false;
+    let selectedId = '';
     let latestLoads = false;
     let updating = false;
     const chain: any = {
       update: (payload: unknown) => { updating = true; fixture.update(payload); return chain; },
       select: (columns: string) => { latestLoads = columns.includes('orders!'); fixture.query(table, 'select', columns); return chain; },
-      eq: () => chain, neq: () => chain, not: () => chain, or: () => chain,
+      eq: (column: string, value: string) => { if (column === 'id' || column === 'user_id') selectedId = value; return chain; }, neq: () => chain, not: () => chain, or: () => chain,
       lte: (...args: unknown[]) => { fixture.query(table, 'lte', ...args); return chain; },
       order: () => chain, limit: (...args: unknown[]) => { fixture.query(table, 'limit', ...args); return chain; },
+      maybeSingle: () => { single = true; return chain; },
       single: () => { single = true; return chain; },
       then: (resolve: any) => resolve({
         error: updating ? fixture.updateError : table === 'orders' && single ? fixture.orderError : null,
-        data: updating ? fixture.updatedRows : table === 'trucks' && latestLoads ? [
+        data: updating ? fixture.updatedRows : table === 'drivers' && single ? { dispatcher_id: fixture.missingDispatcher ? null : `dispatcher-${selectedId}` }
+          : table === 'profiles' ? { full_name: selectedId === 'dispatcher-driver-2' ? 'Dispatcher Two' : 'Dispatcher One' } : table === 'trucks' && latestLoads ? [
           { id: 'truck-157', orders: [{ delivery_datetime: '2026-10-21T08:00:00+00:00', delivery_end_datetime: null, pickup_drops: [{type: 'delivery', sequence_number: 2, latitude: 41, longitude: -90}] }] },
           { id: 'truck-near', orders: [{ delivery_datetime: '2026-10-21T08:00:00+00:00', delivery_end_datetime: null, pickup_drops: [{type: 'delivery', sequence_number: 2, latitude: 40.5, longitude: -90}] }] },
           { id: 'empty-truck', orders: [] },
@@ -60,6 +64,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: {
 } }));
 beforeEach(() => {
   fixture.orderError = null;
+  fixture.missingDispatcher = false;
   fixture.bookingCompany = 'BF Prime LLC';
   fixture.updateError = null;
   fixture.updatedRows = [{ id: 'prebook-1' }];
@@ -165,7 +170,7 @@ it('directly reassigns with optional Driver 2 cleared, preserving pricing and sk
   await waitFor(() => expect(onAssigned).toHaveBeenCalledOnce());
   expect(onOpenChange).toHaveBeenCalledWith(false);
   expect(fixture.update).toHaveBeenCalledWith({
-    truck_id: 'truck-157', trailer_id: 'trailer-1', driver1_id: 'driver-1', driver2_id: null,
+    booked_by: 'Dispatcher One', truck_id: 'truck-157', trailer_id: 'trailer-1', driver1_id: 'driver-1', driver2_id: null,
     retrieval: false, recovery_assigned: true, recovery_auto_cancel_at: null, recovery_cancel_payload: null,
   });
   expect(fixture.invoke).not.toHaveBeenCalled();
@@ -182,7 +187,7 @@ it('saves the selected team rather than silently reusing the truck secondary dri
   fireEvent.change(screen.getByRole('combobox', { name: 'Select Driver 2 (optional)' }), { target: { value: 'driver-1' } });
   fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
   await waitFor(() => expect(onAssigned).toHaveBeenCalledOnce());
-  expect(fixture.update).toHaveBeenCalledWith(expect.objectContaining({ driver1_id: 'driver-2', driver2_id: 'driver-1' }));
+  expect(fixture.update).toHaveBeenCalledWith(expect.objectContaining({ driver1_id: 'driver-2', driver2_id: 'driver-1', booked_by: 'Dispatcher Two' }));
 });
 
 it('requires truck, trailer and primary driver when directly assigning', async () => {
@@ -212,4 +217,15 @@ it.each(['permission error', 'zero updated rows'])('keeps direct assignment open
   expect(onOpenChange).not.toHaveBeenCalled();
   expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled();
   expect(fixture.invoke).not.toHaveBeenCalled();
+});
+
+ it('blocks direct reassignment when the new primary driver has no dispatcher', async () => {
+  fixture.missingDispatcher = true;
+  openDialog(false, true);
+  await screen.findByRole('option', { name: 'BFP 157 - Driver One / Driver Two' });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Select truck' }), { target: { value: 'truck-157' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
+  await waitFor(() => expect(fixture.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Driver has no dispatcher' })));
+  expect(fixture.update).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled();
 });

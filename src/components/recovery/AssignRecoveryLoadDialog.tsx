@@ -278,7 +278,7 @@ export function AssignRecoveryLoadDialog({
     // Booked by becomes the dispatcher of the assigned driver/truck
     let bookedBy: string | null = null;
     const dispatcherLookupDriverId = driverId || truck?.driver1_id || null;
-    if (dispatcherLookupDriverId && !directAssignment) {
+    if (dispatcherLookupDriverId) {
       const { data: driverRow, error: driverError } = await supabase
         .from("drivers")
         .select("dispatcher_id")
@@ -306,11 +306,11 @@ export function AssignRecoveryLoadDialog({
       }
     }
 
-    if (isPrebook && !bookedBy) {
+    if ((isPrebook || directAssignment) && !bookedBy) {
       setSaving(false);
       toast({
         title: "Driver has no dispatcher",
-        description: "Set the driver's dispatcher before assigning this prebook load.",
+        description: `Set the driver's dispatcher before ${directAssignment ? "reassigning this load" : "assigning this prebook load"}.`,
         variant: "destructive",
       });
       return;
