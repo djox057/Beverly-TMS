@@ -130,6 +130,11 @@ const Drivers = () => {
   const { hasRole, profile } = useAuthContext();
   const canViewSensitiveData = hasRole("manager") || hasRole("admin") || hasRole("accounting");
   const canDelete = hasRole("admin") || hasRole("manager") || hasRole("safety") || hasRole("maintenance");
+  const canChangeCompany =
+    !hasRole("dispatch") ||
+    hasRole("admin") || hasRole("manager") || hasRole("accounting") ||
+    hasRole("safety") || hasRole("supervisor") ||
+    profile?.is_recovery === true;
   const canManageRecoveryDrugTests = canEditRecoveryCompanyDrugTests(hasRole, profile?.is_recovery);
   const { upsertDrugTest } = useDriverDrugTests();
   const queryClient = useQueryClient();
@@ -1598,6 +1603,7 @@ const Drivers = () => {
                       <Select
                         value={formData.company_id}
                         onValueChange={(value) => setFormData({ ...formData, company_id: value })}
+                    disabled={!canChangeCompany}
                         required
                       >
                         <SelectTrigger>

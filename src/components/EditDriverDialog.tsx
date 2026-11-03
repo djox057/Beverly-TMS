@@ -100,6 +100,11 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   const queryClient = useQueryClient();
   const { hasRole, profile } = useAuthContext();
   const canViewSensitiveData = hasRole("manager") || hasRole("admin") || hasRole("accounting");
+  const canChangeCompany =
+    !hasRole("dispatch") ||
+    hasRole("admin") || hasRole("manager") || hasRole("accounting") ||
+    hasRole("safety") || hasRole("supervisor") ||
+    profile?.is_recovery === true;
   const canManageRecoveryDrugTests = canEditRecoveryCompanyDrugTests(hasRole, profile?.is_recovery);
   // Mirrors the trucks UPDATE policy — dispatch-only users cannot change truck/trailer assignment
   const canChangeAssignment =
@@ -968,6 +973,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     options={(companies || []).map((c) => ({ value: c.id, label: c.name }))}
                     value={formData.company_id}
                     onValueChange={(v) => setFormData({ ...formData, company_id: v })}
+                    disabled={!canChangeCompany}
                     placeholder="Select company..."
                     emptyText="No companies found"
                   />
