@@ -48,6 +48,7 @@ function getEfsEmail(companyName: string | null): string {
   if (normalized.includes("BEVERLY GROUP")) return "efs@bfprime.net";
   if (normalized.includes("AP SILVER")) return "efs@apsilvertrans.net";
   if (normalized.includes("LALE")) return "efs@laletransport.com";
+  if (normalized.includes("HART FREIGHT")) return "efs@hartfreight.net";
   if (normalized.includes("JONES")) return "efs@jonesfreight.net";
   return "efs@bfprime.net";
 }
