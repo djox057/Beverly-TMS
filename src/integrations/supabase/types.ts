@@ -857,18 +857,6 @@ export type Database = {
         }
         Relationships: []
       }
-      company_info_credentials: {
-        Row: { company_name: string; credentials: Json }
-        Insert: { company_name: string; credentials: Json }
-        Update: { company_name?: string; credentials?: Json }
-        Relationships: [{
-          foreignKeyName: "company_info_credentials_company_name_fkey"
-          columns: ["company_name"]
-          isOneToOne: true
-          referencedRelation: "companies"
-          referencedColumns: ["name"]
-        }]
-      }
       company_coi_files: {
         Row: {
           company_name: string
@@ -981,6 +969,29 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_info_credentials: {
+        Row: {
+          company_name: string
+          credentials: Json
+        }
+        Insert: {
+          company_name: string
+          credentials: Json
+        }
+        Update: {
+          company_name?: string
+          credentials?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_info_credentials_company_name_fkey"
+            columns: ["company_name"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["name"]
           },
         ]
       }
@@ -1776,10 +1787,18 @@ export type Database = {
           amount: number
           created_at: string
           driver_id: string
+          entered_in_stuff: boolean
           id: string
+          is_trailer_repair: boolean
+          location_address: string | null
+          location_name: string | null
+          purpose_detail: string | null
           requested_at: string
           requested_by: string | null
           resend_email_id: string | null
+          stuff_entered_at: string | null
+          stuff_entered_by: string | null
+          trailer_number: string | null
           truck_number: string | null
           void_reason: string | null
           voided_at: string | null
@@ -1789,10 +1808,18 @@ export type Database = {
           amount?: number
           created_at?: string
           driver_id: string
+          entered_in_stuff?: boolean
           id?: string
+          is_trailer_repair?: boolean
+          location_address?: string | null
+          location_name?: string | null
+          purpose_detail?: string | null
           requested_at?: string
           requested_by?: string | null
           resend_email_id?: string | null
+          stuff_entered_at?: string | null
+          stuff_entered_by?: string | null
+          trailer_number?: string | null
           truck_number?: string | null
           void_reason?: string | null
           voided_at?: string | null
@@ -1802,10 +1829,18 @@ export type Database = {
           amount?: number
           created_at?: string
           driver_id?: string
+          entered_in_stuff?: boolean
           id?: string
+          is_trailer_repair?: boolean
+          location_address?: string | null
+          location_name?: string | null
+          purpose_detail?: string | null
           requested_at?: string
           requested_by?: string | null
           resend_email_id?: string | null
+          stuff_entered_at?: string | null
+          stuff_entered_by?: string | null
+          trailer_number?: string | null
           truck_number?: string | null
           void_reason?: string | null
           voided_at?: string | null
@@ -2467,6 +2502,81 @@ export type Database = {
           },
         ]
       }
+      driver_status_email_settings: {
+        Row: {
+          enabled: boolean
+          id: boolean
+        }
+        Insert: {
+          enabled?: boolean
+          id?: boolean
+        }
+        Update: {
+          enabled?: boolean
+          id?: boolean
+        }
+        Relationships: []
+      }
+      driver_status_emails: {
+        Row: {
+          action: string
+          actor_name: string | null
+          attempts: number
+          claim_token: string | null
+          claimed_at: string | null
+          driver_id: string
+          driver_snapshot: Json
+          email_payload: Json | null
+          id: string
+          is_test: boolean
+          last_error: string | null
+          new_notice_date: string | null
+          next_attempt_at: string
+          occurred_at: string
+          old_notice_date: string | null
+          provider_message_id: string | null
+          sent_at: string | null
+        }
+        Insert: {
+          action: string
+          actor_name?: string | null
+          attempts?: number
+          claim_token?: string | null
+          claimed_at?: string | null
+          driver_id: string
+          driver_snapshot: Json
+          email_payload?: Json | null
+          id?: string
+          is_test?: boolean
+          last_error?: string | null
+          new_notice_date?: string | null
+          next_attempt_at?: string
+          occurred_at?: string
+          old_notice_date?: string | null
+          provider_message_id?: string | null
+          sent_at?: string | null
+        }
+        Update: {
+          action?: string
+          actor_name?: string | null
+          attempts?: number
+          claim_token?: string | null
+          claimed_at?: string | null
+          driver_id?: string
+          driver_snapshot?: Json
+          email_payload?: Json | null
+          id?: string
+          is_test?: boolean
+          last_error?: string | null
+          new_notice_date?: string | null
+          next_attempt_at?: string
+          occurred_at?: string
+          old_notice_date?: string | null
+          provider_message_id?: string | null
+          sent_at?: string | null
+        }
+        Relationships: []
+      }
       driver_termination_notes: {
         Row: {
           created_at: string
@@ -3026,8 +3136,13 @@ export type Database = {
           created_at: string
           driver_id: string | null
           driver_name: string
+          entered_in_stuff: boolean
           id: string
+          is_trailer_repair: boolean
+          location_address: string | null
+          location_name: string | null
           purpose: string
+          purpose_detail: string | null
           quantity: number | null
           receipt_bypassed: boolean
           receipt_bypassed_at: string | null
@@ -3038,6 +3153,9 @@ export type Database = {
           resend_email_id: string | null
           revised_rc_path: string | null
           state: string | null
+          stuff_entered_at: string | null
+          stuff_entered_by: string | null
+          trailer_number: string | null
           truck_number: string | null
           void_reason: string | null
           voided_at: string | null
@@ -3050,8 +3168,13 @@ export type Database = {
           created_at?: string
           driver_id?: string | null
           driver_name: string
+          entered_in_stuff?: boolean
           id?: string
+          is_trailer_repair?: boolean
+          location_address?: string | null
+          location_name?: string | null
           purpose: string
+          purpose_detail?: string | null
           quantity?: number | null
           receipt_bypassed?: boolean
           receipt_bypassed_at?: string | null
@@ -3062,6 +3185,9 @@ export type Database = {
           resend_email_id?: string | null
           revised_rc_path?: string | null
           state?: string | null
+          stuff_entered_at?: string | null
+          stuff_entered_by?: string | null
+          trailer_number?: string | null
           truck_number?: string | null
           void_reason?: string | null
           voided_at?: string | null
@@ -3074,8 +3200,13 @@ export type Database = {
           created_at?: string
           driver_id?: string | null
           driver_name?: string
+          entered_in_stuff?: boolean
           id?: string
+          is_trailer_repair?: boolean
+          location_address?: string | null
+          location_name?: string | null
           purpose?: string
+          purpose_detail?: string | null
           quantity?: number | null
           receipt_bypassed?: boolean
           receipt_bypassed_at?: string | null
@@ -3086,6 +3217,9 @@ export type Database = {
           resend_email_id?: string | null
           revised_rc_path?: string | null
           state?: string | null
+          stuff_entered_at?: string | null
+          stuff_entered_by?: string | null
+          trailer_number?: string | null
           truck_number?: string | null
           void_reason?: string | null
           voided_at?: string | null
@@ -3230,6 +3364,7 @@ export type Database = {
       eld_daily_checks: {
         Row: {
           comment: string
+          deleted_accounts: boolean
           driver_id: string
           driver_name: string
           forms: boolean
@@ -3245,6 +3380,7 @@ export type Database = {
         }
         Insert: {
           comment?: string
+          deleted_accounts?: boolean
           driver_id: string
           driver_name: string
           forms?: boolean
@@ -3260,6 +3396,7 @@ export type Database = {
         }
         Update: {
           comment?: string
+          deleted_accounts?: boolean
           driver_id?: string
           driver_name?: string
           forms?: boolean
@@ -6855,6 +6992,44 @@ export type Database = {
           },
         ]
       }
+      truck_maintenance_note_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          changed_by_name: string | null
+          id: string
+          new_note: string | null
+          old_note: string | null
+          truck_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          id?: string
+          new_note?: string | null
+          old_note?: string | null
+          truck_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          id?: string
+          new_note?: string | null
+          old_note?: string | null
+          truck_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_maintenance_note_history_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       truck_mileage_history: {
         Row: {
           changed_at: string
@@ -7112,12 +7287,6 @@ export type Database = {
           },
         ]
       }
-      truck_maintenance_note_history: {
-        Row: { id: string; truck_id: string; old_note: string | null; new_note: string | null; changed_by: string | null; changed_by_name: string | null; changed_at: string }
-        Insert: { id?: string; truck_id: string; old_note?: string | null; new_note?: string | null; changed_by?: string | null; changed_by_name?: string | null; changed_at?: string }
-        Update: { id?: string; truck_id?: string; old_note?: string | null; new_note?: string | null; changed_by?: string | null; changed_by_name?: string | null; changed_at?: string }
-        Relationships: [{ foreignKeyName: "truck_maintenance_note_history_truck_id_fkey"; columns: ["truck_id"]; isOneToOne: false; referencedRelation: "trucks"; referencedColumns: ["id"] }]
-      }
       trucks: {
         Row: {
           air_filter: number | null
@@ -7204,7 +7373,7 @@ export type Database = {
           engine?: string | null
           eta_minutes?: number | null
           fleet_pm_readiness?: string
-          fleet_service_snapshot?: Json
+          fleet_service_snapshot: Json
           fuel_level?: number | null
           has_apu_webasto?: boolean
           has_fridge?: boolean
@@ -7827,6 +7996,34 @@ export type Database = {
         Args: { _entry_type?: string; _truck_id: string; _write?: boolean }
         Returns: boolean
       }
+      claim_driver_status_email: {
+        Args: { p_event_id?: string }
+        Returns: {
+          action: string
+          actor_name: string | null
+          attempts: number
+          claim_token: string | null
+          claimed_at: string | null
+          driver_id: string
+          driver_snapshot: Json
+          email_payload: Json | null
+          id: string
+          is_test: boolean
+          last_error: string | null
+          new_notice_date: string | null
+          next_attempt_at: string
+          occurred_at: string
+          old_notice_date: string | null
+          provider_message_id: string | null
+          sent_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "driver_status_emails"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_hos_order_checks: {
         Args: { target_order?: string }
         Returns: {
@@ -7991,6 +8188,15 @@ export type Database = {
           total_brokers: number
         }[]
       }
+      get_dispatcher_load_opportunities: {
+        Args: never
+        Returns: {
+          order_ids: string[]
+          prebook_count: number
+          recovery_count: number
+          truck_ids: string[]
+        }[]
+      }
       get_dispatcher_salary_penalties: {
         Args: { _month: string; _user_id: string }
         Returns: Json
@@ -8092,15 +8298,6 @@ export type Database = {
           previous_inspection_date: string
           previous_photo_id: string
           previous_truck_number: string
-        }[]
-      }
-      get_dispatcher_load_opportunities: {
-        Args: never
-        Returns: {
-          prebook_count: number
-          recovery_count: number
-          truck_ids: string[]
-          order_ids: string[]
         }[]
       }
       get_recovery_loads_badge: {
