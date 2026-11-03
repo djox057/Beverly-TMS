@@ -1,6 +1,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { EfsMoneyCodeDialog, type EfsMoneyCodeRecord } from "@/components/EfsMoneyCodeDialog";
 import { useState, useMemo } from "react";
+import { useDragPan } from "@/hooks/useDragPan";
 import { isValidUUID } from "@/utils/validation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -142,6 +143,7 @@ const EFS_PURPOSES = [
 ];
 
 export default function EfsRequests() {
+  const { containerRef } = useDragPan(true);
   const { hasRole, profile, user } = useAuthContext();
   const queryClient = useQueryClient();
   const isAdmin = hasRole("admin") || hasRole("manager");
@@ -605,7 +607,7 @@ export default function EfsRequests() {
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing">
+      <div ref={containerRef} className="border rounded-lg overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing">
         <Table className="min-w-max">
           <TableHeader>
             <TableRow>
