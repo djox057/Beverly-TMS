@@ -50,10 +50,17 @@ export const CoiRequestDialog = ({ open, onOpenChange, defaultCompanyName }: Coi
     setBrokerEmailInput("");
     setBrokerAddressInput("");
     setConfirmation(null);
+    const normalizedCompany = String(defaultCompanyName || "").trim().toUpperCase();
+    const defaultsToBfPrime = [
+      "AP SILVER TRANS LLC",
+      "HART FREIGHT SOLUTIONS LLC",
+      "JONES FREIGHT LINES LLC",
+      "GD TRUCKING SOLUTIONS LLC",
+    ].includes(normalizedCompany);
     setCompanyName(
-      COI_COMPANY_OPTIONS.find(
-        (c) => c.toUpperCase() === String(defaultCompanyName || "").trim().toUpperCase(),
-      ) || "",
+      defaultsToBfPrime
+        ? "BF Prime LLC"
+        : COI_COMPANY_OPTIONS.find((c) => c.toUpperCase() === normalizedCompany) || "",
     );
   }, [open, defaultCompanyName]);
 
