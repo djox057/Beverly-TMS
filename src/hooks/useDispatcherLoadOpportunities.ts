@@ -9,6 +9,7 @@ export interface DispatcherLoadOpportunities {
   recoveryCount: number;
   truckIds: string[];
   orderIds: string[];
+  matchedOrderIds?: string[];
 }
 
 export const dispatcherOpportunitiesKey = (userId: string | undefined) =>
@@ -16,7 +17,7 @@ export const dispatcherOpportunitiesKey = (userId: string | undefined) =>
 
 export function normalizeOpportunities(data: unknown): DispatcherLoadOpportunities {
   const row = (Array.isArray(data) ? data[0] : data) as {
-    prebook_count: number; recovery_count: number; truck_ids: string[]; order_ids: string[];
+    prebook_count: number; recovery_count: number; truck_ids: string[]; order_ids: string[]; matched_order_ids?: string[];
   } | undefined;
   if (!row || !Number.isInteger(row.prebook_count) || !Number.isInteger(row.recovery_count)
     || row.prebook_count < 0 || row.recovery_count < 0
@@ -27,6 +28,7 @@ export function normalizeOpportunities(data: unknown): DispatcherLoadOpportuniti
   return {
     prebookCount: row.prebook_count, recoveryCount: row.recovery_count,
     truckIds: row.truck_ids, orderIds: row.order_ids,
+    ...(Array.isArray(row.matched_order_ids) ? { matchedOrderIds: row.matched_order_ids } : {}),
   };
 }
 
@@ -38,7 +40,7 @@ export function useDispatcherLoadOpportunities(userId: string | undefined, role:
   const query = useQuery({
     queryKey: key,
     queryFn: async ({ signal }) => {
-      const { data, error } = await supabase.rpc("get_dispatcher_load_opportunities").abortSignal(signal);
+      const { data, error } = await supabase.rpc("get_dispatcher_load_opportunities_v2").abortSignal(signal);
       if (error) throw error;
       return normalizeOpportunities(data);
     },

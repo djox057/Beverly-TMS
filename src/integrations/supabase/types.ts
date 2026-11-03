@@ -8300,6 +8300,119 @@ export type Database = {
           previous_truck_number: string
         }[]
       }
+      get_dispatcher_load_opportunities_v2: {
+        Args: never
+        Returns: {
+          order_ids: string[]
+          matched_order_ids: string[]
+          prebook_count: number
+          recovery_count: number
+          truck_ids: string[]
+        }[]
+      }
+      get_dispatcher_salary_penalties: {
+        Args: { _month: string; _user_id: string }
+        Returns: Json
+      }
+      get_distinct_booked_by: {
+        Args: never
+        Returns: {
+          booked_by: string
+        }[]
+      }
+      get_driver_id_for_user: { Args: never; Returns: string }
+      get_facility_brokers: {
+        Args: {
+          p_end_date?: string
+          p_exclude_broker_ids?: string[]
+          p_lat_cell: number
+          p_lng_cell: number
+          p_start_date?: string
+        }
+        Returns: {
+          broker_id: string
+          broker_name: string
+          load_count: number
+          mc_number: string
+        }[]
+      }
+      get_facility_lanes: {
+        Args: {
+          p_end_date?: string
+          p_exclude_broker_ids?: string[]
+          p_lat_cell: number
+          p_lng_cell: number
+          p_start_date?: string
+          p_type: string
+        }
+        Returns: {
+          broker_name: string
+          delivery_date: string
+          destination_city: string
+          destination_state: string
+          freight_amount: number
+          load_number: string
+          loaded_miles: number
+          order_id: string
+          origin_city: string
+          origin_state: string
+          pickup_date: string
+          stop_datetime: string
+        }[]
+      }
+      get_facility_visit_counts: {
+        Args: {
+          p_end_date?: string
+          p_exclude_broker_ids?: string[]
+          p_start_date?: string
+        }
+        Returns: {
+          address: string
+          broker_count: number
+          city: string
+          company_name: string
+          delivery_count: number
+          lat_cell: number
+          lng_cell: number
+          pickup_count: number
+          state: string
+          total_visits: number
+          zip_code: string
+        }[]
+      }
+      get_latest_odometer_files: {
+        Args: never
+        Returns: {
+          file_name: string
+          truck_id: string
+        }[]
+      }
+      get_latest_truck_locations: {
+        Args: never
+        Returns: {
+          heading: number
+          latitude: number
+          location_timestamp: string
+          longitude: number
+          samsara_vehicle_id: string
+          samsara_vehicle_name: string
+          speed: number
+          truck_id: string
+          truck_number: string
+        }[]
+      }
+      get_orders_summary: { Args: { p_filters?: Json }; Returns: Json }
+      get_pretrip_missing_count: { Args: never; Returns: number }
+      get_pretrip_photo_reuse: {
+        Args: { _week_start: string }
+        Returns: {
+          photo_id: string
+          previous_driver_name: string
+          previous_inspection_date: string
+          previous_photo_id: string
+          previous_truck_number: string
+        }[]
+      }
       get_recovery_loads_badge: {
         Args: never
         Returns: {

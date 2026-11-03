@@ -3,7 +3,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import RecoveryLoads from "./RecoveryLoads";
 const access = vi.hoisted(() => ({ role: "dispatch" }));
-vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ hasRole: (role: string) => role === access.role, profile: { full_name: "Jon" } }) }));
+vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "dispatcher" }, getPrimaryRole: () => access.role, hasRole: (role: string) => role === access.role, profile: { full_name: "Jon" } }) }));
+vi.mock("@/hooks/useDispatcherLoadOpportunities", () => ({ useDispatcherLoadOpportunities: () => ({ data: { matchedOrderIds: ["available", "covered", "p"] } }) }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock("@/hooks/useRecoveryLoadsRealtime", () => ({ useRecoveryLoadsRealtime: vi.fn() }));
 vi.mock("@/components/recovery/AssignRecoveryLoadDialog", () => ({ AssignRecoveryLoadDialog: () => null }));
@@ -122,4 +123,17 @@ it("does not offer revert assignment to dispatchers", async () => {
   render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
   await screen.findByText("PREBOOK-1");
   expect(screen.queryByRole("button", { name: "Revert assign" })).not.toBeInTheDocument();
+});
+
+it("marks only counted available prebooks for dispatchers", async () => {
+  render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
+  const available = await screen.findByText("AVAILABLE-1");
+  expect(within(available.closest("tr")!).getByLabelText("Available for your trucks")).toBeInTheDocument();
+  expect(within(screen.getByText("COVERED-1").closest("tr")!).queryByLabelText("Available for your trucks")).not.toBeInTheDocument();
+});
+it("does not mark opportunities for managers", async () => {
+  access.role = "manager";
+  render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
+  await screen.findByText("AVAILABLE-1");
+  expect(screen.queryByLabelText("Available for your trucks")).not.toBeInTheDocument();
 });

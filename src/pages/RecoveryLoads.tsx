@@ -8,7 +8,7 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Search, Undo2 } from "lucide-react";
+import { Search, Undo2, ArrowRight } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -24,6 +24,7 @@ import { getOrderFileSignedUrl } from "@/utils/orderFileSignedUrl";
 import { useToast } from "@/hooks/use-toast";
 import { AssignRecoveryLoadDialog } from "@/components/recovery/AssignRecoveryLoadDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDispatcherLoadOpportunities } from "@/hooks/useDispatcherLoadOpportunities";
 import { useAuth } from "@/hooks/useAuth";
 import { RecoveryLoadsStats } from "@/components/recovery/RecoveryLoadsStats";
 import { PrebookManagerStats } from "@/components/recovery/PrebookManagerStats";
@@ -138,7 +139,10 @@ const RecoveryLoads = () => {
     pickupAddress: string;
     prebook: boolean;
   } | null>(null);
-  const { hasRole, profile } = useAuth();
+  const { hasRole, profile, user, getPrimaryRole } = useAuth();
+  const isDispatch = getPrimaryRole() === "dispatch";
+  const opportunities = useDispatcherLoadOpportunities(user?.id, getPrimaryRole());
+  const matchedOrderIds = new Set(opportunities.isError ? [] : opportunities.data?.matchedOrderIds ?? []);
   const canSeeStats = hasRole("manager") || hasRole("admin");
   const canAssignAny = hasRole("manager") || hasRole("admin");
   const myName = (profile?.full_name || "").trim().toLowerCase();
@@ -414,7 +418,14 @@ const RecoveryLoads = () => {
               filteredRows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="truncate" title={row.loadNumber}>
-                    <div className="font-medium truncate">{row.loadNumber}</div>
+                    <div className="flex items-center gap-1 font-medium">
+                      {isDispatch && matchedOrderIds.has(row.id) && (activeTab === "recovery" || row.status === "Available") && (
+                        <span title="Included in your count: one of your trucks can pick up this load" aria-label="Available for your trucks" className={activeTab === "recovery" ? "text-red-500" : "text-blue-500"}>
+                          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        </span>
+                      )}
+                      <span className="truncate">{row.loadNumber}</span>
+                    </div>
                     {activeTab !== "recovery" && <div className="text-xs text-muted-foreground truncate" title={row.originalBooker}>{row.originalBooker}</div>}
                   </TableCell>
                   <TableCell className="whitespace-normal break-words text-sm">

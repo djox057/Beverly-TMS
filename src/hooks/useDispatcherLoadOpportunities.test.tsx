@@ -46,7 +46,7 @@ describe("dispatcher-only query", () => {
     mocks.abortSignal.mockResolvedValue({ data: [{ prebook_count: 2, recovery_count: 1, truck_ids: ["t"], order_ids: ["o"] }], error: null });
     const signal = new AbortController().signal;
     expect(await options.queryFn({ signal })).toEqual({ prebookCount: 2, recoveryCount: 1, truckIds: ["t"], orderIds: ["o"] });
-    expect(mocks.rpc).toHaveBeenCalledWith("get_dispatcher_load_opportunities");
+    expect(mocks.rpc).toHaveBeenCalledWith("get_dispatcher_load_opportunities_v2");
     expect(mocks.abortSignal).toHaveBeenCalledWith(signal);
     rerender({ id: "two" });
     options = mocks.query.mock.lastCall![0];
