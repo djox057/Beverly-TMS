@@ -29,6 +29,31 @@ export async function driverOrders(db:any,driverId:string) {
   return [...map.values()];
 }
 
+
+export async function cdlAttachments(db:any,driverId:string) {
+  const files=await rows(db.from('driver_files').select('id,file_name,file_path,keywords,created_at').eq('driver_id',driverId).order('created_at',{ascending:false}));
+  const selected:any[]=[];
+  for(const side of ['front','back']) {
+    const file=files.find(f=>{
+      const keywords=Array.isArray(f.keywords)?f.keywords:[];
+      const name=String(f.file_name||'');
+      return keywords.includes('cdl_'+side) || new RegExp('(?:cdl|license).*'+side+'|'+side+'.*(?:cdl|license)','i').test(name);
+    });
+    if(file && !selected.some(f=>f.id===file.id)) selected.push(file);
+  }
+  const attachments=[];
+  for(const file of selected) {
+    const {data,error}=await db.storage.from('driver-files').download(file.file_path);
+    if(error || !data) throw new Error('Unable to download CDL attachment');
+    const bytes=new Uint8Array(await data.arrayBuffer());
+    if(bytes.length>15*1024*1024) throw new Error('CDL attachment exceeds email size limit');
+    let binary='';
+    for(let offset=0;offset<bytes.length;offset+=8192) binary+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
+    attachments.push({filename:file.file_name,content:btoa(binary)});
+  }
+  return attachments;
+}
+
 export async function processEmails(db:any,apiKey:string|undefined,eventId?:string,fetcher:typeof fetch=fetch) {
   if(!apiKey) throw new Error('Email provider is not configured');
   let sent=0,failed=0;
@@ -37,7 +62,7 @@ export async function processEmails(db:any,apiKey:string|undefined,eventId?:stri
     const event=events[0];
     if(!event) break;
     try {
-      const payload=event.email_payload || buildEmail(event,await driverOrders(db,event.driver_id));
+      const payload=event.email_payload || {...buildEmail(event,await driverOrders(db,event.driver_id)),attachments:await cdlAttachments(db,event.driver_id)};
       // Persist the exact provider payload before sending: retries remain identical.
       if(!event.email_payload) await rows(db.from('driver_status_emails').update({email_payload:payload}).eq('id',event.id).eq('claim_token',event.claim_token));
       const response=await fetcher('https://api.resend.com/emails',{
