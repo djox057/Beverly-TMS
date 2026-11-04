@@ -243,6 +243,10 @@ const NewOrder = () => {
       sender: "Lale Transport Dispatch <truckload@laletransport.com>",
       cc: "dispatch@laletransport.com",
     },
+    "Hart Freight Solutions LLC": {
+      sender: "Hart Freight Dispatch <truckload@hartfreight.net>",
+      cc: "",
+    },
     "Jones Freight Lines LLC": {
       sender: "Jones Freight Lines Dispatch <truckload@jonesfreight.net>",
       cc: "dispatch@jonesfreight.net",
