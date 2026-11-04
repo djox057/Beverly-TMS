@@ -102,3 +102,12 @@ it("hides statistics for the dispatcher role while keeping the inspection report
   expect(screen.queryByRole("button", { name: "Statistics" })).not.toBeInTheDocument();
   expect(screen.getByRole("status")).toHaveTextContent("Completed 2 / 3 trucks");
 });
+
+ it("gives Chicago Management the admin inspection controls and full statistics", () => {
+  state.role = "chicago_management";
+  render(<PreTripInspection />);
+  expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+  for (const checkbox of screen.getAllByRole("checkbox")) expect(checkbox).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
+  expect(screen.getByText("Statistics roster: 3, scope: all")).toBeInTheDocument();
+});

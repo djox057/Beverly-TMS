@@ -321,7 +321,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/eld" element={
-          <ProtectedRoute strictAllowedRoles={['admin', 'maintenance', 'manager']}>
+          <ProtectedRoute strictAllowedRoles={['admin', 'maintenance', 'manager', 'chicago_management']}>
             <Layout><Eld /></Layout>
           </ProtectedRoute>
         } />
@@ -342,7 +342,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/pretrip-inspection" element={
-          <ProtectedRoute strictAllowedRoles={['admin', 'maintenance', 'manager', 'supervisor', 'dispatch', 'safety']}>
+          <ProtectedRoute strictAllowedRoles={['admin', 'maintenance', 'manager', 'supervisor', 'dispatch', 'safety', 'chicago_management']}>
             <Layout><PreTripInspection /></Layout>
           </ProtectedRoute>
         } />

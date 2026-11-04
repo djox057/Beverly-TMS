@@ -42,3 +42,10 @@ it.each(["admin", "manager", "supervisor"] as const)("preserves the legacy badge
   expect(screen.getByText("99")).toBeInTheDocument();
   expect(mocks.legacy).toHaveBeenCalledWith({ enabled: true });
 });
+
+it("shows PTI and ELD navigation for Chicago Management", async () => {
+  mocks.role = "chicago_management";
+  await act(async () => { render(navigation()); });
+  expect(screen.getByRole("link", { name: "ELD" })).toHaveAttribute("href", "/eld");
+  expect(screen.getByRole("link", { name: "Pre Trip Inspection" })).toHaveAttribute("href", "/pretrip-inspection");
+});

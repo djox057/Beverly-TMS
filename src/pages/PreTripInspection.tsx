@@ -235,7 +235,7 @@ const PreTripInspection = () => {
     queryClient.invalidateQueries({ queryKey: ["pretrip-problems", photoDate] });
   };
   const { roles: _roles } = useAuthContext() as any;
-  const canCheck = ["admin", "maintenance", "manager"].some((r) => (_roles ?? []).includes(r) || primaryRole === r);
+  const canCheck = ["admin", "maintenance", "manager", "chicago_management"].some((r) => (_roles ?? []).includes(r) || primaryRole === r);
   const [savingCheck, setSavingCheck] = useState<string | null>(null);
   const toggleChecked = async (id: string, v: boolean) => {
     const inspectionDate = photoDate;

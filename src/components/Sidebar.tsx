@@ -165,13 +165,13 @@ const navigation = [
   },
   { name: "Turnover List", href: "/turnover-list", icon: RefreshCw, roles: ["admin"] },
   { name: "Roadside Inspection", href: "/roadside-inspection", icon: AlertTriangle },
-  { name: "ELD", href: "/eld", icon: ClipboardCheck, roles: ["admin", "maintenance", "manager"], strict: true },
+  { name: "ELD", href: "/eld", icon: ClipboardCheck, roles: ["admin", "maintenance", "manager", "chicago_management"], strict: true },
   { name: "Live Oil Change", href: "/live-oil-change", icon: Droplet },
   {
     name: "Pre Trip Inspection",
     href: "/pretrip-inspection",
     icon: ClipboardCheck,
-    roles: ["admin", "maintenance", "manager", "supervisor", "dispatch", "safety"],
+    roles: ["admin", "maintenance", "manager", "supervisor", "dispatch", "safety", "chicago_management"],
     strict: true,
   },
   {
