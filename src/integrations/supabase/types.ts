@@ -6635,6 +6635,7 @@ export type Database = {
           dot_inspection_note: string | null
           id: string
           insurance_expiration_date: string | null
+          is_temporary_inactive: boolean
           is_active: boolean
           make: string | null
           model: string | null
@@ -6657,6 +6658,7 @@ export type Database = {
           dot_inspection_note?: string | null
           id?: string
           insurance_expiration_date?: string | null
+          is_temporary_inactive?: boolean
           is_active?: boolean
           make?: string | null
           model?: string | null
@@ -6679,6 +6681,7 @@ export type Database = {
           dot_inspection_note?: string | null
           id?: string
           insurance_expiration_date?: string | null
+          is_temporary_inactive?: boolean
           is_active?: boolean
           make?: string | null
           model?: string | null
@@ -7313,6 +7316,7 @@ export type Database = {
           insurance_company_id: string | null
           insurance_expiration_date: string | null
           ipass: string | null
+          is_temporary_inactive: boolean
           is_active: boolean
           is_insured: boolean
           last_oc_invoice: string | null
@@ -7382,6 +7386,7 @@ export type Database = {
           insurance_company_id?: string | null
           insurance_expiration_date?: string | null
           ipass?: string | null
+          is_temporary_inactive?: boolean
           is_active?: boolean
           is_insured?: boolean
           last_oc_invoice?: string | null
@@ -7451,6 +7456,7 @@ export type Database = {
           insurance_company_id?: string | null
           insurance_expiration_date?: string | null
           ipass?: string | null
+          is_temporary_inactive?: boolean
           is_active?: boolean
           is_insured?: boolean
           last_oc_invoice?: string | null
@@ -8755,3 +8761,4 @@ export const Constants = {
     },
   },
 } as const
+

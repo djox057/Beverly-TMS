@@ -1,3 +1,4 @@
+import { getFleetStatus, matchesFleetStatus, type FleetStatusFilter, type InactiveFleetStatus } from "@/lib/fleetStatus";
 import { useVinAutofill } from "@/hooks/useVinAutofill";
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,7 @@ interface TerminationNote {
 const Trailers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [assignmentFilter, setAssignmentFilter] = useState<"all" | "assigned" | "unassigned">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "changed">("active");
+  const [statusFilter, setStatusFilter] = useState<FleetStatusFilter>("active");
   const { data: changedTrailerIds } = useChangedTrailers(statusFilter === "changed");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -64,6 +65,7 @@ const Trailers = () => {
   const [historyTrailerId, setHistoryTrailerId] = useState<string | null>(null);
   const [historyTrailerName, setHistoryTrailerName] = useState<string>("");
   const [showDoneConfirmation, setShowDoneConfirmation] = useState(false);
+  const [inactiveStatus, setInactiveStatus] = useState<InactiveFleetStatus>("inactive");
   const [showNoteDialog, setShowNoteDialog] = useState(false);
   const [terminationNote, setTerminationNote] = useState("");
   const [terminationNotes, setTerminationNotes] = useState<TerminationNote[]>([]);
@@ -151,10 +153,7 @@ const Trailers = () => {
         (assignmentFilter === "unassigned" && !isAssigned);
       
       // Status filter
-      const matchesStatus = statusFilter === "all" || 
-        (statusFilter === "active" && trailer.is_active !== false) || 
-        (statusFilter === "inactive" && trailer.is_active === false) ||
-        (statusFilter === "changed" && trailer.is_active !== false && !!changedTrailerIds?.has(trailer.id));
+      const matchesStatus = matchesFleetStatus(trailer, statusFilter, !!changedTrailerIds?.has(trailer.id));
       
       // Company filter (company of the truck/driver this trailer is connected to)
       const companyName = trailerCompanyMap.get(trailer.id) || "Unassigned";
@@ -426,10 +425,13 @@ const Trailers = () => {
 
   // Done functionality - mark trailer as inactive
   const handleDoneClick = () => {
+    setInactiveStatus("inactive");
+    setTerminationNote("");
     setShowDoneConfirmation(true);
   };
 
-  const handleConfirmDone = () => {
+  const handleConfirmDone = (status: InactiveFleetStatus) => {
+    setInactiveStatus(status);
     setShowDoneConfirmation(false);
     setShowNoteDialog(true);
   };
@@ -451,16 +453,18 @@ const Trailers = () => {
       if (noteError) throw noteError;
       
       // Clear trailer from any trucks that have it assigned
-      await supabase
+      const { error: detachError } = await supabase
         .from('trucks')
         .update({ trailer_id: null })
         .eq('trailer_id', editingTrailer.id);
+      if (detachError) throw detachError;
       
       // Update trailer: set is_active = false, termination_date = today
       const { error: updateError } = await supabase
         .from('trailers')
         .update({
           is_active: false,
+          is_temporary_inactive: inactiveStatus === "temporary_inactive",
           termination_date: new Date().toISOString().split('T')[0]
         })
         .eq('id', editingTrailer.id);
@@ -469,7 +473,7 @@ const Trailers = () => {
       
       toast({
         title: "Success",
-        description: `Trailer ${editingTrailer.trailer_number} marked as done`
+        description: `Trailer ${editingTrailer.trailer_number} marked as ${inactiveStatus === "temporary_inactive" ? "temporary inactive" : "inactive"}`
       });
       
       setShowNoteDialog(false);
@@ -507,6 +511,7 @@ const Trailers = () => {
         .from('trailers')
         .update({
           is_active: true,
+          is_temporary_inactive: false,
           termination_date: null
         })
         .eq('id', editingTrailer.id);
@@ -733,12 +738,13 @@ const Trailers = () => {
           <div className="flex items-center justify-between">
             <CardTitle>Trailer Inventory</CardTitle>
             <div className="flex items-center gap-3">
-              <Select value={statusFilter} onValueChange={(value: "all" | "active" | "inactive" | "changed") => setStatusFilter(value)}>
-                <SelectTrigger className="w-[140px]">
+              <Select value={statusFilter} onValueChange={(value: FleetStatusFilter) => { setStatusFilter(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[190px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="temporary_inactive">Temporary inactive</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                   <SelectItem value="changed">Changed</SelectItem>
                   <SelectItem value="all">All Status</SelectItem>
@@ -947,6 +953,7 @@ const Trailers = () => {
         <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Trailer</DialogTitle>
+            <p className="text-sm text-muted-foreground">Status: {editingTrailer && (getFleetStatus(editingTrailer) === "temporary_inactive" ? "Temporary inactive" : editingTrailer.is_active === false ? "Inactive" : "Active")}</p>
           </DialogHeader>
           
           <Tabs defaultValue="info" className="min-w-0 w-full">
@@ -1094,18 +1101,23 @@ const Trailers = () => {
                 )}
 
                 <div className="flex justify-between gap-3">
-                  <div>
+                  <div className="flex flex-wrap gap-2">
                     {canDelete && editingTrailer?.is_active !== false && (
                       <Button type="button" variant="destructive" onClick={handleDoneClick} disabled={isSubmitting}>
                         <CheckCircle2 className="mr-2 h-4 w-4" />
                         Done
                       </Button>
                     )}
+                    {canDelete && editingTrailer?.is_active === false && editingTrailer?.is_temporary_inactive && (
+                      <Button type="button" variant="destructive" onClick={handleDoneClick} disabled={isSubmitting}>
+                        Mark inactive
+                      </Button>
+                    )}
                     {canDelete && editingTrailer?.is_active === false && (
                       <Button type="button" variant="default" onClick={handleStartTrailer} disabled={isSubmitting} className="bg-green-600 hover:bg-green-700">
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         <Play className="mr-2 h-4 w-4" />
-                        Start
+                        {editingTrailer?.is_temporary_inactive ? "Resume" : "Start"}
                       </Button>
                     )}
                   </div>
@@ -1138,14 +1150,17 @@ const Trailers = () => {
       <AlertDialog open={showDoneConfirmation} onOpenChange={setShowDoneConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Mark Trailer as Done?</AlertDialogTitle>
+            <AlertDialogTitle>Mark Trailer as {editingTrailer?.is_active === false ? "Inactive" : "Done"}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will mark trailer {editingTrailer?.trailer_number} as inactive and remove it from any assigned trucks.
+              Choose the status for trailer {editingTrailer?.trailer_number}. This makes it inactive and remove it from any assigned trucks.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDone}>Continue</AlertDialogAction>
+            {editingTrailer?.is_active !== false && (
+              <AlertDialogAction onClick={() => handleConfirmDone("temporary_inactive")}>Temporary inactive</AlertDialogAction>
+            )}
+            <AlertDialogAction onClick={() => handleConfirmDone("inactive")}>Inactive</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1154,7 +1169,7 @@ const Trailers = () => {
       <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Termination Note</DialogTitle>
+            <DialogTitle>{inactiveStatus === "temporary_inactive" ? "Temporary inactive note" : "Add Termination Note"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -1162,7 +1177,7 @@ const Trailers = () => {
               <Textarea
                 value={terminationNote}
                 onChange={(e) => setTerminationNote(e.target.value)}
-                placeholder="Enter reason for marking this trailer as done..."
+                placeholder={inactiveStatus === "temporary_inactive" ? "Enter reason for temporary inactivity..." : "Enter reason for marking this trailer as done..."}
                 rows={4}
               />
             </div>
@@ -1171,7 +1186,7 @@ const Trailers = () => {
             <Button variant="outline" onClick={() => setShowNoteDialog(false)}>Cancel</Button>
             <Button onClick={handleSaveTerminationNote} disabled={isSubmitting || !terminationNote.trim()}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save & Mark Done
+              {inactiveStatus === "temporary_inactive" ? "Save & Mark Temporary Inactive" : "Save & Mark Done"}
             </Button>
           </DialogFooter>
         </DialogContent>

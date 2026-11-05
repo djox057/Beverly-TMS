@@ -1,3 +1,4 @@
+import { getFleetStatus, matchesFleetStatus, type FleetStatusFilter, type InactiveFleetStatus } from "@/lib/fleetStatus";
 import { useVinAutofill } from "@/hooks/useVinAutofill";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -80,9 +81,10 @@ const Trucks = () => {
   const [historyTruckName, setHistoryTruckName] = useState<string>("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("active");
+  const [statusFilter, setStatusFilter] = useState<FleetStatusFilter>("active");
   const { data: changedTruckIds } = useChangedTrucks(statusFilter === "changed");
   const [showDoneConfirmation, setShowDoneConfirmation] = useState(false);
+  const [inactiveStatus, setInactiveStatus] = useState<InactiveFleetStatus>("inactive");
   const [showNoteDialog, setShowNoteDialog] = useState(false);
   const [terminationNote, setTerminationNote] = useState("");
   const [terminationNotes, setTerminationNotes] = useState<TerminationNote[]>([]);
@@ -168,10 +170,7 @@ const Trucks = () => {
         (assignmentFilter === "unassigned" && !truck.driver1_id);
       
       // Status filter - filter by is_active status
-      const matchesStatus = statusFilter === "all" || 
-        (statusFilter === "active" && truck.is_active !== false) || 
-        (statusFilter === "inactive" && truck.is_active === false) ||
-        (statusFilter === "changed" && truck.is_active !== false && !!changedTruckIds?.has(truck.id));
+      const matchesStatus = matchesFleetStatus(truck, statusFilter, !!changedTruckIds?.has(truck.id));
       
       return matchesSearch && matchesCompany && matchesAssignment && matchesStatus;
     }) || [];
@@ -685,10 +684,13 @@ const Trucks = () => {
 
   // Done functionality - mark truck as inactive
   const handleDoneClick = () => {
+    setInactiveStatus("inactive");
+    setTerminationNote("");
     setShowDoneConfirmation(true);
   };
 
-  const handleConfirmDone = () => {
+  const handleConfirmDone = (status: InactiveFleetStatus) => {
+    setInactiveStatus(status);
     setShowDoneConfirmation(false);
     setShowNoteDialog(true);
   };
@@ -714,6 +716,7 @@ const Trucks = () => {
         .from('trucks')
         .update({
           is_active: false,
+          is_temporary_inactive: inactiveStatus === "temporary_inactive",
           termination_date: new Date().toISOString().split('T')[0],
           driver1_id: null,
           driver2_id: null,
@@ -723,7 +726,7 @@ const Trucks = () => {
       
       if (updateError) throw updateError;
       
-      toast.success(`Truck ${editingTruck.truck_number} marked as done`);
+      toast.success(`Truck ${editingTruck.truck_number} marked as ${inactiveStatus === "temporary_inactive" ? "temporary inactive" : "inactive"}`);
       
       setShowNoteDialog(false);
       setTerminationNote("");
@@ -758,6 +761,7 @@ const Trucks = () => {
         .from('trucks')
         .update({
           is_active: true,
+          is_temporary_inactive: false,
           termination_date: null
         })
         .eq('id', editingTruck.id);
@@ -1078,17 +1082,18 @@ const Trucks = () => {
           <div className="flex items-center justify-between">
             <CardTitle>Truck Fleet</CardTitle>
             <div className="flex items-center gap-3">
-              <div className="w-[140px]">
+              <div className="w-[190px]">
                 <Combobox
                   options={[
                     { value: "active", label: "Active" },
+                    { value: "temporary_inactive", label: "Temporary inactive" },
                     { value: "inactive", label: "Inactive" },
                     { value: "changed", label: "Changed" },
                     { value: "all", label: "All Status" }
                   ]}
                   value={statusFilter}
                   onValueChange={(value) => {
-                    setStatusFilter(value);
+                    setStatusFilter(value as FleetStatusFilter);
                     setCurrentPage(1);
                   }}
                   placeholder="Status"
@@ -1342,6 +1347,7 @@ const Trucks = () => {
         <DialogContent className="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Truck</DialogTitle>
+            <p className="text-sm text-muted-foreground">Status: {editingTruck && (getFleetStatus(editingTruck) === "temporary_inactive" ? "Temporary inactive" : editingTruck.is_active === false ? "Inactive" : "Active")}</p>
           </DialogHeader>
           
           <Tabs defaultValue="info" className="min-w-0 w-full">
@@ -1573,7 +1579,7 @@ const Trucks = () => {
                 )}
 
                 <div className="flex justify-between gap-3">
-                  <div>
+                  <div className="flex flex-wrap gap-2">
                     {canDelete && editingTruck?.is_active !== false && (
                       <Button 
                         type="button" 
@@ -1583,6 +1589,11 @@ const Trucks = () => {
                       >
                         <CheckCircle2 className="mr-2 h-4 w-4" />
                         Done
+                      </Button>
+                    )}
+                    {canDelete && editingTruck?.is_active === false && editingTruck?.is_temporary_inactive && (
+                      <Button type="button" variant="destructive" onClick={handleDoneClick} disabled={isSubmitting}>
+                        Mark inactive
                       </Button>
                     )}
                     {canDelete && editingTruck?.is_active === false && (
@@ -1595,7 +1606,7 @@ const Trucks = () => {
                       >
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         <Play className="mr-2 h-4 w-4" />
-                        Start
+                        {editingTruck?.is_temporary_inactive ? "Resume" : "Start"}
                       </Button>
                     )}
                   </div>
@@ -1628,14 +1639,17 @@ const Trucks = () => {
       <AlertDialog open={showDoneConfirmation} onOpenChange={setShowDoneConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Mark Truck as Done?</AlertDialogTitle>
+            <AlertDialogTitle>Mark Truck as {editingTruck?.is_active === false ? "Inactive" : "Done"}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will mark truck {editingTruck?.truck_number} as inactive and clear all driver and trailer assignments.
+              Choose the status for truck {editingTruck?.truck_number}. This makes it inactive and clear all driver and trailer assignments.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDone}>Continue</AlertDialogAction>
+            {editingTruck?.is_active !== false && (
+              <AlertDialogAction onClick={() => handleConfirmDone("temporary_inactive")}>Temporary inactive</AlertDialogAction>
+            )}
+            <AlertDialogAction onClick={() => handleConfirmDone("inactive")}>Inactive</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1644,7 +1658,7 @@ const Trucks = () => {
       <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Termination Note</DialogTitle>
+            <DialogTitle>{inactiveStatus === "temporary_inactive" ? "Temporary inactive note" : "Add Termination Note"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -1652,7 +1666,7 @@ const Trucks = () => {
               <Textarea
                 value={terminationNote}
                 onChange={(e) => setTerminationNote(e.target.value)}
-                placeholder="Enter reason for marking this truck as done..."
+                placeholder={inactiveStatus === "temporary_inactive" ? "Enter reason for temporary inactivity..." : "Enter reason for marking this truck as done..."}
                 rows={4}
               />
             </div>
@@ -1666,7 +1680,7 @@ const Trucks = () => {
               disabled={isSubmitting || !terminationNote.trim()}
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save & Mark Done
+              {inactiveStatus === "temporary_inactive" ? "Save & Mark Temporary Inactive" : "Save & Mark Done"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1693,3 +1707,4 @@ const Trucks = () => {
     </div>;
 };
 export default Trucks;
+
