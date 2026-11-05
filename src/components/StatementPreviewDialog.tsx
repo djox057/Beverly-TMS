@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FileDown, Loader2, DollarSign, Plus, MoreVertical } from "lucide-react";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -68,6 +67,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
   const [expenses, setExpenses] = useState<DriverExpense[]>([]);
   const [deductionAmounts, setDeductionAmounts] = useState<Record<string, string>>({});
   const [selectedExpenses, setSelectedExpenses] = useState<Set<string>>(new Set());
@@ -84,6 +84,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
   useEffect(() => {
     if (open && driverId) {
       loadUnpaidExpenses();
+      setCompanyMenuOpen(false);
       // Reset add form when dialog opens
       setShowAddForm(false);
       setNewExpense({ explanation: "", amount: "" });
@@ -526,6 +527,24 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
           </div>
         </div>
 
+        {companyMenuOpen && (
+          <div id="statement-company-menu" className="shrink-0 rounded-md border bg-popover p-2">
+            <p className="px-2 py-1 text-sm font-medium">Export statement as company</p>
+            <div role="menu" aria-label="Statement companies" className="max-h-48 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-1">
+              {[
+                "AP Silver Trans LLC", "Beverly Freight Inc", "BF Prime LLC", "BF Prime United LLC",
+                "BG Prime Inc", "Hart Freight Solutions LLC", "Jones Freight Lines LLC",
+                "Lale Transport LLC", "United Enterprise Solutions INC",
+              ].map(company => (
+                <Button key={company} type="button" variant="ghost" role="menuitem"
+                  className="justify-start text-left h-auto whitespace-normal" disabled={exporting}
+                  onClick={() => { setCompanyMenuOpen(false); void handleExport(company); }}>
+                  {company}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
@@ -568,22 +587,13 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
               </>
             )}
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" size="icon" disabled={exporting}
-                aria-label="Select statement company" title="Export using a different company template">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="z-[400] max-h-80 overflow-y-auto">
-              <DropdownMenuLabel>Statement company</DropdownMenuLabel>
-                {[
-                  "AP Silver Trans LLC", "Beverly Freight Inc", "BF Prime LLC", "BF Prime United LLC",
-                  "BG Prime Inc", "Hart Freight Solutions LLC", "Jones Freight Lines LLC",
-                  "Lale Transport LLC", "United Enterprise Solutions INC",
-                ].map(company => <DropdownMenuItem key={company} disabled={exporting} onSelect={() => { void handleExport(company); }}>{company}</DropdownMenuItem>)}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button type="button" variant="outline" size="icon" disabled={exporting}
+            aria-label="Select statement company" aria-expanded={companyMenuOpen}
+            aria-controls="statement-company-menu"
+            onClick={() => setCompanyMenuOpen(value => !value)}
+            title="Export using a different company template">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
