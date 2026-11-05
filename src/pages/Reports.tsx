@@ -1,3 +1,4 @@
+import { finalUpdateIdentity, finalUpdateRowId } from "@/lib/finalUpdateIdentity";
 import { EmptyTrucksFilter } from "@/components/reports/EmptyTrucksFilter";
 import { AssignRecoveryLoadDialog } from "@/components/recovery/AssignRecoveryLoadDialog";
 import { closeWatchGroups, isCloseWatchUrgent } from "@/lib/closeWatch";
@@ -1017,9 +1018,9 @@ const Reports = () => {
     if (!finalUpdateDate) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from("final_update_sends").select("truck_id").eq("send_date", finalUpdateDate);
+      const { data } = await supabase.from("final_update_sends").select("truck_id, driver_id").eq("send_date", finalUpdateDate);
       if (cancelled || !data) return;
-      setFinalUpdateSentTruckIds(new Set(data.map((r: any) => r.truck_id)));
+      setFinalUpdateSentTruckIds(new Set(data.map(finalUpdateRowId).filter((id): id is string => !!id)));
     })();
     return () => {
       cancelled = true;
@@ -4447,8 +4448,7 @@ const Reports = () => {
             return n;
           });
           const { error: saveError } = await supabase.from("final_update_sends").insert({
-            truck_id: truckId,
-            driver_id: driverId || null,
+            ...finalUpdateIdentity(truckId, driverId),
             send_date: finalUpdateDate,
             truck_number: truckNumber || null,
             driver_name: driverName.trim() || null,
