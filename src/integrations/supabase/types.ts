@@ -3487,7 +3487,7 @@ export type Database = {
           send_date: string
           sent_at: string
           sent_by: string | null
-          truck_id: string
+          truck_id: string | null
           truck_number: string | null
         }
         Insert: {
@@ -3498,7 +3498,7 @@ export type Database = {
           send_date: string
           sent_at?: string
           sent_by?: string | null
-          truck_id: string
+          truck_id: string | null
           truck_number?: string | null
         }
         Update: {
@@ -3509,7 +3509,7 @@ export type Database = {
           send_date?: string
           sent_at?: string
           sent_by?: string | null
-          truck_id?: string
+          truck_id?: string | null
           truck_number?: string | null
         }
         Relationships: []
