@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FileDown, Loader2, DollarSign, Plus, MoreVertical } from "lucide-react";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -68,7 +68,6 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [companyOverride, setCompanyOverride] = useState("");
   const [expenses, setExpenses] = useState<DriverExpense[]>([]);
   const [deductionAmounts, setDeductionAmounts] = useState<Record<string, string>>({});
   const [selectedExpenses, setSelectedExpenses] = useState<Set<string>>(new Set());
@@ -85,7 +84,6 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
   useEffect(() => {
     if (open && driverId) {
       loadUnpaidExpenses();
-      setCompanyOverride("");
       // Reset add form when dialog opens
       setShowAddForm(false);
       setNewExpense({ explanation: "", amount: "" });
@@ -262,7 +260,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
   }, [selectedExpenses, deductionAmounts, expensesWithRemaining]);
 
   // Handle export with deductions
-  const handleExport = async () => {
+  const handleExport = async (companyOverride?: string) => {
     setExporting(true);
     try {
       const scheduledDeductions = getScheduledDeductions();
@@ -318,7 +316,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
   const handleExportWithoutDeductions = async () => {
     setExporting(true);
     try {
-      await onExport([], companyOverride || undefined);
+      await onExport([]);
       
       // Mark the week as paid
       if (onMarkWeekPaid) {
@@ -528,7 +526,6 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
           </div>
         </div>
 
-        {companyOverride && <p className="text-sm text-muted-foreground">Statement company: {companyOverride}</p>}
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
@@ -553,7 +550,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
             </Button>
           )}
           <Button 
-            onClick={handleExport} 
+            onClick={() => handleExport()}
             disabled={exporting}
           >
             {exporting ? (
@@ -574,21 +571,17 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button type="button" variant="outline" size="icon" disabled={exporting}
-                aria-label="Select statement company" title={companyOverride || "Use a different company template"}>
+                aria-label="Select statement company" title="Export using a different company template">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
+            <DropdownMenuContent align="end" className="z-[400] max-h-80 overflow-y-auto">
               <DropdownMenuLabel>Statement company</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={companyOverride} onValueChange={setCompanyOverride}>
-                <DropdownMenuRadioItem value="">Automatic (default)</DropdownMenuRadioItem>
-                <DropdownMenuSeparator />
                 {[
                   "AP Silver Trans LLC", "Beverly Freight Inc", "BF Prime LLC", "BF Prime United LLC",
                   "BG Prime Inc", "Hart Freight Solutions LLC", "Jones Freight Lines LLC",
                   "Lale Transport LLC", "United Enterprise Solutions INC",
-                ].map(company => <DropdownMenuRadioItem key={company} value={company}>{company}</DropdownMenuRadioItem>)}
-              </DropdownMenuRadioGroup>
+                ].map(company => <DropdownMenuItem key={company} disabled={exporting} onSelect={() => { void handleExport(company); }}>{company}</DropdownMenuItem>)}
             </DropdownMenuContent>
           </DropdownMenu>
         </DialogFooter>
