@@ -1683,6 +1683,7 @@ const Trips = () => {
     weekStartDate: Date,
     weekEndDate: Date,
     scheduledDeductions: ScheduledDeduction[] = [],
+    companyOverride?: string,
   ) => {
     try {
       // Get the first order to determine driver/truck info
@@ -1729,6 +1730,9 @@ const Trips = () => {
         console.error("Unable to resolve statement company history", e);
         throw e;
       }
+
+      // A manual template choice applies only to this export.
+      resolvedCompanyName = companyOverride || resolvedCompanyName;
 
       // Check if driver is a company driver - use company driver template regardless of company
       if (driver?.is_company_driver) {
@@ -7296,12 +7300,13 @@ const Trips = () => {
           truckNumber={statementDialogData.truckNumber}
           weekStart={format(statementDialogData.weekStartDate, "MM/dd/yyyy")}
           weekEnd={format(statementDialogData.weekEndDate, "MM/dd/yyyy")}
-          onExport={async (scheduledDeductions) => {
+          onExport={async (scheduledDeductions, companyOverride) => {
             await exportWeekToExcel(
               statementDialogData.week,
               statementDialogData.weekStartDate,
               statementDialogData.weekEndDate,
               scheduledDeductions,
+              companyOverride,
             );
           }}
           onMarkWeekPaid={async () => {
