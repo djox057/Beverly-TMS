@@ -124,6 +124,10 @@ const getStatusBadge = (status: string) => {
       return <Badge variant="secondary">{status}</Badge>;
   }
 };
+// Approved payroll exception: Kane's October 18 shift is paid as extra.
+const isApprovedExtraDay = (userId: string | null | undefined, date: string) =>
+  userId === "a3157b06-5c51-428c-86ca-8ce4e8feb944" && date === "2026-10-18";
+
 const Analytics = () => {
   const navigate = useNavigate();
   const { hasRole, profile, getPrimaryRole, roles } = useAuthContext();
@@ -945,13 +949,14 @@ const Analytics = () => {
             // Deleted users (no user_id) don't have a regular afterhours shift, so any
             // scheduled day for them counts as an extra day (no -1 subtraction).
             const isDeletedUserExtra = !record.user_id;
+            const isApprovedExtra = isApprovedExtraDay(record.user_id, record.scheduled_date);
 
             keys.forEach((key) => {
-              if (isWeekend && !isMovingDay && !isDeletedUserExtra) {
+              if (isWeekend && !isMovingDay && !isDeletedUserExtra && !isApprovedExtra) {
                 rawWeekendCountsMap[key] += 1;
                 weekendDatesMap[key].push(dateStr);
                 weekendRawDatesMap[key].push(record.scheduled_date);
-              } else if (isMovingDay || isDeletedUserExtra) {
+              } else if (isMovingDay || isDeletedUserExtra || isApprovedExtra) {
                 // Moving day is the only weekday entry that counts as an extra day.
                 // All other weekday entries in afterhours_schedule are treated as holidays
                 // and excluded from extra-day pay.
@@ -5079,8 +5084,9 @@ const Analytics = () => {
                                             const extraKey = stat.userId || stat.name;
                                             const allDates = extraDayDatesByUser[extraKey] || [];
                                             const allRaw = extraDayRawDatesByUser[extraKey] || [];
-                                            const extraDates = allDates.slice(1);
-                                            const extraRaw = allRaw.slice(1);
+                                            const extraStart = Math.max(0, allDates.length - extraDays);
+                                            const extraDates = allDates.slice(extraStart);
+                                            const extraRaw = allRaw.slice(extraStart);
                                             return (
                                               <>
                                                 {extraDates.length === 0 && (
@@ -5118,13 +5124,13 @@ const Analytics = () => {
                                                         }));
                                                         setExtraDayDatesByUser((prev) => {
                                                           const updated = [...(prev[extraKey] || [])];
-                                                          // Remove the corresponding date from allDates (index + 1 because of slice)
-                                                          updated.splice(i + 1, 1);
+                                                          // Remove the corresponding paid extra date.
+                                                          updated.splice(extraStart + i, 1);
                                                           return { ...prev, [extraKey]: updated };
                                                         });
                                                         setExtraDayRawDatesByUser((prev) => {
                                                           const updated = [...(prev[extraKey] || [])];
-                                                          updated.splice(i + 1, 1);
+                                                          updated.splice(extraStart + i, 1);
                                                           return { ...prev, [extraKey]: updated };
                                                         });
                                                       }}
@@ -5203,7 +5209,7 @@ const Analytics = () => {
                                                             r.scheduled_date === "2026-01-10" &&
                                                             stat.office === "KRAGUJEVAC";
                                                           const ds = `${sd.getMonth() + 1}/${sd.getDate()}`;
-                                                          if (isWe && !isMov) {
+                                                          if (isWe && !isMov && !isApprovedExtraDay(stat.userId, r.scheduled_date)) {
                                                             wkendCount++;
                                                             wkendDates.push(ds);
                                                             wkendRaw.push(r.scheduled_date);
