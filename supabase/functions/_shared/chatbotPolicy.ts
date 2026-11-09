@@ -2,7 +2,7 @@
 export const MODEL = "gemini-flash-lite-latest";
 export const KINDS = ["driver", "truck", "trailer", "order", "company"] as const;
 export type Kind = typeof KINDS[number];
-export type Context = { kind: Kind; id: string; label?: string };
+export type Context = { kind: Kind; id: string; label?: string; sourceId?: string };
 export const isUuid = (v: unknown): v is string => typeof v === "string" && /^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(v);
 export const isKind = (v: unknown): v is Kind => KINDS.includes(v as Kind);
 export const normalize = (v: string) => v.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[_-]+/g, " ");
@@ -47,6 +47,8 @@ export function fileMatches(file: FileMeta, query: string) {
   if (!query || query === "all") return true;
   const text = normalize([file.file_name, ...(file.keywords || []), file.file_category || ""].join(" "));
   const q = normalize(query);
+  if (/affirmation/.test(q)) return /affirmation/.test(text);
+  if (/cab\s*card|cabcard|\birp\b/.test(q)) return /registration|cab\s*card|\birp\b/.test(text) && !/affirmation/.test(text);
   if (/cab\s*card|registration|irp/.test(q)) return /registration|cab\s*card|\birp\b/.test(text);
   if (/cdl|license/.test(q)) return /cdl|license/.test(text) && (!q.includes("front") || /front/.test(text)) && (!q.includes("back") || /back/.test(text));
   if (/insurance|certificate of insurance|\bcoi\b/.test(q)) return /insurance|\bcoi\b/.test(text);
@@ -64,16 +66,18 @@ export const EN = {
   found: "Here are the saved details.", missing: "Not saved", notFound: "No matching record found.",
   choose: "Select a record.", specify: "Which driver, truck, trailer, company, or load?", blocked: "This information is unavailable in the chatbot.",
   files: "Files", noFiles: "No matching approved files found.", manual: "Find it manually", open: "Open in TMS", download: "Download", view: "Open file", more: "More files", older: "Newest first; check the document's validity.",
-  help: "Ask for a yard/company address, driver or vehicle details, documents, or one load's details.",
+  help: "Ask where to open a TMS page or how to complete a task, or request saved details and files.",
+  cabCardTruck: "Cab card is a truck document. Showing the truck assigned to",
+  noAssignedTruck: "Cab card is a truck document. No truck is assigned to this driver.",
   steps: "Open the page → search for the record → open it", filesStep: "Select the files tab and document type", faqMissing: "No matching FAQ answer found.",
   yes: "Yes", no: "No", expired: "Expired", current: "Current record", clear: "Clear chat", send: "Send", placeholder: "Ask about a driver, vehicle, load, or document…",
 };
 export type Ui = typeof EN;
-export type Intent = { task: "record" | "files" | "company" | "faq" | "help" | "blocked"; kind: Kind; query: string; document: string; fields: string[]; financial: boolean; language: string; ui: Ui; fieldLabels: Record<string, string> };
+export type Intent = { task: "record" | "files" | "company" | "faq" | "help" | "navigate" | "blocked"; kind: Kind; page?: string; query: string; document: string; fields: string[]; financial: boolean; language: string; ui: Ui; fieldLabels: Record<string, string> };
 export function validateIntent(raw: unknown): Intent {
   if (!raw || typeof raw !== "object") throw new Error("Invalid intent");
   const v = raw as Record<string, unknown>;
-  if (!["record", "files", "company", "faq", "help", "blocked"].includes(String(v.task)) || !isKind(v.kind)) throw new Error("Invalid intent");
+  if (!["record", "files", "company", "faq", "help", "navigate", "blocked"].includes(String(v.task)) || !isKind(v.kind)) throw new Error("Invalid intent");
   const kind = v.kind;
   const fields = Array.isArray(v.fields) ? v.fields.filter((x): x is string => typeof x === "string" && [...RECORDS[kind].fields, ...MONEY_FIELDS].includes(x as never)).slice(0, 8) : [];
   const ui = { ...EN };
@@ -87,5 +91,5 @@ export function validateIntent(raw: unknown): Intent {
     const label = (v.fieldLabels as Record<string, unknown> | undefined)?.[field];
     if (typeof label === "string" && label.length < 80 && !/[\d<>$]|https?:/i.test(label)) fieldLabels[field] = label;
   }
-  return { task: v.task as Intent["task"], kind: v.kind, query: cleanQuery(v.query), document: cleanQuery(v.document).toLowerCase(), fields, financial: v.financial === true && v.kind === "order", language: String(v.language || "en").slice(0, 12), ui, fieldLabels };
+  return { task: v.task as Intent["task"], kind: v.kind, page: typeof v.page === "string" && /^[a-z_]{1,40}$/.test(v.page) ? v.page : undefined, query: cleanQuery(v.query), document: cleanQuery(v.document).toLowerCase(), fields, financial: v.financial === true && v.kind === "order", language: String(v.language || "en").slice(0, 12), ui, fieldLabels };
 }

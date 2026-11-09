@@ -26,7 +26,8 @@ export function ChatbotProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (!enabled) { clear(); setOpen(false); } },[enabled]);
   useEffect(() => {
     const match = location.pathname.match(/^\/edit-order\/([\da-f-]{36})$/i);
-    setContext(match ? { kind: "order",id: match[1],label: "Load" } : null);
+    const truck = location.pathname.match(/^\/live-oil-change\/([\da-f-]{36})$/i);
+    setContext(match ? { kind: "order",id: match[1],label: "Load" } : truck ? { kind: "truck",id: truck[1],label: "Truck" } : null);
   },[location.pathname]);
   useEffect(() => {
     const listener = (event: Event) => setContext((event as CustomEvent<ChatContext | null>).detail);

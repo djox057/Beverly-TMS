@@ -7,9 +7,11 @@ const transpile = source => ts.transpileModule(source, { compilerOptions: { targ
 const asUrl = source => 'data:text/javascript;base64,' + Buffer.from(transpile(source)).toString('base64');
 const policyUrl = asUrl(fs.readFileSync(new URL('supabase/functions/_shared/chatbotPolicy.ts',root),'utf8'));
 const policy = await import(policyUrl);
+const navigationUrl = asUrl(fs.readFileSync(new URL('supabase/functions/_shared/chatbotNavigation.ts',root),'utf8').replace('"./chatbotPolicy.ts"',JSON.stringify(policyUrl)));
+const navigation = await import(navigationUrl);
 const source = fs.readFileSync(new URL('supabase/functions/tms-chatbot/index.ts',root),'utf8')
  .replace(/import \{ createClient, type SupabaseClient \} from "npm:[^"]+";/,'const createClient = (...args) => globalThis.__chatbotClient(...args);')
- .replace('"../_shared/chatbotPolicy.ts"',JSON.stringify(policyUrl)).replace('if (import.meta.main) Deno.serve(handle);','');
+ .replace('"../_shared/chatbotNavigation.ts"',JSON.stringify(navigationUrl)).replace('"../_shared/chatbotPolicy.ts"',JSON.stringify(policyUrl)).replace('if (import.meta.main) Deno.serve(handle);','');
 const { handle } = await import(asUrl(source));
 const ids = { user:'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',driver:'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb',other:'cccccccc-cccc-4ccc-cccc-cccccccccccc',order:'dddddddd-dddd-4ddd-dddd-dddddddddddd',file:'eeeeeeee-eeee-4eee-eeee-eeeeeeeeeeee' };
 let db, queries, prompts, model, fetchCount, counter, signed;
@@ -131,4 +133,67 @@ test('FAQ uses saved translations without sending any answer to Gemini',async()=
 test('restricted FAQ is blocked and no stored content reaches the model',async()=>{
  db.chatbot_faq=[{id:ids.file,question:'Yard hours',answer:'Password is forbidden',keywords:['yard'],page_path:'/info',published:true}];model={...model,task:'faq',query:'yard',language:'es'};
  const reply=await request({message:message()});assert.equal(reply.data.message,policy.EN.blocked);assert.equal(fetchCount,1);assert.ok(!JSON.stringify(prompts).includes('Password is forbidden'));
+});
+
+test('Serbian oil-change navigation uses the service log, never truck files or a model call',async()=>{
+ db.user_roles=[{user_id:ids.user,role:'maintenance'}];
+ const reply=await request({message:'gde da updejtam oil change za kamione'});
+ assert.equal(reply.data.message,'Live Oil Change');assert.equal(reply.data.links[0].href,'/live-oil-change');
+ assert.ok(reply.data.steps.some(s=>s.includes('Add log entry')));assert.ok(reply.data.steps.some(s=>s.includes('Oil Change')));
+ assert.equal(fetchCount,0);assert.ok(!queries.some(q=>q.table==='trucks'||q.table==='truck_files'));
+});
+test('navigation supports other TMS pages and existing role gates',async()=>{
+ let reply=await request({message:'Where do I open prebook loads?'});assert.equal(reply.data.links[0].href,'/recovery-loads');
+ reply=await request({message:'Gde je ELD stranica?'});assert.equal(reply.data.links,undefined);assert.match(reply.data.message,/nema pristup/);
+ db.user_roles=[{user_id:ids.user,role:'admin'}];reply=await request({message:'Where do I manage users?'});assert.equal(reply.data.links[0].href,'/admin/users');
+});
+test('navigation links to the current truck and respects dispatch mileage-only editing',async()=>{
+ const reply=await request({message:'How do I update oil change?',context:{kind:'truck',id:ids.other}});
+ assert.equal(reply.data.links[0].href,`/live-oil-change/${ids.other}`);assert.ok(reply.data.steps.some(s=>s.includes('Mileage Check')));
+ assert.ok(!reply.data.steps.some(s=>s==='Add log entry → Entry type: Oil Change'));
+});
+test('classifier can choose a reviewed navigation destination for paraphrases',async()=>{
+ model={...model,task:'navigate',page:'oil_change',query:'',language:'sr'};db.user_roles=[{user_id:ids.user,role:'admin'}];
+ const reply=await request({message:'Na kom mestu unosimo servis ulja?'});assert.equal(reply.data.links[0].href,'/live-oil-change');
+ assert.ok(reply.data.steps.some(s=>s.includes('Oil Change')));
+});
+test('unknown navigation destinations cannot produce arbitrary links',async()=>{
+ model={...model,task:'navigate',page:'https://evil.example',query:''};
+ const reply=await request({message:'Take me to the mystery section'});assert.equal(reply.data.links,undefined);
+});
+test('all navigation destinations are real TMS routes',()=>{
+ const app=fs.readFileSync(new URL('src/App.tsx',root),'utf8');for(const page of navigation.NAVIGATION_PAGES)assert.ok(app.includes(`path="${page.path}"`),page.path);
+ assert.equal(navigation.matchNavigationPage('Give me the saved CDL for Test Driver'),undefined);
+});
+function cabCardFixture(driverSlot='driver1_id') {
+ model={...model,task:'files',kind:'driver',query:'Test Driver',document:'registration',fields:[],language:'sr'};
+ db.trucks=[{id:ids.other,truck_number:'6270',[driverSlot]:ids.driver,vin:'VIN-TRUCK'}];
+ db.truck_files=[{id:ids.file,truck_id:ids.other,file_name:'Cab card.pdf',file_path:`${ids.other}/registration.pdf`,keywords:['registration'],created_at:'2026-11-01'}];
+}
+test('cab card requested for a driver returns the assigned truck document and explains ownership',async()=>{
+ cabCardFixture();const reply=await request({message:'nadji mi cab card za Test Driver'});
+ assert.equal(reply.data.record.kind,'truck');assert.equal(reply.data.record.label,'6270');assert.match(reply.data.message,/dokument kamiona/);
+ assert.equal(reply.data.files[0].kind,'truck');assert.equal(reply.data.files[0].recordId,ids.other);
+ assert.ok(reply.data.links[0].href.includes('/trucks?record='));assert.ok(reply.data.steps.some(s=>s.includes('Truck Files')));
+ assert.ok(!JSON.stringify(reply.data).includes('REAL-CDL-999'));assert.ok(!queries.some(q=>q.table==='driver_files'));
+ assert.ok(!JSON.stringify(prompts).includes('VIN-TRUCK'));
+ const file=await request({action:'file',kind:reply.data.files[0].kind,recordId:reply.data.files[0].recordId,fileId:reply.data.files[0].id});
+ assert.equal(file.status,200);assert.equal(signed[0].bucket,'truck-files');
+});
+test('cab card resolves driver2 assignments and missing assignments truthfully',async()=>{
+ cabCardFixture('driver2_id');let reply=await request({message:`cab card for Test Driver ${++serial}`});assert.equal(reply.data.record.kind,'truck');
+ db.trucks=[];reply=await request({message:`cab card for Test Driver ${++serial}`});assert.match(reply.data.message,/nema povezan kamion/);assert.equal(reply.data.files,undefined);
+});
+test('cab card recovers a driver name incorrectly classified as a truck selector',async()=>{
+ cabCardFixture();model.kind='truck';const reply=await request({message:`Find Test Driver cab card ${++serial}`});assert.equal(reply.data.record.kind,'truck');assert.equal(reply.data.files.length,1);
+});
+test('multiple linked trucks require a selection validated against driver assignments',async()=>{
+ cabCardFixture();db.trucks.push({id:ids.order,truck_number:'6271',driver1_id:ids.driver});
+ const msg=`Find cab card Test Driver ${++serial}`;const first=await request({message:msg});assert.equal(first.data.choices.length,2);assert.equal(first.data.files,undefined);
+ const selected=await request({message:msg,selection:first.data.choices[0]});assert.equal(selected.data.files[0].recordId,ids.other);
+ const forged=await request({message:msg,selection:{kind:'truck',id:ids.user,sourceId:ids.driver}});assert.equal(forged.data.files,undefined);
+});
+test('cab card selects registration, not a newer registration affirmation',async()=>{
+ cabCardFixture();db.truck_files.unshift({id:ids.order,truck_id:ids.other,file_name:'Registration Affirmation.pdf',file_path:`${ids.other}/affirmation.pdf`,keywords:['registration_affirmation','registration'],created_at:'2026-11-09'});
+ const reply=await request({message:`Find cab card Test Driver ${++serial}`});assert.equal(reply.data.files.length,1);assert.equal(reply.data.files[0].name,'Cab card.pdf');
 });
