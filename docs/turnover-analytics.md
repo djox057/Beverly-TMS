@@ -1,8 +1,10 @@
 # Turnover analytics
 
-The existing admin Turnover List now opens an overview with office and individual
-dispatcher filters, monthly trends, previous-period comparison, and paginated
-departure details. The original list remains available in its own tab.
+The admin Turnover List opens the original **Turnover list** tab by default.
+The second tab, **Metrics**, provides office and individual dispatcher filters,
+monthly trends, previous-period comparison, and paginated departure details.
+Month, office, and dispatcher selectors are searchable dropdowns. Chart axes,
+line, and tooltip use contrasting light/dark theme colors.
 
 ## Scope and calculations
 
@@ -28,8 +30,13 @@ departure details. The original list remains available in its own tab.
 Setup copies only currently preserved inactive-driver departures dated April 1
 or later into new private tables. Historical averages use existing
 `dispatcher_daily_driver_counts`. Old office attribution uses a frozen copy of
-dispatcher offices at installation; actual historical office membership is not
-available. Departures erased by a past reactivation cannot be reconstructed.
+dispatcher offices at installation. Former dispatchers missing from that copy
+are recovered only when an exact normalized full name identifies one stable
+user ID and all preserved April+ daily-report office evidence agrees on one
+canonical office. Conflicting or unavailable evidence remains Unknown. Only
+estimated event copies and private lookup rows are amended; source records and
+captured event snapshots are unchanged. Actual historical office membership is
+not always available. Departures erased by a past reactivation cannot be reconstructed.
 The UI labels these periods as estimates and displays missing-day coverage.
 No existing driver, assignment, count, or termination-note rows are backfilled.
 
@@ -38,7 +45,13 @@ No existing driver, assignment, count, or termination-note rows are backfilled.
 An after-update trigger records active/inactive transitions with driver name,
 dispatcher, office, company, turnover flag, and departure reason. History has no
 cascading foreign keys to drivers/users, so deletion and reactivation preserve
-it. Attribution uses the departure-time dispatcher/office snapshot.
+it. Attribution uses the departure-time dispatcher/office snapshot. A separate
+profile BEFORE DELETE trigger preserves names and offices for every deletion
+path, including auth cascades. It retains frozen historical office mappings and
+saves the last known office separately. The original list uses the recovered
+directory for April+ departures, retaining March's previous behavior.
+Future departure capture also falls back to this saved office if the dispatcher
+profile has already been deleted; historical-report fallbacks remain estimated.
 
 `turnover-daily-roster` checks hourly at minute 55 and captures at Chicago
 23:55, including daylight-saving changes. Other checks return immediately.
@@ -62,18 +75,26 @@ storage is one compact roster row per active driver, plus status-change events.
 ## Validation
 
 ```sh
-npm test -- --run src/lib/turnoverMetrics.test.ts src/components/TurnoverDashboard.test.tsx src/pages/TurnoverList.test.tsx
-npx eslint src/lib/turnoverMetrics.ts src/components/TurnoverDashboard.tsx
+npm test -- --run src/lib/turnoverMetrics.test.ts src/components/TurnoverDashboard.test.tsx src/components/TurnoverRateTooltip.test.tsx src/pages/TurnoverList.test.tsx
+npx eslint src/lib/turnoverMetrics.ts src/components/TurnoverDashboard.tsx src/components/TurnoverRateTooltip.tsx src/components/ui/combobox.tsx
 NODE_OPTIONS=--max-old-space-size=8192 npm run build
 ```
 
-The 18 frontend/math tests and build pass. SQL regression checks are in
+The 22 frontend/math tests and build pass. SQL regression checks are in
 `supabase/tests/turnover_rates.sql`; these use a temporary fixture with only the
 new trigger and roll back, avoiding operational driver/email triggers. They
 cover departure flags, duplicate prevention, reactivation/deletion retention,
 pagination, authorization, and preservation of March counts. Production
 read-only checks also verify RPC availability and table/anonymous restrictions.
-The final RPC wrapper migration has no turnover-related security advisories.
+Additional temporary profile fixture checks in
+`supabase/tests/turnover_former_offices.sql` verify office normalization, deletion
+retention, frozen mapping preservation, and the directory RPC access boundary.
+Neither migration has turnover-related security advisories.
+The recovery restored 24 dispatcher office mappings and reattributed 143
+estimated departure records. Unresolved records retain Unknown because the
+remaining historical evidence is missing, conflicting, or ambiguous by user ID.
+March driver/count checksums, departure totals, and historical driver-day totals
+were identical before and after the correction.
 
 Repository-wide typecheck remains blocked by existing duplicate generated RPC
 types and the unrelated missing truck `fleet_service_snapshot` field; it reports

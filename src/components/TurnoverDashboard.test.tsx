@@ -1,8 +1,12 @@
 import { render,screen,fireEvent,waitFor } from '@testing-library/react';
 import { QueryClient,QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach,describe,it,expect,vi } from 'vitest';
+import { beforeAll,beforeEach,describe,it,expect,vi } from 'vitest';
 import { TurnoverDashboard } from './TurnoverDashboard';
+beforeAll(() => {
+ vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+ Element.prototype.scrollIntoView = vi.fn();
+});
 const mocks=vi.hoisted(()=>({rpc:vi.fn(),legacy:vi.fn()}));
 vi.mock('@/integrations/supabase/client',()=>({supabase:{rpc:(...args:unknown[])=>mocks.rpc(...args)}}));
 vi.mock('@/contexts/AuthContext',()=>({useAuthContext:()=>({user:{id:'admin'}})}));
@@ -21,6 +25,22 @@ const mount=()=>render(<MemoryRouter><QueryClientProvider client={new QueryClien
 describe('Turnover overview',()=>{
  it('shows rates and global shares, then opens the office dispatcher overview',async()=>{mount();await screen.findByText('5.33%');fireEvent.click(screen.getByRole('button',{name:'Čačak'}));await screen.findByRole('button',{name:'Alpha'});expect(screen.getByRole('button',{name:'Zero'})).toBeInTheDocument();expect(screen.getAllByText('62.5%').length).toBeGreaterThan(0);expect(screen.queryByRole('button',{name:'Beta'})).toBeNull();});
  it('opens departure detail lazily and paginates server-side',async()=>{mount();await screen.findByText('5.33%');expect(mocks.rpc.mock.calls.some(c=>c[0]==='get_turnover_events')).toBe(false);fireEvent.click(screen.getByRole('button',{name:'16'}));await screen.findByText('Demo Driver');expect(screen.getByText('Departure reason')).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Next'}));await waitFor(()=>expect(mocks.rpc.mock.calls.some(c=>c[0]==='get_turnover_events'&&c[1].p_offset===50)).toBe(true));});
- it('keeps March in the existing list instead of generating new metrics',async()=>{mount();await screen.findByText('5.33%');fireEvent.change(screen.getByLabelText('Turnover month'),{target:{value:'2026-03'}});await screen.findByText(/March and earlier records are unchanged/);fireEvent.click(screen.getByRole('button',{name:'Open existing turnover list'}));expect(mocks.legacy).toHaveBeenCalled();const dates=mocks.legacy.mock.calls[0][0];expect(dates.from.getMonth()).toBe(2);expect(dates.to.getDate()).toBe(31);});
+ it('keeps March in the existing list instead of generating new metrics',async()=>{mount();await screen.findByText('5.33%');fireEvent.click(screen.getByRole('combobox',{name:'Turnover month'}));fireEvent.change(screen.getByPlaceholderText('Search month or year…'),{target:{value:'2026-03'}});fireEvent.click(await screen.findByRole('option',{name:'March 2026'}));await screen.findByText(/March and earlier records are unchanged/);fireEvent.click(screen.getByRole('button',{name:'Open existing turnover list'}));expect(mocks.legacy).toHaveBeenCalled();const dates=mocks.legacy.mock.calls[0][0];expect(dates.from.getMonth()).toBe(2);expect(dates.to.getDate()).toBe(31);});
+ it('searches office and dispatcher dropdowns and resets the dispatcher when changing office',async()=>{
+  mount();await screen.findByText('5.33%');
+  fireEvent.click(screen.getByRole('combobox',{name:'Turnover office'}));
+  fireEvent.change(screen.getByPlaceholderText('Search offices…'),{target:{value:'Čačak'}});
+  expect(screen.queryByRole('option',{name:'Beograd'})).toBeNull();
+  fireEvent.click(screen.getByRole('option',{name:'Čačak'}));
+  fireEvent.click(screen.getByRole('combobox',{name:'Turnover dispatcher'}));
+  fireEvent.change(screen.getByPlaceholderText('Search dispatchers…'),{target:{value:'Alpha'}});
+  expect(screen.queryByRole('option',{name:'Zero'})).toBeNull();
+  fireEvent.click(screen.getByRole('option',{name:'Alpha'}));
+  expect(screen.getByRole('combobox',{name:'Turnover dispatcher'})).toHaveTextContent('Alpha');
+  fireEvent.click(screen.getByRole('combobox',{name:'Turnover office'}));
+  fireEvent.click(screen.getByRole('option',{name:'Beograd'}));
+  expect(screen.getByRole('combobox',{name:'Turnover dispatcher'})).toHaveTextContent('All dispatchers');
+  expect(screen.getByRole('button',{name:'Beta'})).toBeInTheDocument();
+ });
  it('shows backend permission/errors and an explicit retry',async()=>{mocks.rpc.mockResolvedValue({data:null,error:{message:'Turnover analytics requires admin access'}});mount();expect(await screen.findByRole('alert')).toHaveTextContent('admin access');});
 });

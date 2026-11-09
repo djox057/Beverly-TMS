@@ -1,4 +1,6 @@
 import { TurnoverDashboard } from "@/components/TurnoverDashboard";
+import { Combobox } from "@/components/ui/combobox";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -43,9 +45,11 @@ interface DispatcherTurnover {
 }
 
 const TurnoverList = () => {
-  const [view, setView] = useState("overview");
+  const { user } = useAuthContext();
+  const [view, setView] = useState("existing");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedOffice, setSelectedOffice] = useState<string | null>(null);
+  const [selectedDispatcher, setSelectedDispatcher] = useState<string | null>(null);
   const [detailDispatcher, setDetailDispatcher] = useState<DispatcherTurnover | null>(null);
   const [lastTrucksByDriver, setLastTrucksByDriver] = useState<Record<string, string | null>>({});
   const [expanded, setExpanded] = useState(false);
@@ -145,6 +149,17 @@ const TurnoverList = () => {
   });
 
   // Group by dispatcher
+  const { data: formerDirectory = [] } = useQuery({
+    queryKey: ["turnover-former-directory", user?.id],
+    enabled: !!user && view === "existing" && !!endDate && endDate >= "2026-04-01",
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_turnover_dispatcher_directory" as never);
+      if (error) throw error;
+      return data as unknown as { dispatcher_id: string; dispatcher_name: string; office: string }[];
+    },
+  });
+
   const turnoverData = useMemo(() => {
     if (!terminatedDrivers || !dispatchers) return [];
 
@@ -162,14 +177,19 @@ const TurnoverList = () => {
     const result: DispatcherTurnover[] = [];
     for (const [dispatcherId, drivers] of grouped) {
       const info = dispatcherMap.get(dispatcherId);
-      const fallbackName = drivers[0]?.last_dispatcher_name;
+      // Preserve March's existing presentation; use historical office evidence
+      // only for the April+ records covered by the new analytics.
+      const saved = drivers.some(d => d.termination_date >= "2026-04-01")
+        ? formerDirectory.find(d => d.dispatcher_id === dispatcherId)
+        : undefined;
+      const fallbackName = drivers[0]?.last_dispatcher_name || saved?.dispatcher_name;
       const isDeleted = !info;
       result.push({
         dispatcherId,
         dispatcherName: isDeleted
           ? `${fallbackName || "Unknown"} (former)`
           : info!.name,
-        office: info?.office || (isDeleted ? "Former" : null),
+        office: info?.office || (saved?.office && saved.office !== "Unknown" ? saved.office : isDeleted ? "Former" : null),
         turnoverCount: drivers.length,
         drivers,
       });
@@ -182,13 +202,19 @@ const TurnoverList = () => {
 
     // Sort by turnover count descending
     return filtered.sort((a, b) => b.turnoverCount - a.turnoverCount);
-  }, [terminatedDrivers, dispatchers, selectedOffice]);
+  }, [terminatedDrivers, dispatchers, selectedOffice, formerDirectory]);
+
+  const visibleTurnoverData = useMemo(() => selectedDispatcher
+    ? turnoverData.filter(d => d.dispatcherId === selectedDispatcher)
+    : turnoverData, [turnoverData, selectedDispatcher]);
+  const officeOptions = [...new Set([...(offices || []), ...formerDirectory.map(d => d.office)
+    .filter(o => o !== "Unknown" && o !== "Recovery")])].sort();
 
   // Lazy-fetch last truck for all visible drivers when expanded
   useEffect(() => {
     if (!expanded) return;
     const allIds: string[] = [];
-    for (const d of turnoverData) for (const dr of d.drivers) allIds.push(dr.id);
+    for (const d of visibleTurnoverData) for (const dr of d.drivers) allIds.push(dr.id);
     const missing = allIds.filter((id) => !(id in lastTrucksByDriver));
     if (missing.length === 0) return;
     (async () => {
@@ -211,7 +237,7 @@ const TurnoverList = () => {
       setLastTrucksByDriver((prev) => ({ ...prev, ...map }));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expanded, turnoverData]);
+  }, [expanded, visibleTurnoverData]);
 
   const buildExplanation = (drivers: TerminatedDriver[]): string => {
     return drivers
@@ -225,12 +251,12 @@ const TurnoverList = () => {
   return (
     <div className="p-6 space-y-6">
       <Tabs value={view} onValueChange={setView}>
-        <TabsList><TabsTrigger value="overview">Turnover metrics</TabsTrigger><TabsTrigger value="existing">Existing turnover list</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="existing">Turnover list</TabsTrigger><TabsTrigger value="overview">Metrics</TabsTrigger></TabsList>
         <TabsContent value="overview"><TurnoverDashboard onLegacy={range => { setDateRange(range);setView("existing"); }} /></TabsContent>
         <TabsContent value="existing">
       <Card>
         <CardHeader>
-          <CardTitle>Turnover List</CardTitle>
+          <CardTitle>Turnover list</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Filters */}
@@ -241,32 +267,22 @@ const TurnoverList = () => {
               placeholder="Select date range"
               className="w-auto min-w-[280px]"
             />
-            <div className="flex gap-1">
-              <Button
-                variant={selectedOffice === null ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedOffice(null)}
-              >
-                All
-              </Button>
-              {offices?.map((office) => (
-                <Button
-                  key={office}
-                  variant={selectedOffice === office ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedOffice(office)}
-                >
-                  {office}
-                </Button>
-              ))}
-              <Button
-                variant={selectedOffice === "Former" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedOffice("Former")}
-              >
-                Former
-              </Button>
-            </div>
+            <Combobox
+              ariaLabel="Turnover list office"
+              className="w-[210px]"
+              options={[{ value: "all", label: "All offices" }, ...officeOptions.map(office => ({ value: office, label: office })), { value: "Former", label: "Former / office unavailable" }]}
+              value={selectedOffice || "all"}
+              searchPlaceholder="Search offices…"
+              onValueChange={value => { setSelectedOffice(value && value !== "all" ? value : null); setSelectedDispatcher(null); }}
+            />
+            <Combobox
+              ariaLabel="Turnover list dispatcher"
+              className="w-[270px]"
+              options={[{ value: "all", label: "All dispatchers" }, ...turnoverData.map(d => ({ value: d.dispatcherId, label: d.dispatcherName }))]}
+              value={selectedDispatcher || "all"}
+              searchPlaceholder="Search dispatchers…"
+              onValueChange={value => setSelectedDispatcher(value && value !== "all" ? value : null)}
+            />
             <Button
               variant="outline"
               size="sm"
@@ -292,7 +308,7 @@ const TurnoverList = () => {
             <p className="text-muted-foreground">Select a date range to view turnovers.</p>
           ) : isLoading ? (
             <p className="text-muted-foreground">Loading...</p>
-          ) : turnoverData.length === 0 ? (
+          ) : visibleTurnoverData.length === 0 ? (
             <p className="text-muted-foreground">No turnovers found for this period.</p>
           ) : (
             <div className="border rounded-md">
@@ -305,13 +321,13 @@ const TurnoverList = () => {
                     <TableHead className="flex items-center justify-between">
                       <span>Explanation</span>
                       <span className="text-sm font-normal text-muted-foreground">
-                        Total turnovers: {turnoverData.reduce((sum, item) => sum + item.turnoverCount, 0)}
+                        Total turnovers: {visibleTurnoverData.reduce((sum, item) => sum + item.turnoverCount, 0)}
                       </span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {turnoverData.map((item) => {
+                  {visibleTurnoverData.map((item) => {
                     const explanation = buildExplanation(item.drivers);
                     const isTruncated = explanation.length > 120;
 

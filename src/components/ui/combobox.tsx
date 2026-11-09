@@ -37,6 +37,7 @@ interface ComboboxProps {
   dropdownHeader?: React.ReactNode;
   preserveOrder?: boolean;
   selectedLabel?: string;
+  ariaLabel?: string;
 }
 
 export function Combobox({
@@ -53,6 +54,7 @@ export function Combobox({
   dropdownHeader,
   preserveOrder,
   selectedLabel,
+  ariaLabel,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -64,6 +66,7 @@ export function Combobox({
         <Button
           variant="outline"
           role="combobox"
+          aria-label={ariaLabel}
           aria-expanded={open}
           className={cn("w-full justify-between", className)}
           disabled={disabled}
