@@ -53,7 +53,7 @@ FAQ supports optional saved Serbian and other language answers authored by admin
 
 ## Validation and release
 
-- `node --test scripts/tests/tms-chatbot.test.mjs`: 18 server/policy tests with mocked Auth, database, Storage and Gemini; unauthorized/disabled access, field exclusion, bank/payroll denial, per-load scope, ambiguity, file revocation, COI ownership, cache freshness, malformed/provider errors.
+- `node --test scripts/tests/tms-chatbot.test.mjs`: 29 server/policy tests with mocked Auth, database, Storage and Gemini; unauthorized/disabled access, field exclusion, bank/payroll denial, per-load scope, ambiguity, file revocation, COI ownership, cache freshness, malformed/provider errors.
 - `npm test -- --run src/components/ChatbotPanel.test.tsx src/hooks/useChatRecord.test.tsx`: 9 panel/navigation tests.
 - `NODE_OPTIONS=--max-old-space-size=8192 npm run build`: production build. The existing scanner dependency exceeds the default Node heap during this repository's build.
 - Function and policy pass a separate strict TypeScript check. Full repository typecheck has existing duplicate RPC declarations and a truck `fleet_service_snapshot` insert-type error, also reproduced on unchanged main.
@@ -61,3 +61,9 @@ FAQ supports optional saved Serbian and other language answers authored by admin
 - Backend migrations/function deployed with all chatbot toggles disabled. A real authenticated user/Gemini end-to-end check remains necessary before staff rollout. Automatic review rejected a temporary diagnostic before user authentication and a proposal to send FAQ answers for translation. Neither was deployed; the final function retains authentication and sends no stored content to Gemini.
 - Pilot with a few explicitly enabled staff users. Check yard address, a driver CDL front/back plus fields, a truck cab card, company COI, one load's amounts, blocked salary/totals/notes, access revocation, and manual/page links.
 - Kill switch: disable all `chatbot_access.enabled` values. To roll back the UI, revert the feature commit; inactive backend tables can remain. Do not delete existing operational records or files.
+
+## Navigation and related vehicle documents
+
+Navigation requests use a reviewed page catalog with actual TMS routes and short manual steps. Common English/Serbian questions (including "gde da updejtam oil change za kamione") resolve without a provider call. Other wording uses the model's finite `navigate` intent/page ID. Links and instructions come from the server catalog; page role gates remain in force. Oil-change instructions point to Live Oil Change → select truck → Add log entry → Oil Change → Save entry. Dispatch/supervisor users receive the existing Mileage Check-only limitation. No task is executed on behalf of the user.
+
+A cab card requested by driver name resolves current `trucks.driver1_id`/`driver2_id` assignments and searches `truck_files`, never driver files. The response explains that it is a truck document and links to the actual truck's files. Missing assignments are reported explicitly; ambiguous drivers/trucks require validated selection. Cab-card matching excludes Registration Affirmation. Saved CDL details are not included in a cab-card response. Service-log URLs also establish the current truck context.

@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 export type ChatKind = "driver" | "truck" | "trailer" | "order" | "company";
-export type ChatContext = { kind: ChatKind; id: string; label: string };
+export type ChatContext = { kind: ChatKind; id: string; label: string; sourceId?: string };
 export type ChatFile = { id: string; name: string; kind: ChatKind; recordId: string; createdAt?: string };
 export type ChatReply = {
   message: string; ui?: Record<string,string>; record?: ChatContext;
