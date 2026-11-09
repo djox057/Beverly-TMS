@@ -1,3 +1,5 @@
+import { TurnoverDashboard } from "@/components/TurnoverDashboard";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -41,6 +43,7 @@ interface DispatcherTurnover {
 }
 
 const TurnoverList = () => {
+  const [view, setView] = useState("overview");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedOffice, setSelectedOffice] = useState<string | null>(null);
   const [detailDispatcher, setDetailDispatcher] = useState<DispatcherTurnover | null>(null);
@@ -221,6 +224,10 @@ const TurnoverList = () => {
 
   return (
     <div className="p-6 space-y-6">
+      <Tabs value={view} onValueChange={setView}>
+        <TabsList><TabsTrigger value="overview">Turnover metrics</TabsTrigger><TabsTrigger value="existing">Existing turnover list</TabsTrigger></TabsList>
+        <TabsContent value="overview"><TurnoverDashboard onLegacy={range => { setDateRange(range);setView("existing"); }} /></TabsContent>
+        <TabsContent value="existing">
       <Card>
         <CardHeader>
           <CardTitle>Turnover List</CardTitle>
@@ -392,6 +399,9 @@ const TurnoverList = () => {
           )}
         </CardContent>
       </Card>
+
+        </TabsContent>
+      </Tabs>
 
       {/* Detail dialog */}
       <Dialog open={!!detailDispatcher} onOpenChange={() => setDetailDispatcher(null)}>
