@@ -6317,14 +6317,14 @@ const Trips = () => {
                       T Comp
                     </TableHead>
 
-                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                    <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Stop Amt
                     </TableHead>
-                    <TableHead className="w-[90px] min-w-[90px] max-w-[90px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
+                    <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Freight Amt
                     </TableHead>
                     {canSeePaidColumn && (
-                      <TableHead className="w-[150px] min-w-[150px] max-w-[150px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">
+                      <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">
                         Paid
                       </TableHead>
                     )}
@@ -6463,16 +6463,16 @@ const Trips = () => {
                                 {formatCurrency(week.weekTotal.freightAmount)}
                               </div>
                             </TableCell>
-                            {canSeePaidColumn && <TableCell className="py-3 text-center">
+                            {canSeePaidColumn && <TableCell className="py-3 px-2 text-center">
                               {canReadStatements && (!singleStatementOwner ? <span className="text-xs text-muted-foreground">Filter by truck / driver</span> : statementsError ? <span className="text-xs text-destructive">Statements unavailable</span> : statementsLoading ? <span className="text-xs text-muted-foreground">Loading…</span> : uploadedStatement ? (
                                 <div className="flex items-center justify-center gap-1">
                                   <button type="button" className="font-semibold text-green-600 dark:text-green-400 underline underline-offset-4 whitespace-nowrap" onClick={() => openStatement("view")} title="View statement">
                                     {formatCurrency(uploadedStatement.paid_amount)}
                                   </button>
-                                  {canEditStatements && <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Replace weekly statement" onClick={() => openStatement("upload")}><Edit className="h-3 w-3" /></Button>}
+                                  {canEditStatements && <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" aria-label="Replace weekly statement" onClick={() => openStatement("upload")}><Edit className="h-3 w-3" /></Button>}
                                 </div>
                               ) : canEditStatements && weekTruckNumber && weekDriverName ? (
-                                <Button variant="outline" size="sm" className="text-xs" onClick={() => openStatement("upload")}>Add statement</Button>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" aria-label="Add statement" onClick={() => openStatement("upload")}>Add</Button>
                               ) : null)}
                             </TableCell>}
                             <TableCell className="py-3">
@@ -6915,7 +6915,7 @@ const Trips = () => {
                                               );
                                             }}
                                           >
-                                            <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
+                                            <div className="font-semibold text-green-600 dark:text-green-400 whitespace-nowrap">
                                               {formatCurrency(order.totalDriverPay)}
                                             </div>
                                           </TableCell>
@@ -6936,7 +6936,7 @@ const Trips = () => {
                                               );
                                             }}
                                           >
-                                            <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
+                                            <div className="font-semibold text-green-600 dark:text-green-400 whitespace-nowrap">
                                               {formatCurrency(order.totalFreightAmountNoLumper)}
                                             </div>
                                           </TableCell>
