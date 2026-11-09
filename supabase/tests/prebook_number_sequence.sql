@@ -1,0 +1,20 @@
+begin;
+create temporary table prebook_number_fixture(id uuid default gen_random_uuid(),prebook boolean,driver1_id uuid,company_id uuid,prebook_original_booked_by text,internal_load_number text,load_company_code text);
+create trigger fixture_number before insert or update of driver1_id,prebook on prebook_number_fixture for each row execute function private.assign_prebook_driver_number();
+do $$ declare v_driver uuid;v_company uuid;v_booking uuid;v_expected text;v_number text;v_id uuid;
+begin
+select id into v_booking from public.companies where name='BF Prime LLC';
+select d.id,d.company_id into v_driver,v_company from public.drivers d join public.companies c on c.id=d.company_id where c.name='AP Silver Trans LLC' limit 1;
+v_expected:=public.preview_next_internal_load_number(v_company);
+insert into prebook_number_fixture(prebook,company_id,internal_load_number) values(true,v_booking,'2012345-1') returning id into v_id;
+update prebook_number_fixture set driver1_id=v_driver where id=v_id;
+if not exists(select 1 from prebook_number_fixture where id=v_id and company_id=v_company and internal_load_number=v_expected and load_company_code='AP') then raise exception 'Assignment counter incorrect'; end if;
+update prebook_number_fixture set driver1_id=v_driver where id=v_id;
+if (select count(*) from private.prebook_number_changes where order_id=v_id)<>1 then raise exception 'Repeated assignment renumbered'; end if;
+select d.id,d.company_id into v_driver,v_company from public.drivers d join public.companies c on c.id=d.company_id where c.name='United Enterprise Solutions INC' limit 1;
+v_expected:=public.preview_next_internal_load_number(v_company)||'-1';
+update prebook_number_fixture set driver1_id=v_driver where id=v_id;
+if not exists(select 1 from prebook_number_fixture where id=v_id and company_id=v_company and internal_load_number=v_expected and load_company_code='UE') then raise exception 'Reassignment suffix/counter incorrect'; end if;
+if (select count(*) from private.prebook_number_changes where order_id=v_id)<>2 then raise exception 'Mapping history incorrect'; end if;
+end $$;
+rollback;
