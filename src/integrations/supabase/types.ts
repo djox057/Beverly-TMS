@@ -6773,6 +6773,36 @@ export type Database = {
           },
         ]
       }
+      trip_week_statements: {
+        Row: {
+          driver_name: string
+          file_name: string
+          file_path: string
+          id: string
+          paid_amount: number
+          truck_number: string
+          week_start: string
+        }
+        Insert: {
+          driver_name: string
+          file_name: string
+          file_path: string
+          id?: string
+          paid_amount: number
+          truck_number: string
+          week_start: string
+        }
+        Update: {
+          driver_name?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          paid_amount?: number
+          truck_number?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       trips_paid_status: {
         Row: {
           created_at: string

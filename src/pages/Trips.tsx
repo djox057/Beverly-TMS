@@ -1,3 +1,5 @@
+import { TripStatementDialog, StatementTarget } from "@/components/trips/TripStatementDialog";
+import { statementKey } from "@/lib/tripStatement";
 import { fetchActiveEfsRows } from "@/lib/activeEfsRequests";
 import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
@@ -554,6 +556,10 @@ const Trips = () => {
   const canSeePaidColumn = !isDispatcherRole(primaryRole) && primaryRole !== "supervisor";
   // Check if user can toggle paid - manager/supervisor/dispatch cannot
   const canTogglePaid = !isDispatcherRole(primaryRole) && primaryRole !== "supervisor" && primaryRole !== "manager";
+
+  const canEditStatements = primaryRole === "admin" || primaryRole === "accounting";
+  const canReadStatements = canEditStatements || primaryRole === "manager";
+  const [statementTarget, setStatementTarget] = useState<StatementTarget | null>(null);
 
   // Fetch week overrides
   const { data: weekOverrides } = useQuery({
@@ -6088,6 +6094,18 @@ const Trips = () => {
   const hasActiveSearch = searchFilter?.trim().length >= 2 || loadNumberSearch?.trim().length >= 2;
   const showEmptyPrompt = isLazyMode && !hasActiveSearch && (!orders || orders.length === 0);
 
+  const statementWeeks = groupedByWeek.map(week => week.weekStart).sort();
+  const statementTrucks = [...new Set(groupedByWeek.flatMap(week => week.actualOrders.map(order => order.truckNumber || "")))].sort();
+  const { data: weekStatements, isError: statementsError, isPending: statementsLoading } = useQuery({
+    queryKey: ["trip-week-statements", statementWeeks, statementTrucks],
+    enabled: canReadStatements && statementWeeks.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("trip_week_statements").select("*").in("week_start", statementWeeks).in("truck_number", statementTrucks);
+      if (error) throw error;
+      return new Map(data.map(row => [statementKey(row.truck_number, row.driver_name, row.week_start), row]));
+    },
+  });
+
   if (showEmptyPrompt) {
     return (
       <div className="w-full px-2 py-4 md:py-6 space-y-4 md:space-y-6">
@@ -6306,7 +6324,7 @@ const Trips = () => {
                       Freight Amt
                     </TableHead>
                     {canSeePaidColumn && (
-                      <TableHead className="w-[40px] min-w-[40px] max-w-[40px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">
+                      <TableHead className="w-[150px] min-w-[150px] max-w-[150px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">
                         Paid
                       </TableHead>
                     )}
@@ -6337,6 +6355,13 @@ const Trips = () => {
                       const weekTruckNumber = firstActualOrder?.truckNumber || "";
                       const weekDriverName = firstActualOrder?.driverName || "";
                       const weekIsPaid = isWeekPaid(weekTruckNumber, weekDriverName, week.weekStart);
+                      const singleStatementOwner = week.actualOrders.length > 0 && week.actualOrders.every(order =>
+                        order.truckNumber === weekTruckNumber && order.driverName === weekDriverName);
+                      const uploadedStatement = singleStatementOwner ? weekStatements?.get(statementKey(weekTruckNumber, weekDriverName, week.weekStart)) : undefined;
+                      const openStatement = (mode: "view" | "upload") => setStatementTarget({
+                        truckNumber: weekTruckNumber, driverName: weekDriverName, weekStart: week.weekStart,
+                        statement: uploadedStatement, mode,
+                      });
 
                       return (
                         <Fragment key={`week-${week.weekStart}`}>
@@ -6438,7 +6463,18 @@ const Trips = () => {
                                 {formatCurrency(week.weekTotal.freightAmount)}
                               </div>
                             </TableCell>
-                            {canSeePaidColumn && <TableCell className="py-3"></TableCell>}
+                            {canSeePaidColumn && <TableCell className="py-3 text-center">
+                              {canReadStatements && (!singleStatementOwner ? <span className="text-xs text-muted-foreground">Filter by truck / driver</span> : statementsError ? <span className="text-xs text-destructive">Statements unavailable</span> : statementsLoading ? <span className="text-xs text-muted-foreground">Loading…</span> : uploadedStatement ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button type="button" className="font-semibold text-green-600 dark:text-green-400 underline underline-offset-4 whitespace-nowrap" onClick={() => openStatement("view")} title="View statement">
+                                    {formatCurrency(uploadedStatement.paid_amount)}
+                                  </button>
+                                  {canEditStatements && <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Replace weekly statement" onClick={() => openStatement("upload")}><Edit className="h-3 w-3" /></Button>}
+                                </div>
+                              ) : canEditStatements && weekTruckNumber && weekDriverName ? (
+                                <Button variant="outline" size="sm" className="text-xs" onClick={() => openStatement("upload")}>Add statement</Button>
+                              ) : null)}
+                            </TableCell>}
                             <TableCell className="py-3">
                               {canSeePaidColumn && (
                                 <Button
@@ -7215,6 +7251,8 @@ const Trips = () => {
           )}
         </CardContent>
       </Card>
+      {statementTarget && <TripStatementDialog target={statementTarget} canEdit={canEditStatements} onClose={() => setStatementTarget(null)} />}
+
       {/* Paid Confirmation Dialog */}
       <AlertDialog open={paidConfirmDialog?.open ?? false} onOpenChange={(open) => !open && setPaidConfirmDialog(null)}>
         <AlertDialogContent>
