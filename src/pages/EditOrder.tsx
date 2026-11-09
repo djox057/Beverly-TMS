@@ -1,9 +1,10 @@
+import { useChatRecord } from "@/hooks/useChatRecord";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 import { canBookLoads } from "@/lib/companyBooking";
 import { OrderFilesReadOnly } from "@/components/OrderFilesReadOnly";
 import { isMaintenanceFileViewer } from "@/lib/orderFileAccess";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -426,6 +427,14 @@ const EditOrderForm = () => {
   const [weightRcLoaded, setWeightRcLoaded] = useState<number | null>(null);
   const [weightBolDialogOpen, setWeightBolDialogOpen] = useState(false);
   const [existingFiles, setExistingFiles] = useState<any[]>([]);
+  const [chatLinkParams] = useSearchParams();
+  const chatFilesScrolled = useRef(false);
+  useEffect(() => {
+    if (!isLoading && chatLinkParams.get("tab") === "files" && !chatFilesScrolled.current) {
+      const timer = window.setTimeout(() => { document.getElementById("order-existing-files")?.scrollIntoView({ behavior: "smooth", block: "start" }); chatFilesScrolled.current = true; }, 100);
+      return () => window.clearTimeout(timer);
+    }
+  }, [isLoading, chatLinkParams]);
   const [filesToDelete, setFilesToDelete] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [userNotes, setUserNotes] = useState("");
@@ -440,6 +449,7 @@ const EditOrderForm = () => {
   // Queued submit state: triggers a re-render so performSave sees updated additionals state
   const [queuedSubmit, setQueuedSubmit] = useState<{ changeNote?: string } | null>(null);
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
+  useChatRecord("order", id ? { id } : null, true, internalLoadNumber || "Load");
   const [originalCompanyId, setOriginalCompanyId] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -4746,7 +4756,7 @@ const EditOrderForm = () => {
 
             {existingFiles.length > 0 && (
               <div className="space-y-2">
-                <Label>Existing Files</Label>
+                <Label id="order-existing-files">Existing Files</Label>
                 <div className="flex flex-wrap gap-2">
                   {existingFiles
                     .filter((file) => !filesToDelete.includes(file.id))
