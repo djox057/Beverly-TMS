@@ -115,7 +115,7 @@ export function AssignRecoveryLoadDialog({
 
   const { data: hosOrder, isFetching: loadingHosOrder, error: hosOrderError } = useQuery({
     queryKey: ['hos-prebook-order', orderId],
-    enabled: open && !!orderId && !directAssignment,
+    enabled: open && !!orderId,
     queryFn: async () => {
       const {data,error} = await supabase.from('orders')
         .select('loaded_miles,booked_by_company:companies!orders_booked_by_company_id_fkey(name),pickup_drops(type,datetime,end_datetime,latitude,longitude,sequence_number)').eq('id',orderId!).single();
@@ -205,7 +205,8 @@ export function AssignRecoveryLoadDialog({
 
   // Auto-calculate DH miles from the assigned driver's last delivery to this load's pickup
   useEffect(() => {
-    if (!open || !driverId || directAssignment) return;
+    if (!open || !driverId || (directAssignment && !hosOrder)) return;
+    setDhMiles("");
     let cancelled = false;
 
     const run = async () => {
@@ -215,7 +216,7 @@ export function AssignRecoveryLoadDialog({
       try {
         const targetPickup = [...(hosOrder?.pickup_drops||[])].filter((p:any)=>p.type==='pickup')
           .sort((a:any,b:any)=>(a.sequence_number||0)-(b.sequence_number||0))[0]?.datetime || new Date().toISOString();
-        const { data: lastOrders } = await supabase
+        const { data: lastOrders, error: lastOrdersError } = await supabase
           .from("orders")
           .select(
             "id, pickup_datetime, delivery_datetime, delivery_end_datetime, pickup_drops ( type, datetime, address, city, state, zip_code, sequence_number )"
@@ -227,6 +228,7 @@ export function AssignRecoveryLoadDialog({
           .order("pickup_datetime", { ascending: false })
           .limit(100);
 
+        if (lastOrdersError) throw lastOrdersError;
         let origin = YARD_COORDS;
         const stops = (previousDelivery(lastOrders||[],targetPickup) as any)?.pickup_drops || [];
         const deliveries = [...stops]
@@ -240,6 +242,8 @@ export function AssignRecoveryLoadDialog({
 
         const miles = await calculateDhMiles(origin, pickup);
         if (!cancelled && miles !== null) setDhMiles(String(miles));
+      } catch {
+        if (!cancelled) toast({ title: "Could not calculate DH miles", description: "Enter DH miles manually before assigning.", variant: "destructive" });
       } finally {
         if (!cancelled) setCalculatingDh(false);
       }
@@ -249,7 +253,7 @@ export function AssignRecoveryLoadDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, truckId, driverId, orderId, pickupAddress, hosOrder, directAssignment]);
+  }, [open, truckId, driverId, orderId, pickupAddress, hosOrder, directAssignment, toast]);
 
   const handleSave = async () => {
     if (!orderId) return;
@@ -269,6 +273,10 @@ export function AssignRecoveryLoadDialog({
     const selectedTruck = trucks.find(truck => truck.id === truckId);
     if (isPrebook && (hosOrderError || !canAssignPrebookTruck(hosOrder?.booked_by_company?.name, selectedTruck?.company?.name))) {
       toast({ title: "Truck company is not allowed", description: "Choose a truck allowed for this load's booking company.", variant: "destructive" });
+      return;
+    }
+    if (directAssignment && (calculatingDh || !dhMiles.trim() || !Number.isFinite(Number(dhMiles)) || Number(dhMiles) < 0)) {
+      toast({ title: "Enter valid DH miles", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -321,6 +329,7 @@ export function AssignRecoveryLoadDialog({
       driver1_id: driverId || null,
       driver2_id: directAssignment ? driver2Id || null : truck?.driver2_id ?? null,
       trailer_id: trailerId || null,
+      ...(directAssignment ? { dh_miles: Math.round(Number(dhMiles)) } : {}),
       ...(!directAssignment ? {
         driver_price: driverRate ? parseFloat(driverRate) : null,
         dh_miles: dhMiles ? parseInt(dhMiles, 10) : null,
@@ -367,7 +376,7 @@ export function AssignRecoveryLoadDialog({
           <DialogTitle>{directAssignment ? "Reassign" : `Assign ${isPrebook ? "Prebook" : "Recovery"}`} Load {loadNumber ? `#${loadNumber}` : ""}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          {directAssignment && <p className="text-sm text-muted-foreground">Assign directly without sending recovery emails. Rates and mileage stay the same.</p>}
+          {directAssignment && <p className="text-sm text-muted-foreground">Assign directly without sending recovery emails. Rates and loaded miles stay the same. DH miles are calculated for the selected driver.</p>}
           <fieldset disabled={saving} className="space-y-3">
             <div className="space-y-1.5">
               <Label>Truck #</Label>
@@ -425,8 +434,8 @@ export function AssignRecoveryLoadDialog({
                 modal={false}
               />
             </div>
-            {!directAssignment && <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
+            <div className={directAssignment ? "space-y-3" : "grid grid-cols-2 gap-3"}>
+              {!directAssignment && <div className="space-y-1.5">
                 <Label>Driver Rate</Label>
                 <Input
                   type="number"
@@ -435,17 +444,20 @@ export function AssignRecoveryLoadDialog({
                   onChange={(e) => setDriverRate(e.target.value)}
                   placeholder="0.00"
                 />
-              </div>
+              </div>}
               <div className="space-y-1.5">
-                <Label>DH Miles</Label>
+                <Label htmlFor="recovery-dh-miles">DH Miles</Label>
                 <Input
                   type="number"
+                  id="recovery-dh-miles"
+                  min="0"
+                  disabled={calculatingDh}
                   value={dhMiles}
                   onChange={(e) => setDhMiles(e.target.value)}
                   placeholder={calculatingDh ? "Calculating..." : "0"}
                 />
               </div>
-            </div>}
+            </div>
           </fieldset>
         </div>
         <DialogFooter>
@@ -453,7 +465,7 @@ export function AssignRecoveryLoadDialog({
             Cancel
           </Button>
           {isPrebook && <HosLoadLight {...hos} error={hosOrderError || hos.error} loading={loadingHosOrder || hos.loading || calculatingDh} />}
-          <Button onClick={handleSave} disabled={saving || (directAssignment && (!truckId || !trailerId || !driverId || driverId === driver2Id)) || (isPrebook && (!hosOrder || !!hosOrderError || !truckOptions.some(option => option.value === truckId)))}>
+          <Button onClick={handleSave} disabled={saving || (directAssignment && (calculatingDh || !dhMiles.trim())) || (directAssignment && (!truckId || !trailerId || !driverId || driverId === driver2Id)) || (isPrebook && (!hosOrder || !!hosOrderError || !truckOptions.some(option => option.value === truckId)))}>
             {saving ? "Saving..." : "Assign"}
           </Button>
         </DialogFooter>
