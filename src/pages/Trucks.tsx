@@ -1,3 +1,4 @@
+import { useChatRecord, useChatRecordLink } from "@/hooks/useChatRecord";
 import { getFleetStatus, matchesFleetStatus, type FleetStatusFilter, type InactiveFleetStatus } from "@/lib/fleetStatus";
 import { useVinAutofill } from "@/hooks/useVinAutofill";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -73,6 +74,7 @@ const Trucks = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editDialogTab, setEditDialogTab] = useState("info");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTruck, setEditingTruck] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -632,6 +634,8 @@ const Trucks = () => {
       toast.error(error.message || "Failed to delete truck");
     }
   };
+  useChatRecord("truck", editingTruck, isEditDialogOpen, editingTruck?.truck_number || "");
+  useChatRecordLink(trucks, record => { void openEditDialog(record); }, setEditDialogTab);
   const openEditDialog = async (truck: any) => {
     setEditingTruck(truck);
     setFormData({
@@ -1350,7 +1354,7 @@ const Trucks = () => {
             <p className="text-sm text-muted-foreground">Status: {editingTruck && (getFleetStatus(editingTruck) === "temporary_inactive" ? "Temporary inactive" : editingTruck.is_active === false ? "Inactive" : "Active")}</p>
           </DialogHeader>
           
-          <Tabs defaultValue="info" className="min-w-0 w-full">
+          <Tabs value={editDialogTab} onValueChange={setEditDialogTab} className="min-w-0 w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="info">Truck Info</TabsTrigger>
               <TabsTrigger value="files">Truck Files</TabsTrigger>

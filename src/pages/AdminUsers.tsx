@@ -1,3 +1,4 @@
+import { ChatbotSettings } from "@/components/admin/ChatbotSettings";
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +45,7 @@ interface User {
   cut_percent: number | null;
   suggestions_enabled: boolean;
   is_eld: boolean;
+  chatbot_enabled: boolean;
   is_eld_manager?: boolean;
 }
 
@@ -76,6 +78,7 @@ const AdminUsers = () => {
   // Daily Report blocks the dispatch role, while manual changes to other roles remain available.
   const dailyReportEnabled = !userToEdit?.roles.includes('admin') && (editDailyView || editDailyEdit);
   const effectiveEditRole = dailyReportEnabled && editRole === 'dispatch' ? 'afterhours' : editRole;
+  const [editChatbotEnabled, setEditChatbotEnabled] = useState(false);
   const [editSuggestionsEnabled, setEditSuggestionsEnabled] = useState(false);
   const [editIsEld, setEditIsEld] = useState(false);
   const [editIsEldManager, setEditIsEldManager] = useState(false);
@@ -204,6 +207,9 @@ const AdminUsers = () => {
         extMap.set(e.user_id, list);
       });
 
+      const { data: chatbotAccess, error: chatbotAccessError } = await supabase.from('chatbot_access' as never).select('user_id, enabled');
+      if (chatbotAccessError) throw chatbotAccessError;
+      const chatbotMap = new Map((chatbotAccess as unknown as { user_id: string; enabled: boolean }[] || []).map(a => [a.user_id, a.enabled]));
       const usersWithRoles = (profilesData || []).map(profile => {
         const userRoles = (rolesData || [])
           .filter(r => r.user_id === profile.user_id)
@@ -222,6 +228,7 @@ const AdminUsers = () => {
           gross_percent: (profile as any).gross_percent ?? null,
           cut_percent: (profile as any).cut_percent ?? null,
           suggestions_enabled: !!(profile as any).suggestions_enabled,
+          chatbot_enabled: chatbotMap.get(profile.user_id) === true,
         };
       });
 
@@ -461,6 +468,7 @@ const AdminUsers = () => {
     setEditExtensions(user.extensions.map((e) => ({ ...e })));
     setEditDailyView(user.daily_report_can_view);
     setEditDailyEdit(user.daily_report_can_edit);
+    setEditChatbotEnabled(user.chatbot_enabled);
     setEditSuggestionsEnabled(user.suggestions_enabled);
     setEditIsEld(user.is_eld);
     setEditIsEldManager(user.is_eld_manager ?? false);
@@ -549,6 +557,9 @@ const AdminUsers = () => {
           throw new Error(sugError.message || 'Failed to save Suggestions permission');
         }
       }
+
+      const { error: chatbotError } = await supabase.from('chatbot_access' as never).upsert({ user_id: userToEdit.user_id, enabled: editChatbotEnabled } as never);
+      if (chatbotError) throw new Error('Failed to save chatbot access');
 
       // Persist per-company extensions
       {
@@ -1003,6 +1014,8 @@ const AdminUsers = () => {
         </div>
       </div>
 
+      <ChatbotSettings />
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>System Users</CardTitle>
@@ -1411,6 +1424,11 @@ const AdminUsers = () => {
                   onCheckedChange={setEditSuggestionsEnabled}
                 />
               </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border bg-muted/30 p-3">
+              <div><Label htmlFor="edit-chatbot-enabled">Chatbot access</Label><p className="text-xs text-muted-foreground">Read-only lookups and broader document access.</p></div>
+              <Switch id="edit-chatbot-enabled" checked={editChatbotEnabled} onCheckedChange={setEditChatbotEnabled} />
             </div>
 
             {editRole === 'maintenance' && (

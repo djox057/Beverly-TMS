@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { useEffect } from "react";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ChatbotProvider } from "./contexts/ChatbotContext";
+import { ChatbotPanel } from "./components/ChatbotPanel";
 import { IndividualModeProvider } from "./contexts/IndividualModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
@@ -373,8 +375,11 @@ const App = () => (
       <AuthProvider>
         <IndividualModeProvider>
           <BrowserRouter>
-            <PageTitle />
-            <AppContent />
+            <ChatbotProvider>
+              <PageTitle />
+              <AppContent />
+              <ChatbotPanel />
+            </ChatbotProvider>
           </BrowserRouter>
         </IndividualModeProvider>
       </AuthProvider>

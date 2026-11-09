@@ -1,3 +1,4 @@
+import { useChatRecord, useChatRecordLink } from "@/hooks/useChatRecord";
 import { useState, useEffect, useRef } from "react";
 import { isValidUUID } from "@/utils/validation";
 import { formatPhoneNumber } from "@/lib/utils";
@@ -141,6 +142,7 @@ const Drivers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editDialogTab, setEditDialogTab] = useState("info");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1397,6 +1399,8 @@ const Drivers = () => {
       description: `Exported ${exportData.length} drivers to Excel`,
     });
   };
+  useChatRecord("driver", editingDriver, isEditDialogOpen, editingDriver?.name || [editingDriver?.first_name, editingDriver?.last_name].filter(Boolean).join(" "));
+  useChatRecordLink(drivers, record => { void openEditDialog(record); }, setEditDialogTab);
   const openEditDialog = async (driver: any) => {
     setEditingDriver(driver);
     fetchTerminationNotes(driver.id);
@@ -2582,7 +2586,7 @@ const Drivers = () => {
             <DialogTitle>Edit Driver</DialogTitle>
           </DialogHeader>
 
-          <Tabs defaultValue="info" className="w-full">
+          <Tabs value={editDialogTab} onValueChange={setEditDialogTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="info">Driver Info</TabsTrigger>
               <TabsTrigger value="files">Driver Files</TabsTrigger>

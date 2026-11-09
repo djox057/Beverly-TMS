@@ -1,3 +1,4 @@
+import { useChatRecord, useChatRecordLink } from "@/hooks/useChatRecord";
 import { getFleetStatus, matchesFleetStatus, type FleetStatusFilter, type InactiveFleetStatus } from "@/lib/fleetStatus";
 import { useVinAutofill } from "@/hooks/useVinAutofill";
 import { useState, useEffect, useMemo } from "react";
@@ -58,6 +59,7 @@ const Trailers = () => {
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editDialogTab, setEditDialogTab] = useState("info");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTrailer, setEditingTrailer] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -391,6 +393,8 @@ const Trailers = () => {
       });
     }
   };
+  useChatRecord("trailer", editingTrailer, isEditDialogOpen, editingTrailer?.trailer_number || "");
+  useChatRecordLink(trailers, record => { void openEditDialog(record); }, setEditDialogTab);
   const openEditDialog = async (trailer: any) => {
     setEditingTrailer(trailer);
     setFormData({
@@ -956,7 +960,7 @@ const Trailers = () => {
             <p className="text-sm text-muted-foreground">Status: {editingTrailer && (getFleetStatus(editingTrailer) === "temporary_inactive" ? "Temporary inactive" : editingTrailer.is_active === false ? "Inactive" : "Active")}</p>
           </DialogHeader>
           
-          <Tabs defaultValue="info" className="min-w-0 w-full">
+          <Tabs value={editDialogTab} onValueChange={setEditDialogTab} className="min-w-0 w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="info">Trailer Info</TabsTrigger>
               <TabsTrigger value="files">Trailer Files</TabsTrigger>
