@@ -4,6 +4,33 @@ import { buildServiceEntries, calculateServiceLog, getServiceInterval, mileageTo
 const truck: ServiceTruck = { id: "t1", truck_number: "157", source: "BF TRUCK", make: "Freightliner", model: "Cascadia", year: 2026, vin: null, engine: null, is_active: true, miles: 168624, miles_updated_at: "2026-09-30T12:00:00Z", last_oil_change_miles: 148108, oil_change_date: "2026-07-30", air_filter: 112797, last_oc_invoice: null, oil_change_note: null, samsara_account: null, dispatcher_id: null, driver1_id: null };
 const entry = (overrides: Partial<ServiceEntry>): ServiceEntry => ({ id: "1", source_key: null, log_date: "2026-07-30", entry_type: "Oil Change", odometer: 148108, oil_spec: null, facility: null, invoice: null, notes: null, created_at: "2026-07-30T12:00:00Z", ...overrides });
 
+describe("independent oil and filter history after splitting", () => {
+  const combined = entry({ id: "original", entry_type: "Air Filter + Oil change", log_date: "2026-09-01", odometer: 160000, created_by: "original-author", invoice: "INV-1" });
+  const oil = { ...combined, entry_type: "Oil Change" as const };
+  const filter = { ...combined, id: "split-filter", source_key: "split:air-filter:original", entry_type: "Air Filter" as const };
+  const summarize = (saved: ServiceEntry[]) => serviceSummary(truck, buildServiceEntries(truck, [], saved));
+  it("preserves summary, author and invoice when a combined service is split", () => {
+    expect(summarize([oil, filter])).toEqual(summarize([combined]));
+    expect(buildServiceEntries(truck, [], [oil, filter]).find(e => e.id === "split-filter"))
+      .toMatchObject({ created_by: "original-author", invoice: "INV-1", log_date: "2026-09-01", odometer: 160000 });
+  });
+  it("changes oil date and mileage without moving the filter", () => {
+    const result = summarize([{ ...oil, log_date: "2026-09-02", odometer: 161000 }, filter]);
+    expect(result).toMatchObject({ oilDate: "2026-09-02", sinceOil: 7624, sinceFilter: 8624, current: truck.miles, currentDate: "2026-09-30" });
+  });
+  it("changes filter mileage without moving oil or mileage-update date", () => {
+    expect(summarize([oil, { ...filter, log_date: "2026-10-01", odometer: 165000 }]))
+      .toMatchObject({ oilDate: "2026-09-01", sinceOil: 8624, sinceFilter: 3624, current: truck.miles, currentDate: "2026-09-30" });
+  });
+  it("deletes either service without deleting the other", () => {
+    expect(summarize([{ ...oil, is_deleted: true }, filter])).toMatchObject({ oilDate: truck.oil_change_date, sinceOil: 20516, sinceFilter: 8624 });
+    expect(summarize([oil, { ...filter, is_deleted: true }])).toMatchObject({ oilDate: "2026-09-01", sinceOil: 8624, sinceFilter: truck.miles! - truck.air_filter! });
+  });
+  it("keeps both halves deleted when splitting a deleted historical service", () => {
+    expect(summarize([{ ...oil, is_deleted: true }, { ...filter, is_deleted: true }])).toEqual(summarize([{ ...combined, is_deleted: true }]));
+  });
+});
+
 describe("truck service log rules", () => {
   it("keeps existing warning thresholds separate from service intervals", () => {
     expect(getServiceInterval("BF TRUCK")).toEqual({ miles: 30000 });

@@ -24,3 +24,6 @@ it("parses the user's eleven-row mileage and oil-service block in order", () => 
 it("identifies the invalid row before anything can be saved", () => {
   expect(() => parseServiceLogRows(`${example}\n${example.replace("103,953", "bad")}`, "2026-10-15")).toThrow("Row 2:");
 });
+it("rejects the entire block when a row combines oil and air filter", () => {
+  expect(() => parseServiceLogRows(`${example}\n${example.replace("Oil Change", "Air Filter + Oil change")}`, "2026-10-15")).toThrow("Row 2: Paste Oil Change and Air Filter as separate rows.");
+});

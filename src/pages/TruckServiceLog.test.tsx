@@ -188,7 +188,7 @@ describe("truck service log page", () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
     fireEvent.paste(screen.getByRole("button", { name: "Edit New row 1 log_date" }), { clipboardData: { getData: () => "11/18/2024\tOil Change\t103,953\t0\t133,953\t\tDealer / TA Petro\t" } });
     await waitFor(() => expect(mocks.insert).toHaveBeenCalledOnce());
-    expect(mocks.insert).toHaveBeenCalledWith("truck_service_log_entries", expect.objectContaining({ truck_id: "truck1", source_key: null, created_by: "user1", log_date: "2024-11-18", entry_type: "Oil Change", odometer: 103953, oil_spec: null, facility: "Dealer / TA Petro", invoice: null }));
+    expect(mocks.insert).toHaveBeenCalledWith("truck_service_log_entries", [expect.objectContaining({ truck_id: "truck1", source_key: null, created_by: "user1", log_date: "2024-11-18", entry_type: "Oil Change", odometer: 103953, oil_spec: null, facility: "Dealer / TA Petro", invoice: null })]);
     expect(mocks.update).not.toHaveBeenCalled();
   });
   it("saves multiple pasted rows in one atomic insert with the current author", async () => {
@@ -243,22 +243,31 @@ describe("truck service log page", () => {
     fireEvent.change(screen.getByLabelText(label), { target: { value: "0" } });
     fireEvent.keyDown(screen.getByLabelText(label), { key: "Enter" });
     await waitFor(() => expect(mocks.insert).toHaveBeenCalledOnce());
-    expect(mocks.insert.mock.calls[0]).toEqual(["truck_service_log_entries", expect.objectContaining({ truck_id: "truck1", source_key: null, odometer: 0, entry_type: "Mileage Check", created_by: "user1" })]);
+    expect(mocks.insert.mock.calls[0]).toEqual(["truck_service_log_entries", [expect.objectContaining({ truck_id: "truck1", source_key: null, odometer: 0, entry_type: "Mileage Check", created_by: "user1" })]]);
     expect(mocks.update).not.toHaveBeenCalled();
   });
   it("saves a typed service entry without inventing an odometer", async () => {
     mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
     const label = "New row 1 entry_type";
     fireEvent.click(screen.getByRole("button", { name: `Edit ${label}` }));
-    fireEvent.change(screen.getByLabelText(label), { target: { value: "Air Filter + Oil change" } });
+    expect(screen.queryByRole("option", { name: "Air Filter + Oil change" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(label), { target: { value: "Air Filter" } });
     fireEvent.keyDown(screen.getByLabelText(label), { key: "Enter" });
     await waitFor(() => expect(mocks.insert).toHaveBeenCalledOnce());
-    expect(mocks.insert.mock.calls[0][1]).toMatchObject({ entry_type: "Air Filter + Oil change", odometer: null, created_by: "user1" });
-    mocks.saved = [{ ...mocks.insert.mock.calls[0][1], id: "saved-service", created_at: "2026-10-15T12:00:00Z" }];
+    expect(mocks.insert.mock.calls[0][1]).toEqual([expect.objectContaining({ entry_type: "Air Filter", odometer: null, created_by: "user1" })]);
+    mocks.saved = [{ ...mocks.insert.mock.calls[0][1][0], id: "saved-service", created_at: "2026-10-15T12:00:00Z" }];
     cleanup(); mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
-    expect(screen.getByRole("button", { name: /^Edit Air Filter \+ Oil change/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Delete Air Filter \+ Oil change/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Edit Air Filter/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Delete Air Filter/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Edit Air Filter/ }));
+    expect(screen.queryByRole("option", { name: "Air Filter + Oil change" })).not.toBeInTheDocument();
 
+  });
+  it("rejects a pasted combined service before writing any rows", async () => {
+    mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });
+    fireEvent.paste(screen.getByRole("button", { name: "Edit New row 1 log_date" }), { clipboardData: { getData: () => "11/18/2024\tAir Filter + Oil change\t103,953\t0\t133,953\t\tShop\t" } });
+    await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Could not paste row", description: expect.stringContaining("separate rows") })));
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
   it("limits dispatchers to mileage entries and rejects another dispatcher's truck", async () => {
     mocks.role = "dispatch"; mount(); await screen.findByRole("heading", { name: /TRUCK 157/ });

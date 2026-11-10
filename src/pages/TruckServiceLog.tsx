@@ -9,7 +9,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { busChannel } from "@/hooks/realtimeBus";
 import { chicagoTodayISO, getMileageUpdateStatus } from "@/lib/mileageUpdateStatus";
-import { buildServiceEntries, calculateServiceLog, entryTypes, mileageTone, serviceSummary, type EntryType, type ServiceEntry, type ServiceTruck } from "@/lib/truckServiceLog";
+import { buildServiceEntries, calculateServiceLog, entryTypes, isWritableEntryType, mileageTone, serviceSummary, type EntryType, type ServiceEntry, type ServiceTruck } from "@/lib/truckServiceLog";
 import type { Database } from "@/integrations/supabase/types";
 import { parseServiceLogRows } from "@/lib/serviceLogPaste";
 import { ServiceLogCell } from "@/components/ServiceLogCell";
@@ -141,6 +141,7 @@ export default function TruckServiceLog() {
   const save = useMutation({
     mutationFn: async () => {
       const entry = editing && editing !== "new" ? editing : null;
+      if (!isWritableEntryType(form.entry_type) || form.entry_type === "Baseline Start" || (dispatch && form.entry_type !== "Mileage Check")) throw new Error("Choose Oil Change, Air Filter, or Mileage Check as a separate entry.");
       const odometer = form.odometer === "" ? null : Number(form.odometer);
       if ((!form.log_date || (odometer != null && (!Number.isSafeInteger(odometer) || odometer < 0)))) throw new Error("Enter a valid date and, if provided, a whole, non-negative odometer reading.");
       if (form.log_date > chicagoTodayISO()) throw new Error("A completed log entry cannot have a future date.");
@@ -175,7 +176,7 @@ export default function TruckServiceLog() {
         if (!result.data?.length) throw new Error("No permission to update this truck.");
       } else {
         if (!canEdit || (dispatch && row.entry_type !== "Mileage Check")) throw new Error("No permission to edit this entry.");
-        if (key === "entry_type" && (!entryTypes.includes(value as EntryType) || (dispatch && value !== "Mileage Check"))) throw new Error("Invalid entry type.");
+        if (key === "entry_type" && (!isWritableEntryType(value) || value === "Baseline Start" || (dispatch && value !== "Mileage Check"))) throw new Error("Invalid entry type.");
         const existing = row.source_key ? data?.saved.find(e => e.source_key === row.source_key) : row;
         if (!row.source_key && key === "log_date" && parsed == null) throw new Error("Date is required for manual entries.");
         if (!["log_date", "entry_type", "odometer", "oil_spec", "facility", "invoice", "notes"].includes(key)) throw new Error("Invalid log field.");
@@ -195,7 +196,7 @@ export default function TruckServiceLog() {
       if (!canEdit || !user || !truckId) throw new Error("No permission to add log entries.");
       const drafts = pasted ?? [{ ...(draftRows[index] ?? emptyForm()), ...(key ? { [key]: value } : {}) }];
       const payloads = drafts.map(draft => {
-        if (!entryTypes.includes(draft.entry_type) || draft.entry_type === "Baseline Start" || (dispatch && draft.entry_type !== "Mileage Check")) throw new Error("Invalid entry type.");
+        if (!isWritableEntryType(draft.entry_type) || draft.entry_type === "Baseline Start" || (dispatch && draft.entry_type !== "Mileage Check")) throw new Error("Invalid entry type.");
         if (draft.log_date && (!/^\d{4}-\d{2}-\d{2}$/.test(draft.log_date) || draft.log_date > chicagoTodayISO())) throw new Error("Enter a valid date that is not in the future.");
         const odometer = draft.odometer === "" ? null : Number(draft.odometer);
         if (odometer != null && (!Number.isSafeInteger(odometer) || odometer < 0)) throw new Error("Enter a whole, non-negative odometer reading.");

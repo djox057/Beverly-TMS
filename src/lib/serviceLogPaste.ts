@@ -24,6 +24,7 @@ function parseRow(columns: string[], today: string) {
   const date = new Date(`${iso}T12:00:00Z`);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== iso || iso > today) throw new Error("Enter a valid log date that is not in the future (MM/DD/YYYY or YYYY-MM-DD).");
   const entry_type = entryTypes.find(type => type.toLowerCase() === columns[1].toLowerCase()) as EntryType | undefined;
+  if (columns[1].toLowerCase() === "air filter + oil change") throw new Error("Paste Oil Change and Air Filter as separate rows.");
   if (!entry_type || entry_type === "Baseline Start") throw new Error("Paste a valid service entry type, such as Oil Change or Mileage Check.");
   if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(columns[2])) throw new Error("Total Odometer must be a whole, non-negative number.");
   const odometer = Number(columns[2].replace(/,/g, ""));

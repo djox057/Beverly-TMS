@@ -18,7 +18,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   rpc: async () => ({ data: [], error: null }),
   from: (table: string) => {
     mocks.tables.push(table);
-    const trucks = Array.from({ length: 499 }, (_, i) => ({ id: `truck${i}`, truck_number: String(i + 1).padStart(4, "0"), source: "BF TRUCK", miles: 150000, fleet_pm_readiness: i === 498 ? "SERVICE OVERDUE" : "READY / GOOD", last_oil_change_miles: 130000, miles_updated_at: "2026-10-12T12:00:00Z", is_active: true, driver1_id: "driver1", company_id: i === 498 ? "company1" : null, dispatcher_id: i === 498 ? "user1" : null, ...(i === 498 ? { source: "TEL", miles: 160000 } : {}), ...(i === 0 && mocks.snapshotFixture ? {fleet_service_snapshot: { miles: 46975, miles_updated_at: "2026-10-29", last_oil_change_miles: 46975, oil_change_date: "2026-10-29", air_filter: 0, last_oc_invoice: "4011244277", fleet_pm_readiness: "READY / GOOD", oil_log_entry_id: "oil-log-4651", air_filter_log_entry_id: null }} : {}) }));
+    const trucks = Array.from({ length: 499 }, (_, i) => ({ id: `truck${i}`, truck_number: String(i + 1).padStart(4, "0"), source: "BF TRUCK", miles: 150000, fleet_pm_readiness: i === 498 ? "SERVICE OVERDUE" : "READY / GOOD", last_oil_change_miles: 130000, miles_updated_at: "2026-10-12T12:00:00Z", is_active: true, driver1_id: "driver1", company_id: i === 498 ? "company1" : null, dispatcher_id: i === 498 ? "user1" : null, ...(i === 498 ? { source: "TEL", miles: 160000 } : {}), ...(i === 0 && mocks.snapshotFixture ? {fleet_service_snapshot: { miles: 46975, miles_updated_at: "2026-10-29", last_oil_change_miles: 46975, oil_change_date: "2026-10-29", air_filter: 0, last_oc_invoice: "4011244277", fleet_pm_readiness: "READY / GOOD", oil_log_entry_id: "oil-log-4651", air_filter_log_entry_id: "filter-log-4651" }} : {}) }));
     if (mocks.assignmentFixtures) trucks.splice(0, trucks.length,
       ...[
         { id: "own", truck_number: "OWN", dispatcher_id: "user1", driver1_id: "driver1" },
@@ -202,4 +202,19 @@ it("shows the saved service summary and edits its invoice in the original log re
   fireEvent.click(screen.getByRole("button", {name: "Save"}));
   await waitFor(() => expect(mocks.updates).toContainEqual({ table: "truck_service_log_entries", patch: { invoice: "corrected-invoice" }, id: "oil-log-4651" }));
   expect(mocks.updates.some(update => update.table === "trucks")).toBe(false);
+});
+
+
+it.each([
+  ["Last oil change mileage", "oil-log-4651"],
+  ["Air filter", "filter-log-4651"],
+])("edits %s through its separate log record", async (field, id) => {
+  mocks.snapshotFixture = true;
+  mount();
+  await screen.findByRole("link", { name: "Open service log for truck 0001" });
+  const label = `${field} · Truck 0001`;
+  fireEvent.click(screen.getByRole("button", { name: `Edit ${label}` }));
+  fireEvent.change(screen.getByRole("spinbutton", { name: label }), { target: { value: "47000" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(mocks.updates).toEqual([{ table: "truck_service_log_entries", patch: { odometer: 47000 }, id }]));
 });
