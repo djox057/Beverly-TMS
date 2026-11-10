@@ -656,7 +656,6 @@ const Orders = () => {
   // When server-side filtering is active, skip most client-side filters
   const filteredOrders = useMemo(() => {
     return dataSource?.filter((order) => {
-      if (supervisorTeam.isSupervisor && !supervisorTeam.includesOrder(order)) return false;
       const isServerSearch = searchTerm && searchTerm.trim().length >= 3;
       // During an active load-number search the rows come from the search RPC
       // (which ignores the filter bar), so the server-filter shortcuts must NOT
