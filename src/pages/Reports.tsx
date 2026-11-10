@@ -563,9 +563,11 @@ const Reports = () => {
     hasGameOverDays,
   } = useReportsFilters();
 
+  const canFilterBySupervisor = ["supervisor", "manager", "admin"].includes(getPrimaryRole() || "");
   const [supervisorFilter, setSupervisorFilter] = useState("");
   const { data: supervisorTeams, isLoading: supervisorsLoading, isError: supervisorsError } = useQuery({
     queryKey: ["reports-supervisor-teams"],
+    enabled: canFilterBySupervisor,
     queryFn: async () => {
       const [rolesResult, assignmentsResult] = await Promise.all([
         supabase.from("user_roles").select("user_id").eq("role", "supervisor"),
@@ -589,11 +591,11 @@ const Reports = () => {
     staleTime: 60_000,
     refetchOnWindowFocus: true,
   });
-  const supervisorDispatcherIds = useMemo(() => supervisorFilter
+  const supervisorDispatcherIds = useMemo(() => canFilterBySupervisor && supervisorFilter
     ? [supervisorFilter, ...(supervisorTeams?.assignments || [])
       .filter((assignment) => assignment.supervisor_id === supervisorFilter)
       .map((assignment) => assignment.dispatcher_id)]
-    : undefined, [supervisorFilter, supervisorTeams]);
+    : undefined, [canFilterBySupervisor, supervisorFilter, supervisorTeams]);
 
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
@@ -4714,6 +4716,8 @@ const Reports = () => {
                 searchPlaceholder="Search company..."
                 className="w-[180px]"
               />
+              {canFilterBySupervisor && (
+              <>
               <Combobox
                 options={[
                   { value: "", label: "All supervisors" },
@@ -4729,6 +4733,8 @@ const Reports = () => {
               />
               {supervisorsError && (
                 <span className="text-sm text-destructive" role="alert">Could not load supervisors.</span>
+              )}
+              </>
               )}
               {(truckDriverFilter || dispatchNameFilter || loadNumberFilter || companyFilter || supervisorFilter) && (
                 <Button
