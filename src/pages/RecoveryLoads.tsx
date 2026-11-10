@@ -131,7 +131,7 @@ const RecoveryLoads = () => {
   const [noteDraft, setNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [search, setSearch] = useState("");
-  const [prebookStatusFilter, setPrebookStatusFilter] = useState("all");
+  const [selectedPrebookStatus, setPrebookStatusFilter] = useState<string | null>(null);
   const debouncedSearch = useDebounce(search, 300);
   const [assignOrder, setAssignOrder] = useState<{
     id: string;
@@ -141,6 +141,8 @@ const RecoveryLoads = () => {
   } | null>(null);
   const { hasRole, profile, user, getPrimaryRole } = useAuth();
   const isDispatch = getPrimaryRole() === "dispatch";
+  // Resolve the default after roles load, while preserving manual status selections.
+  const prebookStatusFilter = selectedPrebookStatus ?? (isDispatch ? "Available" : "all");
   const opportunities = useDispatcherLoadOpportunities(user?.id, getPrimaryRole());
   const matchedOrderIds = new Set(opportunities.isError ? [] : opportunities.data?.matchedOrderIds ?? []);
   const canSeeStats = hasRole("manager") || hasRole("admin");
