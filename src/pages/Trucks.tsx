@@ -53,7 +53,6 @@ interface TruckFormData {
   insurance_expiration_date: string;
   is_insured: boolean;
   insurance_company_id: string;
-  oil_change_date: string;
   tires_swap_date: string;
   maintenance_check_date: string;
   company_id: string;
@@ -114,7 +113,6 @@ const Trucks = () => {
     insurance_expiration_date: "",
     is_insured: false,
       insurance_company_id: "",
-    oil_change_date: "",
     tires_swap_date: "",
     maintenance_check_date: "",
     company_id: "",
@@ -126,10 +124,18 @@ const Trucks = () => {
   const canDelete = hasRole('admin') || hasRole('manager') || hasRole('safety') || hasRole('maintenance');
   const queryClient = useQueryClient();
   const {
-    data: trucks,
+    data: rawTrucks,
     isLoading,
     refetch
   } = useTrucks();
+  // Read the same resolved date as Live Oil Change without writing it back to
+  // the raw service fields or changing the cached records used by other pages.
+  const trucks = useMemo(() => rawTrucks?.map(truck => ({
+    ...truck,
+    oil_change_date: truck.fleet_service_snapshot
+      ? truck.fleet_service_snapshot.oil_change_date
+      : truck.oil_change_date,
+  })), [rawTrucks]);
   
   // Invalidate on mount to ensure fresh data (don't remove queries - causes race with realtime)
   useEffect(() => {
@@ -209,7 +215,6 @@ const Trucks = () => {
       insurance_expiration_date: "",
       is_insured: false,
       insurance_company_id: "",
-      oil_change_date: "",
       tires_swap_date: "",
       maintenance_check_date: "",
       company_id: "",
@@ -268,7 +273,6 @@ const Trucks = () => {
         insurance_expiration_date: formData.insurance_expiration_date || null,
         is_insured: formData.is_insured,
         insurance_company_id: formData.is_insured ? formData.insurance_company_id : null,
-        oil_change_date: formData.oil_change_date || null,
         tires_swap_date: formData.tires_swap_date || null,
         maintenance_check_date: formData.maintenance_check_date || null
       });
@@ -483,7 +487,6 @@ const Trucks = () => {
         insurance_expiration_date: formData.insurance_expiration_date || null,
         is_insured: formData.is_insured,
         insurance_company_id: formData.is_insured ? formData.insurance_company_id : null,
-        oil_change_date: formData.oil_change_date || null,
         tires_swap_date: formData.tires_swap_date || null,
         maintenance_check_date: formData.maintenance_check_date || null,
       }).eq('id', editingTruck.id).select('id');
@@ -657,7 +660,6 @@ const Trucks = () => {
       insurance_expiration_date: truck.insurance_expiration_date || "",
        is_insured: truck.is_insured ?? false,
        insurance_company_id: truck.insurance_company_id ?? "",
-      oil_change_date: truck.oil_change_date || "",
       tires_swap_date: truck.tires_swap_date || "",
       maintenance_check_date: truck.maintenance_check_date || "",
       company_id: truck.company_id || "",
@@ -1042,14 +1044,7 @@ const Trucks = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="oil_change_date">Oil Change Date</Label>
-                  <Input id="oil_change_date" type="date" value={formData.oil_change_date} onChange={e => setFormData({
-                  ...formData,
-                  oil_change_date: e.target.value
-                })} />
-                </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="tires_swap_date">Tires Swap Date</Label>
                   <Input id="tires_swap_date" type="date" value={formData.tires_swap_date} onChange={e => setFormData({
@@ -1543,14 +1538,7 @@ const Trucks = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit_oil_change_date">Oil Change Date</Label>
-                    <Input id="edit_oil_change_date" type="date" value={formData.oil_change_date} onChange={e => setFormData({
-                    ...formData,
-                    oil_change_date: e.target.value
-                  })} />
-                  </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_tires_swap_date">Tires Swap Date</Label>
                     <Input id="edit_tires_swap_date" type="date" value={formData.tires_swap_date} onChange={e => setFormData({
