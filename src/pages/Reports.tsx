@@ -563,6 +563,40 @@ const Reports = () => {
     hasGameOverDays,
   } = useReportsFilters();
 
+  const canFilterBySupervisor = ["supervisor", "manager", "admin"].includes(getPrimaryRole() || "");
+  const [supervisorFilter, setSupervisorFilter] = useState("");
+  const { data: supervisorTeams, isLoading: supervisorsLoading, isError: supervisorsError } = useQuery({
+    queryKey: ["reports-supervisor-teams"],
+    enabled: canFilterBySupervisor,
+    queryFn: async () => {
+      const [rolesResult, assignmentsResult] = await Promise.all([
+        supabase.from("user_roles").select("user_id").eq("role", "supervisor"),
+        supabase.from("dispatcher_supervisors").select("supervisor_id, dispatcher_id"),
+      ]);
+      if (rolesResult.error) throw rolesResult.error;
+      if (assignmentsResult.error) throw assignmentsResult.error;
+      const ids = [...new Set((rolesResult.data || []).map((role) => role.user_id))];
+      if (!ids.length) return { supervisors: [], assignments: assignmentsResult.data || [] };
+      const { data: profiles, error } = await supabase.from("profiles")
+        .select("user_id, full_name, email").in("user_id", ids);
+      if (error) throw error;
+      return {
+        supervisors: (profiles || []).map((p) => ({
+          value: p.user_id,
+          label: p.full_name || p.email || p.user_id,
+        })).sort((a, b) => a.label.localeCompare(b.label)),
+        assignments: assignmentsResult.data || [],
+      };
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  const supervisorDispatcherIds = useMemo(() => canFilterBySupervisor && supervisorFilter
+    ? [supervisorFilter, ...(supervisorTeams?.assignments || [])
+      .filter((assignment) => assignment.supervisor_id === supervisorFilter)
+      .map((assignment) => assignment.dispatcher_id)]
+    : undefined, [canFilterBySupervisor, supervisorFilter, supervisorTeams]);
+
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
   const { data: companiesList = [] } = useCompanies();
@@ -790,11 +824,12 @@ const Reports = () => {
     dispatch: debouncedDispatchNameFilter,
     load: debouncedLoadNumberFilter,
     company: companyFilter,
+    dispatcherIds: supervisorDispatcherIds,
     proximity: proximityMatchedTrucks,
     today: searchToday,
     driverIds: inCoverageView ? individualOverrideDriverIds : undefined,
   }), [debouncedTruckDriverFilter, debouncedDispatchNameFilter, debouncedLoadNumberFilter,
-    companyFilter, proximityMatchedTrucks, inCoverageView, individualOverrideDriverIds, searchToday]);
+    companyFilter, supervisorDispatcherIds, proximityMatchedTrucks, inCoverageView, individualOverrideDriverIds, searchToday]);
   const officeSearch = useAutoSwitchOffice({
     enabled: !inCoverageView,
     truckDriverFilter: debouncedTruckDriverFilter,
@@ -4681,7 +4716,27 @@ const Reports = () => {
                 searchPlaceholder="Search company..."
                 className="w-[180px]"
               />
-              {(truckDriverFilter || dispatchNameFilter || loadNumberFilter || companyFilter) && (
+              {canFilterBySupervisor && (
+              <>
+              <Combobox
+                options={[
+                  { value: "", label: "All supervisors" },
+                  ...(supervisorTeams?.supervisors || []),
+                ]}
+                value={supervisorFilter}
+                onValueChange={setSupervisorFilter}
+                placeholder="Supervisor"
+                ariaLabel="Filter by supervisor"
+                searchPlaceholder="Search supervisor..."
+                disabled={supervisorsLoading || supervisorsError}
+                className="w-[220px]"
+              />
+              {supervisorsError && (
+                <span className="text-sm text-destructive" role="alert">Could not load supervisors.</span>
+              )}
+              </>
+              )}
+              {(truckDriverFilter || dispatchNameFilter || loadNumberFilter || companyFilter || supervisorFilter) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -4690,6 +4745,7 @@ const Reports = () => {
                     setDispatchNameFilter("");
                     setLoadNumberFilter("");
                     setCompanyFilter("");
+                    setSupervisorFilter("");
                   }}
                 >
                   <X className="h-4 w-4" />

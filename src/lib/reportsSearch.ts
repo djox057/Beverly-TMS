@@ -36,14 +36,16 @@ export interface ReportSearchFilters {
   proximity?: ReadonlyMap<string, number> | null;
   offices?: string[];
   driverIds?: readonly string[];
+  dispatcherIds?: readonly string[];
   today: string;
 }
 
 /** The same predicates drive the displayed rows and coverage search feedback. */
 export function filterReportGroups(groups: any[] | null, filters: ReportSearchFilters): any[] {
   const allowed = filters.driverIds ? new Set(filters.driverIds) : null;
+  const dispatchers = filters.dispatcherIds ? new Set(filters.dispatcherIds) : null;
   return (groups ?? [])
-    .filter(group => (!filters.offices || filters.offices.includes(group.office)) &&
+    .filter(group => (!dispatchers || dispatchers.has(String(group.dispatcherId ?? "").replace(/^off-duty-/, ""))) && (!filters.offices || filters.offices.includes(group.office)) &&
       matchesReportDispatcher(group.dispatcher, filters.dispatch ?? ""))
     .map(group => ({ ...group, trucks: (group.trucks ?? []).filter((truck: any) =>
       (!allowed || allowed.has(truck.driverId)) &&
