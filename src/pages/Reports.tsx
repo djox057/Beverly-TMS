@@ -578,12 +578,13 @@ const Reports = () => {
       const ids = [...new Set((rolesResult.data || []).map((role) => role.user_id))];
       if (!ids.length) return { supervisors: [], assignments: assignmentsResult.data || [] };
       const { data: profiles, error } = await supabase.from("profiles")
-        .select("user_id, full_name, email").in("user_id", ids);
+        .select("user_id, full_name, email, office").in("user_id", ids);
       if (error) throw error;
       return {
         supervisors: (profiles || []).map((p) => ({
           value: p.user_id,
           label: p.full_name || p.email || p.user_id,
+          office: p.office,
         })).sort((a, b) => a.label.localeCompare(b.label)),
         assignments: assignmentsResult.data || [],
       };
@@ -4724,7 +4725,13 @@ const Reports = () => {
                   ...(supervisorTeams?.supervisors || []),
                 ]}
                 value={supervisorFilter}
-                onValueChange={setSupervisorFilter}
+                onValueChange={(value) => {
+                  setSupervisorFilter(value);
+                  const office = supervisorTeams?.supervisors.find((supervisor) => supervisor.value === value)?.office;
+                  if (office && ALL_OFFICES.includes(office)) {
+                    setActiveTab(office);
+                  }
+                }}
                 placeholder="Supervisor"
                 ariaLabel="Filter by supervisor"
                 searchPlaceholder="Search supervisor..."
