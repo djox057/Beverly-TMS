@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star, Send, Plus, Download } from "lucide-react";
+import { Loader2, XCircle, CheckCircle, FileDown, Award, Medal, Trophy, Star, Send, Plus, Download, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -56,6 +57,35 @@ import MissingPodTab from "@/components/MissingPodTab";
 import { orderHasPOD } from "@/pages/Reports/helpers";
 import { DayInput } from "@/components/DayInput";
 import crownImage from "@/assets/crown.png";
+const SupervisorFilter = ({ names, selected, onChange }: {
+  names: Record<string, string>;
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button variant="outline" size="sm" className="gap-2">
+        Supervisors: {selected.length === 0 ? "All" : selected.length === 1 ? names[selected[0]] : `${selected.length} selected`}
+        <ChevronDown className="h-4 w-4" />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="start" className="max-h-80 w-72 overflow-y-auto">
+      <DropdownMenuLabel>Supervisors</DropdownMenuLabel>
+      <DropdownMenuCheckboxItem checked={selected.length === 0} onCheckedChange={() => onChange([])} onSelect={(event) => event.preventDefault()}>
+        All supervisors
+      </DropdownMenuCheckboxItem>
+      <DropdownMenuSeparator />
+      {Object.entries(names).sort(([, a], [, b]) => a.localeCompare(b)).map(([id, name]) => (
+        <DropdownMenuCheckboxItem key={id} checked={selected.includes(id)}
+          onCheckedChange={(checked) => onChange(checked ? [...selected, id] : selected.filter((value) => value !== id))}
+          onSelect={(event) => event.preventDefault()}>
+          {name}
+        </DropdownMenuCheckboxItem>
+      ))}
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
 const isWeekday = (date: Date) => {
   const day = date.getDay();
   return day !== 0 && day !== 6;
@@ -278,12 +308,12 @@ const Analytics = () => {
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
   const [showExtraStats, setShowExtraStats] = useState(false);
-  const [selectedSupervisor, setSelectedSupervisor] = useState<string>("all");
+  const [selectedSupervisors, setSelectedSupervisors] = useState<string[]>([]);
   const [supervisorAssignments, setSupervisorAssignments] = useState<Record<string, string>>({});
   const [supervisorNames, setSupervisorNames] = useState<Record<string, string>>({});
   // Driver Analytics filters
   const [driverAnalyticsOffices, setDriverAnalyticsOffices] = useState<string[]>([]);
-  const [driverAnalyticsSupervisor, setDriverAnalyticsSupervisor] = useState<string>("all");
+  const [driverAnalyticsSupervisors, setDriverAnalyticsSupervisors] = useState<string[]>([]);
   const [extraDaysByUser, setExtraDaysByUser] = useState<Record<string, number>>({});
   const [extraDayDatesByUser, setExtraDayDatesByUser] = useState<Record<string, string[]>>({});
   const [extraDayRawDatesByUser, setExtraDayRawDatesByUser] = useState<Record<string, string[]>>({});
@@ -1984,12 +2014,12 @@ const Analytics = () => {
         return false;
       }
       // Filter by supervisor
-      if (selectedSupervisor !== "all") {
+      if (selectedSupervisors.length > 0) {
         const dispatcherProfile = dispatcherProfiles[stat.name];
         const dispatcherUserId = dispatcherProfile?.user_id;
         if (!dispatcherUserId) return false;
         // Show if this dispatcher is the supervisor themselves, or assigned to them
-        if (dispatcherUserId !== selectedSupervisor && supervisorAssignments[dispatcherUserId] !== selectedSupervisor) {
+        if (!selectedSupervisors.includes(dispatcherUserId) && !selectedSupervisors.includes(supervisorAssignments[dispatcherUserId])) {
           return false;
         }
       }
@@ -2004,15 +2034,15 @@ const Analytics = () => {
   // Calculate totals directly from filteredOrders to include ALL orders that pass date/office filters
   // When a supervisor is selected, only include orders from that supervisor's dispatchers
   const ordersForTotals = useMemo(() => {
-    if (selectedSupervisor === "all") return filteredOrders;
+    if (selectedSupervisors.length === 0) return filteredOrders;
     return filteredOrders.filter((order) => {
       if (!order.bookedBy) return false;
       const dp = dispatcherProfiles[order.bookedBy];
       if (!dp) return false;
       const uid = dp.user_id;
-      return uid === selectedSupervisor || supervisorAssignments[uid] === selectedSupervisor;
+      return selectedSupervisors.includes(uid) || selectedSupervisors.includes(supervisorAssignments[uid]);
     });
-  }, [filteredOrders, selectedSupervisor, dispatcherProfiles, supervisorAssignments]);
+  }, [filteredOrders, selectedSupervisors, dispatcherProfiles, supervisorAssignments]);
 
   const totals = useMemo(() => {
     const acc = { totalFreight: 0, totalDriverRate: 0, totalMiles: 0, orderCount: 0 };
@@ -2028,11 +2058,11 @@ const Analytics = () => {
     if (isPrecomputed && dispatcherAggregates) {
       for (const [entityId, agg] of Object.entries(dispatcherAggregates)) {
         // Apply supervisor filter if needed
-        if (selectedSupervisor !== "all") {
+        if (selectedSupervisors.length > 0) {
           const dp = dispatcherProfiles[entityId];
           if (!dp) continue;
           const uid = dp.user_id;
-          if (uid !== selectedSupervisor && supervisorAssignments[uid] !== selectedSupervisor) continue;
+          if (!selectedSupervisors.includes(uid) && !selectedSupervisors.includes(supervisorAssignments[uid])) continue;
         }
         acc.totalFreight += agg.totalFreight;
         acc.totalDriverRate += agg.totalDriverPayEffective;
@@ -2046,7 +2076,7 @@ const Analytics = () => {
     ordersForTotals,
     isPrecomputed,
     dispatcherAggregates,
-    selectedSupervisor,
+    selectedSupervisors,
     dispatcherProfiles,
     supervisorAssignments,
     getEffectiveDriverPay,
@@ -2074,8 +2104,8 @@ const Analytics = () => {
         if (!profile || !selectedOffices.includes(profile.office || "")) return false;
       }
       // Filter by supervisor
-      if (selectedSupervisor !== "all") {
-        if (dispatcherId !== selectedSupervisor && supervisorAssignments[dispatcherId] !== selectedSupervisor)
+      if (selectedSupervisors.length > 0) {
+        if (!selectedSupervisors.includes(dispatcherId) && !selectedSupervisors.includes(supervisorAssignments[dispatcherId]))
           return false;
       }
       return true;
@@ -2170,7 +2200,7 @@ const Analytics = () => {
   }, [
     dispatcherTruckCounts,
     selectedOffices,
-    selectedSupervisor,
+    selectedSupervisors,
     supervisorAssignments,
     dispatcherProfiles,
     totals,
@@ -2865,13 +2895,13 @@ const Analytics = () => {
           if (!dProfile || !driverAnalyticsOffices.includes(dProfile.office || "")) return false;
         }
         // Filter by supervisor in Driver Analytics
-        if (driverAnalyticsSupervisor !== "all") {
+        if (driverAnalyticsSupervisors.length > 0) {
           const dispatcherId = driverNameToDispatcherId[driver.name];
           if (!dispatcherId) return false;
           // Show if dispatcher is the supervisor or assigned to supervisor
           if (
-            dispatcherId !== driverAnalyticsSupervisor &&
-            supervisorAssignments[dispatcherId] !== driverAnalyticsSupervisor
+            !driverAnalyticsSupervisors.includes(dispatcherId) &&
+            !driverAnalyticsSupervisors.includes(supervisorAssignments[dispatcherId])
           ) {
             return false;
           }
@@ -2903,7 +2933,7 @@ const Analytics = () => {
     grossRankingsSortDir,
     driverDebts,
     driverAnalyticsOffices,
-    driverAnalyticsSupervisor,
+    driverAnalyticsSupervisors,
     drivers,
     dispatcherProfiles,
     supervisorAssignments,
@@ -3242,28 +3272,8 @@ const Analytics = () => {
                           </Button>
                         )}
 
-                        {/* Supervisor filter - toggle buttons like office */}
                         {Object.keys(supervisorNames).length > 0 && (
-                          <>
-                            <span className="text-sm font-medium text-muted-foreground ml-2">Supervisor:</span>
-                            {Object.entries(supervisorNames).map(([id, name]) => (
-                              <Button
-                                key={id}
-                                variant={selectedSupervisor === id ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedSupervisor((prev) => (prev === id ? "all" : id));
-                                }}
-                              >
-                                {name}
-                              </Button>
-                            ))}
-                            {selectedSupervisor !== "all" && (
-                              <Button variant="ghost" size="sm" onClick={() => setSelectedSupervisor("all")}>
-                                Clear
-                              </Button>
-                            )}
-                          </>
+                          <SupervisorFilter names={supervisorNames} selected={selectedSupervisors} onChange={setSelectedSupervisors} />
                         )}
                       </div>
                       <div className="flex items-center gap-1">
@@ -3737,29 +3747,9 @@ const Analytics = () => {
                       </>
                     )}
 
-                    {/* Supervisor filter for Driver Analytics - toggle buttons */}
                     {Object.keys(supervisorNames).length > 0 &&
                       (hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && (
-                        <>
-                          <span className="text-sm font-medium text-muted-foreground ml-2">Supervisor:</span>
-                          {Object.entries(supervisorNames).map(([id, name]) => (
-                            <Button
-                              key={id}
-                              variant={driverAnalyticsSupervisor === id ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => {
-                                setDriverAnalyticsSupervisor((prev) => (prev === id ? "all" : id));
-                              }}
-                            >
-                              {name}
-                            </Button>
-                          ))}
-                          {driverAnalyticsSupervisor !== "all" && (
-                            <Button variant="ghost" size="sm" onClick={() => setDriverAnalyticsSupervisor("all")}>
-                              Clear
-                            </Button>
-                          )}
-                        </>
+                        <SupervisorFilter names={supervisorNames} selected={driverAnalyticsSupervisors} onChange={setDriverAnalyticsSupervisors} />
                       )}
                   </div>
                 </div>
