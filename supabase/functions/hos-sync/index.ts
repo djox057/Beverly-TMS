@@ -173,7 +173,7 @@ serve(async (req) => {
         );
         const { data: roles } = await adminClient
           .from('user_roles').select('role').eq('user_id', userData.user.id);
-        if (roles?.some((r: any) => ['admin','manager','dispatch','safety'].includes(r.role))) {
+        if (roles?.some((r: any) => ['admin','manager','dispatch','supervisor','safety'].includes(r.role))) {
           authorized = true;
         }
       }

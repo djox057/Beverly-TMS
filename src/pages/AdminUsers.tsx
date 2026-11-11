@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { ChatbotSettings } from "@/components/admin/ChatbotSettings";
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -548,7 +549,7 @@ const AdminUsers = () => {
             ...(typeof userToEdit.is_eld_manager === 'boolean'
               ? { is_eld_manager: effectiveEditRole === 'maintenance' ? editIsEldManager : false }
               : {}),
-            is_recovery: effectiveEditRole === 'dispatch' ? editIsRecovery : false,
+            is_recovery: isDispatcherRole(effectiveEditRole) ? editIsRecovery : false,
             is_afterhours_manager: effectiveEditRole === 'afterhours' ? editIsAfterhoursManager : false,
           })
           .eq('user_id', userToEdit.user_id);
@@ -1454,7 +1455,7 @@ const AdminUsers = () => {
               </div>
             )}
 
-            {editRole === 'dispatch' && (
+            {isDispatcherRole(editRole) && (
               <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground">Recovery</p>

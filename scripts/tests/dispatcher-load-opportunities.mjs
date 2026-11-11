@@ -11,6 +11,8 @@ const db=new PGlite();
 await db.exec(await readFile(new URL('./dispatcher-load-opportunities-schema.sql', import.meta.url),'utf8'));
 await db.exec(await readFile(new URL('../../supabase/migrations/20261102135539_dispatcher_load_opportunities.sql', import.meta.url),'utf8'));
 await db.exec(await readFile(new URL('../../supabase/migrations/20261103153804_dispatcher_available_load_match_arrows.sql', import.meta.url),'utf8'));
+const parityMigration = await readFile(new URL('../../supabase/migrations/20261111145347_supervisor_dispatch_remaining_gaps.sql', import.meta.url),'utf8');
+await db.exec(parityMigration.slice(parityMigration.indexOf('CREATE OR REPLACE FUNCTION public.get_dispatcher_load_opportunities_v2()')));
 const uuid=n=>`00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
 const me=uuid(1), other=uuid(2), driver=uuid(3), otherDriver=uuid(4), truck=uuid(5), second=uuid(6), theirs=uuid(7), ap=uuid(8), bf=uuid(9), bfp=uuid(10);
 await db.query('insert into user_roles values ($1,\'dispatch\'),($2,\'dispatch\')',[me,other]);
@@ -62,7 +64,8 @@ await counts(0,0,'new ordinary load blocks older nearby delivery');
 await admin(`update orders set canceled=true where id='${newer}'`);await counts(1,1,'canceling newer load restores matches');
 await admin(`update drivers set dispatcher_id='${other}' where id='${driver}'`);await counts(0,0,'driver reassignment removes own trucks');
 await admin(`update drivers set dispatcher_id='${me}' where id='${driver}'`);
-await admin(`insert into user_roles values('${me}','supervisor')`);await counts(0,0,'supervisor inheriting dispatch excluded');
+await admin(`insert into user_roles values('${me}','supervisor')`);await counts(1,1,'supervisor inherits dispatcher matching');
+await admin(`delete from user_roles where user_id='${me}' and role='dispatch'`);await counts(1,1,'supervisor without stored dispatch role gets matching');
 await admin(`delete from user_roles where role='supervisor';insert into user_roles values('${me}','admin')`);await counts(0,0,'admin inheriting dispatch excluded');
 await admin(`delete from user_roles where role='admin'`);
 // At 00:30 TMS wall time, delivery at 23:30 the previous displayed day must not qualify.

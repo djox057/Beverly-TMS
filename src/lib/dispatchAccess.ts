@@ -24,3 +24,14 @@ export const teamIncludesBooker = (ids: ReadonlySet<string>, names: ReadonlySet<
 export const teamIncludesOrder = (ids: ReadonlySet<string>, names: ReadonlySet<string>, driverIds: ReadonlySet<string>, order: TeamOrder) =>
   teamIncludesBooker(ids, names, order.bookedBy ?? order.booked_by) ||
   [order.driver1Id, order.driver2Id, order.originalDriver1Id, order.originalDriver2Id].some((id) => !!id && driverIds.has(id));
+
+/** Exact primary roles keep statement writes separate from inherited dispatch access. */
+export function getTripPermissions(role: UserRole | null) {
+  const canEditStatements = role === "admin" || role === "accounting";
+  return {
+    canEditStatements,
+    canReadStatements: canEditStatements || role === "manager" || role === "supervisor",
+    canSeePaidColumn: role !== null && role !== "dispatch",
+    canTogglePaid: role !== null && !isDispatcherRole(role) && role !== "manager",
+  };
+}

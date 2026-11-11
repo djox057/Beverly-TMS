@@ -2,7 +2,7 @@ import { TripStatementDialog, StatementTarget } from "@/components/trips/TripSta
 import { statementKey } from "@/lib/tripStatement";
 import { fetchActiveEfsRows } from "@/lib/activeEfsRequests";
 import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
-import { isDispatcherRole } from "@/lib/dispatchAccess";
+import { getTripPermissions, isDispatcherRole } from "@/lib/dispatchAccess";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -552,13 +552,7 @@ const Trips = () => {
     primaryRole !== "supervisor" &&
     (roles?.some((role) => ["manager", "admin", "accounting"].includes(role)) ?? false);
 
-  // Check if user can see paid columns - dispatch/supervisor cannot
-  const canSeePaidColumn = !isDispatcherRole(primaryRole) && primaryRole !== "supervisor";
-  // Check if user can toggle paid - manager/supervisor/dispatch cannot
-  const canTogglePaid = !isDispatcherRole(primaryRole) && primaryRole !== "supervisor" && primaryRole !== "manager";
-
-  const canEditStatements = primaryRole === "admin" || primaryRole === "accounting";
-  const canReadStatements = canEditStatements || primaryRole === "manager";
+  const { canSeePaidColumn, canTogglePaid, canEditStatements, canReadStatements } = getTripPermissions(primaryRole);
   const [statementTarget, setStatementTarget] = useState<StatementTarget | null>(null);
 
   // Fetch week overrides
@@ -6097,7 +6091,7 @@ const Trips = () => {
   const statementWeeks = groupedByWeek.map(week => week.weekStart).sort();
   const statementTrucks = [...new Set(groupedByWeek.flatMap(week => week.actualOrders.map(order => order.truckNumber || "")))].sort();
   const { data: weekStatements, isError: statementsError, isPending: statementsLoading } = useQuery({
-    queryKey: ["trip-week-statements", statementWeeks, statementTrucks],
+    queryKey: ["trip-week-statements", profile?.user_id, primaryRole, supervisorTeam.cacheScope, statementWeeks, statementTrucks],
     enabled: canReadStatements && statementWeeks.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase.from("trip_week_statements").select("*").in("week_start", statementWeeks).in("truck_number", statementTrucks);
@@ -6476,7 +6470,7 @@ const Trips = () => {
                               ) : null)}
                             </TableCell>}
                             <TableCell className="py-3">
-                              {canSeePaidColumn && (
+                              {canSeePaidColumn && !isDispatcherRole(primaryRole) && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -6648,7 +6642,7 @@ const Trips = () => {
                                               localStorage.setItem("returnToTrips", "true");
                                               navigate(`/edit-order/${orderId}`);
                                             }}
-                                            onOrderPaidToggle={handleOrderPaidToggle}
+                                            onOrderPaidToggle={canTogglePaid ? handleOrderPaidToggle : undefined}
                                             colSpan={totalColSpan}
                                             showMoveColumn={canMoveLoads}
                                             showPaidColumn={canSeePaidColumn}

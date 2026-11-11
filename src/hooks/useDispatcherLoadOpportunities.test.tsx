@@ -32,11 +32,16 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.clearAllMocks(); mocks.handl
 const settle = async () => { await act(async () => { vi.advanceTimersByTime(300); }); };
 const event = (next: Record<string, unknown>, old: Record<string, unknown> = {}, eventType = "UPDATE") => ({ new: next, old, eventType });
 
-describe("dispatcher-only query", () => {
-  it.each(["admin", "manager", "supervisor", "afterhours", "safety", "accounting", "maintenance", "chicago_management", "yard", "recruiting", "driver", "claims", null] as const)("does not fetch or subscribe for %s", role => {
+describe("dispatcher capability query", () => {
+  it.each(["admin", "manager", "afterhours", "safety", "accounting", "maintenance", "chicago_management", "yard", "recruiting", "driver", "claims", null] as const)("does not fetch or subscribe for %s", role => {
     renderHook(() => useDispatcherLoadOpportunities("user", role));
     expect(mocks.query.mock.calls[0][0].enabled).toBe(false);
     expect(Object.keys(mocks.handlers)).toHaveLength(0);
+  });
+  it("enables matching and realtime for supervisors", () => {
+    renderHook(() => useDispatcherLoadOpportunities("supervisor-user", "supervisor"));
+    expect(mocks.query.mock.calls[0][0].enabled).toBe(true);
+    expect(Object.keys(mocks.handlers)).toContain("orders");
   });
   it("keys by user identity and uses the aggregate RPC with abort support", async () => {
     const { rerender } = renderHook(({ id }) => useDispatcherLoadOpportunities(id, "dispatch"), { initialProps: { id: "one" } });

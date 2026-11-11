@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,10 +33,10 @@ export function normalizeOpportunities(data: unknown): DispatcherLoadOpportuniti
   };
 }
 
-/** Dispatcher only, independent of Individual mode and the currently open page. */
+/** Dispatcher and supervisor, independent of Individual mode and the currently open page. */
 export function useDispatcherLoadOpportunities(userId: string | undefined, role: UserRole | null) {
   const client = useQueryClient();
-  const enabled = !!userId && role === "dispatch";
+  const enabled = !!userId && isDispatcherRole(role);
   const key = dispatcherOpportunitiesKey(userId);
   const query = useQuery({
     queryKey: key,

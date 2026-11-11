@@ -41,7 +41,7 @@ serve(async (req) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .in("role", ["admin", "manager", "dispatch"]);
+      .in("role", ["admin", "manager", "dispatch", "supervisor"]);
     if (rolesError) throw rolesError;
     if (!roles?.length) return json({ error: "Not permitted to submit service requests" }, 403);
 

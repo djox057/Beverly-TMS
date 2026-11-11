@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasRoleAccess, isDispatcherRole, requiresLowStopAmountApproval, teamIncludesBooker, teamIncludesOrder } from "./dispatchAccess";
+import { getTripPermissions, hasRoleAccess, isDispatcherRole, requiresLowStopAmountApproval, teamIncludesBooker, teamIncludesOrder } from "./dispatchAccess";
 import type { UserRole } from "@/hooks/useAuth";
 
 describe("supervisor permissions", () => {
@@ -55,5 +55,18 @@ describe("assigned supervisor team", () => {
     expect(teamIncludesOrder(new Set(), new Set(), new Set(), { bookedBy: "self" })).toBe(false);
     expect(teamIncludesBooker(new Set(["self"]), new Set(), "self")).toBe(true);
     expect(teamIncludesBooker(new Set(["self"]), new Set(), "assigned")).toBe(false);
+  });
+});
+
+describe("trip financial display permissions", () => {
+  it("lets supervisors read paid amounts and statements without editing them", () => {
+    expect(getTripPermissions("supervisor")).toEqual({ canSeePaidColumn: true, canReadStatements: true, canEditStatements: false, canTogglePaid: false });
+  });
+  it("preserves dispatcher restrictions and exact financial writer roles", () => {
+    expect(getTripPermissions("dispatch")).toEqual({ canSeePaidColumn: false, canReadStatements: false, canEditStatements: false, canTogglePaid: false });
+    for (const role of ["safety", "claims", "maintenance", "afterhours", null] as const) expect(getTripPermissions(role).canEditStatements).toBe(false);
+    for (const role of ["admin", "accounting"] as const) expect(getTripPermissions(role).canEditStatements).toBe(true);
+    expect(getTripPermissions("manager").canReadStatements).toBe(true);
+    expect(getTripPermissions("manager").canTogglePaid).toBe(false);
   });
 });

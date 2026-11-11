@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { compareLoadsByPickupAndAvailability } from "@/utils/prebookLoadSort";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -140,7 +141,7 @@ const RecoveryLoads = () => {
     prebook: boolean;
   } | null>(null);
   const { hasRole, profile, user, getPrimaryRole } = useAuth();
-  const isDispatch = getPrimaryRole() === "dispatch";
+  const isDispatch = isDispatcherRole(getPrimaryRole());
   // Resolve the default after roles load, while preserving manual status selections.
   const prebookStatusFilter = selectedPrebookStatus ?? (isDispatch ? "Available" : "all");
   const opportunities = useDispatcherLoadOpportunities(user?.id, getPrimaryRole());

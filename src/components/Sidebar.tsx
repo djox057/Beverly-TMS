@@ -215,7 +215,7 @@ export const Sidebar = () => {
   const canViewRecoveryLoads = ["dispatch", "supervisor", "manager", "admin"].includes(
     getPrimaryRole() || ""
   );
-  const isDispatch = getPrimaryRole() === "dispatch";
+  const isDispatch = isDispatcherRole(getPrimaryRole());
   const opportunities = useDispatcherLoadOpportunities(user?.id, getPrimaryRole());
   const { data: recoveryLoads } = useRecoveryLoadsCount({ enabled: canViewRecoveryLoads && !isDispatch });
   const { canView: canViewDailyReport } = useDailyReportPermissions();

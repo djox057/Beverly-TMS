@@ -1,3 +1,4 @@
+import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -26,7 +27,7 @@ const needsAttention = (date: string | null, now: Date) => {
 export const useDispatchAlertCount = () => {
   const { user, getPrimaryRole } = useAuthContext();
   const role = getPrimaryRole();
-  const isDispatch = role === "dispatch" || role === "afterhours";
+  const isDispatch = isDispatcherRole(role) || role === "afterhours";
 
   return useQuery({
     queryKey: ["dispatch-alert-count", user?.id],
