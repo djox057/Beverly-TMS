@@ -149,6 +149,20 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
 
   const officeFor = (truck: string) => holidayOffice(truckQuery.data?.find(item => item.number === truck)?.dispatcherOffice);
   const offices = [...new Set([...HOLIDAY_OFFICES, ...(truckQuery.data ?? []).map(truck => holidayOffice(truck.dispatcherOffice))])];
+  useEffect(() => {
+    const officeTabs = ['Čačak', 'KRAGUJEVAC', 'BG 1st FLOOR', 'BG 4th FLOOR'];
+    if (!search.trim() || !officeTabs.includes(activeOffice)) return;
+    const query = search.trim().toLowerCase();
+    const exact = rows.filter(row => row.truck.toLowerCase() === query);
+    const matches = exact.length ? exact : rows.filter(row => {
+      const truck = truckQuery.data?.find(item => item.number === row.truck);
+      return row.truck.toLowerCase().includes(query) || (truck?.driverName ?? '').toLowerCase().includes(query);
+    });
+    if (!matches.length || matches.some(row => officeFor(row.truck) === activeOffice)) return;
+    const matchingOffices = [...new Set(matches.map(row => officeFor(row.truck)))].filter(office => officeTabs.includes(office));
+    if (matchingOffices.length === 1) setActiveOffice(matchingOffices[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, activeOffice, rows, truckQuery.data]);
   const visibleRows = renderedRows.filter(row => {
     const truck = truckQuery.data?.find(item => item.number === row.truck);
     return (activeOffice === 'Driving' ? row.color === 'driving' : activeOffice === 'Not Driving' ? row.color === 'not_driving' : (!row.truck || activeOffice === 'All' || officeFor(row.truck) === activeOffice)) && `${row.truck} ${truck?.driverName ?? ''} ${row.note}`.toLowerCase().includes(search.toLowerCase());
@@ -157,7 +171,11 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
     if (!b.truck && !b.note && (a.truck || a.note)) return -1;
     if (sortByPriority) return priority(a.color) - priority(b.color);
     const group = (row: ReportRow) => truckQuery.data?.find(item => item.number === row.truck)?.dispatcherName || 'New notes';
-    return group(a).localeCompare(group(b));
+    const truckA = truckQuery.data?.find(truck => truck.number === a.truck);
+    const truckB = truckQuery.data?.find(truck => truck.number === b.truck);
+    const date = (value?: string) => value ? new Date(value).getTime() : 0;
+    if (group(a) !== group(b)) return date(truckA?.dispatcherCreatedAt) - date(truckB?.dispatcherCreatedAt) || group(a).localeCompare(group(b));
+    return date(truckA?.driverCreatedAt) - date(truckB?.driverCreatedAt) || a.truck.localeCompare(b.truck);
   });
   const groups = new Map<string, ReportRow[]>();
   for (const row of visibleRows) {
