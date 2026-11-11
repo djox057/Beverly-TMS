@@ -105,7 +105,7 @@ export function extractPdfStatementAmount(lines: string[]): number | null {
   return candidates.length && candidates.every(n => n === candidates[0]) ? candidates[0] : null;
 }
 
-export async function readStatement(file: File): Promise<{ amount: number | null; workbook?: WorkBook }> {
+export async function readStatement(file: File): Promise<{ amount: number | null; workbook?: WorkBook; lines?: string[] }> {
   if (file.size > STATEMENT_MAX_BYTES) throw new Error("Statement must be 20 MB or smaller.");
   const extension = file.name.split(".").pop()?.toLowerCase();
   if (extension === "xlsx") {
@@ -132,6 +132,6 @@ export async function readStatement(file: File): Promise<{ amount: number | null
       }
       lines.push(...[...rows].sort((a, b) => b[0] - a[0]).map(([, row]) => row.sort((a, b) => a.x - b.x).map(t => t.text).join(" ")));
     }
-    return { amount: extractPdfStatementAmount(lines) };
+    return { amount: extractPdfStatementAmount(lines), lines };
   } finally { await task.destroy(); }
 }

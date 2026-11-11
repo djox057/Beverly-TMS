@@ -1,3 +1,4 @@
+import { BulkTripStatementImport } from "@/components/trips/BulkTripStatementImport";
 import { TripStatementDialog, StatementTarget } from "@/components/trips/TripStatementDialog";
 import { statementKey } from "@/lib/tripStatement";
 import { fetchActiveEfsRows } from "@/lib/activeEfsRequests";
@@ -6105,6 +6106,7 @@ const Trips = () => {
       <div className="w-full px-2 py-4 md:py-6 space-y-4 md:space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl md:text-3xl font-bold">Trips</h1>
+        <BulkTripStatementImport canEdit={canEditStatements} />
         </div>
 
         <Card className="bg-background">
@@ -6159,6 +6161,7 @@ const Trips = () => {
     <div className="w-full px-2 py-4 md:py-6 space-y-4 md:space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl md:text-3xl font-bold">Trips</h1>
+        <BulkTripStatementImport canEdit={canEditStatements} />
       </div>
 
       <Card className="bg-background">
