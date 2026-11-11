@@ -1,3 +1,5 @@
+import { SupervisorFilter } from "@/components/SupervisorFilter";
+import { matchesSupervisorFilter } from "@/lib/supervisorFilter";
 import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
 import { hasDispatcherRole } from "@/lib/dispatchAccess";
 import React from "react";
@@ -278,12 +280,12 @@ const Analytics = () => {
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
   const [showExtraStats, setShowExtraStats] = useState(false);
-  const [selectedSupervisor, setSelectedSupervisor] = useState<string>("all");
+  const [selectedSupervisors, setSelectedSupervisors] = useState<string[]>([]);
   const [supervisorAssignments, setSupervisorAssignments] = useState<Record<string, string>>({});
   const [supervisorNames, setSupervisorNames] = useState<Record<string, string>>({});
   // Driver Analytics filters
   const [driverAnalyticsOffices, setDriverAnalyticsOffices] = useState<string[]>([]);
-  const [driverAnalyticsSupervisor, setDriverAnalyticsSupervisor] = useState<string>("all");
+  const [driverAnalyticsSupervisors, setDriverAnalyticsSupervisors] = useState<string[]>([]);
   const [extraDaysByUser, setExtraDaysByUser] = useState<Record<string, number>>({});
   const [extraDayDatesByUser, setExtraDayDatesByUser] = useState<Record<string, string[]>>({});
   const [extraDayRawDatesByUser, setExtraDayRawDatesByUser] = useState<Record<string, string[]>>({});
@@ -1982,12 +1984,12 @@ const Analytics = () => {
         return false;
       }
       // Filter by supervisor
-      if (selectedSupervisor !== "all") {
+      if (selectedSupervisors.length > 0) {
         const dispatcherProfile = dispatcherProfiles[stat.name];
         const dispatcherUserId = dispatcherProfile?.user_id;
         if (!dispatcherUserId) return false;
         // Show if this dispatcher is the supervisor themselves, or assigned to them
-        if (dispatcherUserId !== selectedSupervisor && supervisorAssignments[dispatcherUserId] !== selectedSupervisor) {
+        if (!matchesSupervisorFilter(dispatcherUserId, selectedSupervisors, supervisorAssignments)) {
           return false;
         }
       }
@@ -2000,21 +2002,21 @@ const Analytics = () => {
     }), [
       dispatcherAnalytics, dispatcherProfiles, dispatcherTruckCounts, filterType, daysInPeriod,
       turnoverMap, emptyDaysMap, getPrimaryRole, selectedOffices, supervisorTeam, profile?.full_name,
-      minGrossFilter, minAvgTrucksFilter, selectedSupervisor, supervisorAssignments, sortBy, sortDirection,
+      minGrossFilter, minAvgTrucksFilter, selectedSupervisors, supervisorAssignments, sortBy, sortDirection,
     ]);
 
   // Calculate totals directly from filteredOrders to include ALL orders that pass date/office filters
   // When a supervisor is selected, only include orders from that supervisor's dispatchers
   const ordersForTotals = useMemo(() => {
-    if (selectedSupervisor === "all") return filteredOrders;
+    if (selectedSupervisors.length === 0) return filteredOrders;
     return filteredOrders.filter((order) => {
       if (!order.bookedBy) return false;
       const dp = dispatcherProfiles[order.bookedBy];
       if (!dp) return false;
       const uid = dp.user_id;
-      return uid === selectedSupervisor || supervisorAssignments[uid] === selectedSupervisor;
+      return matchesSupervisorFilter(uid, selectedSupervisors, supervisorAssignments);
     });
-  }, [filteredOrders, selectedSupervisor, dispatcherProfiles, supervisorAssignments]);
+  }, [filteredOrders, selectedSupervisors, dispatcherProfiles, supervisorAssignments]);
 
   const totals = useMemo(() => {
     const acc = { totalFreight: 0, totalDriverRate: 0, totalMiles: 0, orderCount: 0 };
@@ -2030,11 +2032,11 @@ const Analytics = () => {
     if (isPrecomputed && dispatcherAggregates) {
       for (const [entityId, agg] of Object.entries(dispatcherAggregates)) {
         // Apply supervisor filter if needed
-        if (selectedSupervisor !== "all") {
+        if (selectedSupervisors.length > 0) {
           const dp = dispatcherProfiles[entityId];
           if (!dp) continue;
           const uid = dp.user_id;
-          if (uid !== selectedSupervisor && supervisorAssignments[uid] !== selectedSupervisor) continue;
+          if (!matchesSupervisorFilter(uid, selectedSupervisors, supervisorAssignments)) continue;
         }
         acc.totalFreight += agg.totalFreight;
         acc.totalDriverRate += agg.totalDriverPayEffective;
@@ -2048,7 +2050,7 @@ const Analytics = () => {
     ordersForTotals,
     isPrecomputed,
     dispatcherAggregates,
-    selectedSupervisor,
+    selectedSupervisors,
     dispatcherProfiles,
     supervisorAssignments,
     getEffectiveDriverPay,
@@ -2076,8 +2078,8 @@ const Analytics = () => {
         if (!profile || !selectedOffices.includes(profile.office || "")) return false;
       }
       // Filter by supervisor
-      if (selectedSupervisor !== "all") {
-        if (dispatcherId !== selectedSupervisor && supervisorAssignments[dispatcherId] !== selectedSupervisor)
+      if (selectedSupervisors.length > 0) {
+        if (!matchesSupervisorFilter(dispatcherId, selectedSupervisors, supervisorAssignments))
           return false;
       }
       return true;
@@ -2172,7 +2174,7 @@ const Analytics = () => {
   }, [
     dispatcherTruckCounts,
     selectedOffices,
-    selectedSupervisor,
+    selectedSupervisors,
     supervisorAssignments,
     dispatcherProfiles,
     totals,
@@ -2867,13 +2869,12 @@ const Analytics = () => {
           if (!dProfile || !driverAnalyticsOffices.includes(dProfile.office || "")) return false;
         }
         // Filter by supervisor in Driver Analytics
-        if (driverAnalyticsSupervisor !== "all") {
+        if (driverAnalyticsSupervisors.length > 0) {
           const dispatcherId = driverNameToDispatcherId[driver.name];
           if (!dispatcherId) return false;
           // Show if dispatcher is the supervisor or assigned to supervisor
           if (
-            dispatcherId !== driverAnalyticsSupervisor &&
-            supervisorAssignments[dispatcherId] !== driverAnalyticsSupervisor
+            !matchesSupervisorFilter(dispatcherId, driverAnalyticsSupervisors, supervisorAssignments)
           ) {
             return false;
           }
@@ -2905,7 +2906,7 @@ const Analytics = () => {
     grossRankingsSortDir,
     driverDebts,
     driverAnalyticsOffices,
-    driverAnalyticsSupervisor,
+    driverAnalyticsSupervisors,
     drivers,
     dispatcherProfiles,
     supervisorAssignments,
@@ -3244,27 +3245,12 @@ const Analytics = () => {
                           </Button>
                         )}
 
-                        {/* Supervisor filter - toggle buttons like office */}
+                        {/* Searchable supervisor team filter */}
                         {Object.keys(supervisorNames).length > 0 && (
                           <>
                             <span className="text-sm font-medium text-muted-foreground ml-2">Supervisor:</span>
-                            {Object.entries(supervisorNames).map(([id, name]) => (
-                              <Button
-                                key={id}
-                                variant={selectedSupervisor === id ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedSupervisor((prev) => (prev === id ? "all" : id));
-                                }}
-                              >
-                                {name}
-                              </Button>
-                            ))}
-                            {selectedSupervisor !== "all" && (
-                              <Button variant="ghost" size="sm" onClick={() => setSelectedSupervisor("all")}>
-                                Clear
-                              </Button>
-                            )}
+                            <SupervisorFilter supervisors={supervisorNames} selected={selectedSupervisors}
+                              onChange={setSelectedSupervisors} />
                           </>
                         )}
                       </div>
@@ -3739,28 +3725,13 @@ const Analytics = () => {
                       </>
                     )}
 
-                    {/* Supervisor filter for Driver Analytics - toggle buttons */}
+                    {/* Searchable supervisor team filter for Driver Analytics */}
                     {Object.keys(supervisorNames).length > 0 &&
                       (hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && (
                         <>
                           <span className="text-sm font-medium text-muted-foreground ml-2">Supervisor:</span>
-                          {Object.entries(supervisorNames).map(([id, name]) => (
-                            <Button
-                              key={id}
-                              variant={driverAnalyticsSupervisor === id ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => {
-                                setDriverAnalyticsSupervisor((prev) => (prev === id ? "all" : id));
-                              }}
-                            >
-                              {name}
-                            </Button>
-                          ))}
-                          {driverAnalyticsSupervisor !== "all" && (
-                            <Button variant="ghost" size="sm" onClick={() => setDriverAnalyticsSupervisor("all")}>
-                              Clear
-                            </Button>
-                          )}
+                          <SupervisorFilter supervisors={supervisorNames} selected={driverAnalyticsSupervisors}
+                            onChange={setDriverAnalyticsSupervisors} />
                         </>
                       )}
                   </div>
