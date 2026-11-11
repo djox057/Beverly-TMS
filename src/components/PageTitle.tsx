@@ -44,6 +44,7 @@ const pageTitles: Record<string, string> = {
   "/stuff/:driverId": "Stuff",
   "/problems": "Problems",
   "/daily-report": "Daily Report",
+  "/christmas": "Christmas Notes",
   "/holidays": "Holidays",
   "/holidays/:year": "Holidays",
   "/holidays/:year/:holidaySlug": "Holidays",
