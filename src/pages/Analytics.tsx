@@ -569,18 +569,22 @@ const Analytics = () => {
   // Fetch all profiles to get office locations and roles indexed by full_name AND user_id
   useEffect(() => {
     const fetchProfiles = async () => {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("email, full_name, office, user_id, created_at, gross_percent, cut_percent");
-
-      // Also fetch all unique booked_by values from orders to include deleted users
-      const { data: ordersData } = await supabase.from("orders").select("booked_by").not("booked_by", "is", null);
-      // Also fetch historical (dispatcher_name -> user_id) from salary payments so deleted users
-      // still resolve to a real UUID (used by extra-days / lost-days inserts and salary calcs).
-      const { data: salaryHistory } = await supabase
-        .from("dispatcher_salary_payments")
-        .select("dispatcher_name, user_id")
-        .not("user_id", "is", null);
+      // These reads are independent. Preserve their fields and freshness while
+      // avoiding a separate round trip for each lookup before building profiles.
+      const [profilesResult, ordersResult, salaryResult, rolesResult, assignmentsResult] = await Promise.all([
+        supabase.from("profiles")
+          .select("email, full_name, office, user_id, created_at, gross_percent, cut_percent"),
+        supabase.from("orders").select("booked_by").not("booked_by", "is", null),
+        supabase.from("dispatcher_salary_payments")
+          .select("dispatcher_name, user_id").not("user_id", "is", null),
+        supabase.from("user_roles").select("user_id, role"),
+        supabase.from("dispatcher_supervisors").select("dispatcher_id, supervisor_id"),
+      ]);
+      const profiles = profilesResult.data;
+      const ordersData = ordersResult.data;
+      const salaryHistory = salaryResult.data;
+      const userRoles = rolesResult.data;
+      const supAssignments = assignmentsResult.data;
       const historicalNameToUserId: Record<string, string> = {};
       (salaryHistory || []).forEach((r: any) => {
         if (r.dispatcher_name && r.user_id && !historicalNameToUserId[r.dispatcher_name]) {
@@ -588,8 +592,6 @@ const Analytics = () => {
         }
       });
       if (profiles) {
-        // Fetch user roles for all users
-        const { data: userRoles } = await supabase.from("user_roles").select("user_id, role");
         const rolesMap =
           userRoles?.reduce(
             (acc, ur) => {
@@ -673,10 +675,6 @@ const Analytics = () => {
         });
         setDispatcherProfiles(profileMap);
 
-        // Fetch supervisor assignments
-        const { data: supAssignments } = await supabase
-          .from("dispatcher_supervisors")
-          .select("dispatcher_id, supervisor_id");
         if (supAssignments) {
           const assignMap: Record<string, string> = {};
           supAssignments.forEach((a: any) => {
@@ -1854,7 +1852,7 @@ const Analytics = () => {
 
     return acc;
   }, [filteredOrders, isPrecomputed, dispatcherAggregates, getEffectiveDriverPay]);
-  const dispatcherStats = Object.entries(dispatcherAnalytics)
+  const dispatcherStats = useMemo(() => Object.entries(dispatcherAnalytics)
     .map(
       ([name, stats]: [
         string,
@@ -1999,7 +1997,11 @@ const Analytics = () => {
       const aValue = a[sortBy];
       const bValue = b[sortBy];
       return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
-    });
+    }), [
+      dispatcherAnalytics, dispatcherProfiles, dispatcherTruckCounts, filterType, daysInPeriod,
+      turnoverMap, emptyDaysMap, getPrimaryRole, selectedOffices, supervisorTeam, profile?.full_name,
+      minGrossFilter, minAvgTrucksFilter, selectedSupervisor, supervisorAssignments, sortBy, sortDirection,
+    ]);
 
   // Calculate totals directly from filteredOrders to include ALL orders that pass date/office filters
   // When a supervisor is selected, only include orders from that supervisor's dispatchers
