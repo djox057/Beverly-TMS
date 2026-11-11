@@ -57,6 +57,8 @@ import Stuff from "./pages/Stuff";
 import NotFound from "./pages/NotFound";
 import Problems from "./pages/Problems";
 import DailyReport from "./pages/DailyReport";
+import Holidays from "./pages/Holidays";
+import { HOLIDAYS_ROLES } from "./lib/holidays";
 import Billboard from "./pages/Billboard";
 import TransferList from "./pages/TransferList";
 import TurnoverList from "./pages/TurnoverList";
@@ -297,6 +299,13 @@ const AppContent = () => {
             <Layout><Problems /></Layout>
           </ProtectedRoute>
         } />
+        {['/holidays', '/holidays/:year', '/holidays/:year/:holidaySlug'].map(path => (
+          <Route key={path} path={path} element={
+            <ProtectedRoute strictAllowedRoles={HOLIDAYS_ROLES}>
+              <Layout><Holidays /></Layout>
+            </ProtectedRoute>
+          } />
+        ))}
         <Route path="/daily-report" element={
           <ProtectedRoute>
             <Layout><DailyReport /></Layout>

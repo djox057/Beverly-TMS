@@ -1052,6 +1052,33 @@ export type Database = {
           },
         ]
       }
+      holiday_report_entries: {
+        Row: {
+          id: string
+          year: number
+          holiday_slug: string
+          truck: string
+          note: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          year: number
+          holiday_slug: string
+          truck?: string
+          note?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          year?: number
+          holiday_slug?: string
+          truck?: string
+          note?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       daily_report_entries: {
         Row: {
           color: string | null
