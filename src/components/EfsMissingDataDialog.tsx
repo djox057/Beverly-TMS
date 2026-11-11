@@ -306,7 +306,7 @@ export function EfsMissingDataDialog({
                         <>
                           <input
                             type="file"
-                            accept="image/*"
+                            accept="image/*,application/pdf,.pdf"
                             className="hidden"
                             ref={(el) => (fileInputRefs.current[req.id] = el)}
                             onChange={(e) => handleFileChange(req.id, e.target.files?.[0])}
