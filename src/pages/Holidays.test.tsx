@@ -13,7 +13,7 @@ function open(path: string) {
 it('defaults to the current year and shows all twelve months with only the six holidays', () => {
   open('/holidays');
   expect(screen.getByLabelText('Year')).toHaveValue(String(currentHolidayYear()));
-  expect(screen.getAllByRole('region')).toHaveLength(12);
+  expect(screen.getAllByRole('region')).toHaveLength(6);
   expect(screen.getAllByRole('link')).toHaveLength(6);
   expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(String(currentHolidayYear()));
   expect(screen.queryByText(/little celebrations/)).not.toBeInTheDocument();

@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { HolidayReportTable } from '@/components/holidays/HolidayReportTable';
 import { currentHolidayYear, getHolidays, MAX_HOLIDAY_YEAR, MIN_HOLIDAY_YEAR, parseHolidayYear, type Holiday } from '@/lib/holidays';
+import { ChristmasDecorations } from '@/components/ChristmasDecorations';
 import './holidays.css';
 
 function YearPicker({ year, slug }: { year: number; slug?: string }) {
@@ -52,6 +53,7 @@ export default function Holidays() {
   if (holidaySlug && !holiday) return <div className="holiday-page p-8"><h1 className="text-2xl font-semibold">Holiday not found</h1><Button asChild variant="outline" className="mt-4"><Link to={`/holidays/${year}`}>Back to {year} Holidays</Link></Button></div>;
 
   if (holiday) return <div className="holiday-page holiday-detail" data-holiday-theme={holiday.theme}>
+    {holiday.slug === 'christmas' ? <ChristmasDecorations /> : <div className="holiday-themed-decoration" aria-hidden="true">{holiday.motif} ✦ {holiday.motif}</div>}
     <header className="holiday-detail-hero">
       <Link className="holiday-back" to={`/holidays/${year}`} aria-label="All holidays"><ArrowLeft size={16} /></Link>
       <span className="holiday-detail-motif" aria-hidden="true">{holiday.motif}</span>
@@ -68,6 +70,7 @@ export default function Holidays() {
     <div className="holiday-months">
       {Array.from({ length: 12 }, (_, month) => {
         const monthHolidays = holidays.filter(item => item.date.getMonth() === month);
+        if (!monthHolidays.length) return null;
         return <section className="holiday-month" key={month} aria-label={format(new Date(year, month, 1), 'MMMM')}>
           <div className="holiday-month-heading"><h2>{format(new Date(year, month, 1), 'MMMM')}</h2><span>{String(month + 1).padStart(2, '0')}</span></div>
           <MonthCalendar year={year} month={month} holidays={monthHolidays} />

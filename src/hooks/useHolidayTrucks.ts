@@ -5,6 +5,7 @@ export interface HolidayTruck {
   number: string;
   driverName: string;
   dispatcherName: string;
+  dispatcherOffice?: string;
 }
 
 export async function loadHolidayTrucks(): Promise<HolidayTruck[]> {
@@ -25,9 +26,9 @@ export async function loadHolidayTrucks(): Promise<HolidayTruck[]> {
     drivers.push(...data);
   }
   const dispatcherIds = [...new Set([...drivers.map(driver => driver.dispatcher_id), ...trucks.map(truck => truck.dispatcher_id)].filter((id): id is string => !!id))];
-  const profiles: { user_id: string; full_name: string | null }[] = [];
+  const profiles: { user_id: string; full_name: string | null; office: string | null }[] = [];
   for (let offset = 0; offset < dispatcherIds.length; offset += 200) {
-    const { data, error } = await supabase.from('profiles').select('user_id,full_name').in('user_id', dispatcherIds.slice(offset, offset + 200));
+    const { data, error } = await supabase.from('profiles').select('user_id,full_name,office').in('user_id', dispatcherIds.slice(offset, offset + 200));
     if (error) throw error;
     profiles.push(...data);
   }
@@ -39,6 +40,7 @@ export async function loadHolidayTrucks(): Promise<HolidayTruck[]> {
     return {
       // Unit numbers are identifiers; "03212" and "3212" are different trucks.
       number: truck.truck_number.trim(),
+      dispatcherOffice: profiles.find(profile => profile.user_id === (assignedDispatchers[0] ?? truck.dispatcher_id))?.office ?? 'Other',
       driverName: [...new Set(assigned.map(driver => driver.name))].join(' / '),
       dispatcherName: [...new Set((assignedDispatchers.length ? assignedDispatchers : [truck.dispatcher_id]).flatMap(id => id && dispatcherMap.get(id) ? [dispatcherMap.get(id)!] : []))].join(' / '),
     };

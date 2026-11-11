@@ -122,3 +122,22 @@
 @media (min-width: 951px) and (max-width: 1250px) {
   .holiday-months { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+/* Christmas Notes layout shared by the holiday detail pages. */
+.holiday-detail { position: relative; min-height: calc(100dvh - 48px); overflow: hidden; }
+.holiday-detail-hero, .holiday-report { position: relative; z-index: 20; }
+.holiday-detail-hero { background: hsl(var(--background) / .85); backdrop-filter: blur(6px); justify-content: center; border-radius: 0; border-width: 0 0 1px; }
+.holiday-detail-title { text-align: center; }
+.holiday-detail-title h1 { font-size: 24px; }
+.holiday-detail .holiday-report { background: hsl(var(--background) / .7); backdrop-filter: blur(4px); }
+.holiday-office-tabs { display: flex; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--muted) / .3); }
+.holiday-office-tabs button { flex: 1; padding: 12px 6px; font-size: 13px; border-bottom: 2px solid transparent; }
+.holiday-office-tabs button[aria-pressed="true"] { border-color: hsl(var(--primary)); background: hsl(var(--background) / .8); }
+.holiday-notes-search { padding: 16px; border-bottom: 1px solid hsl(var(--border)); }
+.holiday-notes-search input { max-width: 280px; }
+.holiday-driver-col { width: 200px; }
+.holiday-driver-name { padding: 6px 12px !important; font-size: 13px; }
+.holiday-dispatcher-heading td { padding: 10px 16px !important; font-weight: 600; background: hsl(var(--muted) / .5); border-left: 4px solid hsl(var(--primary)); }
+.holiday-themed-decoration { position: absolute; right: 25px; bottom: 20px; font-size: 64px; opacity: .3; pointer-events: none; }
+@media(min-width: 951px) { .holiday-months { grid-template-columns: repeat(3,minmax(0,1fr)); height: auto; min-height: 0; grid-auto-rows: auto; } }
+@media(max-width: 560px) { .holiday-driver-col { width: 95px; } .holiday-office-tabs { flex-wrap: wrap; } }

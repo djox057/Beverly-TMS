@@ -24,8 +24,8 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { from: (table: 'tr
 beforeEach(() => { db.error = false; });
 it('uses exact truck identifiers and resolves both drivers and their dispatcher', async () => {
   expect(await loadHolidayTrucks()).toEqual([
-    { number: '03212', driverName: 'Leading Zero Driver / Team Driver', dispatcherName: 'Leading Zero Dispatcher' },
-    { number: '3212', driverName: 'Other Driver', dispatcherName: 'Other Dispatcher' },
+    { number: '03212', dispatcherOffice: 'Other', driverName: 'Leading Zero Driver / Team Driver', dispatcherName: 'Leading Zero Dispatcher' },
+    { number: '3212', dispatcherOffice: 'Other', driverName: 'Other Driver', dispatcherName: 'Other Dispatcher' },
   ]);
 });
 it('reports failed lookups so the picker can offer retry', async () => {
