@@ -1,6 +1,6 @@
 import type { UserRole } from '@/hooks/useAuth';
 
-export const HOLIDAYS_ROLES: UserRole[] = ['admin', 'manager'];
+export const HOLIDAYS_ROLES: UserRole[] = ['admin', 'manager', 'supervisor', 'dispatch'];
 export const MIN_HOLIDAY_YEAR = 2000;
 export const MAX_HOLIDAY_YEAR = 2099;
 
