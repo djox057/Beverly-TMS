@@ -39,6 +39,7 @@ import {
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { UPCOMING_DRIVERS_ROLES } from "@/lib/upcomingDriversAccess";
+import { HOLIDAYS_ROLES } from "@/lib/holidays";
 import { DRIVER_EXPENSES_ROLES } from "@/lib/driverExpensesAccess";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { isComplaintsViewOnlyEmail } from "@/components/complaints/useComplaintsAccess";
@@ -134,6 +135,7 @@ const navigation = [
   { name: "Brokers", href: "/brokers", icon: Building2 },
   { name: "Fleets", href: "/fleets", icon: Users },
   { name: "Reports", href: "/reports", icon: BarChart3 },
+  { name: "Holidays", href: "/holidays", icon: Calendar, roles: HOLIDAYS_ROLES, strict: true },
   {
     name: "Recovery Loads & Prebook",
     href: "/recovery-loads",
