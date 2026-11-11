@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useHolidayTrucks } from '@/hooks/useHolidayTrucks';
-import { HOLIDAY_OFFICES, holidayOffice } from '@/lib/holidayOffices';
+import { holidayOffice } from '@/lib/holidayOffices';
 import { cn } from '@/lib/utils';
 const ROW_COLORS = [
   { value: 'driving', label: 'Driving', bg: 'bg-green-500/20', swatch: 'bg-green-500' },
@@ -148,7 +148,7 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
   const renderedRows = sortByPriority ? [...rows].sort((a, b) => priority(a.color) - priority(b.color)) : rows;
 
   const officeFor = (truck: string) => holidayOffice(truckQuery.data?.find(item => item.number === truck)?.dispatcherOffice);
-  const offices = [...new Set([...HOLIDAY_OFFICES, ...(truckQuery.data ?? []).map(truck => holidayOffice(truck.dispatcherOffice))])];
+  const offices = [...new Set([...(truckQuery.data ?? []).map(truck => holidayOffice(truck.dispatcherOffice))])];
   useEffect(() => {
     const officeTabs = ['Čačak', 'KRAGUJEVAC', 'BG 1st FLOOR', 'BG 4th FLOOR'];
     if (!search.trim() || !officeTabs.includes(activeOffice)) return;
@@ -164,6 +164,7 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, activeOffice, rows, truckQuery.data]);
   const visibleRows = renderedRows.filter(row => {
+    if (!truckQuery.data?.some(truck => truck.number === row.truck)) return false;
     const truck = truckQuery.data?.find(item => item.number === row.truck);
     return (activeOffice === 'Driving' ? row.color === 'driving' : activeOffice === 'Not Driving' ? row.color === 'not_driving' : (!row.truck || activeOffice === 'All' || officeFor(row.truck) === activeOffice)) && `${row.truck} ${truck?.driverName ?? ''} ${row.note}`.toLowerCase().includes(search.toLowerCase());
   }).sort((a, b) => {

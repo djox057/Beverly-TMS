@@ -1,3 +1,5 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -11,11 +13,15 @@ export interface HolidayTruck {
 }
 
 export async function loadHolidayTrucks(): Promise<HolidayTruck[]> {
+  const { data: allowed, error: accessError } = await (supabase as unknown as SupabaseClient).rpc('holiday_allowed_trucks');
+  if (accessError) throw accessError;
+  const allowedNumbers = (allowed ?? []) as string[];
+  if (!allowedNumbers.length) return [];
   const trucks: { truck_number: string; driver1_id: string | null; driver2_id: string | null; dispatcher_id: string | null }[] = [];
   for (let offset = 0; ; offset += 500) {
     const { data, error } = await supabase.from('trucks')
       .select('truck_number,driver1_id,driver2_id,dispatcher_id')
-      .eq('is_active', true).order('truck_number').order('id').range(offset, offset + 499);
+      .eq('is_active', true).in('truck_number', allowedNumbers).order('truck_number').order('id').range(offset, offset + 499);
     if (error) throw error;
     trucks.push(...data);
     if (data.length < 500) break;
@@ -52,5 +58,6 @@ export async function loadHolidayTrucks(): Promise<HolidayTruck[]> {
 }
 
 export function useHolidayTrucks() {
-  return useQuery({ queryKey: ['holiday-truck-options'], queryFn: loadHolidayTrucks, staleTime: 60_000 });
+  const { user, getPrimaryRole, profile } = useAuthContext();
+  return useQuery({ queryKey: ['holiday-truck-options', user?.id, getPrimaryRole(), profile?.office], enabled: !!user, queryFn: loadHolidayTrucks, staleTime: 60_000 });
 }
