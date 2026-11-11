@@ -7,6 +7,7 @@
     "dev": "vite",
     "test": "vitest run",
     "test:visible": "vitest run --config vitest.visible.config.ts",
+    "test:analytics": "vitest run src/hooks/useOrdersWithProgress.test.tsx src/utils/ordersTransform.test.ts src/components/UninvoicedAnalyticsStats.test.tsx && node --test scripts/tests/analytics-bulk-loading.test.mjs",
     "test:benchmark": "node --test scripts/benchmarks/core.test.mjs",
     "test:benchmark:browser": "playwright test --config playwright.benchmark.config.ts",
     "benchmark:readonly": "node scripts/benchmarks/run.mjs",

@@ -266,102 +266,114 @@ Deno.serve(async (req) => {
     const orderIds = (orders || []).map((o: any) => o.id);
     const CHUNK_SIZE = 200; // Reduced from 500 to prevent URL length errors
     
-    if (orderIds.length > 0) {
-      const stage2Start = Date.now();
-      const chunks = chunk(orderIds, CHUNK_SIZE);
+    const loadChildRelations = async () => {
+      if (orderIds.length > 0) {
+        const stage2Start = Date.now();
+        const chunks = chunk(orderIds, CHUNK_SIZE);
 
-      const pickupDropsSelect = fields === "analytics"
-        ? "order_id, type, city, state, datetime"
-        : "id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, company_name, contact_name, contact_phone, special_instructions, latitude, longitude";
+        const pickupDropsSelect = fields === "analytics"
+          ? "order_id, type, city, state, datetime"
+          : "id, order_id, type, address, city, state, zip_code, datetime, end_datetime, sequence_number, arrived_at, checked_out_at, going_to_at, company_name, contact_name, contact_phone, special_instructions, latitude, longitude";
 
-      const pickupDropsPromise = Promise.all(chunks.map(c =>
-        supabase.from("pickup_drops").select(pickupDropsSelect).in("order_id", c)
-      ));
-      const orderFilesPromise = fields === "analytics"
-        ? Promise.all(chunks.map(c =>
-            supabase
-              .from("order_files")
-              .select("order_id, file_category")
-              .eq("file_category", "POD")
-              .in("order_id", c)
-          ))
-        : Promise.all(chunks.map(c =>
-            supabase
-              .from("order_files")
-              .select("id, order_id, file_category, file_name, file_path")
-              .in("order_id", c)
-          ));
-      const orderTransfersPromise = fields === "analytics"
-        ? Promise.resolve([] as any[])
-        : Promise.all(chunks.map(c =>
-            supabase
-              .from("order_transfers")
-              .select("id, order_id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id, miles, driver_price, manual_driver_name, manual_truck_number, manual_trailer_number, transfer_date, transfer_city, transfer_state, transfer_address, transfer_datetime, transfer_latitude, transfer_longitude")
-              .in("order_id", c)
-          ));
+        const pickupDropsPromise = Promise.all(chunks.map(c =>
+          supabase.from("pickup_drops").select(pickupDropsSelect).in("order_id", c)
+        ));
+        const orderFilesPromise = fields === "analytics"
+          ? Promise.all(chunks.map(c =>
+              supabase
+                .from("order_files")
+                .select("order_id, file_category")
+                .eq("file_category", "POD")
+                .in("order_id", c)
+            ))
+          : Promise.all(chunks.map(c =>
+              supabase
+                .from("order_files")
+                .select("id, order_id, file_category, file_name, file_path")
+                .in("order_id", c)
+            ));
+        const orderTransfersPromise = fields === "analytics"
+          ? Promise.resolve([] as any[])
+          : Promise.all(chunks.map(c =>
+              supabase
+                .from("order_transfers")
+                .select("id, order_id, sequence_number, driver1_id, driver2_id, truck_id, trailer_id, miles, driver_price, manual_driver_name, manual_truck_number, manual_trailer_number, transfer_date, transfer_city, transfer_state, transfer_address, transfer_datetime, transfer_latitude, transfer_longitude")
+                .in("order_id", c)
+            ));
 
-      const [pickupDropsResults, orderFilesResults, orderTransfersResults] = await Promise.all([
-        pickupDropsPromise, orderFilesPromise, orderTransfersPromise,
+        const [pickupDropsResults, orderFilesResults, orderTransfersResults] = await Promise.all([
+          pickupDropsPromise, orderFilesPromise, orderTransfersPromise,
+        ]);
+
+        const allPickupDrops = pickupDropsResults.flatMap(r => r.data || []);
+        const allOrderFiles = orderFilesResults.flatMap(r => r.data || []);
+        const allOrderTransfers = orderTransfersResults.flatMap(r => r.data || []);
+
+        for (const r of [...pickupDropsResults, ...orderFilesResults, ...orderTransfersResults]) {
+          if (r.error) console.error("[get-all-locked-orders] Relation fetch error:", r.error.message);
+        }
+
+        const stage2Time = Date.now() - stage2Start;
+        console.log(`[get-all-locked-orders] Stage 2 (child relations): ${allPickupDrops.length} PDs, ${allOrderFiles.length} files, ${allOrderTransfers.length} transfers in ${stage2Time}ms`);
+
+        // Group by order_id
+        const pdMap = new Map<string, any[]>();
+        for (const pd of allPickupDrops) {
+          const arr = pdMap.get(pd.order_id); if (arr) arr.push(pd); else pdMap.set(pd.order_id, [pd]);
+        }
+        const ofMap = new Map<string, any[]>();
+        for (const f of allOrderFiles) {
+          const arr = ofMap.get(f.order_id); if (arr) arr.push(f); else ofMap.set(f.order_id, [f]);
+        }
+        const otMap = new Map<string, any[]>();
+        for (const t of allOrderTransfers) {
+          const arr = otMap.get(t.order_id); if (arr) arr.push(t); else otMap.set(t.order_id, [t]);
+        }
+
+        for (const order of orders!) {
+          (order as any).pickup_drops = pdMap.get(order.id) || [];
+          (order as any).order_files = ofMap.get(order.id) || [];
+          (order as any).order_transfers = otMap.get(order.id) || [];
+        }
+      } else {
+        for (const order of orders || []) {
+          (order as any).pickup_drops = [];
+          (order as any).order_files = [];
+          (order as any).order_transfers = [];
+        }
+      }
+    };
+
+    const loadEntityRelations = async () => {
+      // Stage 3: Batch fetch entity relations (trucks, drivers, brokers, companies, trailers)
+      const stage3Start = Date.now();
+
+      const truckIds = fields === "analytics"
+        ? collectUniqueIds(orders || [], "truck_id")
+        : collectUniqueIds(orders || [], "truck_id", "original_truck_id");
+      const driverIds = fields === "analytics"
+        ? collectUniqueIds(orders || [], "driver1_id", "driver2_id")
+        : collectUniqueIds(orders || [], "driver1_id", "driver2_id", "original_driver1_id", "original_driver2_id");
+      const brokerIds = fields === "analytics" ? [] : collectUniqueIds(orders || [], "broker_id");
+      const companyIds = collectUniqueIds(orders || [], "company_id", "booked_by_company_id");
+      const trailerIds = fields === "analytics" ? [] : collectUniqueIds(orders || [], "trailer_id", "original_trailer_id");
+
+      const [trucksMap, driversMap, brokersMap, companiesMap, trailersMap] = await Promise.all([
+        batchFetchById(supabase, "trucks", truckIds, fields === "analytics" ? "id, truck_number" : "id, truck_number, company_id"),
+        batchFetchById(supabase, "drivers", driverIds, fields === "analytics" ? "id, name" : "id, name, company_id"),
+        batchFetchById(supabase, "brokers", brokerIds, "id, name, mc_number, address"),
+        batchFetchById(supabase, "companies", companyIds, "id, name"),
+        batchFetchById(supabase, "trailers", trailerIds, "id, trailer_number"),
       ]);
+      return { trucksMap, driversMap, brokersMap, companiesMap, trailersMap, truckIds, driverIds, brokerIds, companyIds, stage3Time: Date.now() - stage3Start };
+    };
 
-      const allPickupDrops = pickupDropsResults.flatMap(r => r.data || []);
-      const allOrderFiles = orderFilesResults.flatMap(r => r.data || []);
-      const allOrderTransfers = orderTransfersResults.flatMap(r => r.data || []);
-
-      for (const r of [...pickupDropsResults, ...orderFilesResults, ...orderTransfersResults]) {
-        if (r.error) console.error("[get-all-locked-orders] Relation fetch error:", r.error.message);
-      }
-
-      const stage2Time = Date.now() - stage2Start;
-      console.log(`[get-all-locked-orders] Stage 2 (child relations): ${allPickupDrops.length} PDs, ${allOrderFiles.length} files, ${allOrderTransfers.length} transfers in ${stage2Time}ms`);
-
-      // Group by order_id
-      const pdMap = new Map<string, any[]>();
-      for (const pd of allPickupDrops) {
-        const arr = pdMap.get(pd.order_id); if (arr) arr.push(pd); else pdMap.set(pd.order_id, [pd]);
-      }
-      const ofMap = new Map<string, any[]>();
-      for (const f of allOrderFiles) {
-        const arr = ofMap.get(f.order_id); if (arr) arr.push(f); else ofMap.set(f.order_id, [f]);
-      }
-      const otMap = new Map<string, any[]>();
-      for (const t of allOrderTransfers) {
-        const arr = otMap.get(t.order_id); if (arr) arr.push(t); else otMap.set(t.order_id, [t]);
-      }
-
-      for (const order of orders!) {
-        (order as any).pickup_drops = pdMap.get(order.id) || [];
-        (order as any).order_files = ofMap.get(order.id) || [];
-        (order as any).order_transfers = otMap.get(order.id) || [];
-      }
-    } else {
-      for (const order of orders || []) {
-        (order as any).pickup_drops = [];
-        (order as any).order_files = [];
-        (order as any).order_transfers = [];
-      }
-    }
-
-    // Stage 3: Batch fetch entity relations (trucks, drivers, brokers, companies, trailers)
-    const stage3Start = Date.now();
-
-    const truckIds = fields === "analytics"
-      ? collectUniqueIds(orders || [], "truck_id")
-      : collectUniqueIds(orders || [], "truck_id", "original_truck_id");
-    const driverIds = fields === "analytics"
-      ? collectUniqueIds(orders || [], "driver1_id", "driver2_id")
-      : collectUniqueIds(orders || [], "driver1_id", "driver2_id", "original_driver1_id", "original_driver2_id");
-    const brokerIds = fields === "analytics" ? [] : collectUniqueIds(orders || [], "broker_id");
-    const companyIds = collectUniqueIds(orders || [], "company_id", "booked_by_company_id");
-    const trailerIds = fields === "analytics" ? [] : collectUniqueIds(orders || [], "trailer_id", "original_trailer_id");
-
-    const [trucksMap, driversMap, brokersMap, companiesMap, trailersMap] = await Promise.all([
-      batchFetchById(supabase, "trucks", truckIds, fields === "analytics" ? "id, truck_number" : "id, truck_number, company_id"),
-      batchFetchById(supabase, "drivers", driverIds, fields === "analytics" ? "id, name" : "id, name, company_id"),
-      batchFetchById(supabase, "brokers", brokerIds, "id, name, mc_number, address"),
-      batchFetchById(supabase, "companies", companyIds, "id, name"),
-      batchFetchById(supabase, "trailers", trailerIds, "id, trailer_number"),
-    ]);
+    // Only Analytics overlaps these reads. Other callers retain their existing
+    // sequence; all fields, filters, batches and response assembly stay the same.
+    const [, entities] = fields === "analytics"
+      ? await Promise.all([loadChildRelations(), loadEntityRelations()])
+      : [await loadChildRelations(), await loadEntityRelations()] as const;
+    const { trucksMap, driversMap, brokersMap, companiesMap, trailersMap, truckIds, driverIds, brokerIds, companyIds, stage3Time } = entities;
 
     // Enrich trucks with company
     for (const [, truck] of trucksMap) {
@@ -392,7 +404,6 @@ Deno.serve(async (req) => {
       (order as any).original_driver2 = driversMap.get(order.original_driver2_id) || null;
     }
 
-    const stage3Time = Date.now() - stage3Start;
     console.log(`[get-all-locked-orders] Stage 3 (entities): ${truckIds.length} trucks, ${driverIds.length} drivers, ${brokerIds.length} brokers in ${stage3Time}ms`);
 
     const fetchTime = Date.now() - startTime;
