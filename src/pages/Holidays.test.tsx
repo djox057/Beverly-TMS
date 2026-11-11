@@ -10,10 +10,13 @@ function Location() { return <div data-testid="location">{useLocation().pathname
 function open(path: string) {
   return render(<MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Location /><Routes>{['/holidays', '/holidays/:year', '/holidays/:year/:holidaySlug'].map(route => <Route key={route} path={route} element={<Holidays />} />)}</Routes></MemoryRouter>);
 }
-it('defaults to the current year and shows all twelve months', () => {
+it('defaults to the current year and shows all twelve months with only the six holidays', () => {
   open('/holidays');
   expect(screen.getByLabelText('Year')).toHaveValue(String(currentHolidayYear()));
   expect(screen.getAllByRole('region')).toHaveLength(12);
+  expect(screen.getAllByRole('link')).toHaveLength(6);
+  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(String(currentHolidayYear()));
+  expect(screen.queryByText(/little celebrations/)).not.toBeInTheDocument();
   expect(screen.getByRole('link', { name: /Thanksgiving/ })).toHaveAttribute('href', `/holidays/${currentHolidayYear()}/thanksgiving`);
 });
 it('opens the exact holiday, then switches its year and returns to that year calendar', () => {
@@ -28,7 +31,7 @@ it('opens the exact holiday, then switches its year and returns to that year cal
   fireEvent.click(screen.getByRole('link', { name: 'All holidays' }));
   expect(screen.getByTestId('location')).toHaveTextContent('/holidays/2027');
 });
-it.each(['/holidays/not-a-year', '/holidays/2026/not-a-holiday'])('handles invalid deep links: %s', path => {
+it.each(['/holidays/not-a-year', '/holidays/2026/not-a-holiday', '/holidays/2026/good-friday'])('handles invalid deep links: %s', path => {
   open(path);
   expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/not found/);
   expect(screen.queryByTestId('report')).not.toBeInTheDocument();

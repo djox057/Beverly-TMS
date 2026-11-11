@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HolidayReportTable } from '@/components/holidays/HolidayReportTable';
 import { currentHolidayYear, getHolidays, MAX_HOLIDAY_YEAR, MIN_HOLIDAY_YEAR, parseHolidayYear, type Holiday } from '@/lib/holidays';
@@ -52,22 +52,19 @@ export default function Holidays() {
   if (holidaySlug && !holiday) return <div className="holiday-page p-8"><h1 className="text-2xl font-semibold">Holiday not found</h1><Button asChild variant="outline" className="mt-4"><Link to={`/holidays/${year}`}>Back to {year} Holidays</Link></Button></div>;
 
   if (holiday) return <div className="holiday-page holiday-detail" data-holiday-theme={holiday.theme}>
-    <div className="holiday-toolbar"><Link className="holiday-back" to={`/holidays/${year}`}><ArrowLeft size={16} /> All holidays</Link><YearPicker year={year} slug={holiday.slug} /></div>
     <header className="holiday-detail-hero">
-      <div className="holiday-hero-copy"><p className="holiday-eyebrow">{year} / {holiday.federal ? 'US federal holiday' : 'Common occasion'}</p><h1>{holiday.name}</h1><p className="holiday-detail-date">{format(holiday.date, 'EEEE, MMMM d, yyyy')}</p>
-        {holiday.observedDate && <p className="holiday-detail-observed">Federal observance: {format(holiday.observedDate, 'EEEE, MMMM d, yyyy')}</p>}
-        <p className="holiday-detail-description">{holiday.detail}</p>
-      </div><div className="holiday-detail-art" aria-hidden="true"><span className="holiday-art-spark one">✦</span><span className="holiday-art-main">{holiday.motif}</span><span className="holiday-art-spark two">✧</span></div>
+      <Link className="holiday-back" to={`/holidays/${year}`} aria-label="All holidays"><ArrowLeft size={16} /></Link>
+      <span className="holiday-detail-motif" aria-hidden="true">{holiday.motif}</span>
+      <div className="holiday-detail-title"><h1>{holiday.name}</h1><p className="holiday-detail-date">{format(holiday.date, 'EEEE, MMMM d, yyyy')}
+        {holiday.observedDate && <span> · Observed {format(holiday.observedDate, 'MMM d, yyyy')}</span>}
+      </p></div>
+      <YearPicker year={year} slug={holiday.slug} />
     </header>
     <HolidayReportTable key={`${year}-${holiday.slug}`} year={year} holidaySlug={holiday.slug} />
   </div>;
 
   return <div className="holiday-page">
-    <header className="holiday-overview-hero">
-      <div className="holiday-hero-copy"><p className="holiday-eyebrow"><CalendarDays size={15} /> Beverly calendar</p><h1>A year of <span>little celebrations.</span></h1><p>Plan ahead, keep everyone in the loop, and make room for the moments that matter.</p></div>
-      <div className="holiday-year-art" aria-hidden="true"><span>✦</span><strong>{year}</strong><span>🍂 &nbsp; ☘️ &nbsp; 🎄</span></div>
-    </header>
-    <div className="holiday-toolbar"><div><h2 className="text-xl font-semibold">Holidays <span className="text-muted-foreground font-normal">/ {year}</span></h2><p className="text-sm text-muted-foreground mt-1">US federal holidays & common occasions · Open a holiday to add truck notes.</p></div><YearPicker year={year} /></div>
+    <header className="holiday-overview-hero"><h1 className="sr-only">{year}</h1><YearPicker year={year} /></header>
     <div className="holiday-months">
       {Array.from({ length: 12 }, (_, month) => {
         const monthHolidays = holidays.filter(item => item.date.getMonth() === month);
@@ -75,7 +72,7 @@ export default function Holidays() {
           <div className="holiday-month-heading"><h2>{format(new Date(year, month, 1), 'MMMM')}</h2><span>{String(month + 1).padStart(2, '0')}</span></div>
           <MonthCalendar year={year} month={month} holidays={monthHolidays} />
           <div className="holiday-month-events">{monthHolidays.map(item => <HolidayCard key={item.slug} holiday={item} year={year} />)}
-            {!monthHolidays.length && <div className="holiday-quiet-month"><span aria-hidden="true">☀️</span><p>A little breathing room.</p><small>No holidays this month</small></div>}
+            {!monthHolidays.length && <p className="holiday-quiet-month">No holidays</p>}
           </div>
         </section>;
       })}
