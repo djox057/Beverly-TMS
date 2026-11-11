@@ -163,7 +163,7 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
     groups.set(dispatcher, [...(groups.get(dispatcher) ?? []), row]);
   }
   return <section className="holiday-report" aria-label="Holiday truck notes">
-    <div className="holiday-office-tabs">{['All', ...offices].map(office => <button type="button" key={office} aria-pressed={activeOffice === office} onClick={() => setActiveOffice(office)}>{office}</button>)}</div>
+    <div className="holiday-office-tabs">{['All', ...offices.filter(office => office !== 'Other')].map(office => <button type="button" key={office} aria-pressed={activeOffice === office} onClick={() => setActiveOffice(office)}>{office}</button>)}</div>
     <div className="holiday-notes-search"><Input aria-label="Search holiday notes" placeholder="Search by Truck # or Driver..." value={search} onChange={event => setSearch(event.target.value)} /></div>
     {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground" role="status"><Loader2 className="h-4 w-4 animate-spin" />Loading notes…</div>
       : loadError ? <div className="p-10 text-center" role="alert"><p className="text-sm text-destructive">Could not load holiday notes.</p><Button className="mt-3" variant="outline" onClick={() => setAttempt(value => value + 1)}>Try again</Button></div>

@@ -82,6 +82,7 @@ import {
 
 // Hide these pages from navigation for every role while keeping their routes available.
 const HIDDEN_NAVIGATION_PATHS = new Set([
+  "/christmas",
   "/trucks-map",
   "/upcoming-drivers",
   "/driver-expenses",
