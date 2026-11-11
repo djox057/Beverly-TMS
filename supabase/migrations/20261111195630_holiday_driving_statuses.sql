@@ -1,0 +1,1 @@
+alter table public.holiday_report_entries drop constraint holiday_report_entries_color_check; alter table public.holiday_report_entries add constraint holiday_report_entries_color_check check (color is null or color in ('red','orange','yellow','cyan','green','driving','not_driving'));

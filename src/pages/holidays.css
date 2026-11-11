@@ -148,3 +148,6 @@
 .holiday-dispatcher-title span { font-size: 12px; font-weight: 400; color: hsl(var(--muted-foreground)); }
 .holiday-dispatcher-section table { border: 1px solid hsl(var(--border)); }
 .holiday-office-tabs { flex-wrap: wrap; }
+
+.holiday-notes-search { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.holiday-truck-count { margin-left: auto; text-align: right; font-size: 14px; font-weight: 600; white-space: nowrap; padding-right: 8px; }
