@@ -103,3 +103,22 @@
   .holiday-action-col { width: 24px; }
 }
 @media (prefers-reduced-motion: reduce) { .holiday-card { transition: none; } .holiday-card:hover { transform: none; } }
+/* Keep the full year within the desktop workspace. */
+@media (min-width: 951px) {
+  .holiday-page:not(.holiday-detail) { padding: 12px 16px; }
+  .holiday-overview-hero { padding: 4px 12px; margin-bottom: 10px; }
+  .holiday-months { gap: 10px; grid-auto-rows: minmax(0, 1fr); height: calc(100dvh - 132px); min-height: 480px; }
+  .holiday-month { padding: 9px 12px; border-radius: 10px; }
+  .holiday-month-heading h2 { font-size: 14px; }
+  .holiday-mini-calendar { font-size: 9px; line-height: clamp(10px, 1.55vh, 15px); margin: 5px 0 6px; }
+  .holiday-card { padding: 6px 9px; border-radius: 8px; }
+  .holiday-card-top, .holiday-observed { font-size: 9px; }
+  .holiday-card-name { margin-top: 3px; gap: 7px; }
+  .holiday-card h3 { font-size: 14px; }
+  .holiday-motif { font-size: 21px; }
+  .holiday-observed { margin-top: 3px; }
+  .holiday-quiet-month { padding: 3px 0; }
+}
+@media (min-width: 951px) and (max-width: 1250px) {
+  .holiday-months { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
