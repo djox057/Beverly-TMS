@@ -512,7 +512,7 @@ const Trips = () => {
   // Apply dispatch-only filter: keep only orders for drivers assigned to this dispatcher.
   // For all other roles, this is a no-op.
   const orders = useMemo(() => {
-    if (supervisorTeam.isSupervisor) return ordersRaw?.filter(supervisorTeam.includesOrder);
+    if (supervisorTeam.isSupervisor) return ordersRaw;
     if (!isDispatchOnly) return ordersRaw;
     if (!ordersRaw) return ordersRaw;
     const allowed = new Set(dispatchAssignedDriverIds || []);
