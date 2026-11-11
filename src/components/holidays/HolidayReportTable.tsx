@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowDownWideNarrow, Loader2, Maximize2, PaintBucket, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useHolidayTrucks } from '@/hooks/useHolidayTrucks';
+import { HOLIDAY_OFFICES, holidayOffice } from '@/lib/holidayOffices';
 import { cn } from '@/lib/utils';
 import { ROW_COLORS } from '@/components/dailyReport/DailyReportTable';
 import { TranslateNoteButton } from '@/components/TranslateNoteButton';
@@ -25,7 +26,7 @@ type TruckQuery = ReturnType<typeof useHolidayTrucks>;
 
 function HolidayRow({ initial, index, year, holidaySlug, truckQuery, remove, updateColor, updateTruck }: {
   initial: ReportRow; index: number; year: number; holidaySlug: string; truckQuery: TruckQuery;
-  updateTruck: (id: string, truck: string) => void; remove: (id: string) => void; updateColor: (id: string, color: string | null) => void;
+  updateTruck: (id: string, truck: string, note: string, color: string | null) => void; remove: (id: string) => void; updateColor: (id: string, color: string | null) => void;
 }) {
   const [value, setValue] = useState(initial);
   const latest = useRef(initial);
@@ -72,6 +73,7 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, remove, upd
           : await supabase.from('holiday_report_entries').insert({ id: initial.id, year, holiday_slug: holidaySlug, truck: snapshot.truck, note: snapshot.note, color: snapshot.color }).select('id').single();
         if (result.error) throw result.error;
         persisted.current = true;
+        updateTruck(initial.id, latest.current.truck, latest.current.note, latest.current.color);
         saved.current = snapshot;
         setStatus(same(latest.current, snapshot) ? 'saved' : 'dirty');
       } catch { setStatus('error'); }
@@ -102,7 +104,7 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, remove, upd
 
   return <tr className={cn('group hover:bg-muted/30', ROW_COLORS.find(color => color.value === value.color)?.bg)}>
     <td className="holiday-row-number">{index + 1}</td>
-    <td><HolidayTruckPicker value={value.truck} onChange={truck => { change({ truck }); updateTruck(initial.id, truck); save(); }} trucks={truckQuery.data ?? []} loading={truckQuery.isLoading} error={truckQuery.isError} retry={() => void truckQuery.refetch()} disabled={deleting} /></td>
+    <td><HolidayTruckPicker value={value.truck} onChange={truck => { change({ truck }); save(); }} trucks={truckQuery.data ?? []} loading={truckQuery.isLoading} error={truckQuery.isError} retry={() => void truckQuery.refetch()} disabled={deleting} /></td>
     <td className="holiday-driver-name">{truckQuery.data?.find(truck => truck.number === value.truck)?.driverName || '—'}</td>
     <td><div className="holiday-note-cell"><Input aria-label={`Note${value.truck ? ` for truck ${value.truck}` : ''}`} value={value.note} disabled={deleting} onChange={event => change({ note: event.target.value })} onBlur={save} maxLength={20000} />
       <button type="button" className="holiday-row-action holiday-expand-note" aria-label="Expand Note" title="Open Note" onClick={() => setNoteDraft(value.note)}><Maximize2 className="h-3.5 w-3.5" /></button>
@@ -153,14 +155,8 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
   }, [year, holidaySlug, attempt]);
   const renderedRows = sortByPriority ? [...rows].sort((a, b) => priority(a.color) - priority(b.color)) : rows;
 
-  const officeFor = (truck: string) => {
-    const office = truckQuery.data?.find(item => item.number === truck)?.dispatcherOffice ?? 'Other';
-    const normalized = office.toUpperCase();
-    if (normalized === 'ČAČAK' || normalized === 'CACAK') return 'Čačak';
-    if (normalized.includes('BG') || normalized.includes('BEOGRAD')) return 'BEOGRAD';
-    if (normalized === 'RECOVERY') return 'Recovery';
-    return normalized === 'KRAGUJEVAC' ? 'KRAGUJEVAC' : 'Other';
-  };
+  const officeFor = (truck: string) => holidayOffice(truckQuery.data?.find(item => item.number === truck)?.dispatcherOffice);
+  const offices = [...new Set([...HOLIDAY_OFFICES, ...(truckQuery.data ?? []).map(truck => holidayOffice(truck.dispatcherOffice))])];
   const visibleRows = renderedRows.filter(row => {
     const truck = truckQuery.data?.find(item => item.number === row.truck);
     return (!row.truck || activeOffice === 'All' || officeFor(row.truck) === activeOffice) && `${row.truck} ${truck?.driverName ?? ''} ${row.note}`.toLowerCase().includes(search.toLowerCase());
@@ -171,12 +167,21 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
     const group = (row: ReportRow) => truckQuery.data?.find(item => item.number === row.truck)?.dispatcherName || 'New notes';
     return group(a).localeCompare(group(b));
   });
+  const groups = new Map<string, ReportRow[]>();
+  for (const row of visibleRows) {
+    const dispatcher = truckQuery.data?.find(truck => truck.number === row.truck)?.dispatcherName || 'New notes';
+    groups.set(dispatcher, [...(groups.get(dispatcher) ?? []), row]);
+  }
   return <section className="holiday-report" aria-label="Holiday truck notes">
-    <div className="holiday-office-tabs">{['All', 'Čačak', 'KRAGUJEVAC', 'BEOGRAD', 'Recovery', 'Other'].map(office => <button type="button" key={office} aria-pressed={activeOffice === office} onClick={() => setActiveOffice(office)}>{office}</button>)}</div>
+    <div className="holiday-office-tabs">{['All', ...offices].map(office => <button type="button" key={office} aria-pressed={activeOffice === office} onClick={() => setActiveOffice(office)}>{office}</button>)}</div>
     <div className="holiday-notes-search"><Input aria-label="Search holiday notes" placeholder="Search by Truck # or Driver..." value={search} onChange={event => setSearch(event.target.value)} /></div>
     {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground" role="status"><Loader2 className="h-4 w-4 animate-spin" />Loading notes…</div>
       : loadError ? <div className="p-10 text-center" role="alert"><p className="text-sm text-destructive">Could not load holiday notes.</p><Button className="mt-3" variant="outline" onClick={() => setAttempt(value => value + 1)}>Try again</Button></div>
-      : <table><colgroup><col className="holiday-number-col" /><col className="holiday-truck-col" /><col className="holiday-driver-col" /><col /><col className="holiday-action-col" /><col className="holiday-action-col" /></colgroup><thead><tr><th scope="col">#</th><th scope="col">Truck#</th><th scope="col">Driver</th><th scope="col">Note</th><th scope="col"><button type="button" className="holiday-row-action" aria-label="Sort rows by color priority" aria-pressed={sortByPriority} title="Sort: red, orange, yellow, blue, green. Click again to restore original order." onClick={() => setSortByPriority(value => !value)}><ArrowDownWideNarrow className="h-3.5 w-3.5" /></button></th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead><tbody>{visibleRows.map((row, index) => <Fragment key={row.id}>{(index === 0 || (truckQuery.data?.find(item => item.number === visibleRows[index - 1].truck)?.dispatcherName ?? 'New notes') !== (truckQuery.data?.find(item => item.number === row.truck)?.dispatcherName ?? 'New notes')) && <tr className="holiday-dispatcher-heading"><td colSpan={6}>{truckQuery.data?.find(item => item.number === row.truck)?.dispatcherName || 'New notes'}</td></tr>}<HolidayRow key={row.id} initial={row} index={index} year={year} holidaySlug={holidaySlug} truckQuery={truckQuery} updateTruck={(id, truck) => setRows(current => current.map(item => item.id === id ? { ...item, truck } : item))} remove={id => setRows(current => current.filter(item => item.id !== id))} updateColor={(id, color) => setRows(current => current.map(item => item.id === id ? { ...item, color } : item))} /></Fragment>)}</tbody></table>}
+      : <div className="holiday-dispatcher-tables">{[...groups].map(([dispatcher, groupRows]) => <section key={dispatcher} className="holiday-dispatcher-section" aria-label={dispatcher}>
+        <h3 className="holiday-dispatcher-title">{dispatcher} <span>({groupRows.filter(row => row.truck).length} drivers)</span></h3>
+        <table><colgroup><col className="holiday-number-col" /><col className="holiday-truck-col" /><col className="holiday-driver-col" /><col /><col className="holiday-action-col" /><col className="holiday-action-col" /></colgroup><thead><tr><th scope="col">#</th><th scope="col">Truck#</th><th scope="col">Driver</th><th scope="col">Note</th><th scope="col"><button type="button" className="holiday-row-action" aria-label="Sort rows by color priority" aria-pressed={sortByPriority} title="Sort: red, orange, yellow, blue, green. Click again to restore original order." onClick={() => setSortByPriority(value => !value)}><ArrowDownWideNarrow className="h-3.5 w-3.5" /></button></th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead><tbody>{groupRows.map((row, index) => <HolidayRow key={row.id} initial={row} index={index} year={year} holidaySlug={holidaySlug} truckQuery={truckQuery} updateTruck={(id, truck, note, color) => setRows(current => current.map(item => item.id === id ? { ...item, truck, note, color, persisted: true } : item))} remove={id => setRows(current => current.filter(item => item.id !== id))} updateColor={(id, color) => setRows(current => current.map(item => item.id === id ? { ...item, color } : item))} />)}</tbody></table>
+      </section>)}</div>}
+
     <div className="holiday-report-footer"><Button type="button" variant="ghost" size="sm" className="h-7 text-xs" disabled={loading || loadError} onClick={() => setRows(current => [...current, blankRow()])}><Plus className="h-3.5 w-3.5 mr-1" />Add row</Button></div>
   </section>;
 }

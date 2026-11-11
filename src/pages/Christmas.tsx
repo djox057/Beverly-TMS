@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Search, Pencil } from "lucide-react";
 import { ChristmasNoteDialog } from "@/components/ChristmasNoteDialog";
 import { ChristmasDecorations } from "@/components/ChristmasDecorations";
-const OFFICE_ORDER = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
+import { HOLIDAY_OFFICES, holidayOffice } from '@/lib/holidayOffices';
+const OFFICE_ORDER = HOLIDAY_OFFICES;
 
 const Christmas = () => {
   const { christmasNotes, isLoading } = useChristmasNotes();
@@ -56,9 +57,8 @@ const Christmas = () => {
     groups["Other"] = {};
     
     filteredNotes.forEach(note => {
-      const office = note.dispatcher_office && OFFICE_ORDER.includes(note.dispatcher_office) 
-        ? note.dispatcher_office 
-        : "Other";
+      const normalized = holidayOffice(note.dispatcher_office);
+      const office = OFFICE_ORDER.includes(normalized) ? normalized : 'Other';
       const dispatcherName = note.dispatcher_name || "Unknown";
       
       if (!groups[office][dispatcherName]) {

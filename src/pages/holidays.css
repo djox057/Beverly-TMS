@@ -141,3 +141,10 @@
 .holiday-themed-decoration { position: absolute; right: 25px; bottom: 20px; font-size: 64px; opacity: .3; pointer-events: none; }
 @media(min-width: 951px) { .holiday-months { grid-template-columns: repeat(3,minmax(0,1fr)); height: auto; min-height: 0; grid-auto-rows: auto; } }
 @media(max-width: 560px) { .holiday-driver-col { width: 95px; } .holiday-office-tabs { flex-wrap: wrap; } }
+
+.holiday-dispatcher-tables { padding: 16px; display: grid; gap: 24px; }
+.holiday-dispatcher-section { min-width: 0; }
+.holiday-dispatcher-title { padding: 10px 16px; margin-bottom: 8px; border-left: 4px solid hsl(var(--primary)); background: hsl(var(--muted) / .5); border-radius: 6px 6px 0 0; font-size: 14px; font-weight: 600; }
+.holiday-dispatcher-title span { font-size: 12px; font-weight: 400; color: hsl(var(--muted-foreground)); }
+.holiday-dispatcher-section table { border: 1px solid hsl(var(--border)); }
+.holiday-office-tabs { flex-wrap: wrap; }
