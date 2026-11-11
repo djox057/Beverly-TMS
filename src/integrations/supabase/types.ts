@@ -1054,6 +1054,7 @@ export type Database = {
       }
       holiday_report_entries: {
         Row: {
+          color: string | null
           id: string
           year: number
           holiday_slug: string
@@ -1062,6 +1063,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
+          color?: string | null
           id?: string
           year: number
           holiday_slug: string
@@ -1070,6 +1072,7 @@ export type Database = {
           created_at?: string
         }
         Update: {
+          color?: string | null
           id?: string
           year?: number
           holiday_slug?: string
