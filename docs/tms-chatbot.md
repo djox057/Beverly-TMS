@@ -12,7 +12,7 @@ Read-only, opt-in staff assistant for drivers, trucks, trailers, companies, indi
 
 ## Security boundary
 
-Gemini receives only the current question, current record type/UUID, fixed task/field definitions, and generic translation instructions. FAQ answers, private record results and file contents are never sent. It receives no retrieved record values, financial amounts, files, signed URLs, account credentials, or conversation transcript. User-supplied messages may themselves contain personal information; staff should not paste secrets.
+Gemini receives the current question, up to six recent user questions (500 characters each, oldest first), current record type/UUID, fixed task/field definitions, and generic translation instructions. Restricted prior questions are omitted. Recent questions resolve follow-ups and omitted identifiers/document types; the latest question and current record context take precedence. Clear chat and account/access changes reset this in-memory history. FAQ answers, private record results and file contents are never sent. It receives no retrieved record values, financial amounts, files, signed URLs, account credentials, or assistant response transcript. User-supplied messages may themselves contain personal information; staff should not paste secrets.
 
 The server selects named fields for each finite tool. There is no model-generated SQL, table name, column expression, arbitrary HTTP request, dynamic RPC, or arbitrary model answer. Driver salaries/CPM, dispatcher profile percentages, payroll, performance, bank details, secrets and all internal notes/comments are absent from these projections. Company details use JSON-path projections for MC/DOT/phone/address rather than fetching the credentials JSON.
 
@@ -29,7 +29,7 @@ All requests are authenticated POSTs to `/functions/v1/tms-chatbot`.
 | Action | Input | Scope and output |
 | --- | --- | --- |
 | `access` | none | Current user's enabled state and actual admin status |
-| `chat` | message, optional context/selection | Finite lookup; approved facts, choices, file metadata, links, manual steps |
+| `chat` | message, optional history/context/selection | Finite lookup; approved facts, choices, file metadata, links, manual steps |
 | `file` | kind, recordId, fileId, download | Reauthorized 60-second document URL |
 | `review_files` | kind, query | Admin only; bounded metadata for one resolved record |
 | `review_file` | kind, fileId, allowed | Admin only; record explicit allow/hide review |
@@ -45,7 +45,7 @@ All requests are authenticated POSTs to `/functions/v1/tms-chatbot`.
 
 ## Speed, cache, and monitoring
 
-Intent/localization cache uses a SHA-256 key scoped to user/message/context, five-minute TTL, at most 300 entries per warm function instance. There is no persistent message or private result cache. Record/file/FAQ data is fetched fresh; permission changes and file replacement do not wait for cached answers to expire. Static prompt prefix allows provider implicit caching when eligible; there is no paid explicit cache allocation.
+Intent/localization cache uses a SHA-256 key scoped to user/message/context/history, five-minute TTL, at most 300 entries per warm function instance. There is no persistent message or private result cache. Record/file/FAQ data is fetched fresh; permission changes and file replacement do not wait for cached answers to expire. Static prompt prefix allows provider implicit caching when eligible; there is no paid explicit cache allocation.
 
 Request counters are atomic and service-role-only: 30 requests/minute and 400/day per user, including file actions. Logs contain only model/version, token/cache usage, provider latency, and generic failure type. They omit user IDs, messages, record data, file data, tokens and URLs. Inspect `chatbot_usage` events to validate real latency and cost before widening access. The 1–3 second target is not a measured guarantee.
 
