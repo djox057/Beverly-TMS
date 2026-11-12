@@ -68,9 +68,45 @@ it('persists a new bonus and keeps it when the row is filtered out and back', as
   render(<HolidayReportTable year={2026} holidaySlug="christmas" />);
   const bonus = await screen.findByRole('combobox', { name: 'Bonus for truck 03212' });
   fireEvent.change(bonus, { target: { value: 'yes' } });
-  await waitFor(() => expect(api.calls.find(call => call.action === 'insert')?.payload).toMatchObject({ bonus: true }));
+  expect(api.calls.filter(call => call.action !== 'select')).toHaveLength(0);
+  fireEvent.change(screen.getByRole('textbox', { name: 'Bonus amount', exact: true }), { target: { value: '100' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+  await waitFor(() => expect(api.calls.find(call => call.action === 'insert')?.payload).toMatchObject({ bonus: true, bonus_amount: 100 }));
   const search = screen.getByRole('textbox', { name: 'Search holiday notes' });
   fireEvent.change(search, { target: { value: 'missing' } });
   fireEvent.change(search, { target: { value: '' } });
   expect(screen.getByRole('combobox', { name: 'Bonus for truck 03212' })).toHaveValue('yes');
+});
+
+it.each(['admin', 'manager', 'accounting', 'supervisor', 'dispatch'])('limits amount editing for %s and disables amounts for No', async role => {
+  auth.role = role;
+  api.load.mockResolvedValue({ data: [{ id: 'a', truck: '03212', note: '', bonus: true, bonus_amount: 100 }], error: null });
+  render(<HolidayReportTable year={2026} holidaySlug="christmas" />);
+  const amount = await screen.findByRole('button', { name: 'Bonus amount for truck 03212' });
+  expect(amount).toHaveTextContent('$100');
+  expect(screen.getByRole('button', { name: 'Bonus amount for truck 3212' })).toBeDisabled();
+  if (['admin', 'manager', 'accounting'].includes(role)) {
+    expect(amount).toBeEnabled();
+    fireEvent.click(amount);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Bonus amount', exact: true }), { target: { value: '125.50' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    await waitFor(() => expect(api.calls.find(call => call.action === 'update')?.payload).toEqual({ bonus_amount: 125.5 }));
+  } else expect(amount).toBeDisabled();
+});
+it('cancels a new bonus, validates the amount, and clears the amount when set to No', async () => {
+  render(<HolidayReportTable year={2026} holidaySlug="christmas" />);
+  const bonus = await screen.findByRole('combobox', { name: 'Bonus for truck 03212' });
+  fireEvent.change(bonus, { target: { value: 'yes' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(bonus).toHaveValue('no');
+  expect(api.calls.filter(call => call.action !== 'select')).toHaveLength(0);
+  fireEvent.change(bonus, { target: { value: 'yes' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+  expect(screen.getByRole('alert')).toHaveTextContent('Enter a positive amount');
+  fireEvent.change(screen.getByRole('textbox', { name: 'Bonus amount', exact: true }), { target: { value: '100' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+  await waitFor(() => expect(api.calls.find(call => call.action === 'insert')?.payload).toMatchObject({ bonus: true, bonus_amount: 100 }));
+  fireEvent.change(bonus, { target: { value: 'no' } });
+  await waitFor(() => expect(api.calls.find(call => call.action === 'update')?.payload).toEqual({ bonus: false, bonus_amount: null }));
+  expect(screen.getByRole('button', { name: 'Bonus amount for truck 03212' })).toBeDisabled();
 });

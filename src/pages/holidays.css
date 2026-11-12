@@ -71,7 +71,7 @@
 .holiday-report th, .holiday-report td { border-right: 1px solid hsl(var(--border)); }
 .holiday-report th:last-child, .holiday-report td:last-child { border-right: 0; }
 .holiday-report th:first-child { text-align: center; padding: 4px; }
-.holiday-report th:nth-last-child(-n+2) { padding: 0; }
+.holiday-report th:nth-last-child(-n+3) { padding: 0; }
 .holiday-report td { border-bottom: 1px solid hsl(var(--border)); vertical-align: top; padding: 0; }
 .holiday-row-number { text-align: center; font-size: 12px; font-weight: 300; line-height: 32px; color: hsl(var(--foreground) / .8); }
 .holiday-truck-cell { display: flex; align-items: center; height: 32px; padding: 0 4px; gap: 2px; }
@@ -156,3 +156,8 @@
 .holiday-bonus-cell select { width: 100%; height: 32px; padding: 0 8px; background: transparent; font-size: 12px; }
 .holiday-bonus-cell select option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
 .holiday-bonus-cell select:disabled { opacity: 1; appearance: none; }
+
+.holiday-amount-col { width: 90px; }
+.holiday-amount-cell button { width: 100%; height: 32px; padding: 0 6px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.holiday-amount-cell button:disabled { cursor: default; }
+.holiday-amount-cell button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -2px; }

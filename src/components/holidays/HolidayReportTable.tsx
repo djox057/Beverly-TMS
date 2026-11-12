@@ -17,22 +17,23 @@ import { HolidayTruckPicker } from './HolidayTruckPicker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-interface ReportRow { id: string; truck: string; note: string; color: string | null; bonus: boolean; persisted: boolean }
+interface ReportRow { id: string; truck: string; note: string; color: string | null; bonus: boolean; bonus_amount: number | null; persisted: boolean }
 const priority = (color: string | null) => {
   const index = ['driving', 'not_driving'].indexOf(color ?? '');
   return index < 0 ? 5 : index;
 };
-const same = (a: ReportRow, b: ReportRow) => a.truck === b.truck && a.note === b.note && a.color === b.color && a.bonus === b.bonus;
+const same = (a: ReportRow, b: ReportRow) => a.truck === b.truck && a.note === b.note && a.color === b.color && a.bonus === b.bonus && a.bonus_amount === b.bonus_amount;
 type TruckQuery = ReturnType<typeof useHolidayTrucks>;
 
 function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor, updateTruck }: {
   initial: ReportRow; index: number; year: number; holidaySlug: string; truckQuery: TruckQuery;
-  updateTruck: (id: string, truck: string, note: string, color: string | null, bonus: boolean) => void; updateColor: (id: string, color: string | null) => void;
+  updateTruck: (id: string, truck: string, note: string, color: string | null, bonus: boolean, bonus_amount: number | null) => void; updateColor: (id: string, color: string | null) => void;
 }) {
   const { getPrimaryRole } = useAuthContext();
   const role = getPrimaryRole();
   const canEdit = ['admin', 'manager', 'supervisor', 'dispatch'].includes(role ?? '');
   const canEditBonus = role === 'admin' || role === 'manager';
+  const canEditAmount = canEditBonus || role === 'accounting';
   const [value, setValue] = useState(initial);
   const latest = useRef(initial);
   const saved = useRef(initial);
@@ -42,6 +43,8 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor
   const deleting = false;
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
   const [colorOpen, setColorOpen] = useState(false);
+  const [amountDraft, setAmountDraft] = useState<string | null>(null);
+  const [amountError, setAmountError] = useState('');
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -51,7 +54,7 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor
     return () => window.removeEventListener('beforeunload', warn);
   }, []);
 
-  const change = (patch: Partial<Pick<ReportRow, 'truck' | 'note' | 'color' | 'bonus'>>) => {
+  const change = (patch: Partial<Pick<ReportRow, 'truck' | 'note' | 'color' | 'bonus' | 'bonus_amount'>>) => {
     const next = { ...latest.current, ...patch };
     latest.current = next;
     setValue(next);
@@ -59,14 +62,15 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor
   };
 
   const save = () => {
-    if (!canEdit) return;
+    if (!canEdit && !canEditAmount) return;
     const snapshot = { ...latest.current };
     queue.current = queue.current.then(async () => {
-      const patch: { truck?: string; note?: string; color?: string | null; bonus?: boolean } = {};
-      if (snapshot.truck !== saved.current.truck) patch.truck = snapshot.truck;
-      if (snapshot.note !== saved.current.note) patch.note = snapshot.note;
-      if (snapshot.color !== saved.current.color) patch.color = snapshot.color;
+      const patch: { truck?: string; note?: string; color?: string | null; bonus?: boolean; bonus_amount?: number | null } = {};
+      if (canEdit && snapshot.truck !== saved.current.truck) patch.truck = snapshot.truck;
+      if (canEdit && snapshot.note !== saved.current.note) patch.note = snapshot.note;
+      if (canEdit && snapshot.color !== saved.current.color) patch.color = snapshot.color;
       if (canEditBonus && snapshot.bonus !== saved.current.bonus) patch.bonus = snapshot.bonus;
+      if (canEditAmount && snapshot.bonus_amount !== saved.current.bonus_amount) patch.bonus_amount = snapshot.bonus_amount;
       if (!Object.keys(patch).length || (!persisted.current && !snapshot.truck.trim() && !snapshot.note.trim() && !snapshot.color)) {
         if (same(latest.current, snapshot)) setStatus('saved');
         return;
@@ -75,10 +79,10 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor
       try {
         const result = persisted.current
           ? await supabase.from('holiday_report_entries').update(patch).eq('id', initial.id).eq('year', year).eq('holiday_slug', holidaySlug).select('id').single()
-          : await supabase.from('holiday_report_entries').insert({ id: initial.id, year, holiday_slug: holidaySlug, truck: snapshot.truck, note: snapshot.note, color: snapshot.color, ...(canEditBonus ? { bonus: snapshot.bonus } : {}) }).select('id').single();
+          : await supabase.from('holiday_report_entries').insert({ id: initial.id, year, holiday_slug: holidaySlug, truck: snapshot.truck, note: snapshot.note, color: snapshot.color, ...(canEditBonus ? { bonus: snapshot.bonus, bonus_amount: snapshot.bonus_amount } : {}) }).select('id').single();
         if (result.error) throw result.error;
         persisted.current = true;
-        updateTruck(initial.id, latest.current.truck, latest.current.note, latest.current.color, latest.current.bonus);
+        updateTruck(initial.id, latest.current.truck, latest.current.note, latest.current.color, latest.current.bonus, latest.current.bonus_amount);
         saved.current = snapshot;
         setStatus(same(latest.current, snapshot) ? 'saved' : 'dirty');
       } catch { setStatus('error'); }
@@ -104,10 +108,27 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor
       {ROW_COLORS.map(color => <button type="button" key={color.value} onClick={() => setColor(color.value)} className={cn('w-full flex items-center gap-2 px-2 py-1 rounded hover:bg-muted', value.color === color.value && 'bg-muted')}><span className={cn('h-3 w-3 rounded-sm', color.swatch)} />{color.label}</button>)}
       {value.color && <button type="button" onClick={() => setColor(null)} className="w-full text-left px-2 py-1 mt-1 border-t border-border text-muted-foreground">Clear status</button>}
     </PopoverContent></Popover></td>
-    <td className="holiday-bonus-cell"><select aria-label={`Bonus for truck ${value.truck}`} value={value.bonus ? 'yes' : 'no'} disabled={!canEditBonus} onChange={event => { if (!canEditBonus) return; change({ bonus: event.target.value === 'yes' }); save(); }}><option value="no">No</option><option value="yes">Yes</option></select>
+    <td className="holiday-bonus-cell"><select aria-label={`Bonus for truck ${value.truck}`} value={value.bonus ? 'yes' : 'no'} disabled={!canEditBonus} onChange={event => { if (!canEditBonus) return; if (event.target.value === 'yes') { setAmountError(''); setAmountDraft(value.bonus_amount?.toString() ?? ''); } else { change({ bonus: false, bonus_amount: null }); save(); } }}><option value="no">No</option><option value="yes">Yes</option></select>
       <Dialog open={noteDraft !== null} onOpenChange={open => { if (!open) setNoteDraft(null); }}><DialogContent className="max-w-lg" aria-describedby={undefined}><DialogHeader><DialogTitle>Note{value.truck ? ` — Truck #${value.truck}` : ''}</DialogTitle></DialogHeader>
         <Textarea readOnly={!canEdit} aria-label="Expanded note" rows={10} maxLength={20000} value={noteDraft ?? ''} onChange={event => setNoteDraft(event.target.value)} />
         <DialogFooter>{canEdit && <TranslateNoteButton text={noteDraft ?? ''} onReplace={setNoteDraft} />}<Button variant="outline" onClick={() => setNoteDraft(null)}>Cancel</Button><Button disabled={!canEdit} onClick={() => { change({ note: noteDraft ?? '' }); setNoteDraft(null); save(); }}>Save</Button></DialogFooter>
+      </DialogContent></Dialog>
+    </td>
+    <td className="holiday-amount-cell"><button type="button" aria-label={`Bonus amount for truck ${value.truck}`} disabled={!canEditAmount || !value.bonus} onClick={() => { setAmountError(''); setAmountDraft(value.bonus_amount?.toString() ?? ''); }}>{value.bonus_amount == null ? '—' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2, minimumFractionDigits: 0 }).format(value.bonus_amount)}</button>
+      <Dialog open={amountDraft !== null} onOpenChange={open => { if (!open) setAmountDraft(null); }}><DialogContent className="max-w-sm" aria-describedby={undefined}><DialogHeader><DialogTitle>Bonus amount — Truck #{value.truck}</DialogTitle></DialogHeader>
+        <form onSubmit={event => {
+          event.preventDefault();
+          if (!canEditAmount || (!value.bonus && !canEditBonus)) return;
+          const draft = amountDraft?.trim() ?? '';
+          const amount = Number(draft);
+          if (!/^\d+(\.\d{1,2})?$/.test(draft) || !Number.isFinite(amount) || amount <= 0 || amount > 9999999.99) { setAmountError('Enter a positive amount with up to 2 decimal places.'); return; }
+          change({ ...(canEditBonus ? { bonus: true } : {}), bonus_amount: amount }); setAmountDraft(null); save();
+        }}>
+          <label htmlFor={`holiday-amount-${initial.id}`} className="text-sm">Amount ($)</label>
+          <Input id={`holiday-amount-${initial.id}`} aria-label="Bonus amount" autoFocus inputMode="decimal" value={amountDraft ?? ''} onChange={event => setAmountDraft(event.target.value)} placeholder="100" />
+          {amountError && <p role="alert" className="text-sm text-destructive mt-2">{amountError}</p>}
+          <DialogFooter className="mt-4"><Button type="button" variant="outline" onClick={() => setAmountDraft(null)}>Cancel</Button><Button type="submit">Save</Button></DialogFooter>
+        </form>
       </DialogContent></Dialog>
     </td>
   </tr>;
@@ -134,10 +155,10 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
     const load = async () => {
       const loaded: ReportRow[] = [];
       for (let offset = 0; ; offset += 500) {
-        const { data, error } = await supabase.from('holiday_report_entries').select('id,truck,note,color,bonus').eq('year', year).eq('holiday_slug', holidaySlug).order('created_at').order('id').range(offset, offset + 499);
+        const { data, error } = await supabase.from('holiday_report_entries').select('id,truck,note,color,bonus,bonus_amount').eq('year', year).eq('holiday_slug', holidaySlug).order('created_at').order('id').range(offset, offset + 499);
         if (cancelled) return;
         if (error) { setLoadError(true); setLoading(false); return; }
-        loaded.push(...data.map(row => ({ ...row, color: row.color ?? null, bonus: row.bonus ?? false, persisted: true })));
+        loaded.push(...data.map(row => ({ ...row, color: row.color ?? null, bonus: row.bonus ?? false, bonus_amount: row.bonus_amount ?? null, persisted: true })));
         if (data.length < 500) break;
       }
       setRows(truckQuery.data.map(truck => {
@@ -145,7 +166,7 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
         const first = existing[0];
         const notes = [...new Set(existing.map(row => row.note).filter(Boolean))];
         const note = notes.reduce((text, next) => text.includes(next) ? text : text ? `${text}\n\n${next}` : next, '');
-        return { id: first?.id ?? crypto.randomUUID(), truck: truck.number, note, color: first?.color ?? null, bonus: first?.bonus ?? false, persisted: !!first };
+        return { id: first?.id ?? crypto.randomUUID(), truck: truck.number, note, color: first?.color ?? null, bonus: first?.bonus ?? false, bonus_amount: first?.bonus_amount ?? null, persisted: !!first };
       }));
       loadedScope.current = scope;
       setLoading(false);
@@ -199,7 +220,7 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
       : loadError ? <div className="p-10 text-center" role="alert"><p className="text-sm text-destructive">Could not load holiday notes.</p><Button className="mt-3" variant="outline" onClick={() => setAttempt(value => value + 1)}>Try again</Button></div>
       : <div className="holiday-dispatcher-tables">{[...groups].map(([dispatcher, groupRows]) => <section key={dispatcher} className="holiday-dispatcher-section" aria-label={dispatcher}>
         <h3 className="holiday-dispatcher-title">{dispatcher} <span>({groupRows.filter(row => row.truck).length} drivers)</span></h3>
-        <table><colgroup><col className="holiday-number-col" /><col className="holiday-truck-col" /><col className="holiday-driver-col" /><col /><col className="holiday-action-col" /><col className="holiday-bonus-col" /></colgroup><thead><tr><th scope="col">#</th><th scope="col">Truck#</th><th scope="col">Driver</th><th scope="col">Note</th><th scope="col"><button type="button" className="holiday-row-action" aria-label="Sort rows by color priority" aria-pressed={sortByPriority} title="Sort by Driving / Not Driving. Click again to restore original order." onClick={() => setSortByPriority(value => !value)}><ArrowDownWideNarrow className="h-3.5 w-3.5" /></button></th><th scope="col" style={{ textAlign: 'center' }}>Bonus</th></tr></thead><tbody>{groupRows.map((row, index) => <HolidayRow key={row.id} initial={row} index={index} year={year} holidaySlug={holidaySlug} truckQuery={truckQuery} updateTruck={(id, truck, note, color, bonus) => setRows(current => current.map(item => item.id === id ? { ...item, truck, note, color, bonus, persisted: true } : item))} updateColor={(id, color) => setRows(current => current.map(item => item.id === id ? { ...item, color } : item))} />)}</tbody></table>
+        <table><colgroup><col className="holiday-number-col" /><col className="holiday-truck-col" /><col className="holiday-driver-col" /><col /><col className="holiday-action-col" /><col className="holiday-bonus-col" /><col className="holiday-amount-col" /></colgroup><thead><tr><th scope="col">#</th><th scope="col">Truck#</th><th scope="col">Driver</th><th scope="col">Note</th><th scope="col"><button type="button" className="holiday-row-action" aria-label="Sort rows by color priority" aria-pressed={sortByPriority} title="Sort by Driving / Not Driving. Click again to restore original order." onClick={() => setSortByPriority(value => !value)}><ArrowDownWideNarrow className="h-3.5 w-3.5" /></button></th><th scope="col" style={{ textAlign: 'center' }}>Bonus</th><th scope="col" style={{ textAlign: 'center' }}>Amount</th></tr></thead><tbody>{groupRows.map((row, index) => <HolidayRow key={row.id} initial={row} index={index} year={year} holidaySlug={holidaySlug} truckQuery={truckQuery} updateTruck={(id, truck, note, color, bonus, bonus_amount) => setRows(current => current.map(item => item.id === id ? { ...item, truck, note, color, bonus, bonus_amount, persisted: true } : item))} updateColor={(id, color) => setRows(current => current.map(item => item.id === id ? { ...item, color } : item))} />)}</tbody></table>
       </section>)}</div>}
 
 

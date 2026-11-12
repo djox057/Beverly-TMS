@@ -29,9 +29,10 @@ begin
     insert into public.holiday_report_entries(year,holiday_slug,truck,note) values(2099,'christmas',actor.truck,'holiday-permission-test');
    exception when insufficient_privilege then denied := true; end;
    if not denied then raise exception 'Accounting can insert'; end if;
-   update public.holiday_report_entries set note=note where truck=actor.truck;
-   get diagnostics affected=row_count;
-   if affected<>0 then raise exception 'Accounting can update'; end if;
+   denied := false;
+   begin update public.holiday_report_entries set note='forbidden-accounting-note' where truck=actor.truck;
+   exception when insufficient_privilege then denied := true; end;
+   if not denied then raise exception 'Accounting can edit notes'; end if;
    delete from public.holiday_report_entries where truck=actor.truck;
    get diagnostics affected=row_count;
    if affected<>0 then raise exception 'Accounting can delete'; end if;
@@ -56,5 +57,5 @@ begin
  end loop;
 end $$;
 reset role;
-select 'Passed: Accounting full read-only; admin/manager Bonus edits; dispatch/supervisor Bonus denied' result;
+select 'Passed: Accounting read access with protected notes; admin/manager Bonus edits; dispatch/supervisor Bonus denied' result;
 rollback;
