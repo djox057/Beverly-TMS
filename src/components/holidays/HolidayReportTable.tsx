@@ -1,3 +1,4 @@
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDownWideNarrow, Loader2, Maximize2, PaintBucket } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,18 +17,22 @@ import { HolidayTruckPicker } from './HolidayTruckPicker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-interface ReportRow { id: string; truck: string; note: string; color: string | null; persisted: boolean }
+interface ReportRow { id: string; truck: string; note: string; color: string | null; bonus: boolean; persisted: boolean }
 const priority = (color: string | null) => {
   const index = ['driving', 'not_driving'].indexOf(color ?? '');
   return index < 0 ? 5 : index;
 };
-const same = (a: ReportRow, b: ReportRow) => a.truck === b.truck && a.note === b.note && a.color === b.color;
+const same = (a: ReportRow, b: ReportRow) => a.truck === b.truck && a.note === b.note && a.color === b.color && a.bonus === b.bonus;
 type TruckQuery = ReturnType<typeof useHolidayTrucks>;
 
 function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor, updateTruck }: {
   initial: ReportRow; index: number; year: number; holidaySlug: string; truckQuery: TruckQuery;
-  updateTruck: (id: string, truck: string, note: string, color: string | null) => void; updateColor: (id: string, color: string | null) => void;
+  updateTruck: (id: string, truck: string, note: string, color: string | null, bonus: boolean) => void; updateColor: (id: string, color: string | null) => void;
 }) {
+  const { getPrimaryRole } = useAuthContext();
+  const role = getPrimaryRole();
+  const canEdit = ['admin', 'manager', 'supervisor', 'dispatch'].includes(role ?? '');
+  const canEditBonus = role === 'admin' || role === 'manager';
   const [value, setValue] = useState(initial);
   const latest = useRef(initial);
   const saved = useRef(initial);
@@ -46,7 +51,7 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor
     return () => window.removeEventListener('beforeunload', warn);
   }, []);
 
-  const change = (patch: Partial<Pick<ReportRow, 'truck' | 'note' | 'color'>>) => {
+  const change = (patch: Partial<Pick<ReportRow, 'truck' | 'note' | 'color' | 'bonus'>>) => {
     const next = { ...latest.current, ...patch };
     latest.current = next;
     setValue(next);
@@ -54,12 +59,14 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor
   };
 
   const save = () => {
+    if (!canEdit) return;
     const snapshot = { ...latest.current };
     queue.current = queue.current.then(async () => {
-      const patch: { truck?: string; note?: string; color?: string | null } = {};
+      const patch: { truck?: string; note?: string; color?: string | null; bonus?: boolean } = {};
       if (snapshot.truck !== saved.current.truck) patch.truck = snapshot.truck;
       if (snapshot.note !== saved.current.note) patch.note = snapshot.note;
       if (snapshot.color !== saved.current.color) patch.color = snapshot.color;
+      if (canEditBonus && snapshot.bonus !== saved.current.bonus) patch.bonus = snapshot.bonus;
       if (!Object.keys(patch).length || (!persisted.current && !snapshot.truck.trim() && !snapshot.note.trim() && !snapshot.color)) {
         if (same(latest.current, snapshot)) setStatus('saved');
         return;
@@ -68,10 +75,10 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor
       try {
         const result = persisted.current
           ? await supabase.from('holiday_report_entries').update(patch).eq('id', initial.id).eq('year', year).eq('holiday_slug', holidaySlug).select('id').single()
-          : await supabase.from('holiday_report_entries').insert({ id: initial.id, year, holiday_slug: holidaySlug, truck: snapshot.truck, note: snapshot.note, color: snapshot.color }).select('id').single();
+          : await supabase.from('holiday_report_entries').insert({ id: initial.id, year, holiday_slug: holidaySlug, truck: snapshot.truck, note: snapshot.note, color: snapshot.color, ...(canEditBonus ? { bonus: snapshot.bonus } : {}) }).select('id').single();
         if (result.error) throw result.error;
         persisted.current = true;
-        updateTruck(initial.id, latest.current.truck, latest.current.note, latest.current.color);
+        updateTruck(initial.id, latest.current.truck, latest.current.note, latest.current.color, latest.current.bonus);
         saved.current = snapshot;
         setStatus(same(latest.current, snapshot) ? 'saved' : 'dirty');
       } catch { setStatus('error'); }
@@ -88,19 +95,20 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor
     <td className="holiday-row-number">{index + 1}</td>
     <td><HolidayTruckPicker value={value.truck} onChange={truck => { change({ truck }); save(); }} trucks={truckQuery.data ?? []} loading={truckQuery.isLoading} error={truckQuery.isError} retry={() => void truckQuery.refetch()} disabled={true} /></td>
     <td className="holiday-driver-name">{truckQuery.data?.find(truck => truck.number === value.truck)?.driverName || '—'}</td>
-    <td><div className="holiday-note-cell"><Input aria-label={`Note${value.truck ? ` for truck ${value.truck}` : ''}`} value={value.note} disabled={deleting} onChange={event => change({ note: event.target.value })} onBlur={save} maxLength={20000} />
+    <td><div className="holiday-note-cell"><Input aria-label={`Note${value.truck ? ` for truck ${value.truck}` : ''}`} value={value.note} disabled={deleting || !canEdit} onChange={event => change({ note: event.target.value })} onBlur={save} maxLength={20000} />
       <button type="button" className="holiday-row-action holiday-expand-note" aria-label="Expand Note" title="Open Note" onClick={() => setNoteDraft(value.note)}><Maximize2 className="h-3.5 w-3.5" /></button>
     </div>
       {status !== 'saved' && <div className="holiday-row-state" role="status">{status === 'saving' ? <><Loader2 className="h-3 w-3 animate-spin" />Saving…</> : status === 'error' ? <><span>Could not save.</span><button type="button" onClick={save}>Retry save</button></> : 'Unsaved changes'}</div>}
     </td>
-    <td className="holiday-action-cell"><Popover open={colorOpen} onOpenChange={setColorOpen}><PopoverTrigger asChild><button type="button" className="holiday-row-action" aria-label="Driving status" disabled={deleting}><PaintBucket className="h-3.5 w-3.5" /></button></PopoverTrigger><PopoverContent className="w-44 p-2 text-xs" align="end">
+    <td className="holiday-action-cell"><Popover open={colorOpen} onOpenChange={setColorOpen}><PopoverTrigger asChild><button type="button" className="holiday-row-action" aria-label="Driving status" disabled={deleting || !canEdit}><PaintBucket className="h-3.5 w-3.5" /></button></PopoverTrigger><PopoverContent className="w-44 p-2 text-xs" align="end">
       {ROW_COLORS.map(color => <button type="button" key={color.value} onClick={() => setColor(color.value)} className={cn('w-full flex items-center gap-2 px-2 py-1 rounded hover:bg-muted', value.color === color.value && 'bg-muted')}><span className={cn('h-3 w-3 rounded-sm', color.swatch)} />{color.label}</button>)}
       {value.color && <button type="button" onClick={() => setColor(null)} className="w-full text-left px-2 py-1 mt-1 border-t border-border text-muted-foreground">Clear status</button>}
     </PopoverContent></Popover></td>
+    <td className="holiday-bonus-cell"><select aria-label={`Bonus for truck ${value.truck}`} value={value.bonus ? 'yes' : 'no'} disabled={!canEditBonus} onChange={event => { if (!canEditBonus) return; change({ bonus: event.target.value === 'yes' }); save(); }}><option value="no">No</option><option value="yes">Yes</option></select></td>
     <td className="holiday-action-cell">
       <Dialog open={noteDraft !== null} onOpenChange={open => { if (!open) setNoteDraft(null); }}><DialogContent className="max-w-lg" aria-describedby={undefined}><DialogHeader><DialogTitle>Note{value.truck ? ` — Truck #${value.truck}` : ''}</DialogTitle></DialogHeader>
-        <Textarea aria-label="Expanded note" rows={10} maxLength={20000} value={noteDraft ?? ''} onChange={event => setNoteDraft(event.target.value)} />
-        <DialogFooter><TranslateNoteButton text={noteDraft ?? ''} onReplace={setNoteDraft} /><Button variant="outline" onClick={() => setNoteDraft(null)}>Cancel</Button><Button onClick={() => { change({ note: noteDraft ?? '' }); setNoteDraft(null); save(); }}>Save</Button></DialogFooter>
+        <Textarea readOnly={!canEdit} aria-label="Expanded note" rows={10} maxLength={20000} value={noteDraft ?? ''} onChange={event => setNoteDraft(event.target.value)} />
+        <DialogFooter>{canEdit && <TranslateNoteButton text={noteDraft ?? ''} onReplace={setNoteDraft} />}<Button variant="outline" onClick={() => setNoteDraft(null)}>Cancel</Button><Button disabled={!canEdit} onClick={() => { change({ note: noteDraft ?? '' }); setNoteDraft(null); save(); }}>Save</Button></DialogFooter>
       </DialogContent></Dialog>
     </td>
   </tr>;
@@ -126,10 +134,10 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
     const load = async () => {
       const loaded: ReportRow[] = [];
       for (let offset = 0; ; offset += 500) {
-        const { data, error } = await supabase.from('holiday_report_entries').select('id,truck,note,color').eq('year', year).eq('holiday_slug', holidaySlug).order('created_at').order('id').range(offset, offset + 499);
+        const { data, error } = await supabase.from('holiday_report_entries').select('id,truck,note,color,bonus').eq('year', year).eq('holiday_slug', holidaySlug).order('created_at').order('id').range(offset, offset + 499);
         if (cancelled) return;
         if (error) { setLoadError(true); setLoading(false); return; }
-        loaded.push(...data.map(row => ({ ...row, color: row.color ?? null, persisted: true })));
+        loaded.push(...data.map(row => ({ ...row, color: row.color ?? null, bonus: row.bonus ?? false, persisted: true })));
         if (data.length < 500) break;
       }
       setRows(truckQuery.data.map(truck => {
@@ -137,7 +145,7 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
         const first = existing[0];
         const notes = [...new Set(existing.map(row => row.note).filter(Boolean))];
         const note = notes.reduce((text, next) => text.includes(next) ? text : text ? `${text}\n\n${next}` : next, '');
-        return { id: first?.id ?? crypto.randomUUID(), truck: truck.number, note, color: first?.color ?? null, persisted: !!first };
+        return { id: first?.id ?? crypto.randomUUID(), truck: truck.number, note, color: first?.color ?? null, bonus: first?.bonus ?? false, persisted: !!first };
       }));
       loadedScope.current = scope;
       setLoading(false);
@@ -190,7 +198,7 @@ export function HolidayReportTable({ year, holidaySlug }: { year: number; holida
       : loadError ? <div className="p-10 text-center" role="alert"><p className="text-sm text-destructive">Could not load holiday notes.</p><Button className="mt-3" variant="outline" onClick={() => setAttempt(value => value + 1)}>Try again</Button></div>
       : <div className="holiday-dispatcher-tables">{[...groups].map(([dispatcher, groupRows]) => <section key={dispatcher} className="holiday-dispatcher-section" aria-label={dispatcher}>
         <h3 className="holiday-dispatcher-title">{dispatcher} <span>({groupRows.filter(row => row.truck).length} drivers)</span></h3>
-        <table><colgroup><col className="holiday-number-col" /><col className="holiday-truck-col" /><col className="holiday-driver-col" /><col /><col className="holiday-action-col" /><col className="holiday-action-col" /></colgroup><thead><tr><th scope="col">#</th><th scope="col">Truck#</th><th scope="col">Driver</th><th scope="col">Note</th><th scope="col"><button type="button" className="holiday-row-action" aria-label="Sort rows by color priority" aria-pressed={sortByPriority} title="Sort by Driving / Not Driving. Click again to restore original order." onClick={() => setSortByPriority(value => !value)}><ArrowDownWideNarrow className="h-3.5 w-3.5" /></button></th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead><tbody>{groupRows.map((row, index) => <HolidayRow key={row.id} initial={row} index={index} year={year} holidaySlug={holidaySlug} truckQuery={truckQuery} updateTruck={(id, truck, note, color) => setRows(current => current.map(item => item.id === id ? { ...item, truck, note, color, persisted: true } : item))} updateColor={(id, color) => setRows(current => current.map(item => item.id === id ? { ...item, color } : item))} />)}</tbody></table>
+        <table><colgroup><col className="holiday-number-col" /><col className="holiday-truck-col" /><col className="holiday-driver-col" /><col /><col className="holiday-action-col" /><col className="holiday-bonus-col" /><col className="holiday-action-col" /></colgroup><thead><tr><th scope="col">#</th><th scope="col">Truck#</th><th scope="col">Driver</th><th scope="col">Note</th><th scope="col"><button type="button" className="holiday-row-action" aria-label="Sort rows by color priority" aria-pressed={sortByPriority} title="Sort by Driving / Not Driving. Click again to restore original order." onClick={() => setSortByPriority(value => !value)}><ArrowDownWideNarrow className="h-3.5 w-3.5" /></button></th><th scope="col">Bonus</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead><tbody>{groupRows.map((row, index) => <HolidayRow key={row.id} initial={row} index={index} year={year} holidaySlug={holidaySlug} truckQuery={truckQuery} updateTruck={(id, truck, note, color, bonus) => setRows(current => current.map(item => item.id === id ? { ...item, truck, note, color, bonus, persisted: true } : item))} updateColor={(id, color) => setRows(current => current.map(item => item.id === id ? { ...item, color } : item))} />)}</tbody></table>
       </section>)}</div>}
 
 

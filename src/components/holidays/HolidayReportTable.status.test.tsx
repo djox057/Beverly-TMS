@@ -1,3 +1,4 @@
+vi.mock('@/contexts/AuthContext', () => ({ useAuthContext: () => ({ getPrimaryRole: () => 'admin' }) }));
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { HolidayReportTable } from './HolidayReportTable';

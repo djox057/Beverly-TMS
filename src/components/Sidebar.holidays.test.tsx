@@ -31,6 +31,6 @@ it.each(['admin', 'manager', 'supervisor', 'dispatch', 'afterhours', 'accounting
   mocks.role = role;
   await act(async () => { render(navigation()); });
   const link = screen.queryByRole('link', { name: 'Holidays' });
-  if (role === 'admin' || role === 'manager') expect(link).toHaveAttribute('href', '/holidays');
+  if (['admin', 'manager', 'supervisor', 'dispatch', 'accounting'].includes(role)) expect(link).toHaveAttribute('href', '/holidays');
   else expect(link).not.toBeInTheDocument();
 });

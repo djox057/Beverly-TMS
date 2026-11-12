@@ -1,3 +1,5 @@
+const auth = vi.hoisted(() => ({ role: 'admin' }));
+vi.mock('@/contexts/AuthContext', () => ({ useAuthContext: () => ({ getPrimaryRole: () => auth.role }) }));
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { HolidayReportTable } from './HolidayReportTable';
@@ -16,6 +18,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { from: () => {
   }; return builder;
 } } }));
 beforeEach(() => {
+  auth.role = 'admin';
   Element.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   api.calls = []; api.load.mockResolvedValue({ data: [], error: null }); api.write.mockResolvedValue({ data: { id: 'row-1' }, error: null }); });
@@ -36,4 +39,38 @@ it('keeps the roster at one row per truck even when older duplicate entries exis
   render(<HolidayReportTable year={2026} holidaySlug="christmas" />);
   expect(await screen.findAllByRole('combobox', { name: 'Truck number' })).toHaveLength(2);
   expect(screen.getAllByRole('textbox', { name: 'Note for truck 03212' })).toHaveLength(1);
+});
+
+it.each(['admin', 'manager', 'dispatch', 'supervisor', 'accounting'])('enforces bonus editing for %s', async role => {
+  auth.role = role;
+  api.load.mockResolvedValue({ data: [{ id: 'a', truck: '03212', note: 'Saved note', color: 'driving', bonus: true }], error: null });
+  render(<HolidayReportTable year={2026} holidaySlug="christmas" />);
+  const bonus = await screen.findByRole('combobox', { name: 'Bonus for truck 03212' });
+  expect(bonus).toHaveValue('yes');
+  if (role === 'admin' || role === 'manager') {
+    expect(bonus).toBeEnabled();
+    fireEvent.change(bonus, { target: { value: 'no' } });
+    await waitFor(() => expect(api.calls.find(call => call.action === 'update')?.payload).toEqual({ bonus: false }));
+  } else {
+    expect(bonus).toBeDisabled();
+    expect(api.calls.filter(call => call.action !== 'select')).toHaveLength(0);
+  }
+  const note = screen.getByRole('textbox', { name: 'Note for truck 03212' });
+  if (role === 'accounting') {
+    expect(note).toBeDisabled();
+    screen.getAllByRole('button', { name: 'Driving status' }).forEach(button => expect(button).toBeDisabled());
+    fireEvent.click(screen.getAllByRole('button', { name: 'Expand Note' })[0]);
+    expect(screen.getByRole('textbox', { name: 'Expanded note' })).toHaveAttribute('readonly');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  } else expect(note).toBeEnabled();
+});
+it('persists a new bonus and keeps it when the row is filtered out and back', async () => {
+  render(<HolidayReportTable year={2026} holidaySlug="christmas" />);
+  const bonus = await screen.findByRole('combobox', { name: 'Bonus for truck 03212' });
+  fireEvent.change(bonus, { target: { value: 'yes' } });
+  await waitFor(() => expect(api.calls.find(call => call.action === 'insert')?.payload).toMatchObject({ bonus: true }));
+  const search = screen.getByRole('textbox', { name: 'Search holiday notes' });
+  fireEvent.change(search, { target: { value: 'missing' } });
+  fireEvent.change(search, { target: { value: '' } });
+  expect(screen.getByRole('combobox', { name: 'Bonus for truck 03212' })).toHaveValue('yes');
 });

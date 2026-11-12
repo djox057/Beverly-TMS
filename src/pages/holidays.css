@@ -151,3 +151,8 @@
 
 .holiday-notes-search { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .holiday-truck-count { margin-left: auto; text-align: right; font-size: 14px; font-weight: 600; white-space: nowrap; padding-right: 8px; }
+
+.holiday-bonus-col { width: 70px; }
+.holiday-bonus-cell select { width: 100%; height: 32px; padding: 0 8px; background: transparent; font-size: 12px; }
+.holiday-bonus-cell select option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
+.holiday-bonus-cell select:disabled { opacity: 1; appearance: none; }
