@@ -54,7 +54,7 @@ export async function loadHolidayTrucks(): Promise<HolidayTruck[]> {
       driverName: [...new Set(assigned.map(driver => driver.name))].join(' / '),
       dispatcherName: [...new Set((assignedDispatchers.length ? assignedDispatchers : [truck.dispatcher_id]).flatMap(id => id && dispatcherMap.get(id) ? [dispatcherMap.get(id)!] : []))].join(' / '),
     };
-  }).filter(truck => truck.dispatcherName.trim().length > 0);
+  }).filter(truck => truck.dispatcherName.trim().length > 0 && truck.driverName.trim().length > 0);
 }
 
 export function useHolidayTrucks() {
