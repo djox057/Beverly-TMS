@@ -80,6 +80,9 @@ it("shows truck readiness and counts the same value in statistics", async () => 
   fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
   const heading = screen.getByRole("heading", { name: "Fleet PM Readiness" });
   expect(heading.parentElement).toHaveTextContent("1SERVICE OVERDUE");
+  const dispatcherTable = screen.getByRole("table", { name: "Overdue oil changes by dispatcher" });
+  expect(dispatcherTable).toHaveTextContent("Test Dispatcher");
+  expect(dispatcherTable.querySelector("tbody tr")?.textContent).toBe("Test Dispatcher0");
 });
 
 it.each([

@@ -1,7 +1,7 @@
 import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { getServiceInterval } from "@/lib/truckServiceLog";
 
-type Truck = { fleet_pm_readiness?: string; source: string | null; miles: number | null; last_oil_change_miles: number | null; air_filter: number | null };
+type Truck = { dispatcher_id?: string | null; dispatcher_name?: string | null; fleet_pm_readiness?: string; source: string | null; miles: number | null; last_oil_change_miles: number | null; air_filter: number | null };
 export type Status = "Good" | "Yellow" | "Due soon" | "Due" | "Overdue" | "Missing / invalid";
 const statuses: Status[] = ["Good", "Yellow", "Due soon", "Due", "Overdue", "Missing / invalid"];
 const tones = ["text-emerald-700 dark:text-emerald-400", "text-amber-700 dark:text-amber-400", "text-red-700 dark:text-red-400", "text-red-700 dark:text-red-400", "text-red-700 dark:text-red-400", "text-muted-foreground"];
@@ -45,6 +45,18 @@ export function serviceCounts(trucks: Truck[], filter: boolean) {
   return counts;
 }
 
+export function dispatcherOilOverdueCounts(trucks: Truck[]) {
+  const dispatchers = new Map<string | null, { id: string | null; name: string; overdue: number }>();
+  for (const truck of trucks) {
+    const id = truck.dispatcher_id || null;
+    const row = dispatchers.get(id) ?? { id, name: id ? truck.dispatcher_name || 'Unknown dispatcher' : 'No dispatcher', overdue: 0 };
+    if (id && truck.dispatcher_name) row.name = truck.dispatcher_name;
+    if (serviceStatus(truck, false) === 'Overdue') row.overdue++;
+    dispatchers.set(id, row);
+  }
+  return [...dispatchers.values()].sort((a, b) => b.overdue - a.overdue || a.name.localeCompare(b.name) || (a.id ?? '').localeCompare(b.id ?? ''));
+}
+
 export function OilChangeStatistics({ trucks, loading, error, readinessLoading = false, readinessError = false, selection = null, onSelect }: { trucks: Truck[]; loading: boolean; error: boolean; readinessLoading?: boolean; readinessError?: boolean; selection?: StatisticsSelection | null; onSelect?: (selection: StatisticsSelection | null) => void }) {
   const selected = (category: StatisticsSelection["category"], status: string) => selection?.category === category && selection.status === status;
   const choose = (category: StatisticsSelection["category"], status: string) => onSelect?.(selected(category, status) ? null : { category, status });
@@ -59,6 +71,16 @@ export function OilChangeStatistics({ trucks, loading, error, readinessLoading =
           <p className="mt-2 text-xs text-muted-foreground">{filter ? "Red: over 60,000 mi · Due: 80,000 mi. Air filters have no separate yellow threshold." : "Uses each source’s warning thresholds and service interval."}</p>
         </div>;
       })}
+    </div>}
+    {!loading && !error && <div className="mt-4 border-t pt-3">
+      <h3 className="mb-2 text-sm font-semibold">Overdue oil changes by dispatcher</h3>
+      <p className="mb-2 text-xs text-muted-foreground">Trucks past their source’s oil-change mileage limit, matching the page filters.</p>
+      {trucks.length === 0 ? <p className="text-sm text-muted-foreground">No trucks match the current filters.</p> : <div className="max-h-72 overflow-auto rounded border">
+        <table className="w-full text-sm" aria-label="Overdue oil changes by dispatcher">
+          <thead className="sticky top-0 bg-background"><tr><th scope="col" className="px-3 py-2 text-left font-medium">Dispatcher</th><th scope="col" className="px-3 py-2 text-right font-medium">Overdue trucks</th></tr></thead>
+          <tbody>{dispatcherOilOverdueCounts(trucks).map(dispatcher => <tr key={dispatcher.id ?? 'unassigned'} className="border-t"><td className="px-3 py-2">{dispatcher.name}</td><td className={`px-3 py-2 text-right tabular-nums ${dispatcher.overdue ? 'font-semibold text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>{dispatcher.overdue}</td></tr>)}</tbody>
+        </table>
+      </div>}
     </div>}
     <div className="mt-4 border-t pt-3"><h3 className="mb-2 text-sm font-semibold">Fleet PM Readiness</h3>
       {readinessLoading ? <p className="text-sm">Loading readiness…</p> : readinessError ? <p role="alert">Could not load readiness statistics.</p> : <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">{["READY / GOOD", "DUE SOON", "SERVICE DUE", "SERVICE OVERDUE", "CHECK ODOMETER", "MISSING SERVICE DATA"].map(status => <button type="button" key={status} aria-label={`Filter fleet readiness: ${status}`} aria-pressed={selected("readiness", status)} onClick={() => choose("readiness", status)} className={`rounded border bg-muted/20 p-2 text-left hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected("readiness", status) ? "ring-2 ring-primary" : ""}`}><p className="text-xl font-semibold">{trucks.filter(t => t.fleet_pm_readiness === status).length}</p><p className="text-xs">{status}</p></button>)}</div>}
