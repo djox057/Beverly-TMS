@@ -91,7 +91,7 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor
     save();
   };
 
-  return <tr className={cn('group hover:bg-muted/30', ROW_COLORS.find(color => color.value === value.color)?.bg)}>
+  return <tr className={cn('group', ROW_COLORS.find(color => color.value === value.color)?.bg)}>
     <td className="holiday-row-number">{index + 1}</td>
     <td><HolidayTruckPicker value={value.truck} onChange={truck => { change({ truck }); save(); }} trucks={truckQuery.data ?? []} loading={truckQuery.isLoading} error={truckQuery.isError} retry={() => void truckQuery.refetch()} disabled={true} /></td>
     <td className="holiday-driver-name">{truckQuery.data?.find(truck => truck.number === value.truck)?.driverName || '—'}</td>
