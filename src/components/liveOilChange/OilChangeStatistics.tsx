@@ -1,4 +1,5 @@
 import { getMileageUpdateStatus } from "@/lib/mileageUpdateStatus";
+import { useState } from "react";
 import { getOilChangeThresholds } from "@/pages/Reports/helpers";
 import { getServiceInterval } from "@/lib/truckServiceLog";
 
@@ -63,6 +64,11 @@ export function dispatcherOilOverdueCounts(trucks: Truck[], now = new Date()) {
 }
 
 export function OilChangeStatistics({ trucks, loading, error, readinessLoading = false, readinessError = false, selection = null, onSelect }: { trucks: Truck[]; loading: boolean; error: boolean; readinessLoading?: boolean; readinessError?: boolean; selection?: StatisticsSelection | null; onSelect?: (selection: StatisticsSelection | null) => void }) {
+  const [dispatcherSort, setDispatcherSort] = useState<{ key: 'overdue' | 'notUpdated'; direction: 'asc' | 'desc' }>({ key: 'overdue', direction: 'desc' });
+  const sortDispatchers = (key: 'overdue' | 'notUpdated') => setDispatcherSort(current => ({ key, direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc' }));
+  const dispatcherRows = dispatcherOilOverdueCounts(trucks).sort((a, b) =>
+    (a[dispatcherSort.key] - b[dispatcherSort.key]) * (dispatcherSort.direction === 'asc' ? 1 : -1)
+    || a.name.localeCompare(b.name) || (a.id ?? '').localeCompare(b.id ?? ''));
   const selected = (category: StatisticsSelection["category"], status: string) => selection?.category === category && selection.status === status;
   const choose = (category: StatisticsSelection["category"], status: string) => onSelect?.(selected(category, status) ? null : { category, status });
   return <section id="oil-change-statistics" className="mb-4 rounded-md border p-3" aria-label="Service statistics">
@@ -82,8 +88,10 @@ export function OilChangeStatistics({ trucks, loading, error, readinessLoading =
       <p className="mb-2 text-xs text-muted-foreground">Oil-change overdue counts and yellow/red mileage-update warnings, matching the page filters.</p>
       {trucks.length === 0 ? <p className="text-sm text-muted-foreground">No trucks match the current filters.</p> : <div className="max-h-72 overflow-auto rounded border">
         <table className="w-full text-sm" aria-label="Overdue oil changes by dispatcher">
-          <thead className="sticky top-0 bg-background"><tr><th scope="col" className="px-3 py-2 text-left font-medium">Dispatcher</th><th scope="col" className="px-3 py-2 text-right font-medium">Overdue trucks</th><th scope="col" className="px-3 py-2 text-right font-medium">Not updated</th></tr></thead>
-          <tbody>{dispatcherOilOverdueCounts(trucks).map(dispatcher => <tr key={dispatcher.id ?? 'unassigned'} className="border-t"><td className="px-3 py-2">{dispatcher.name}</td><td className={`px-3 py-2 text-right tabular-nums ${dispatcher.overdue ? 'font-semibold text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}><button type="button" aria-label={`Show overdue oil changes for ${dispatcher.name}`} aria-pressed={selection?.category === 'oil' && selection.status === 'Overdue' && selection.dispatcherId === dispatcher.id} disabled={!onSelect} onClick={() => onSelect?.(selection?.category === 'oil' && selection.status === 'Overdue' && selection.dispatcherId === dispatcher.id ? null : { category: 'oil', status: 'Overdue', dispatcherId: dispatcher.id, dispatcherName: dispatcher.name })} className="min-w-8 rounded px-2 py-1 underline underline-offset-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:ring-1 aria-pressed:ring-primary">{dispatcher.overdue}</button></td>
+          <thead className="sticky top-0 bg-background"><tr><th scope="col" className="px-3 py-2 text-left font-medium">Dispatcher</th>{([{ key: 'overdue', label: 'Overdue trucks' }, { key: 'notUpdated', label: 'Not updated' }] as const).map(column => <th key={column.key} scope="col" className="px-3 py-2 text-right font-medium" aria-sort={dispatcherSort.key === column.key ? dispatcherSort.direction === 'desc' ? 'descending' : 'ascending' : 'none'}>
+            <button type="button" onClick={() => sortDispatchers(column.key)} className="rounded hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{column.label}{dispatcherSort.key === column.key && <span aria-hidden="true">{dispatcherSort.direction === 'desc' ? ' ↓' : ' ↑'}</span>}</button>
+          </th>)}</tr></thead>
+          <tbody>{dispatcherRows.map(dispatcher => <tr key={dispatcher.id ?? 'unassigned'} className="border-t"><td className="px-3 py-2">{dispatcher.name}</td><td className={`px-3 py-2 text-right tabular-nums ${dispatcher.overdue ? 'font-semibold text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}><button type="button" aria-label={`Show overdue oil changes for ${dispatcher.name}`} aria-pressed={selection?.category === 'oil' && selection.status === 'Overdue' && selection.dispatcherId === dispatcher.id} disabled={!onSelect} onClick={() => onSelect?.(selection?.category === 'oil' && selection.status === 'Overdue' && selection.dispatcherId === dispatcher.id ? null : { category: 'oil', status: 'Overdue', dispatcherId: dispatcher.id, dispatcherName: dispatcher.name })} className="min-w-8 rounded px-2 py-1 underline underline-offset-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:ring-1 aria-pressed:ring-primary">{dispatcher.overdue}</button></td>
             <td className={`px-3 py-2 text-right tabular-nums ${dispatcher.notUpdated ? 'font-semibold text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
               <button type="button" aria-label={`Show not updated mileage for ${dispatcher.name}`} aria-pressed={selection?.category === 'mileage' && selection.dispatcherId === dispatcher.id} disabled={!onSelect}
                 onClick={() => onSelect?.(selection?.category === 'mileage' && selection.dispatcherId === dispatcher.id ? null : { category: 'mileage', status: 'Not updated', dispatcherId: dispatcher.id, dispatcherName: dispatcher.name })}
