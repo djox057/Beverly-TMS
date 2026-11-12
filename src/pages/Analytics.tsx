@@ -1,3 +1,4 @@
+import { useSalaryMonthDefault } from "@/hooks/useSalaryMonthDefault";
 import { SupervisorFilter } from "@/components/SupervisorFilter";
 import { matchesSupervisorFilter } from "@/lib/supervisorFilter";
 import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
@@ -1738,16 +1739,7 @@ const Analytics = () => {
     }
   };
 
-  // Default the Salaries tab month: current month on/after the 16th, previous month on/before the 15th (Chicago time)
-  useEffect(() => {
-    if (activeTab !== "salaries" || selectedMonth !== "all") return;
-    const chicagoNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
-    const d = new Date(chicagoNow);
-    if (d.getDate() <= 15) d.setMonth(d.getMonth() - 1);
-    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    handleMonthChange(value);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, selectedMonth]);
+  useSalaryMonthDefault({ activeTab, selectedMonth, selectedWeek, dateRange, onSelectMonth: handleMonthChange });
 
   // Calculate dispatcher analytics
   // Shared daysInPeriod for both dispatcherStats and fleetAverages
@@ -4372,6 +4364,19 @@ const Analytics = () => {
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <CardTitle>{isDispatchOnly ? "My Salary" : "Dispatcher Salaries"}</CardTitle>
                     <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full sm:w-auto">
+                      <Select value={selectedWeek} onValueChange={handleWeekChange}>
+                        <SelectTrigger className="w-full sm:w-64" aria-label="Salary week">
+                          <SelectValue placeholder="Select week" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All time weekly</SelectItem>
+                          {weekOptions.map((week) => (
+                            <SelectItem key={week.value} value={week.value}>
+                              {week.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Select value={selectedMonth} onValueChange={handleMonthChange}>
                         <SelectTrigger className="w-full sm:w-64">
                           <SelectValue placeholder="All time monthly">
