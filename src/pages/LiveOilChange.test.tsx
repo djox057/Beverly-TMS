@@ -8,7 +8,7 @@ HTMLElement.prototype.setPointerCapture = () => {};
 HTMLElement.prototype.releasePointerCapture = () => {};
 HTMLElement.prototype.scrollIntoView = () => {};
 
-const mocks = vi.hoisted(() => ({ cellRender: vi.fn(), tables: [] as string[], historyRequests: 0, role: "maintenance", assignmentFixtures: false, inactiveFixture: false, snapshotFixture: false, updates: [] as {table: string; patch: unknown; id?: string}[] }));
+const mocks = vi.hoisted(() => ({ cellRender: vi.fn(), tables: [] as string[], historyRequests: 0, role: "maintenance", assignmentFixtures: false, inactiveFixture: false, snapshotFixture: false, overdueFixture: false, updates: [] as {table: string; patch: unknown; id?: string}[] }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ getPrimaryRole: () => mocks.role, profile: { user_id: "user1" }, user: { email: "test@example.com" } }) }));
 vi.mock("@/hooks/realtimeBus", () => ({ busChannel: () => { const c = { on: () => c, subscribe: () => c, unsubscribe: vi.fn() }; return c; } }));
 vi.mock("@/components/TruckSourceSelect", () => ({ TruckSourceSelect: ({ ariaLabel }: { ariaLabel: string }) => { mocks.cellRender(ariaLabel); return <button aria-label={ariaLabel}>Source</button>; } }));
@@ -18,7 +18,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   rpc: async () => ({ data: [], error: null }),
   from: (table: string) => {
     mocks.tables.push(table);
-    const trucks = Array.from({ length: 499 }, (_, i) => ({ id: `truck${i}`, truck_number: String(i + 1).padStart(4, "0"), source: "BF TRUCK", miles: 150000, fleet_pm_readiness: i === 498 ? "SERVICE OVERDUE" : "READY / GOOD", last_oil_change_miles: 130000, miles_updated_at: "2026-10-12T12:00:00Z", is_active: true, driver1_id: "driver1", company_id: i === 498 ? "company1" : null, dispatcher_id: i === 498 ? "user1" : null, ...(i === 498 ? { source: "TEL", miles: 160000 } : {}), ...(i === 0 && mocks.snapshotFixture ? {fleet_service_snapshot: { miles: 46975, miles_updated_at: "2026-10-29", last_oil_change_miles: 46975, oil_change_date: "2026-10-29", air_filter: 0, last_oc_invoice: "4011244277", fleet_pm_readiness: "READY / GOOD", oil_log_entry_id: "oil-log-4651", air_filter_log_entry_id: "filter-log-4651" }} : {}) }));
+    const trucks = Array.from({ length: 499 }, (_, i) => ({ id: `truck${i}`, truck_number: String(i + 1).padStart(4, "0"), source: "BF TRUCK", miles: 150000, fleet_pm_readiness: i === 498 ? "SERVICE OVERDUE" : "READY / GOOD", last_oil_change_miles: 130000, miles_updated_at: "2026-10-12T12:00:00Z", is_active: true, driver1_id: "driver1", company_id: i === 498 ? "company1" : null, dispatcher_id: i === 498 ? "user1" : null, ...(i === 498 ? { source: "TEL", miles: mocks.overdueFixture ? 160001 : 160000 } : {}), ...(i === 0 && mocks.snapshotFixture ? {fleet_service_snapshot: { miles: 46975, miles_updated_at: "2026-10-29", last_oil_change_miles: 46975, oil_change_date: "2026-10-29", air_filter: 0, last_oc_invoice: "4011244277", fleet_pm_readiness: "READY / GOOD", oil_log_entry_id: "oil-log-4651", air_filter_log_entry_id: "filter-log-4651" }} : {}) }));
     if (mocks.assignmentFixtures) trucks.splice(0, trucks.length,
       ...[
         { id: "own", truck_number: "OWN", dispatcher_id: "user1", driver1_id: "driver1" },
@@ -38,7 +38,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   },
 } }));
 const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><LiveOilChange /></MemoryRouter></QueryClientProvider>);
-beforeEach(() => { localStorage.clear(); mocks.role = "maintenance"; mocks.assignmentFixtures = false; mocks.inactiveFixture = false; mocks.snapshotFixture = false; mocks.updates = []; mocks.cellRender.mockClear(); mocks.tables = []; mocks.historyRequests = 0; });
+beforeEach(() => { localStorage.clear(); mocks.role = "maintenance"; mocks.assignmentFixtures = false; mocks.inactiveFixture = false; mocks.snapshotFixture = false; mocks.overdueFixture = false; mocks.updates = []; mocks.cellRender.mockClear(); mocks.tables = []; mocks.historyRequests = 0; });
 afterEach(cleanup);
 
 it("mounts at most 50 truck rows and searches the full fleet beyond the first page", async () => {
@@ -221,3 +221,26 @@ it.each([
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(mocks.updates).toEqual([{ table: "truck_service_log_entries", patch: { odometer: 47000 }, id }]));
 });
+
+it("filters the existing list to a dispatcher's overdue trucks when clicking their count, toggles and clears", async () => {
+  mocks.overdueFixture = true;
+  mount(); await screen.findByText("1–50 of 499 trucks");
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
+  const count = screen.getByRole("button", { name: "Show overdue oil changes for Test Dispatcher" });
+  expect(count).toHaveTextContent('1');
+  fireEvent.click(count);
+  await screen.findByText("1–1 of 1 trucks");
+  expect(screen.getByRole("link", { name: "Open service log for truck 0499" })).toBeInTheDocument();
+  expect(screen.getAllByRole("link", { name: /Open service log/ })).toHaveLength(1);
+  expect(count).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
+  fireEvent.click(count);
+  await screen.findByText("1–50 of 499 trucks");
+  fireEvent.click(screen.getByRole("button", { name: "Show overdue oil changes for No dispatcher" }));
+  await screen.findByText("0 trucks");
+  expect(screen.queryByRole("link", { name: /Open service log/ })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
+  fireEvent.click(screen.getByRole("button", { name: "Clear category filter" }));
+  await screen.findByText("1–50 of 499 trucks");
+}, 15000);

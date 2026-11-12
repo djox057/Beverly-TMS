@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { dispatcherOilOverdueCounts, serviceCounts } from "./OilChangeStatistics";
+import { dispatcherOilOverdueCounts, matchesStatisticsSelection, serviceCounts } from "./OilChangeStatistics";
 
 it("uses source intervals and separates warnings, due, overdue, and invalid readings", () => {
   const trucks = [25000, 27000, 29000, 30000, 30001, -1].map(miles => ({ source: "BF TRUCK", miles, last_oil_change_miles: 0, air_filter: 0 }));
@@ -31,4 +31,14 @@ it("groups overdue oil trucks by dispatcher ID using source intervals, including
     { id: 'b', name: 'Alex', overdue: 0 },
   ]);
   expect(dispatcherOilOverdueCounts([])).toEqual([]);
+});
+
+it("filters overdue trucks by dispatcher identity, including unassigned trucks", () => {
+  const truck = { source: 'BF TRUCK', miles: 30001, last_oil_change_miles: 0, air_filter: null, dispatcher_id: 'a' };
+  const selected = { category: 'oil' as const, status: 'Overdue', dispatcherId: 'a' };
+  expect(matchesStatisticsSelection(truck, selected)).toBe(true);
+  expect(matchesStatisticsSelection({ ...truck, dispatcher_id: 'b' }, selected)).toBe(false);
+  expect(matchesStatisticsSelection({ ...truck, miles: 30000 }, selected)).toBe(false);
+  expect(matchesStatisticsSelection({ ...truck, dispatcher_id: null }, { ...selected, dispatcherId: null })).toBe(true);
+  expect(matchesStatisticsSelection(truck, { ...selected, dispatcherId: null })).toBe(false);
 });

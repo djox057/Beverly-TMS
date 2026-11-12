@@ -6,7 +6,7 @@ export type Status = "Good" | "Yellow" | "Due soon" | "Due" | "Overdue" | "Missi
 const statuses: Status[] = ["Good", "Yellow", "Due soon", "Due", "Overdue", "Missing / invalid"];
 const tones = ["text-emerald-700 dark:text-emerald-400", "text-amber-700 dark:text-amber-400", "text-red-700 dark:text-red-400", "text-red-700 dark:text-red-400", "text-red-700 dark:text-red-400", "text-muted-foreground"];
 
-export type StatisticsSelection = { category: "oil" | "air" | "readiness"; status: string };
+export type StatisticsSelection = { category: "oil" | "air" | "readiness"; status: string; dispatcherId?: string | null; dispatcherName?: string };
 
 function statusExplanation(category: StatisticsSelection["category"], status: string) {
   if (category === "readiness") return "Fleet readiness uses oil-change mileage and service history. Air filters do not affect readiness.";
@@ -35,6 +35,7 @@ export function serviceStatus(truck: Truck, filter: boolean): Status {
 }
 
 export function matchesStatisticsSelection(truck: Truck, selection: StatisticsSelection | null) {
+  if (selection?.dispatcherId !== undefined && (truck.dispatcher_id ?? null) !== selection.dispatcherId) return false;
   return !selection || (selection.category === "readiness" ? truck.fleet_pm_readiness === selection.status
     : serviceStatus(truck, selection.category === "air") === selection.status);
 }
@@ -62,7 +63,7 @@ export function OilChangeStatistics({ trucks, loading, error, readinessLoading =
   const choose = (category: StatisticsSelection["category"], status: string) => onSelect?.(selected(category, status) ? null : { category, status });
   return <section id="oil-change-statistics" className="mb-4 rounded-md border p-3" aria-label="Service statistics">
     <p className="mb-3 text-xs text-muted-foreground">Mileage-based statistics for all {trucks.length} trucks matching the page filters. Mileage update freshness is separate.</p>
-    {selection && <div className="mb-3 flex flex-wrap items-center gap-3 text-sm"><span>Showing {selection.category === "oil" ? "Oil changes" : selection.category === "air" ? "Air filters" : "Fleet PM Readiness"}: {selection.status}</span><button type="button" className="underline" onClick={() => onSelect?.(null)}>Clear category filter</button><p className="w-full text-xs text-muted-foreground" role="status">{statusExplanation(selection.category, selection.status)}</p></div>}
+    {selection && <div className="mb-3 flex flex-wrap items-center gap-3 text-sm"><span>Showing {selection.category === "oil" ? "Oil changes" : selection.category === "air" ? "Air filters" : "Fleet PM Readiness"}: {selection.status}{selection.dispatcherId !== undefined && ` · ${selection.dispatcherName || "No dispatcher"}`}</span><button type="button" className="underline" onClick={() => onSelect?.(null)}>Clear category filter</button><p className="w-full text-xs text-muted-foreground" role="status">{statusExplanation(selection.category, selection.status)}</p></div>}
     {loading ? <p>Loading statistics…</p> : error ? <p role="alert">Could not load service statistics.</p> : <div className="grid gap-4 lg:grid-cols-2">
       {[false, true].map(filter => {
         const counts = serviceCounts(trucks, filter);
@@ -78,7 +79,7 @@ export function OilChangeStatistics({ trucks, loading, error, readinessLoading =
       {trucks.length === 0 ? <p className="text-sm text-muted-foreground">No trucks match the current filters.</p> : <div className="max-h-72 overflow-auto rounded border">
         <table className="w-full text-sm" aria-label="Overdue oil changes by dispatcher">
           <thead className="sticky top-0 bg-background"><tr><th scope="col" className="px-3 py-2 text-left font-medium">Dispatcher</th><th scope="col" className="px-3 py-2 text-right font-medium">Overdue trucks</th></tr></thead>
-          <tbody>{dispatcherOilOverdueCounts(trucks).map(dispatcher => <tr key={dispatcher.id ?? 'unassigned'} className="border-t"><td className="px-3 py-2">{dispatcher.name}</td><td className={`px-3 py-2 text-right tabular-nums ${dispatcher.overdue ? 'font-semibold text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>{dispatcher.overdue}</td></tr>)}</tbody>
+          <tbody>{dispatcherOilOverdueCounts(trucks).map(dispatcher => <tr key={dispatcher.id ?? 'unassigned'} className="border-t"><td className="px-3 py-2">{dispatcher.name}</td><td className={`px-3 py-2 text-right tabular-nums ${dispatcher.overdue ? 'font-semibold text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}><button type="button" aria-label={`Show overdue oil changes for ${dispatcher.name}`} aria-pressed={selection?.category === 'oil' && selection.status === 'Overdue' && selection.dispatcherId === dispatcher.id} disabled={!onSelect} onClick={() => onSelect?.(selection?.category === 'oil' && selection.status === 'Overdue' && selection.dispatcherId === dispatcher.id ? null : { category: 'oil', status: 'Overdue', dispatcherId: dispatcher.id, dispatcherName: dispatcher.name })} className="min-w-8 rounded px-2 py-1 underline underline-offset-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:ring-1 aria-pressed:ring-primary">{dispatcher.overdue}</button></td></tr>)}</tbody>
         </table>
       </div>}
     </div>}
