@@ -15,6 +15,7 @@ import { useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders,
 import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { mergeTruckTelemetry } from "@/utils/truckTelemetry";
+import { getReportOilService } from "@/lib/fleetServiceSnapshot";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
@@ -2026,12 +2027,10 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
         driver2HireDate: (driver2 as any)?.hire_date || null,
         driverCreatedAt: driver.created_at || null, // For sorting by driver creation date
         // Maintenance dates (snake_case to match helper functions in helpers.ts)
-        oil_change_date: truck?.oil_change_date || null,
+        ...getReportOilService(truck || {}),
         tires_swap_date: truck?.tires_swap_date || null,
         maintenance_check_date: truck?.maintenance_check_date || null,
         // Oil change miles tracking
-        last_oil_change_miles: truck?.last_oil_change_miles ?? null,
-        truck_miles: truck?.miles ?? null,
         source: truck?.source ?? null,
         // DOT inspection dates (snake_case to match helper functions)
         dot_inspection_date: truck?.dot_inspection_date || null,

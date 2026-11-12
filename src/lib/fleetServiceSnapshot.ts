@@ -16,3 +16,22 @@ export function applyFleetServiceSnapshot<T extends { fleet_service_snapshot?: F
   const snapshot = truck.fleet_service_snapshot;
   return snapshot ? { ...truck, ...snapshot } : truck;
 }
+
+// Reports must use the same oil service and odometer as Live Oil Change.
+// Resolve only while building display rows; leave cached truck fields untouched.
+export function getReportOilService(truck: {
+  miles?: number | null;
+  last_oil_change_miles?: number | null;
+  oil_change_date?: string | null;
+  fleet_service_snapshot?: unknown;
+}) {
+  const service = applyFleetServiceSnapshot({
+    ...truck,
+    fleet_service_snapshot: truck.fleet_service_snapshot as FleetServiceSnapshot | null | undefined,
+  });
+  return {
+    truck_miles: service.miles ?? null,
+    last_oil_change_miles: service.last_oil_change_miles ?? null,
+    oil_change_date: service.oil_change_date || null,
+  };
+}

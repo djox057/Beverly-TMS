@@ -11,6 +11,7 @@ const queryWithTimeout = async <T,>(queryFn: () => Promise<T>, timeoutMs: number
 };
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { mergeTruckTelemetry, setTruckMilesAway } from "@/utils/truckTelemetry";
+import { getReportOilService } from "@/lib/fleetServiceSnapshot";
 import { enrichOrdersWithRelations } from "@/utils/ordersFlatBatchFetch";
 import {
   upsertLostDayNoteInAccumulator,
@@ -882,7 +883,7 @@ export const useReports = (options?: UseReportsOptions) => {
       .from("trucks")
       // Only the columns normal, team and off-duty report rows actually use.
       .select(
-        "id, truck_number, trailer_id, driver1_id, driver2_id, company_id, dispatcher_id, status, is_active, needs_recovery, miles, miles_away, eta_minutes, source, vin, oil_change_date, tires_swap_date, maintenance_check_date, last_oil_change_miles, dot_inspection_date, samsara_insured, samsara_account, samsara_insured_updated_at, created_at, updated_at",
+        "id, truck_number, trailer_id, driver1_id, driver2_id, company_id, dispatcher_id, status, is_active, needs_recovery, miles, miles_away, eta_minutes, source, vin, oil_change_date, tires_swap_date, maintenance_check_date, last_oil_change_miles, fleet_service_snapshot, dot_inspection_date, samsara_insured, samsara_account, samsara_insured_updated_at, created_at, updated_at",
       )
       .order("id", { ascending: true });
 
@@ -1765,11 +1766,9 @@ export const useReports = (options?: UseReportsOptions) => {
               dispatcherEmail: dispatcherInfo?.email || null,
               dispatcherName: dispatcherInfo?.full_name || null,
               // Maintenance tracking dates
-              oil_change_date: truck.oil_change_date || null,
+              ...getReportOilService(truck),
               tires_swap_date: truck.tires_swap_date || null,
               maintenance_check_date: truck.maintenance_check_date || null,
-              last_oil_change_miles: truck.last_oil_change_miles ?? null,
-              truck_miles: truck.miles ?? null,
               source: truck.source ?? null,
               // DOT inspection dates
               dot_inspection_date: truck.dot_inspection_date || null,
