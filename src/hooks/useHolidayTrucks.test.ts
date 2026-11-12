@@ -25,11 +25,10 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: () => Promis
   return builder;
 } } }));
 beforeEach(() => { db.error = false; });
-it('uses exact truck identifiers and resolves both drivers and their dispatcher', async () => {
+it('preserves exact identifiers and excludes trucks without a driver or dispatcher', async () => {
   expect(await loadHolidayTrucks()).toEqual([
     { number: '03212', dispatcherOffice: 'Other', driverName: 'Leading Zero Driver / Team Driver', dispatcherName: 'Leading Zero Dispatcher' },
     { number: '3212', dispatcherOffice: 'Other', driverName: 'Other Driver', dispatcherName: 'Other Dispatcher' },
-    { number: 'truck-dispatcher', dispatcherOffice: 'Other', driverName: '', dispatcherName: 'Other Dispatcher' },
   ]);
 });
 it('reports failed lookups so the picker can offer retry', async () => {
