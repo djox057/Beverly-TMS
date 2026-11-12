@@ -102,6 +102,6 @@ it('saves row colors and toggles priority order without losing the original orde
   fireEvent.click(screen.getAllByRole('button', { name: 'Sort rows by color priority' })[0]);
   expect(firstNote()).toHaveValue('Red note');
   fireEvent.click(screen.getAllByRole('button', { name: 'Driving status' })[0]);
-  fireEvent.click((await screen.findAllByRole('button', { name: 'Driving', exact: true })).at(-1)!);
+  fireEvent.click((await screen.findAllByRole('button', { name: 'Driving' })).at(-1)!);
   await waitFor(() => expect(api.calls.find(call => call.action === 'update')?.payload).toEqual({ color: 'driving' }));
 });
