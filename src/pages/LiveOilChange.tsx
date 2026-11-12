@@ -754,7 +754,7 @@ const LiveOilChange = () => {
     });
   }, [enrichedTrucks, search, assignmentFilter, companyFilter, sourceFilter, dispatcherFilter, officeFilter, milesFilter]);
 
-  const [statisticsSelection, setStatisticsSelection] = useOilChangeFilterState<StatisticsSelection | null>("statisticsSelection", null, value => value === null || (typeof value === "object" && value !== null && "category" in value && ["oil", "air", "readiness"].includes(String(value.category)) && "status" in value && typeof value.status === "string" && (!("dispatcherId" in value) || value.dispatcherId === null || typeof value.dispatcherId === "string") && (!("dispatcherName" in value) || typeof value.dispatcherName === "string")));
+  const [statisticsSelection, setStatisticsSelection] = useOilChangeFilterState<StatisticsSelection | null>("statisticsSelection", null, value => value === null || (typeof value === "object" && value !== null && "category" in value && ["oil", "air", "readiness", "mileage"].includes(String(value.category)) && "status" in value && typeof value.status === "string" && (!("dispatcherId" in value) || value.dispatcherId === null || typeof value.dispatcherId === "string") && (!("dispatcherName" in value) || typeof value.dispatcherName === "string")));
   const [showStatistics, setShowStatistics] = useOilChangeFilterState("showStatistics", false);
   const [showMileageUpdates, setShowMileageUpdates] = useOilChangeFilterState("showMileageUpdates", false);
   const mileageSummary = useMileageUpdateSummary(showMileageUpdates);
@@ -870,7 +870,7 @@ const LiveOilChange = () => {
           <div id="mileage-updates-panel" hidden={!showMileageUpdates}>
             {showMileageUpdates && <MileageUpdateSummary summary={mileageSummary} trucks={filtered} trucksLoading={isLoading} trucksError={trucksError} />}
           </div>
-          {!showStatistics && statisticsSelection && <div className="mb-3 flex items-center gap-3 text-sm"><span>Category: {statisticsSelection.category === "oil" ? "Oil changes" : statisticsSelection.category === "air" ? "Air filters" : "Fleet PM Readiness"} · {statisticsSelection.status}{statisticsSelection.dispatcherId !== undefined && ` · ${statisticsSelection.dispatcherName || "No dispatcher"}`}</span><button type="button" className="underline" onClick={() => setStatisticsSelection(null)}>Clear category filter</button></div>}
+          {!showStatistics && statisticsSelection && <div className="mb-3 flex items-center gap-3 text-sm"><span>Category: {statisticsSelection.category === "oil" ? "Oil changes" : statisticsSelection.category === "air" ? "Air filters" : statisticsSelection.category === "mileage" ? "Mileage updates" : "Fleet PM Readiness"} · {statisticsSelection.status}{statisticsSelection.dispatcherId !== undefined && ` · ${statisticsSelection.dispatcherName || "No dispatcher"}`}</span><button type="button" className="underline" onClick={() => setStatisticsSelection(null)}>Clear category filter</button></div>}
           <LiveOilChangeTable rows={pageTrucks} isLoading={tableLoading} errorMessage={tableError}
             canEditAll={canEditAll} isDispatcher={isDispatcher} odometerFileMap={odometerFileMap}
             onUpdate={updateTruck.mutate} onEdit={updateTruck.mutateAsync} updatePending={updateTruck.isPending} onUpload={uploadOdometer} onView={viewOdometer} />

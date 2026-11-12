@@ -25,10 +25,10 @@ it("groups overdue oil trucks by dispatcher ID using source intervals, including
     { ...truck, dispatcher_id: null },
   ]);
   expect(counts).toEqual([
-    { id: 'a', name: 'Alex', overdue: 2 },
-    { id: 'c', name: 'Emma', overdue: 1 },
-    { id: null, name: 'No dispatcher', overdue: 1 },
-    { id: 'b', name: 'Alex', overdue: 0 },
+    { id: 'a', name: 'Alex', overdue: 2, notUpdated: 3 },
+    { id: 'c', name: 'Emma', overdue: 1, notUpdated: 1 },
+    { id: null, name: 'No dispatcher', overdue: 1, notUpdated: 1 },
+    { id: 'b', name: 'Alex', overdue: 0, notUpdated: 3 },
   ]);
   expect(dispatcherOilOverdueCounts([])).toEqual([]);
 });
@@ -41,4 +41,19 @@ it("filters overdue trucks by dispatcher identity, including unassigned trucks",
   expect(matchesStatisticsSelection({ ...truck, miles: 30000 }, selected)).toBe(false);
   expect(matchesStatisticsSelection({ ...truck, dispatcher_id: null }, { ...selected, dispatcherId: null })).toBe(true);
   expect(matchesStatisticsSelection(truck, { ...selected, dispatcherId: null })).toBe(false);
+});
+
+it('counts yellow and red mileage warnings independently of overdue oil and respects the early-update allowance', () => {
+  const now = new Date('2026-10-20T15:00:00Z');
+  const truck = { dispatcher_id: 'a', dispatcher_name: 'Alex', source: 'BF TRUCK', miles: 100, last_oil_change_miles: 0, air_filter: null };
+  const rows = [null, '2026-09-19', '2026-10-11', '2026-10-12', '2026-10-20'].map(miles_updated_at => ({ ...truck, miles_updated_at }));
+  expect(dispatcherOilOverdueCounts(rows, now)).toEqual([{ id: 'a', name: 'Alex', overdue: 0, notUpdated: 3 }]);
+  expect(dispatcherOilOverdueCounts([{ ...truck, miles_updated_at: '2026-10-12' }], new Date('2026-10-19T15:00:00Z'))[0].notUpdated).toBe(0);
+});
+it('filters missing mileage updates to the selected dispatcher independently of oil overdue', () => {
+  const truck = { dispatcher_id: 'a', source: 'BF TRUCK', miles: 100, last_oil_change_miles: 0, air_filter: null, miles_updated_at: null };
+  const selection = { category: 'mileage' as const, status: 'Not updated', dispatcherId: 'a' };
+  expect(matchesStatisticsSelection(truck, selection)).toBe(true);
+  expect(matchesStatisticsSelection({ ...truck, dispatcher_id: 'b' }, selection)).toBe(false);
+  expect(matchesStatisticsSelection({ ...truck, miles_updated_at: new Date().toISOString() }, selection)).toBe(false);
 });
