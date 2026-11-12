@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@4.0.1";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
+import { oilChangeReminder } from "./oil-change.ts";
 import { assignedTruckContext } from "./assignment.ts";
 import {
   FROM,
@@ -10,7 +11,6 @@ import {
   daysUntil,
   escapeHtml,
   formatDate,
-  getOilChangeThresholds,
   milestoneFor,
   milestoneLabel,
   reminderKey,
@@ -39,6 +39,7 @@ interface Candidate {
   days: number | null;
   milestone: number;
   detail?: string;
+  statusLabel?: string;
   dotNote?: string | null;
   dispatcherId: string | null;
 }
@@ -92,7 +93,7 @@ serve(async (req: Request): Promise<Response> => {
       admin
         .from("trucks")
         .select(
-          "id, truck_number, source, miles, last_oil_change_miles, dispatcher_id, driver1_id, driver2_id, trailer_id, dot_inspection_date, dot_inspection_note, dot_inspection_checked, plate_expiration_date, insurance_expiration_date, registration_expiration_date, maintenance_check_date",
+          "id, truck_number, source, miles, last_oil_change_miles, fleet_service_snapshot, dispatcher_id, driver1_id, driver2_id, trailer_id, dot_inspection_date, dot_inspection_note, dot_inspection_checked, plate_expiration_date, insurance_expiration_date, registration_expiration_date, maintenance_check_date",
         )
         .eq("is_active", true),
       admin
@@ -160,27 +161,24 @@ serve(async (req: Request): Promise<Response> => {
         });
       }
 
-      // Oil change (mileage based, no due date)
-      if (truck.miles != null && truck.last_oil_change_miles != null) {
-        const since = truck.miles - truck.last_oil_change_miles;
-        const { yellow, red } = getOilChangeThresholds(truck.source);
-        const milestone = since > red ? 1 : since > yellow ? 14 : null;
-        if (milestone !== null) {
-          candidates.push({
-            entityType: "truck",
-            entityId: truck.id,
-            entityLabel: `Truck ${truck.truck_number}`,
-            unit: `Truck ${truck.truck_number}`,
-            driverName: context.driverName,
-            document: "Oil Change",
-            fieldKey: "oil_change",
-            dueDate: null,
-            days: null,
-            milestone,
-            detail: `${since.toLocaleString("en-US")} mi since last oil change (limit ${red.toLocaleString("en-US")})`,
-            dispatcherId: context.dispatcherId,
-          });
-        }
+      // Resolve the same service snapshot as Live Oil Change; dates never determine oil status.
+      const oil = oilChangeReminder(truck);
+      if (oil) {
+        candidates.push({
+          entityType: "truck",
+          entityId: truck.id,
+          entityLabel: `Truck ${truck.truck_number}`,
+          unit: `Truck ${truck.truck_number}`,
+          driverName: context.driverName,
+          document: "Oil Change",
+          fieldKey: "oil_change",
+          dueDate: null,
+          days: null,
+          milestone: 0,
+          detail: oil.detail,
+          statusLabel: oil.statusLabel,
+          dispatcherId: context.dispatcherId,
+        });
       }
     }
 
@@ -364,7 +362,7 @@ serve(async (req: Request): Promise<Response> => {
   <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(c.document)}${c.dotNote?.trim() ? `<div style="margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere;color:#4b5563;"><strong>DOT note:</strong> ${escapeHtml(c.dotNote)}</div>` : ""}</td>
   <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">${escapeHtml(c.detail ?? formatDate(c.dueDate))}</td>
   <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;color:${color};font-weight:600;">${escapeHtml(
-            milestoneLabel(c.milestone, c.days),
+            c.statusLabel ?? milestoneLabel(c.milestone, c.days),
           )}</td>
 </tr>`;
         })
