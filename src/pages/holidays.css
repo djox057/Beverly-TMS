@@ -206,3 +206,92 @@
   .thanksgiving-leaf { font-size: 20px; opacity: .12; }
   .thanksgiving-leaf-two, .thanksgiving-leaf-four, .thanksgiving-wheat { display: none; }
 }
+
+/* Page-wide harvest scene: a quiet background and a non-interactive leaf layer. */
+.holiday-detail[data-holiday-slug="thanksgiving"] {
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 0 25%, hsl(var(--holiday-accent) / .07), transparent 42%),
+    radial-gradient(ellipse at 100% 80%, hsl(42 70% 55% / .06), transparent 40%);
+}
+.thanksgiving-page-decorations {
+  position: absolute;
+  inset: 0;
+  z-index: 21;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+.thanksgiving-ambient-leaf {
+  position: absolute;
+  line-height: 1;
+  transform: rotate(var(--leaf-turn));
+}
+.thanksgiving-harvest {
+  position: absolute;
+  bottom: 2px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  opacity: .24;
+  transform-origin: bottom center;
+}
+.thanksgiving-harvest-left { left: 5px; }
+.thanksgiving-harvest-right { right: 5px; }
+.thanksgiving-harvest span { font-size: 32px; line-height: 1; }
+.thanksgiving-harvest span:last-child { font-size: 24px; }
+.thanksgiving-pumpkin { width: 58px; height: 46px; }
+.thanksgiving-arrival-leaves { display: none; }
+.thanksgiving-arrival-leaf {
+  position: absolute;
+  top: 5px;
+  font-size: 24px;
+  line-height: 1;
+  opacity: 0;
+}
+@keyframes thanksgiving-page-drift {
+  0%, 100% { transform: translate3d(0, -7px, 0) rotate(var(--leaf-turn)); }
+  50% { transform: translate3d(10px, 9px, 0) rotate(5deg); }
+}
+@keyframes thanksgiving-page-arrival {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes thanksgiving-report-arrival {
+  from { opacity: .4; }
+  to { opacity: 1; }
+}
+@keyframes thanksgiving-scene-arrival {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes thanksgiving-leaf-arrival {
+  0% { opacity: 0; transform: translate3d(-12px, -35px, 0) rotate(var(--leaf-turn)); }
+  20% { opacity: .28; }
+  70% { opacity: .18; }
+  100% { opacity: 0; transform: translate3d(24px, 210px, 0) rotate(60deg); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .thanksgiving-page-decorations { animation: thanksgiving-scene-arrival .8s ease-out; }
+  .thanksgiving-ambient-leaf {
+    animation: thanksgiving-page-drift var(--leaf-duration) var(--leaf-delay) ease-in-out infinite;
+  }
+  .thanksgiving-arrival-leaves { display: block; }
+  .thanksgiving-arrival-leaf { animation: thanksgiving-leaf-arrival 2.2s ease-out both; }
+  .holiday-detail[data-holiday-slug="thanksgiving"] .holiday-detail-title,
+  .holiday-detail[data-holiday-slug="thanksgiving"] .holiday-detail-motif {
+    animation: thanksgiving-page-arrival .6s ease-out both;
+  }
+  /* Fade only: preserve the report's positioning and its popovers. */
+  .holiday-detail[data-holiday-slug="thanksgiving"] > .holiday-report {
+    animation: thanksgiving-report-arrival .7s .12s ease-out both;
+  }
+}
+@media (max-width: 560px) {
+  .thanksgiving-ambient-leaf-interior,
+  .thanksgiving-arrival-leaf:nth-child(even) { display: none; }
+  .thanksgiving-ambient-leaf { font-size: 18px !important; }
+  .thanksgiving-harvest { transform: scale(.65); bottom: 0; }
+  .thanksgiving-harvest-left { transform-origin: bottom left; }
+  .thanksgiving-harvest-right { transform-origin: bottom right; }
+}

@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HolidayReportTable } from '@/components/holidays/HolidayReportTable';
+import { ThanksgivingPageDecorations } from '@/components/holidays/ThanksgivingPageDecorations';
 import { currentHolidayYear, getHolidays, MAX_HOLIDAY_YEAR, MIN_HOLIDAY_YEAR, parseHolidayYear, type Holiday } from '@/lib/holidays';
 import { ChristmasDecorations } from '@/components/ChristmasDecorations';
 import './holidays.css';
@@ -62,7 +63,8 @@ export default function Holidays() {
   const holiday = holidaySlug ? holidays.find(item => item.slug === holidaySlug) : undefined;
   if (holidaySlug && !holiday) return <div className="holiday-page p-8"><h1 className="text-2xl font-semibold">Holiday not found</h1><Button asChild variant="outline" className="mt-4"><Link to={`/holidays/${year}`}>Back to {year} Holidays</Link></Button></div>;
 
-  if (holiday) return <div className="holiday-page holiday-detail" data-holiday-theme={holiday.theme} data-holiday-slug={holiday.slug}>
+  if (holiday) return <div key={`${year}-${holiday.slug}`} className="holiday-page holiday-detail" data-holiday-theme={holiday.theme} data-holiday-slug={holiday.slug}>
+    {holiday.slug === 'thanksgiving' && <ThanksgivingPageDecorations />}
     {holiday.slug === 'christmas' ? <ChristmasDecorations /> : holiday.slug === 'thanksgiving' ? null : <div className="holiday-themed-decoration" aria-hidden="true">{holiday.motif} ✦ {holiday.motif}</div>}
     <header className="holiday-detail-hero">
       {holiday.slug === 'thanksgiving' && <ThanksgivingDecorations />}
