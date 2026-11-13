@@ -3,20 +3,9 @@ import { format } from 'date-fns';
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HolidayReportTable } from '@/components/holidays/HolidayReportTable';
-import { ThanksgivingPageDecorations } from '@/components/holidays/ThanksgivingPageDecorations';
+import { HolidayDecorations, HolidayDecorationsFooter } from '@/components/holidays/HolidayDecorations';
 import { currentHolidayYear, getHolidays, MAX_HOLIDAY_YEAR, MIN_HOLIDAY_YEAR, parseHolidayYear, type Holiday } from '@/lib/holidays';
-import { ChristmasDecorations } from '@/components/ChristmasDecorations';
 import './holidays.css';
-
-function ThanksgivingDecorations() {
-  return <div className="thanksgiving-decorations" aria-hidden="true">
-    <span className="thanksgiving-leaf thanksgiving-leaf-one">🍁</span>
-    <span className="thanksgiving-leaf thanksgiving-leaf-two">🍂</span>
-    <span className="thanksgiving-leaf thanksgiving-leaf-three">🍁</span>
-    <span className="thanksgiving-leaf thanksgiving-leaf-four">🍂</span>
-    <span className="thanksgiving-wheat">🌾</span>
-  </div>;
-}
 
 function YearPicker({ year, slug }: { year: number; slug?: string }) {
   const navigate = useNavigate();
@@ -77,10 +66,8 @@ export default function Holidays() {
   if (holidaySlug && !holiday) return <div className="holiday-page p-8"><h1 className="text-2xl font-semibold">Holiday not found</h1><Button asChild variant="outline" className="mt-4"><Link to={`/holidays/${year}`}>Back to {year} Holidays</Link></Button></div>;
 
   if (holiday) return <div key={`${year}-${holiday.slug}`} className="holiday-page holiday-detail" data-holiday-theme={holiday.theme} data-holiday-slug={holiday.slug}>
-    {holiday.slug === 'thanksgiving' && <ThanksgivingPageDecorations />}
-    {holiday.slug === 'christmas' ? <ChristmasDecorations /> : holiday.slug === 'thanksgiving' ? null : <div className="holiday-themed-decoration" aria-hidden="true">{holiday.motif} ✦ {holiday.motif}</div>}
+    <HolidayDecorations slug={holiday.slug} />
     <header className="holiday-detail-hero">
-      {holiday.slug === 'thanksgiving' && <ThanksgivingDecorations />}
       <Link className="holiday-back" to={`/holidays/${year}`} aria-label="All holidays"><ArrowLeft size={16} /></Link>
       <span className="holiday-detail-motif" aria-hidden="true">{holiday.motif}</span>
       <div className="holiday-detail-title"><h1>{holiday.name}</h1><p className="holiday-detail-date">{format(holiday.date, 'EEEE, MMMM d, yyyy')}
@@ -89,6 +76,7 @@ export default function Holidays() {
       <YearPicker year={year} slug={holiday.slug} />
     </header>
     <HolidayReportTable key={`${year}-${holiday.slug}`} year={year} holidaySlug={holiday.slug} />
+    <HolidayDecorationsFooter slug={holiday.slug} />
   </div>;
 
   return <div className="holiday-page">
