@@ -1083,18 +1083,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                 </div>
                                 <div className="space-y-1 pl-2">
                                   {groupSchedules.map((schedule) => {
-                                    // Check if this user worked any day BEFORE this date in the same month
-                                    const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
-                                    const monthStartStr = format(startOfMonth(selectedDate), "yyyy-MM-dd");
-                                    const daysWorkedBefore = existingSchedules.filter((s) => {
-                                      if (s.user_id !== schedule.user_id) return false;
-                                      if (s.scheduled_date < monthStartStr || s.scheduled_date >= selectedDateStr)
-                                        return false;
-                                      const scheduleDate = new Date(s.scheduled_date + "T12:00:00");
-                                      return isWeekend(scheduleDate);
-                                    }).length;
-                                    const isExtra = daysWorkedBefore >= 1;
-
                                     return (
                                       <div
                                         key={schedule.id}
@@ -1104,14 +1092,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                           <span className="truncate">
                                             {schedule.user?.full_name || schedule.user?.email || "Unknown"}
                                           </span>
-                                          {isExtra && (
-                                            <Badge
-                                              variant="outline"
-                                              className="text-[10px] sm:text-xs text-orange-500 border-orange-500 flex-shrink-0"
-                                            >
-                                              extra
-                                            </Badge>
-                                          )}
                                         </span>
                                         {canManageSchedules && !isPastDate && (
                                           <Button
