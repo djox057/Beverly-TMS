@@ -24,12 +24,25 @@ function YearPicker({ year, slug }: { year: number; slug?: string }) {
     const exists = slug && getHolidays(next).some(holiday => holiday.slug === slug);
     navigate(`/holidays/${next}${exists ? `/${slug}` : ''}`);
   };
+  const holidays = getHolidays(year);
+  const index = holidays.findIndex(holiday => holiday.slug === slug);
+  const adjacent = (direction: -1 | 1) => {
+    if (!slug || index < 0) return { year: year + direction, slug: undefined };
+    const next = holidays[index + direction];
+    if (next) return { year, slug: next.slug };
+    const nextYear = year + direction;
+    const nextHolidays = getHolidays(nextYear);
+    return { year: nextYear, slug: (direction === 1 ? nextHolidays[0] : nextHolidays[nextHolidays.length - 1]).slug };
+  };
+  const previous = adjacent(-1);
+  const next = adjacent(1);
+  const move = (target: ReturnType<typeof adjacent>) => navigate(`/holidays/${target.year}${target.slug ? `/${target.slug}` : ''}`);
   return <div className="holiday-year-picker">
-    <Button variant="ghost" size="icon" aria-label="Previous year" disabled={year <= MIN_HOLIDAY_YEAR} onClick={() => go(year - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+    <Button variant="ghost" size="icon" aria-label={slug ? "Previous holiday" : "Previous year"} disabled={previous.year < MIN_HOLIDAY_YEAR} onClick={() => move(previous)}><ChevronLeft className="h-4 w-4" /></Button>
     <select aria-label="Year" value={year} onChange={event => go(Number(event.target.value))}>
       {Array.from({ length: MAX_HOLIDAY_YEAR - MIN_HOLIDAY_YEAR + 1 }, (_, index) => MIN_HOLIDAY_YEAR + index).map(value => <option key={value} value={value}>{value}</option>)}
     </select>
-    <Button variant="ghost" size="icon" aria-label="Next year" disabled={year >= MAX_HOLIDAY_YEAR} onClick={() => go(year + 1)}><ChevronRight className="h-4 w-4" /></Button>
+    <Button variant="ghost" size="icon" aria-label={slug ? "Next holiday" : "Next year"} disabled={next.year > MAX_HOLIDAY_YEAR} onClick={() => move(next)}><ChevronRight className="h-4 w-4" /></Button>
   </div>;
 }
 
