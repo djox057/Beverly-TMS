@@ -7,6 +7,16 @@ import { currentHolidayYear, getHolidays, MAX_HOLIDAY_YEAR, MIN_HOLIDAY_YEAR, pa
 import { ChristmasDecorations } from '@/components/ChristmasDecorations';
 import './holidays.css';
 
+function ThanksgivingDecorations() {
+  return <div className="thanksgiving-decorations" aria-hidden="true">
+    <span className="thanksgiving-leaf thanksgiving-leaf-one">🍁</span>
+    <span className="thanksgiving-leaf thanksgiving-leaf-two">🍂</span>
+    <span className="thanksgiving-leaf thanksgiving-leaf-three">🍁</span>
+    <span className="thanksgiving-leaf thanksgiving-leaf-four">🍂</span>
+    <span className="thanksgiving-wheat">🌾</span>
+  </div>;
+}
+
 function YearPicker({ year, slug }: { year: number; slug?: string }) {
   const navigate = useNavigate();
   const go = (next: number) => {
@@ -52,9 +62,10 @@ export default function Holidays() {
   const holiday = holidaySlug ? holidays.find(item => item.slug === holidaySlug) : undefined;
   if (holidaySlug && !holiday) return <div className="holiday-page p-8"><h1 className="text-2xl font-semibold">Holiday not found</h1><Button asChild variant="outline" className="mt-4"><Link to={`/holidays/${year}`}>Back to {year} Holidays</Link></Button></div>;
 
-  if (holiday) return <div className="holiday-page holiday-detail" data-holiday-theme={holiday.theme}>
-    {holiday.slug === 'christmas' ? <ChristmasDecorations /> : <div className="holiday-themed-decoration" aria-hidden="true">{holiday.motif} ✦ {holiday.motif}</div>}
+  if (holiday) return <div className="holiday-page holiday-detail" data-holiday-theme={holiday.theme} data-holiday-slug={holiday.slug}>
+    {holiday.slug === 'christmas' ? <ChristmasDecorations /> : holiday.slug === 'thanksgiving' ? null : <div className="holiday-themed-decoration" aria-hidden="true">{holiday.motif} ✦ {holiday.motif}</div>}
     <header className="holiday-detail-hero">
+      {holiday.slug === 'thanksgiving' && <ThanksgivingDecorations />}
       <Link className="holiday-back" to={`/holidays/${year}`} aria-label="All holidays"><ArrowLeft size={16} /></Link>
       <span className="holiday-detail-motif" aria-hidden="true">{holiday.motif}</span>
       <div className="holiday-detail-title"><h1>{holiday.name}</h1><p className="holiday-detail-date">{format(holiday.date, 'EEEE, MMMM d, yyyy')}
