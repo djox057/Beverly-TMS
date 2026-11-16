@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Create company contact sheets from current Beverly TMS driver assignments.">
+  <meta name="color-scheme" content="light">
+  <meta name="referrer" content="no-referrer">
+  <title>Driver Contact Sheets · Beverly</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <a class="app-brand" href="./" aria-label="Driver contact sheets home"><span class="brand-icon">B</span><span>BEVERLY <small>OPERATIONS</small></span></a>
+      <span class="header-divider"></span><span class="header-page">Driver contact sheets</span>
+      <div class="header-right"><span id="connection" class="connection">Sign in to connect</span><button id="signout" class="text-button" hidden>Sign out</button></div>
+    </header>
+    <main>
+      <section id="login" class="login-card">
+        <span class="eyebrow">DRIVER RESOURCES</span>
+        <h1>The right contacts.<br>Ready for the road.</h1>
+        <p>Sign in with your TMS account to create a company contact sheet for a driver.</p>
+        <form id="login-form">
+          <label for="email">TMS email</label><input id="email" type="email" autocomplete="username" required placeholder="you@company.com">
+          <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required>
+          <button id="signin" class="primary" type="submit">Sign in to TMS <span aria-hidden="true">→</span></button>
+        </form>
+        <p id="login-status" class="form-status" role="status" aria-live="polite">Connecting securely…</p>
+        <span class="login-footnote">Your existing TMS access applies.</span>
+      </section>
+      <section id="workspace" hidden>
+        <div class="page-heading"><div><span class="eyebrow">DRIVER RESOURCES</span><h1>Contact sheet generator</h1><p>Select a driver. Their company and dispatch contacts fill in automatically.</p></div><button id="refresh" class="secondary">↻ &nbsp;Refresh TMS</button></div>
+        <div class="workspace-grid">
+          <aside class="editor">
+            <section class="panel">
+              <div class="section-label"><span class="step">01</span><h2>Select driver</h2></div>
+              <label for="driver-search">Search drivers</label><input id="driver-search" type="search" placeholder="Name, truck, company, dispatcher…" autocomplete="off">
+              <div class="driver-controls"><span id="driver-count">Loading drivers…</span><label class="checkbox"><input id="inactive" type="checkbox">Include inactive</label></div>
+              <label class="sr-only" for="driver-list">Choose driver</label><select id="driver-list" size="7" aria-describedby="driver-count"></select>
+              <div id="assignment" class="assignment" hidden><span>COMPANY</span><strong id="assigned-company"></strong><span>ASSIGNED DISPATCHER</span><strong id="assigned-dispatcher"></strong></div>
+            </section>
+            <section id="sheet-options" class="panel" hidden>
+              <div class="section-label"><span class="step">02</span><h2>Review sheet</h2><span class="live-label">AUTO-FILLED</span></div>
+              <div class="two-fields"><div><label for="layout">Template</label><select id="layout"><option value="classic">Classic</option><option value="branded">Branded</option></select></div><div><label for="paper">Paper size</label><select id="paper"><option value="letter">US Letter</option><option value="a4">A4</option></select></div></div>
+              <div id="contact-editor"></div>
+              <label for="extra-contact">Add dispatch contact</label><select id="extra-contact"><option value="">Choose a TMS contact…</option></select>
+              <details><summary>Company details & departments</summary><p class="muted">Changes apply to this sheet only.</p><div id="company-editor"></div><div id="department-editor"></div></details>
+              <details><summary>Company logo</summary><p class="muted">Add a PNG or JPEG logo for this sheet.</p><input id="logo" type="file" accept="image/png,image/jpeg,image/webp"><button id="remove-logo" class="text-button" type="button" hidden>Remove logo</button></details>
+              <label class="checkbox sheet-driver"><input id="include-driver" type="checkbox" checked>Show driver and truck on printed sheet</label>
+              <button id="reset" class="text-button" type="button">Reset to TMS values</button>
+            </section>
+            <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+            <p id="sync-time" class="sync-time"></p>
+          </aside>
+          <section class="preview-panel" aria-label="Contact sheet preview">
+            <div class="preview-toolbar"><div><span class="preview-dot"></span><strong>Print preview</strong><span id="page-label">US Letter · 1 page</span></div><button id="print" class="primary" disabled><span aria-hidden="true">▤</span> Print / Save PDF</button></div>
+            <div id="preview-viewport" class="preview-viewport">
+              <div id="empty-preview" class="empty-preview"><span class="paper-icon" aria-hidden="true">▤</span><h2>A fresh sheet for every driver.</h2><p>Choose a driver to see their company contact sheet here.</p><span class="empty-steps">SELECT DRIVER <b>→</b> REVIEW <b>→</b> PRINT</span></div>
+              <div id="sheet-scale"><article id="sheet" class="contact-sheet" aria-label="Printable company contact sheet" hidden></article></div>
+            </div>
+            <p class="preview-footnote">Only the contact sheet prints. Use “Save as PDF” in the print dialog to download it.</p>
+          </section>
+        </div>
+      </section>
+    </main>
+    <footer class="app-footer">BEVERLY OPERATIONS <span>Company contact sheets</span></footer>
+  </div>
+  <style id="print-page">@page { size: letter portrait; margin: 0; }</style>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
