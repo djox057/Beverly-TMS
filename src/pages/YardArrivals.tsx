@@ -180,7 +180,7 @@ export default function YardArrivals() {
   const [statusDialogData, setStatusDialogData] = useState<{
     truckId: string;
     truckNumber: string;
-    driverId: string;
+    driverId: string | null;
     existingDates: string[];
     hasRecoveryStatus: boolean;
     hasRecoveryDriverAssigned: boolean;
@@ -691,21 +691,22 @@ export default function YardArrivals() {
 
   // Open Set Driver Status dialog for a recovery action
   const handleOpenStatusDialog = async (action: YardAction) => {
-    if (!action.driver_id) return;
     try {
       // Fetch truck using fallback strategy
       let truck = null;
 
       // 1. Try by current driver assignment
-      const { data: t1 } = await supabase
-        .from("trucks")
-        .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
-        .eq("driver1_id", action.driver_id)
-        .maybeSingle();
-      truck = t1;
+      if (action.driver_id) {
+        const { data: t1 } = await supabase
+          .from("trucks")
+          .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
+          .eq("driver1_id", action.driver_id)
+          .maybeSingle();
+        truck = t1;
+      }
 
       // 2. Fallback: try by left_by_driver_id (driver was unassigned but truck remembers them)
-      if (!truck) {
+      if (!truck && action.driver_id) {
         const { data: t2 } = await supabase
           .from("trucks")
           .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
@@ -728,27 +729,28 @@ export default function YardArrivals() {
       if (!truck) {
         toast({
           title: "Error",
-          description: "Could not find truck for this driver",
+          description: "Could not find truck for this yard arrival",
           variant: "destructive",
         });
         return;
       }
 
-      // Fetch existing game over notes for this driver
-      const { data: gameOverNotes } = await supabase
+      // Truck-only arrivals may remember an original driver, but must never write null-driver notes.
+      const originalDriverId = action.driver_id || truck.left_by_driver_id || null;
+      const { data: gameOverNotes } = originalDriverId ? await supabase
         .from("lost_day_notes")
         .select("date, note")
-        .eq("driver_id", action.driver_id)
-        .ilike("note", "%game over%");
+        .eq("driver_id", originalDriverId)
+        .ilike("note", "%game over%") : { data: [] };
 
       // Check if a recovery driver is already assigned by checking if driver1_id differs from original
       // When needs_recovery is true and driver1_id is a recovery driver, left_by_driver_id has the original driver
-      const hasRecoveryDriverAssigned = truck?.needs_recovery && truck?.left_by_driver_id && !!truck?.driver1_id && truck?.driver1_id !== truck?.left_by_driver_id;
+      const hasRecoveryDriverAssigned = truck.needs_recovery && !!truck.driver1_id && truck.driver1_id !== originalDriverId;
 
       setStatusDialogData({
         truckId: truck?.id || "",
         truckNumber: action.truck?.truck_number || truck?.truck_number || "",
-        driverId: action.driver_id,
+        driverId: originalDriverId,
         existingDates: gameOverNotes?.map(n => n.date) || [],
         hasRecoveryStatus: truck?.needs_recovery || false,
         hasRecoveryDriverAssigned: !!hasRecoveryDriverAssigned,
@@ -772,14 +774,16 @@ export default function YardArrivals() {
     const noteText = type === "yard" ? `game over - yard: ${note}` : `game over - at road: ${note}`;
     
     // Create or update lost_day_note (upsert to handle existing notes)
-    await supabase.from("lost_day_notes").upsert({
-      driver_id: statusDialogData.driverId,
-      date: dateStr,
-      note: noteText,
-      note_type: "game_over",
-    }, {
-      onConflict: "driver_id,date",
-    });
+    if (statusDialogData.driverId) {
+      await supabase.from("lost_day_notes").upsert({
+        driver_id: statusDialogData.driverId,
+        date: dateStr,
+        note: noteText,
+        note_type: "game_over",
+      }, {
+        onConflict: "driver_id,date",
+      });
+    }
     
     // Set truck.needs_recovery = true and set left_by_driver_id to current driver
     if (statusDialogData.truckId) {
@@ -794,7 +798,7 @@ export default function YardArrivals() {
     queryClient.invalidateQueries({ queryKey: ["reports"] });
     
     // Update dialog state to show awaiting recovery step
-    setStatusDialogData(prev => prev ? { ...prev, hasRecoveryStatus: true, existingDates: [...prev.existingDates, dateStr] } : null);
+    setStatusDialogData(prev => prev ? { ...prev, hasRecoveryStatus: true, existingDates: prev.driverId ? [...prev.existingDates, dateStr] : prev.existingDates } : null);
   };
 
   // Handler for full confirm with recovery driver
@@ -805,18 +809,20 @@ export default function YardArrivals() {
     const noteText = type === "yard" ? `game over - yard: ${note}` : `game over - at road: ${note}`;
     
     // Create or update lost_day_note (upsert to handle existing notes)
-    await supabase.from("lost_day_notes").upsert({
-      driver_id: statusDialogData.driverId,
-      date: dateStr,
-      note: noteText,
-      note_type: "game_over",
-    }, {
-      onConflict: "driver_id,date",
-    });
+    if (statusDialogData.driverId) {
+      await supabase.from("lost_day_notes").upsert({
+        driver_id: statusDialogData.driverId,
+        date: dateStr,
+        note: noteText,
+        note_type: "game_over",
+      }, {
+        onConflict: "driver_id,date",
+      });
+    }
     
     // Update truck
     if (statusDialogData.truckId) {
-      const updateData: { needs_recovery: boolean; left_by_driver_id: string; driver1_id?: string } = { 
+      const updateData: { needs_recovery: boolean; left_by_driver_id: string | null; driver1_id?: string } = { 
         needs_recovery: true,
         left_by_driver_id: statusDialogData.driverId,
       };
@@ -879,11 +885,13 @@ export default function YardArrivals() {
     if (!statusDialogData) return;
     
     // Delete game over notes
-    await supabase
-      .from("lost_day_notes")
-      .delete()
-      .eq("driver_id", statusDialogData.driverId)
-      .ilike("note", "%game over%");
+    if (statusDialogData.driverId) {
+      await supabase
+        .from("lost_day_notes")
+        .delete()
+        .eq("driver_id", statusDialogData.driverId)
+        .ilike("note", "%game over%");
+    }
     
     // Reset truck recovery status
     if (statusDialogData.truckId) {
@@ -1313,8 +1321,8 @@ export default function YardArrivals() {
                               size="icon"
                               className="h-6 w-6"
                               onClick={() => handleOpenStatusDialog(action)}
-                              disabled={!action.driver_id}
-                              title={action.driver_id ? "Set Game Over / Recovery Status" : "No driver assigned"}
+                              disabled={!action.driver_id && !action.truck?.truck_number}
+                              title="Set Game Over / Recovery Status"
                             >
                               <XCircle className="h-3 w-3" />
                             </Button>
@@ -1667,3 +1675,4 @@ export default function YardArrivals() {
     </div>
   );
 }
+
