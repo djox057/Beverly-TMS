@@ -1,3 +1,4 @@
+import { getReportAdditionals, type ReportAdditional } from "@/utils/reportAdditionals";
 import { finalUpdateIdentity, finalUpdateRowId } from "@/lib/finalUpdateIdentity";
 import { EmptyTrucksFilter } from "@/components/reports/EmptyTrucksFilter";
 import { AssignRecoveryLoadDialog } from "@/components/recovery/AssignRecoveryLoadDialog";
@@ -1104,6 +1105,7 @@ const Reports = () => {
     loadedMiles: number;
     dhMiles: number;
     driverPay: number;
+    additionals: ReportAdditional[];
     canceled: boolean;
     bookedBy: string;
     bookedByCompanyName?: string | null;
@@ -1650,6 +1652,7 @@ const Reports = () => {
         loadedMiles,
         dhMiles: toNum(order.dh_miles),
         driverPay,
+        additionals: getReportAdditionals(order),
         canceled: order.canceled || false,
         bookedBy: order.booked_by || "",
         bookedByCompanyName:
@@ -8435,6 +8438,29 @@ const Reports = () => {
                 </div>
               </div>
             </div>
+
+            {!!zoomedLoad?.additionals.length && (
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Additional Charges</h4>
+                <div className="space-y-2">
+                  {zoomedLoad.additionals.map((item) => (
+                    <div key={item.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-green-500/20 bg-green-500/5 px-3 py-2 text-sm">
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">{item.label}</span>
+                      <span>
+                        <span className="text-muted-foreground">{item.deduction ? "Carrier pays" : "Broker paid"}: </span>
+                        {item.companyAmount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                      </span>
+                      {item.hasDriver && (
+                        <span>
+                          <span className="text-muted-foreground">{item.deduction ? "Driver pays" : "Driver"}: </span>
+                          {item.driverAmount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {zoomedLoad?.notes && zoomedLoad.notes !== "—" && (
               <div>

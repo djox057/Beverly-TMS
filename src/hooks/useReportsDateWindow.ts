@@ -9,6 +9,7 @@
  * - Order files loaded on-demand only
  */
 
+import { REPORT_ADDITIONAL_COLUMNS } from "@/utils/reportAdditionals";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
@@ -197,7 +198,7 @@ const fetchOrdersForDateWindow = async (
           canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
           is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
           freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-          tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
+          tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, ${REPORT_ADDITIONAL_COLUMNS}, booked_by,
           bol_force_complete, pod_force_complete, weight_bol
         `)
         .eq("locked", false)
@@ -296,7 +297,7 @@ const fetchLockedOrdersForDateWindow = async (
             canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
             is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
             freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-            tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
+            tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, ${REPORT_ADDITIONAL_COLUMNS}, booked_by,
             bol_force_complete, pod_force_complete, weight_bol
           `)
           .eq("locked", true)
@@ -395,7 +396,7 @@ const fetchGapFillOrders = async (
           canceled, driver1_id, driver2_id, truck_id, trailer_id, broker_id, company_id, booked_by_company_id,
           is_recovery, locked, mileage, loaded_miles, dh_miles, original_driver1_id, original_driver2_id,
           freight_amount, driver_price, detention, detention_driver, layover, layover_driver,
-          tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, booked_by,
+          tonu, tonu_driver, extra_stop, extra_stop_driver, lumper, lumper_driver, ${REPORT_ADDITIONAL_COLUMNS}, booked_by,
           bol_force_complete, pod_force_complete, weight_bol
         `)
         .eq("locked", true)
