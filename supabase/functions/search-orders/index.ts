@@ -17,6 +17,8 @@ interface SearchFilters {
   statusFilter?: "canceled" | "pending-payment" | "billed";
   lockedNotInvoiced?: boolean;
   invoiced?: boolean;
+  paidAtDateFrom?: string;
+  paidAtDateTo?: string;
   deliveryDateFrom?: string;
   deliveryDateTo?: string;
   pickupDateFrom?: string;
@@ -303,6 +305,9 @@ Deno.serve(async (req) => {
     } else if (filters.invoiced === false) {
       query = query.or("invoiced.is.null,invoiced.eq.false");
     }
+
+    if (filters.paidAtDateFrom) query = query.gte("paid_at", filters.paidAtDateFrom);
+    if (filters.paidAtDateTo) query = query.lte("paid_at", filters.paidAtDateTo);
 
     // Delivery date range
     if (filters.deliveryDateFrom) {

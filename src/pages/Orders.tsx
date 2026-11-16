@@ -1,3 +1,4 @@
+import { matchesPaidAtRange } from "@/utils/paidAtFilter";
 import { RejectedPodsDialog } from "@/components/RejectedPodsDialog";
 import { PodColumnPopup } from "@/components/PodColumnPopup";
 import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
@@ -105,6 +106,7 @@ const Orders = () => {
   useDragPan();
   const navigate = useNavigate();
   const { hasRole, getPrimaryRole, profile, roles } = useAuthContext();
+  const isAdmin = roles.includes("admin");
   const { individualMode } = useIndividualMode();
   const primaryRole = getPrimaryRole();
   const queryClient = useQueryClient();
@@ -251,6 +253,7 @@ const Orders = () => {
   const [brokerFilter, setBrokerFilter] = useState("all-brokers");
   const [lockedNotInvoicedFilter, setLockedNotInvoicedFilter] = useState(false);
   const [invoicedFilter, setInvoicedFilter] = useState<"all" | "not-invoiced" | "invoiced">("all");
+  const [paidAtDateRange, setPaidAtDateRange] = useState<DateRange | undefined>();
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [pickupDateRange, setPickupDateRange] = useState<DateRange | undefined>();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -467,6 +470,7 @@ const Orders = () => {
       !!serverBackedStatusFilter ||
       lockedNotInvoicedFilter ||
       invoicedFilter !== "all" ||
+      (isAdmin && paidAtDateRange?.from) ||
       dateRange?.from ||
       pickupDateRange?.from
     );
@@ -480,6 +484,8 @@ const Orders = () => {
     serverBackedStatusFilter,
     lockedNotInvoicedFilter,
     invoicedFilter,
+    paidAtDateRange,
+    isAdmin,
     dateRange,
     pickupDateRange,
   ]);
@@ -539,6 +545,8 @@ const Orders = () => {
       statusFilter: serverBackedStatusFilter,
       lockedNotInvoiced: lockedNotInvoicedFilter || undefined,
       invoiced: invoicedFilter === "all" ? undefined : invoicedFilter === "invoiced",
+      paidAtDateFrom: isAdmin && paidAtDateRange?.from ? chicagoBoundary(paidAtDateRange.from) : undefined,
+      paidAtDateTo: isAdmin && paidAtDateRange?.from ? chicagoBoundary(paidAtDateRange.to ?? paidAtDateRange.from, true) : undefined,
       deliveryDateFrom: dateRange?.from ? chicagoBoundary(dateRange.from, false, -1) : undefined,
       deliveryDateTo: dateRange?.to ? chicagoBoundary(dateRange.to, true, 1) : undefined,
       pickupDateFrom: pickupDateRange?.from ? chicagoBoundary(pickupDateRange.from, false, -1) : undefined,
@@ -559,6 +567,8 @@ const Orders = () => {
     serverBackedStatusFilter,
     lockedNotInvoicedFilter,
     invoicedFilter,
+    paidAtDateRange,
+    isAdmin,
     dateRange,
     pickupDateRange,
     companies,
@@ -703,6 +713,7 @@ const Orders = () => {
         return orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
       };
 
+      if (isAdmin && !matchesPaidAtRange(order.paidAt, paidAtDateRange)) return false;
       const matchesDateAlways = matchesDayRange(order.deliveryDate, dateRange);
       const matchesPickupDateAlways = matchesDayRange(order.pickupDate, pickupDateRange);
 
@@ -883,6 +894,8 @@ const Orders = () => {
     truckFilter,
     driverFilter,
     brokerFilter,
+    paidAtDateRange,
+    isAdmin,
     dateRange,
     pickupDateRange,
     lockedNotInvoicedFilter,
@@ -901,6 +914,8 @@ const Orders = () => {
     driverFilter,
     brokerFilter,
     missingDocsFilter,
+    paidAtDateRange,
+    isAdmin,
     dateRange,
     pickupDateRange,
     lockedNotInvoicedFilter,
@@ -932,6 +947,8 @@ const Orders = () => {
     driverFilter,
     brokerFilter,
     missingDocsFilter,
+    paidAtDateRange,
+    isAdmin,
     dateRange,
     pickupDateRange,
     lockedNotInvoicedFilter,
@@ -1956,6 +1973,13 @@ const Orders = () => {
                     ]}
                     className="w-full"
                   />
+
+                  {isAdmin && <div className="w-full">
+                      <DateRangePicker date={paidAtDateRange} onDateChange={setPaidAtDateRange}
+                        placeholder="Paid at date (CT)" className="w-full" />
+                      {paidAtDateRange?.from && <Button variant="ghost" size="sm"
+                        onClick={() => setPaidAtDateRange(undefined)}>Clear paid at filter</Button>}
+                    </div>}
 
                   {/* Column 2 Row 2: Delivery Date */}
                   <DateRangePicker

@@ -20,7 +20,7 @@ const ORDER_COLUMNS = `
   wrong_address_fee, wrong_address_fee_driver, escort_fee,
   other_charges, other_charges_driver, other_charges_reason,
   other_additionals, other_additionals_driver, other_additionals_reason,
-  additional_miles, booked_by, paid, invoiced,
+  additional_miles, booked_by, paid, paid_at, invoiced,
   original_truck_id, original_trailer_id,
   bol_force_complete, pod_force_complete,
   weight_rc, weight_bol
@@ -30,7 +30,7 @@ const ORDER_COLUMNS = `
 // Keeps everything transformOrders needs to compute totalFreightAmount(NoLumper),
 // totalDriverPay, mileage, dates, ids, and fallback names for archived orders.
 const ORDER_COLUMNS_ANALYTICS = `
-  id, locked, invoiced, paid, canceled, created_at,
+  id, locked, invoiced, paid, paid_at, canceled, created_at,
   pickup_datetime, delivery_datetime,
   booked_by, internal_load_number, load_company_code, broker_load_number,
   driver1_id, driver2_id, truck_id, trailer_id, company_id, booked_by_company_id,

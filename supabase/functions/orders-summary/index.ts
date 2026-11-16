@@ -17,6 +17,8 @@ type OrdersSummaryFilters = {
   statusFilter?: "canceled" | "pending-payment" | "billed";
   lockedNotInvoiced?: boolean;
   invoiced?: boolean;
+  paidAtDateFrom?: string;
+  paidAtDateTo?: string;
   deliveryDateFrom?: string;
   deliveryDateTo?: string;
   pickupDateFrom?: string;
@@ -62,6 +64,8 @@ const applyFilters = (query: any, filters: OrdersSummaryFilters) => {
   if (filters.invoiced === true) query = query.eq("invoiced", true);
   else if (filters.invoiced === false) query = query.or("invoiced.is.null,invoiced.eq.false");
 
+  if (filters.paidAtDateFrom) query = query.gte("paid_at", filters.paidAtDateFrom);
+  if (filters.paidAtDateTo) query = query.lte("paid_at", filters.paidAtDateTo);
   if (filters.deliveryDateFrom) query = query.gte("delivery_datetime", filters.deliveryDateFrom);
   if (filters.deliveryDateTo) query = query.lte("delivery_datetime", filters.deliveryDateTo);
   if (filters.pickupDateFrom) query = query.gte("pickup_datetime", filters.pickupDateFrom);

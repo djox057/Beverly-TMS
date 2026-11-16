@@ -14,6 +14,8 @@ interface SearchFilters {
   statusFilter?: "canceled" | "pending-payment" | "billed";
   lockedNotInvoiced?: boolean;
   invoiced?: boolean;
+  paidAtDateFrom?: string;
+  paidAtDateTo?: string;
   deliveryDateFrom?: string;
   deliveryDateTo?: string;
   pickupDateFrom?: string;
@@ -62,6 +64,8 @@ function getFilterQueryKey(filters: SearchFilters, scope?: string): (string | bo
     filters.statusFilter,
     filters.lockedNotInvoiced,
     filters.invoiced,
+    filters.paidAtDateFrom,
+    filters.paidAtDateTo,
     filters.deliveryDateFrom,
     filters.deliveryDateTo,
     filters.pickupDateFrom,

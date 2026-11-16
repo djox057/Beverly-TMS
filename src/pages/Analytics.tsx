@@ -1,3 +1,4 @@
+import { matchesPaidAtRange } from "@/utils/paidAtFilter";
 import { useSalaryMonthDefault } from "@/hooks/useSalaryMonthDefault";
 import { SupervisorFilter } from "@/components/SupervisorFilter";
 import { matchesSupervisorFilter } from "@/lib/supervisorFilter";
@@ -187,6 +188,7 @@ const Analytics = () => {
     }
     console.log("=== END NAVIGATION DEBUG ===");
   };
+  const [paidAtDateRange, setPaidAtDateRange] = useState<DateRange | undefined>();
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [sortBy, setSortBy] = useState<
     | "totalFreight"
@@ -1484,6 +1486,7 @@ const Analytics = () => {
     }
     const filtered =
       orders?.filter((order) => {
+        if (isAdmin && !matchesPaidAtRange(order.paidAt, paidAtDateRange)) return false;
         // In precomputed mode, exclude locked orders from live count.
         // They are already included in precomputed aggregates.
         // When an unlocked order gets locked mid-session via realtime,
@@ -1619,7 +1622,7 @@ const Analytics = () => {
         return false;
       }) || [];
     return filtered;
-  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices, isPrecomputed, maxRcWeightFilter, supervisorTeam]);
+  }, [orders, paidAtDateRange, isAdmin, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices, isPrecomputed, maxRcWeightFilter, supervisorTeam]);
 
   // Helper function to get week start date
   const getWeekStartDate = (weeksAgo: number) => {
@@ -3170,6 +3173,12 @@ const Analytics = () => {
                       </SelectContent>
                     </Select>
 
+                    {isAdmin && <div className="w-full sm:w-72">
+                      <DateRangePicker date={paidAtDateRange} onDateChange={setPaidAtDateRange}
+                        placeholder="Paid at date (CT)" className="w-full" />
+                      {paidAtDateRange?.from && <Button variant="ghost" size="sm"
+                        onClick={() => setPaidAtDateRange(undefined)}>Clear paid at filter</Button>}
+                    </div>}
                     <DateRangePicker
                       date={filterType === "custom" ? dateRange : undefined}
                       onDateChange={(range) => {

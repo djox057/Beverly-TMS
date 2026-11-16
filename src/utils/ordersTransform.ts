@@ -119,6 +119,7 @@ export function transformOrders(allOrders: any[]) {
       // Handle invoiced boolean - convert string "true"/"false" to actual boolean
       invoiced: order.invoiced === true || order.invoiced === "true" || order.invoiced === 1,
       // Handle paid boolean - convert string "true"/"false" to actual boolean
+      paidAt: order.paid_at ?? order.paidAt ?? null,
       paid: order.paid === true || order.paid === "true" || order.paid === 1,
       retrieval: order.retrieval === true,
       prebook: order.prebook === true,
