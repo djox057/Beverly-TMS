@@ -10,6 +10,8 @@ import { TruckMaintenanceNoteDialog, type MaintenanceNoteTarget } from "@/compon
 import { TruckRepairDeadlines } from "@/components/reports/TruckRepairDeadlines";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { CoiRequestDialog } from "@/components/reports/CoiRequestDialog";
+import { LoadAdditionals } from "@/components/reports/LoadAdditionals";
+import { getReportLoadFinancials, REPORT_LOAD_FINANCIAL_COLUMNS } from "@/lib/reportLoadFinancials";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1111,6 +1113,23 @@ const Reports = () => {
     weightRc?: number | null;
     weightBol?: number | null;
   } | null>(null);
+
+  const loadFinancialsQuery = useQuery({
+    queryKey: ["report-load-financials", zoomedLoad?.orderId],
+    enabled: !!zoomedLoad?.orderId,
+    staleTime: 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select(REPORT_LOAD_FINANCIAL_COLUMNS)
+        .eq("id", zoomedLoad!.orderId)
+        .single();
+      if (error) throw error;
+      return getReportLoadFinancials(data as unknown as Record<string, unknown>);
+    },
+  });
+  const zoomedFreightAmount = loadFinancialsQuery.data?.freightAmount ?? zoomedLoad?.freightAmount ?? 0;
+  const zoomedDriverPay = loadFinancialsQuery.data?.driverPay ?? zoomedLoad?.driverPay ?? 0;
 
   // Additional files popover state
   const [additionalFilesPopover, setAdditionalFilesPopover] = useState<{
@@ -7748,10 +7767,10 @@ const Reports = () => {
                         const miles = zoomedLoad?.loadedMiles || 0;
                         return (
                           <>
-                            <span>${zoomedLoad?.freightAmount?.toLocaleString() || 0} freight</span>
+                            <span>${zoomedFreightAmount.toLocaleString()} freight</span>
                             {miles > 0 ? (
                               <span className="text-xs text-muted-foreground/80">
-                                {(zoomedLoad.freightAmount / miles).toFixed(2)}/mi RPM
+                                {(zoomedFreightAmount / miles).toFixed(2)}/mi RPM
                               </span>
                             ) : null}
                           </>
@@ -7763,10 +7782,10 @@ const Reports = () => {
                       const miles = zoomedLoad?.loadedMiles || 0;
                       return (
                         <div className="flex flex-col leading-tight">
-                          <span>${zoomedLoad?.driverPay?.toLocaleString() || 0} driver pay</span>
+                          <span>${zoomedDriverPay.toLocaleString()} driver pay</span>
                           {miles > 0 ? (
                             <span className="text-xs text-muted-foreground/80">
-                              {(zoomedLoad.driverPay / miles).toFixed(2)}/mi RPM
+                              {(zoomedDriverPay / miles).toFixed(2)}/mi RPM
                             </span>
                           ) : null}
                         </div>
@@ -8106,6 +8125,17 @@ const Reports = () => {
               )}
             </div>
           </div>
+
+          {loadFinancialsQuery.isFetching && !loadFinancialsQuery.data && (
+            <p className="mt-4 text-sm text-muted-foreground">Loading additionals…</p>
+          )}
+          {loadFinancialsQuery.isError && (
+            <div role="alert" className="mt-4 flex items-center gap-2 text-sm text-destructive">
+              Could not load additionals.
+              <Button variant="outline" size="sm" onClick={() => loadFinancialsQuery.refetch()}>Retry</Button>
+            </div>
+          )}
+          {loadFinancialsQuery.data && <LoadAdditionals rows={loadFinancialsQuery.data.rows} />}
 
           {/* Bottom Section - Documents and Notes */}
           <div className="mt-6 space-y-4 pt-4 border-t">
