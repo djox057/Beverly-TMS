@@ -1948,7 +1948,7 @@ const EditOrderForm = () => {
         hour: "2-digit",
         minute: "2-digit",
       });
-      const transferNote = `[TRANSFER #1] ${formattedDate} - ${data.transferCity}, ${data.transferState}\nNew Driver: ${recoveryDriver?.name || "Unknown"} | Truck: ${recoveryTruck?.truck_number || "Unknown"}\nReason: ${data.description}`;
+      const transferNote = `[TRANSFER #1 by ${profile?.full_name || profile?.email || "Unknown User"}] ${formattedDate} - ${data.transferCity}, ${data.transferState}\nNew Driver: ${recoveryDriver?.name || "Unknown"} | Truck: ${recoveryTruck?.truck_number || "Unknown"}\nReason: ${data.description}`;
 
       // Get current order notes to append transfer note
       const { data: currentOrder, error: fetchError } = await supabase
@@ -2136,7 +2136,7 @@ const EditOrderForm = () => {
         hour: "2-digit",
         minute: "2-digit",
       });
-      const transferNote = `[TRANSFER #${data.sequenceNumber}] ${formattedDate} - ${data.transferCity}, ${data.transferState}\nNew Driver: ${newDriver?.name || "Unknown"} | Truck: ${newTruck?.truck_number || "Unknown"}\nReason: ${data.description}`;
+      const transferNote = `[TRANSFER #${data.sequenceNumber} by ${profile?.full_name || profile?.email || "Unknown User"}] ${formattedDate} - ${data.transferCity}, ${data.transferState}\nNew Driver: ${newDriver?.name || "Unknown"} | Truck: ${newTruck?.truck_number || "Unknown"}\nReason: ${data.description}`;
 
       // Get current order notes to append transfer note
       const { data: currentOrder, error: fetchError } = await supabase
