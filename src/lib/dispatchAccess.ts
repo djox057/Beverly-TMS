@@ -32,6 +32,6 @@ export function getTripPermissions(role: UserRole | null) {
     canEditStatements,
     canReadStatements: canEditStatements || role === "manager" || role === "supervisor",
     canSeePaidColumn: role !== null && role !== "dispatch",
-    canTogglePaid: role !== null && !isDispatcherRole(role) && role !== "manager",
+    canTogglePaid: role !== null && !isDispatcherRole(role) && role !== "manager" && role !== "maintenance",
   };
 }

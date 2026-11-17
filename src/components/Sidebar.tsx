@@ -112,7 +112,7 @@ const navigation = [
     name: "Trips",
     href: "/trips",
     icon: Route,
-    roles: ["accounting", "manager", "admin", "chicago_management", "safety", "dispatch"],
+    roles: ["accounting", "manager", "admin", "chicago_management", "safety", "dispatch", "maintenance"],
   },
   { name: "Live Map", href: "/trucks-map", icon: MapPin },
   { name: "Trucks", href: "/trucks", icon: Truck },
@@ -429,9 +429,10 @@ export const Sidebar = () => {
       ];
     }
 
-    // Maintenance role: specific pages (New Load, Loads, Drivers, Trucks, Trailers, Fleets, Reports, Yard Arrivals, Alerts, Maintenance and Repairs, Fuel Reports)
+    // Maintenance role: specific pages including read-only Trips
     if (hasRole("maintenance")) {
       const maintenancePages = [
+        "/trips",
         "/new-order",
         "/orders",
         "/drivers",

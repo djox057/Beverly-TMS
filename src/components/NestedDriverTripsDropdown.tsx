@@ -73,6 +73,7 @@ export function NestedDriverTripsDropdown({
 
 // Inline content component to be rendered in a separate table row
 interface NestedDriverTripsInlineContentProps {
+  readOnly?: boolean;
   driverName: string;
   driverId?: string;
   onSearchDriver?: (driverName: string) => void;
@@ -90,6 +91,7 @@ interface NestedDriverTripsInlineContentProps {
 }
 
 export function NestedDriverTripsInlineContent({
+  readOnly = false,
   driverName,
   driverId,
   onSearchDriver,
@@ -570,7 +572,7 @@ export function NestedDriverTripsInlineContent({
 
                       {/* Actions */}
                       <div className={cn(cellBase, "flex items-center justify-center gap-0.5")}>
-                        <Button
+                        {!readOnly && <Button
                           variant="ghost"
                           size="sm"
                           className="h-6 w-6 p-0"
@@ -586,7 +588,7 @@ export function NestedDriverTripsInlineContent({
                           }}
                         >
                           <Edit className="h-3.5 w-3.5" />
-                        </Button>
+                        </Button>}
                         {renderAdditionalPayIcon(order)}
                         {renderRescheduledIcon(order)}
                         {renderMissingPodIcon(order)}

@@ -34,3 +34,9 @@ it.each(['admin', 'manager', 'supervisor', 'dispatch', 'afterhours', 'accounting
   if (['admin', 'manager', 'supervisor', 'dispatch', 'accounting'].includes(role)) expect(link).toHaveAttribute('href', '/holidays');
   else expect(link).not.toBeInTheDocument();
 });
+
+it('shows Trips for Maintenance', async () => {
+  mocks.role = 'maintenance';
+  await act(async () => { render(navigation()); });
+  expect(screen.getByRole('link', { name: 'Trips' })).toHaveAttribute('href', '/trips');
+});

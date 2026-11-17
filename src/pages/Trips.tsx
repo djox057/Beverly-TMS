@@ -433,10 +433,12 @@ const Trips = () => {
   const navigate = useNavigate();
   const { roles, getPrimaryRole, profile, hasRole } = useAuth();
   const primaryRole = getPrimaryRole();
+  const isMaintenanceReadOnly = primaryRole === "maintenance";
 
   // For dispatch users, filter to only show their booked orders and orders for drivers assigned to them
   const supervisorTeam = useSupervisorTeam();
   const isDispatchOnly =
+    !isMaintenanceReadOnly &&
     hasRole("dispatch") &&
     !hasRole("afterhours") &&
     !hasRole("admin") &&
@@ -549,6 +551,7 @@ const Trips = () => {
 
   // Check if user can move loads between weeks (managers, admins, accounting) - dispatch/supervisor cannot
   const canMoveLoads =
+    !isMaintenanceReadOnly &&
     !isDispatcherRole(primaryRole) &&
     primaryRole !== "supervisor" &&
     (roles?.some((role) => ["manager", "admin", "accounting"].includes(role)) ?? false);
@@ -766,8 +769,8 @@ const Trips = () => {
 
   // Confirm individual order paid status change
   const confirmOrderPaidToggle = async () => {
-    if (primaryRole === "manager" || primaryRole === "supervisor") {
-      toast.error("Managers and supervisors cannot change paid status");
+    if (!canTogglePaid) {
+      toast.error("You cannot change paid status");
       setOrderPaidConfirmDialog(null);
       return;
     }
@@ -824,8 +827,8 @@ const Trips = () => {
 
   // Confirm paid status toggle
   const confirmPaidToggle = () => {
-    if (primaryRole === "manager" || primaryRole === "supervisor") {
-      toast.error("Managers and supervisors cannot change paid status");
+    if (!canTogglePaid) {
+      toast.error("You cannot change paid status");
       setPaidConfirmDialog(null);
       return;
     }
@@ -1640,6 +1643,7 @@ const Trips = () => {
   // Handle drag end for moving loads between weeks
   const handleDragEnd = useCallback(
     (result: DropResult) => {
+      if (!canMoveLoads) return;
       const { destination, source, draggableId } = result;
 
       // No destination = dropped outside
@@ -1668,15 +1672,16 @@ const Trips = () => {
         targetWeekStart: targetWeekKey,
       });
     },
-    [groupedByWeek, createWeekOverrideMutation],
+    [canMoveLoads, groupedByWeek, createWeekOverrideMutation],
   );
 
   // Handle reverting a load to its original week
   const handleRevertToOriginalWeek = useCallback(
     (orderId: string) => {
+      if (!canMoveLoads) return;
       deleteWeekOverrideMutation.mutate(orderId);
     },
-    [deleteWeekOverrideMutation],
+    [canMoveLoads, deleteWeekOverrideMutation],
   );
 
   const exportWeekToExcel = async (
@@ -1686,6 +1691,7 @@ const Trips = () => {
     scheduledDeductions: ScheduledDeduction[] = [],
     companyOverride?: string,
   ) => {
+    if (isMaintenanceReadOnly) return;
     try {
       // Get the first order to determine driver/truck info
       const firstOrder = week.orders[0];
@@ -5350,6 +5356,7 @@ const Trips = () => {
   };
 
   const exportFinalStatement = async () => {
+    if (isMaintenanceReadOnly) return;
     try {
       if (!searchFilter) {
         toast.error("Please filter by truck or driver first");
@@ -6232,7 +6239,7 @@ const Trips = () => {
             )}
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Button
+            {!isMaintenanceReadOnly && <Button
               variant="outline"
               size="sm"
               onClick={exportFinalStatement}
@@ -6242,7 +6249,7 @@ const Trips = () => {
             >
               <FileDown className="h-4 w-4 mr-1 md:mr-2" />
               Final
-            </Button>
+            </Button>}
             <Button
               variant={auditMode ? "default" : "outline"}
               size="sm"
@@ -6473,7 +6480,7 @@ const Trips = () => {
                               ) : null)}
                             </TableCell>}
                             <TableCell className="py-3">
-                              {canSeePaidColumn && !isDispatcherRole(primaryRole) && (
+                              {canSeePaidColumn && !isDispatcherRole(primaryRole) && !isMaintenanceReadOnly && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -6636,6 +6643,7 @@ const Trips = () => {
                                             driverName={order._entityName}
                                             driverId={order._entityId}
                                             assignmentDate={order._historyDate}
+                                            readOnly={isMaintenanceReadOnly}
                                             onSearchDriver={(name) => {
                                               setSearchFilter(name);
                                               setCurrentPage(1);
@@ -6960,7 +6968,7 @@ const Trips = () => {
                                           )}
                                           <TableCell>
                                             <div className="flex items-center gap-1">
-                                              <Button
+                                              {!isMaintenanceReadOnly && <Button
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => {
@@ -6969,7 +6977,7 @@ const Trips = () => {
                                                 }}
                                               >
                                                 <Edit className="h-4 w-4" />
-                                              </Button>
+                                              </Button>}
                                               {(() => {
                                                 const freightAmount = Number(order.freightAmount) || 0;
                                                 const totalFreight = Number(order.totalFreightAmountNoLumper) || 0;

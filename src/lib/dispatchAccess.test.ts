@@ -70,3 +70,9 @@ describe("trip financial display permissions", () => {
     expect(getTripPermissions("manager").canTogglePaid).toBe(false);
   });
 });
+
+it("keeps Maintenance trip payments and statement uploads read-only", () => {
+  expect(getTripPermissions("maintenance")).toEqual({
+    canSeePaidColumn: true, canReadStatements: false, canEditStatements: false, canTogglePaid: false,
+  });
+});
