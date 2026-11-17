@@ -83,7 +83,7 @@ export const useYardLoadsFromOrders = () => {
           original_trailer_id, original_miles, original_driver_price,
           recovery_miles, recovery_driver_price, bol_location
         `)
-        .is("driver1_id", null)
+        .or("driver1_id.is.null,is_recovery.eq.true")
         .is("truck_id", null)
         .eq("prebook", false)
         .order("created_at", { ascending: false });
@@ -97,17 +97,17 @@ export const useYardLoadsFromOrders = () => {
       const brokerIds = [...new Set(orders.map(o => o.broker_id).filter(Boolean))] as string[];
       const companyIds = [...new Set(orders.map(o => o.company_id).filter(Boolean))] as string[];
       const bookedByCompanyIds = [...new Set(orders.map(o => o.booked_by_company_id).filter(Boolean))] as string[];
-      const origDriverIds = [...new Set(orders.map(o => o.original_driver1_id).filter(Boolean))] as string[];
+      const driverIds = [...new Set(orders.flatMap(o => [o.original_driver1_id, o.driver1_id]).filter(Boolean))] as string[];
       const origTruckIds = [...new Set(orders.map(o => o.original_truck_id).filter(Boolean))] as string[];
       const origTrailerIds = [...new Set(orders.map(o => o.original_trailer_id).filter(Boolean))] as string[];
 
       // Stage 3: Parallel batch fetches
-      const [trailersRes, brokersRes, companiesRes, bookedByCompaniesRes, origDriversRes, origTrucksRes, origTrailersRes, pickupDropsRes, orderFilesRes] = await Promise.all([
+      const [trailersRes, brokersRes, companiesRes, bookedByCompaniesRes, driversRes, origTrucksRes, origTrailersRes, pickupDropsRes, orderFilesRes] = await Promise.all([
         trailerIds.length > 0 ? supabase.from("trailers").select("id, trailer_number").in("id", trailerIds) : { data: [] },
         brokerIds.length > 0 ? supabase.from("brokers").select("id, name").in("id", brokerIds) : { data: [] },
         companyIds.length > 0 ? supabase.from("companies").select("id, name").in("id", companyIds) : { data: [] },
         bookedByCompanyIds.length > 0 ? supabase.from("companies").select("id, name").in("id", bookedByCompanyIds) : { data: [] },
-        origDriverIds.length > 0 ? supabase.from("drivers").select("id, name").in("id", origDriverIds) : { data: [] },
+        driverIds.length > 0 ? supabase.from("drivers").select("id, name").in("id", driverIds) : { data: [] },
         origTruckIds.length > 0 ? supabase.from("trucks").select("id, truck_number").in("id", origTruckIds) : { data: [] },
         origTrailerIds.length > 0 ? supabase.from("trailers").select("id, trailer_number").in("id", origTrailerIds) : { data: [] },
         supabase.from("pickup_drops").select("id, order_id, type, city, state, datetime, sequence_number, latitude, longitude").in("order_id", orderIds),
@@ -119,7 +119,7 @@ export const useYardLoadsFromOrders = () => {
       const brokerMap = new Map((brokersRes.data || []).map(b => [b.id, b]));
       const companyMap = new Map((companiesRes.data || []).map(c => [c.id, c]));
       const bookedByCompanyMap = new Map((bookedByCompaniesRes.data || []).map(c => [c.id, c]));
-      const origDriverMap = new Map((origDriversRes.data || []).map(d => [d.id, d]));
+      const driverMap = new Map((driversRes.data || []).map(d => [d.id, d]));
       const origTruckMap = new Map((origTrucksRes.data || []).map(t => [t.id, t]));
       const origTrailerMap = new Map((origTrailersRes.data || []).map(t => [t.id, t]));
 
@@ -164,7 +164,7 @@ export const useYardLoadsFromOrders = () => {
           pickupCity: firstPickup?.city || null,
           pickupState: firstPickup?.state || null,
           truckNumber: null,
-          driverName: null,
+          driverName: driverMap.get(order.driver1_id)?.name || null,
           brokerName: brokerMap.get(order.broker_id)?.name || null,
           brokerLoadNumber: order.broker_load_number || null,
           notes: order.notes || null,
@@ -183,7 +183,7 @@ export const useYardLoadsFromOrders = () => {
           driver1Id: order.driver1_id,
           originalDriverId: order.original_driver1_id || null,
           originalDriver2Id: order.original_driver2_id || null,
-          originalDriverName: origDriverMap.get(order.original_driver1_id)?.name || null,
+          originalDriverName: driverMap.get(order.original_driver1_id)?.name || null,
           originalTruckId: order.original_truck_id || null,
           originalTruckNumber: origTruckMap.get(order.original_truck_id)?.truck_number || null,
           originalTrailerId: order.original_trailer_id || null,

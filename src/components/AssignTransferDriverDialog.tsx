@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
-import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
 import { useDrivers } from "@/hooks/useDrivers";
 import { Combobox } from "@/components/ui/combobox";
 import { AlertCircle } from "lucide-react";
@@ -13,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 interface AssignTransferDriverDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (data: TransferDriverData) => void;
+  onSave: (data: TransferDriverData) => Promise<boolean | void> | boolean | void;
   // Original driver info (read-only display)
   originalDriverName: string | null;
   originalTruckNumber: string | null;
@@ -25,10 +24,13 @@ interface AssignTransferDriverDialogProps {
   // Yard load's trailer (to swap with assigned truck)
   yardLoadTrailerId?: string | null;
   yardLoadTrailerNumber?: string | null;
+  assignedDriverId?: string | null;
+  assignedDriverName?: string | null;
+  assignedDriverPrice?: number | null;
 }
 
 export interface TransferDriverData {
-  transferTruckId: string;
+  transferTruckId: string | null;
   transferTrailerId: string;
   transferDriverId: string;
   recoveryMiles: number;
@@ -52,12 +54,13 @@ export function AssignTransferDriverDialog({
   recoveryMiles: initialRecoveryMiles,
   yardLoadTrailerId,
   yardLoadTrailerNumber,
+  assignedDriverId,
+  assignedDriverName,
+  assignedDriverPrice,
 }: AssignTransferDriverDialogProps) {
   const { data: trucks } = useAvailableTrucks(true);
   const { data: drivers } = useDrivers();
-  const [selectedTruckId, setSelectedTruckId] = useState<string>("");
-  
-  const { data: trailers } = useAvailableTrailers(selectedTruckId || undefined);
+  const isTruckAssignment = !!assignedDriverId;
 
   const [transferTruckId, setTransferTruckId] = useState<string>("");
   const [transferTrailerId, setTransferTrailerId] = useState<string>("");
@@ -65,6 +68,7 @@ export function AssignTransferDriverDialog({
   const [recoveryMiles, setRecoveryMiles] = useState<string>("");
   const [recoveryDriverPrice, setRecoveryDriverPrice] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [saving, setSaving] = useState(false);
 
   // Transfer location fields - default to Lynwood, IL for yard transfers
   const [transferCity, setTransferCity] = useState<string>("Lynwood");
@@ -77,10 +81,9 @@ export function AssignTransferDriverDialog({
     if (open) {
       setTransferTruckId("");
       setTransferTrailerId(yardLoadTrailerId || "");
-      setTransferDriverId("");
-      setSelectedTruckId("");
+      setTransferDriverId(assignedDriverId || "");
       setRecoveryMiles(initialRecoveryMiles?.toString() || "");
-      setRecoveryDriverPrice("");
+      setRecoveryDriverPrice(assignedDriverPrice?.toString() || "");
       setError("");
       // Default location to Lynwood terminal for yard transfers
       setTransferCity("Lynwood");
@@ -89,10 +92,11 @@ export function AssignTransferDriverDialog({
       // Default to current time
       setTransferDatetime(new Date().toISOString().slice(0, 16));
     }
-  }, [open, initialRecoveryMiles, yardLoadTrailerId]);
+  }, [open, initialRecoveryMiles, yardLoadTrailerId, assignedDriverId, assignedDriverPrice]);
 
   // Auto-calculate driver rate when driver or miles change
   useEffect(() => {
+    if (isTruckAssignment) return;
     const selectedDriver = drivers?.find(d => d.id === transferDriverId);
     if (!selectedDriver?.is_company_driver || !selectedDriver?.cents_per_mile) return;
     
@@ -101,14 +105,13 @@ export function AssignTransferDriverDialog({
     
     const calculatedPrice = miles * (selectedDriver.cents_per_mile / 100);
     setRecoveryDriverPrice(calculatedPrice.toFixed(2));
-  }, [transferDriverId, recoveryMiles, drivers]);
+  }, [transferDriverId, recoveryMiles, drivers, isTruckAssignment]);
 
   const handleTruckChange = (truckId: string) => {
     setTransferTruckId(truckId);
-    setSelectedTruckId(truckId);
     
     const selectedTruck = trucks?.find((t) => t.id === truckId);
-    if (selectedTruck) {
+    if (selectedTruck && !isTruckAssignment) {
       // Keep yard load's trailer instead of truck's trailer
       // Only auto-fill driver from truck
       const driverId = selectedTruck.driver1_id || "";
@@ -117,15 +120,23 @@ export function AssignTransferDriverDialog({
     }
   };
 
-  const handleSave = () => {
+  const selectedDriver = drivers?.find(d => d.id === transferDriverId);
+  const truckOptional = !isTruckAssignment && selectedDriver?.is_recovery === true;
+
+  const handleSave = async () => {
     setError("");
 
-    if (!transferTruckId || !transferDriverId) {
-      setError("Please select transfer truck and driver");
+    if (!transferDriverId) {
+      setError("Please select a transfer driver");
       return;
     }
 
-    if (!recoveryDriverPrice || parseFloat(recoveryDriverPrice) <= 0) {
+    if (!transferTruckId && !truckOptional) {
+      setError(isTruckAssignment ? "Please select a truck" : "Please select a truck. Only recovery drivers can be assigned without a truck.");
+      return;
+    }
+
+    if (!isTruckAssignment && (!recoveryDriverPrice || parseFloat(recoveryDriverPrice) <= 0)) {
       setError("Please enter a driver rate");
       return;
     }
@@ -140,26 +151,36 @@ export function AssignTransferDriverDialog({
       return;
     }
 
-    onSave({
-      transferTruckId,
-      transferTrailerId,
-      transferDriverId,
-      recoveryMiles: parseFloat(recoveryMiles) || 0,
-      recoveryDriverPrice: parseFloat(recoveryDriverPrice) || 0,
-      transferCity,
-      transferState,
-      transferAddress: transferAddress || undefined,
-      transferDatetime: new Date(transferDatetime).toISOString(),
-    });
+    setSaving(true);
+    try {
+      const saved = await onSave({
+        transferTruckId: transferTruckId || null,
+        transferTrailerId,
+        transferDriverId,
+        recoveryMiles: parseFloat(recoveryMiles) || 0,
+        recoveryDriverPrice: parseFloat(recoveryDriverPrice) || 0,
+        transferCity,
+        transferState,
+        transferAddress: transferAddress || undefined,
+        transferDatetime: new Date(transferDatetime).toISOString(),
+      });
 
-    onOpenChange(false);
+      if (saved !== false) onOpenChange(false);
+    } catch {
+      setError("Failed to save assignment. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!saving) onOpenChange(nextOpen); }}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Assign Transfer Driver</DialogTitle>
+          <DialogTitle>{isTruckAssignment ? "Assign Truck" : "Assign Transfer Driver"}</DialogTitle>
+          <DialogDescription>
+            {isTruckAssignment ? "Select a truck for the assigned recovery driver." : "Assign a driver and equipment to this yard load."}
+          </DialogDescription>
         </DialogHeader>
 
         {error && (
@@ -204,7 +225,7 @@ export function AssignTransferDriverDialog({
           </div>
 
           {/* Transfer Location Section */}
-          <div className="space-y-4 border-t pt-4">
+          {!isTruckAssignment && <div className="space-y-4 border-t pt-4">
             <h3 className="font-semibold text-lg">Transfer Location & Time</h3>
             <p className="text-sm text-muted-foreground">
               Where and when was the load picked up from the yard?
@@ -244,14 +265,14 @@ export function AssignTransferDriverDialog({
                 placeholder="e.g. 123 Main St, Chicago, IL 60601"
               />
             </div>
-          </div>
+          </div>}
 
           {/* Transfer Driver Section */}
           <div className="space-y-4 border-t pt-4">
             <h3 className="font-semibold text-lg">Transfer Driver</h3>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label>Truck *</Label>
+                <Label>{truckOptional ? "Truck (optional)" : "Truck *"}</Label>
                 <Combobox
                   options={trucks?.map((truck) => ({
                     value: truck.id,
@@ -262,6 +283,7 @@ export function AssignTransferDriverDialog({
                   placeholder="Select truck"
                   searchPlaceholder="Search trucks..."
                   emptyText="No truck found."
+                  disabled={saving}
                 />
               </div>
               <div>
@@ -284,14 +306,20 @@ export function AssignTransferDriverDialog({
                   placeholder="Select driver"
                   searchPlaceholder="Search drivers..."
                   emptyText="No driver found."
+                  selectedLabel={assignedDriverName || undefined}
+                  disabled={isTruckAssignment || saving}
                 />
               </div>
             </div>
+            {!isTruckAssignment && <p className="text-sm text-muted-foreground">
+              Recovery drivers can be assigned without a truck. Assign the truck later from Loads at the Yard.
+            </p>}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Miles to Complete *</Label>
                 <Input
                   type="number"
+                  disabled={isTruckAssignment || saving}
                   value={recoveryMiles}
                   onChange={(e) => setRecoveryMiles(e.target.value)}
                   placeholder="0"
@@ -301,6 +329,7 @@ export function AssignTransferDriverDialog({
                 <Label>Driver Rate *</Label>
                 <Input
                   type="number"
+                  disabled={isTruckAssignment || saving}
                   value={recoveryDriverPrice}
                   onChange={(e) => setRecoveryDriverPrice(e.target.value)}
                   placeholder="0.00"
@@ -311,10 +340,10 @@ export function AssignTransferDriverDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>Assign Transfer Driver</Button>
+          <Button disabled={saving} onClick={handleSave}>{saving ? "Saving..." : isTruckAssignment ? "Assign Truck" : "Assign Transfer Driver"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

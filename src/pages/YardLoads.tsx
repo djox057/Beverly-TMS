@@ -29,7 +29,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Combobox } from "@/components/ui/combobox";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { Calendar, FileText, Lock, Unlock, Plus, Download, Edit, XCircle, Undo2, LockOpen, UserPlus, Check, X } from "lucide-react";
+import { Calendar, FileText, Lock, Unlock, Plus, Download, Edit, XCircle, Undo2, LockOpen, UserPlus, Truck, Check, X } from "lucide-react";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { DateRange } from "react-day-picker";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import { AssignTransferDriverDialog, TransferDriverData } from "@/components/AssignTransferDriverDialog";
+import { completeYardTruckAssignment } from "@/lib/completeYardTruckAssignment";
 import { useQueryClient } from "@tanstack/react-query";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 
@@ -127,11 +128,11 @@ export default function YardLoads() {
   const showActionsColumn = !isViewOnlyDispatch;
   const columnCount = showActionsColumn ? 15 : 14;
   
-  // Fetch yard loads directly from orders table (where driver1_id IS NULL and truck_id IS NULL)
+  // Include recovery drivers awaiting their truck assignment.
   const { data: yardLoadsData = [], isLoading } = useYardLoadsFromOrders();
   const { data: companies = [] } = useCompanies();
 
-  // Use yard loads data directly (already filtered by driver1_id IS NULL and truck_id IS NULL)
+  // Assigned recovery drivers stay here until their truck is added.
   const orders = yardLoadsData;
 
   // Filter states
@@ -466,6 +467,7 @@ export default function YardLoads() {
 
       toast.success("Transfer reverted - original driver and truck restored");
       queryClient.invalidateQueries({ queryKey: ["yard-loads-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["yard-loads-count"] });
       // Real-time subscription will update orders cache
       queryClient.invalidateQueries({ queryKey: ["trucks"] });
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
@@ -477,7 +479,13 @@ export default function YardLoads() {
   };
 
   const handleAssignTransferDriver = async (data: TransferDriverData) => {
-    if (!selectedOrderForTransfer) return;
+    if (!selectedOrderForTransfer) return false;
+
+    const assigningTruck = !!selectedOrderForTransfer.driver1Id && !selectedOrderForTransfer.truckId;
+    if (assigningTruck && (!data.transferTruckId || data.transferDriverId !== selectedOrderForTransfer.driver1Id)) {
+      toast.error("Select a truck for the assigned recovery driver");
+      return false;
+    }
 
     const yardLoadTrailerId = selectedOrderForTransfer.trailerId;
 
@@ -502,12 +510,12 @@ export default function YardLoads() {
           .eq('id', data.transferTruckId);
 
         if (truckError) {
-          console.error('Error updating truck trailer:', truckError);
+          throw truckError;
         }
 
         // Record the trailer change AFTER updating - store what we changed TO
         // HARDENED: Include old_ values for accurate display
-        await supabase.from('assignment_history').insert({
+        const { error: assignmentError } = await supabase.from('assignment_history').insert({
           truck_id: data.transferTruckId,
           trailer_id: yardLoadTrailerId || null, // The NEW trailer (what we changed TO)
           old_truck_id: data.transferTruckId,
@@ -515,84 +523,97 @@ export default function YardLoads() {
           change_type: 'trailer_assignment',
           changed_by: userData?.user?.id || null,
         });
+        if (assignmentError) throw assignmentError;
       }
 
-      // Update the order with transfer driver info - use yard load's trailer
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          driver1_id: data.transferDriverId,
-          truck_id: data.transferTruckId,
-          trailer_id: yardLoadTrailerId || null, // Use yard load's trailer
-          recovery_miles: data.recoveryMiles,
-          recovery_driver_price: data.recoveryDriverPrice,
-        })
-        .eq('id', selectedOrderForTransfer.id);
-
-      if (error) throw error;
-
-      // Check for existing transfers to support chains of 3+ transfers
-      const { data: existingTransfers } = await supabase
-        .from('order_transfers')
-        .select('sequence_number')
-        .eq('order_id', selectedOrderForTransfer.id)
-        .order('sequence_number', { ascending: false })
-        .limit(1);
-
-      if (existingTransfers && existingTransfers.length > 0) {
-        // Append new transfer with next sequence number (preserves existing chain)
-        const nextSeq = existingTransfers[0].sequence_number + 1;
-
-        await supabase.from('order_transfers').insert({
-          order_id: selectedOrderForTransfer.id,
-          sequence_number: nextSeq,
-          driver1_id: data.transferDriverId,
-          truck_id: data.transferTruckId,
-          trailer_id: yardLoadTrailerId,
-          miles: data.recoveryMiles,
-          driver_price: data.recoveryDriverPrice,
-        });
+      if (assigningTruck) {
+        await completeYardTruckAssignment(selectedOrderForTransfer.id, data.transferDriverId, data.transferTruckId!);
       } else {
-        // No existing transfers -- create seq 0 (original) and seq 1 (new)
-        await supabase.from('order_transfers').insert({
-          order_id: selectedOrderForTransfer.id,
-          sequence_number: 0,
-          driver1_id: selectedOrderForTransfer.originalDriverId,
-          truck_id: selectedOrderForTransfer.originalTruckId,
-          trailer_id: selectedOrderForTransfer.originalTrailerId,
-          miles: selectedOrderForTransfer.originalMiles,
-          driver_price: selectedOrderForTransfer.originalDriverPrice,
-          transfer_city: data.transferCity,
-          transfer_state: data.transferState,
-          transfer_address: data.transferAddress || null,
-          transfer_datetime: data.transferDatetime,
-        });
+        // Check for existing transfers to support chains of 3+ transfers
+        const { data: existingTransfers, error: transfersError } = await supabase
+          .from('order_transfers')
+          .select('sequence_number')
+          .eq('order_id', selectedOrderForTransfer.id)
+          .order('sequence_number', { ascending: false })
+          .limit(1);
 
-        await supabase.from('order_transfers').insert({
+        if (transfersError) throw transfersError;
+
+        if (existingTransfers && existingTransfers.length > 0) {
+          // Append new transfer with next sequence number (preserves existing chain)
+          const nextSeq = existingTransfers[0].sequence_number + 1;
+
+          const { error: transferError } = await supabase.from('order_transfers').insert({
+            order_id: selectedOrderForTransfer.id,
+            sequence_number: nextSeq,
+            driver1_id: data.transferDriverId,
+            truck_id: data.transferTruckId,
+            trailer_id: yardLoadTrailerId,
+            miles: data.recoveryMiles,
+            driver_price: data.recoveryDriverPrice,
+          });
+          if (transferError) throw transferError;
+        } else {
+          // No existing transfers -- create seq 0 (original) and seq 1 (new)
+          const { error: originalTransferError } = await supabase.from('order_transfers').insert({
+            order_id: selectedOrderForTransfer.id,
+            sequence_number: 0,
+            driver1_id: selectedOrderForTransfer.originalDriverId,
+            truck_id: selectedOrderForTransfer.originalTruckId,
+            trailer_id: selectedOrderForTransfer.originalTrailerId,
+            miles: selectedOrderForTransfer.originalMiles,
+            driver_price: selectedOrderForTransfer.originalDriverPrice,
+            transfer_city: data.transferCity,
+            transfer_state: data.transferState,
+            transfer_address: data.transferAddress || null,
+            transfer_datetime: data.transferDatetime,
+          });
+          if (originalTransferError) throw originalTransferError;
+
+          const { error: transferError } = await supabase.from('order_transfers').insert({
+            order_id: selectedOrderForTransfer.id,
+            sequence_number: 1,
+            driver1_id: data.transferDriverId,
+            truck_id: data.transferTruckId,
+            trailer_id: yardLoadTrailerId,
+            miles: data.recoveryMiles,
+            driver_price: data.recoveryDriverPrice,
+          });
+          if (transferError) throw transferError;
+        }
+
+        // Create recovery history entry
+        const { error: historyError } = await supabase.from('recovery_history').insert({
           order_id: selectedOrderForTransfer.id,
-          sequence_number: 1,
-          driver1_id: data.transferDriverId,
-          truck_id: data.transferTruckId,
-          trailer_id: yardLoadTrailerId,
-          miles: data.recoveryMiles,
-          driver_price: data.recoveryDriverPrice,
+          original_driver1_id: selectedOrderForTransfer.originalDriverId,
+          original_truck_id: selectedOrderForTransfer.originalTruckId,
+          original_trailer_id: selectedOrderForTransfer.originalTrailerId,
+          recovery_driver1_id: data.transferDriverId,
+          recovery_truck_id: data.transferTruckId,
+          recovery_trailer_id: yardLoadTrailerId || null,
+          recovery_date: new Date().toISOString(),
         });
+        if (historyError) throw historyError;
+
+        // Update the order with transfer driver info - use yard load's trailer
+        const { error } = await supabase
+          .from('orders')
+          .update({
+            driver1_id: data.transferDriverId,
+            truck_id: data.transferTruckId,
+            trailer_id: yardLoadTrailerId || null, // Use yard load's trailer
+            recovery_miles: data.recoveryMiles,
+            recovery_driver_price: data.recoveryDriverPrice,
+          })
+          .eq('id', selectedOrderForTransfer.id);
+
+        if (error) throw error;
+
       }
 
-      // Create recovery history entry
-      await supabase.from('recovery_history').insert({
-        order_id: selectedOrderForTransfer.id,
-        original_driver1_id: selectedOrderForTransfer.originalDriverId,
-        original_truck_id: selectedOrderForTransfer.originalTruckId,
-        original_trailer_id: selectedOrderForTransfer.originalTrailerId,
-        recovery_driver1_id: data.transferDriverId,
-        recovery_truck_id: data.transferTruckId,
-        recovery_trailer_id: yardLoadTrailerId || null,
-        recovery_date: new Date().toISOString(),
-      });
-
-      toast.success("Transfer driver assigned successfully");
+      toast.success(assigningTruck ? "Truck assigned successfully" : "Transfer driver assigned successfully");
       queryClient.invalidateQueries({ queryKey: ["yard-loads-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["yard-loads-count"] });
       // Real-time subscription will update orders cache
       queryClient.invalidateQueries({ queryKey: ["trucks"] });
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
@@ -601,7 +622,8 @@ export default function YardLoads() {
       setSelectedOrderForTransfer(null);
     } catch (error) {
       console.error('Error assigning transfer driver:', error);
-      toast.error("Failed to assign transfer driver");
+      toast.error("Failed to save transfer assignment");
+      return false;
     }
   };
 
@@ -732,7 +754,12 @@ export default function YardLoads() {
                     return (
                       <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                         <TableCell className="font-medium">{order.trailerNumber || '-'}</TableCell>
-                        <TableCell className="font-medium">{formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}</TableCell>
+                        <TableCell className="font-medium">
+                          {formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}
+                          {order.driver1Id && !order.truckId && (
+                            <div className="text-xs text-muted-foreground">{order.driverName || "Recovery driver"} · Awaiting truck</div>
+                          )}
+                        </TableCell>
                         <TableCell>{order.brokerLoadNumber || '-'}</TableCell>
                         <TableCell>
                           <span className="line-clamp-2">{order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}</span>
@@ -809,9 +836,9 @@ export default function YardLoads() {
                                   variant="default" 
                                   size="sm" 
                                   onClick={() => openTransferDialog(order)}
-                                  title="Assign Transfer Driver"
+                                  title={order.driver1Id ? "Assign Truck" : "Assign Transfer Driver"}
                                 >
-                                  <UserPlus className="h-4 w-4" />
+                                  {order.driver1Id ? <Truck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
                                 </Button>
                                 {order.originalDriverId && order.originalTruckId && (
                                   <Button 
@@ -938,6 +965,9 @@ export default function YardLoads() {
         recoveryMiles={selectedOrderForTransfer?.recoveryMiles || 0}
         yardLoadTrailerId={selectedOrderForTransfer?.trailerId}
         yardLoadTrailerNumber={selectedOrderForTransfer?.trailerNumber}
+        assignedDriverId={selectedOrderForTransfer?.driver1Id}
+        assignedDriverName={selectedOrderForTransfer?.driverName}
+        assignedDriverPrice={selectedOrderForTransfer?.recoveryDriverPrice}
       />
     </div>
   );

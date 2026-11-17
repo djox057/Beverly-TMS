@@ -8,7 +8,7 @@ export const useYardLoadsCount = () => {
       const { count, error } = await supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
-        .is("driver1_id", null)
+        .or("driver1_id.is.null,is_recovery.eq.true")
         .is("truck_id", null)
         .eq("prebook", false);
 
