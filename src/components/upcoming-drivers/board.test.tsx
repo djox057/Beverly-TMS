@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import UpcomingDrivers from "@/pages/UpcomingDrivers";
 import { CandidateEditor } from "./CandidateEditor";
 import { addDays, chicagoToday, EMPTY_CANDIDATE, mondayOf, type Candidate, type References } from "./model";
@@ -20,7 +21,11 @@ const candidate:Candidate={...EMPTY_CANDIDATE,id:"00000000-0000-4000-8000-000000
   created_by:null,updated_by:null,created_at:"2026-09-15T12:00:00Z",updated_at:"2026-09-15T12:00:00Z",
   transport_preview:"",mvr_preview:"",psp_preview:"",ticket_preview:""};
 const acceptSaved=vi.fn();
-const provider=(node:React.ReactNode)=>render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}>{node}</QueryClientProvider>);
+const provider = (node: React.ReactNode) => render(
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <MemoryRouter>{node}</MemoryRouter>
+  </QueryClientProvider>,
+);
 beforeEach(()=>{
   vi.clearAllMocks();localStorage.clear();
   vi.mocked(fetchCandidate).mockResolvedValue(candidate);

@@ -20,7 +20,11 @@ describe("EFS missing receipt window", () => {
       { id: "voided", driver_id: "voided-driver", requested_at: "2026-10-16T13:00:00Z", voided_at: "2026-10-17T12:00:00Z" },
       { id: "old", driver_id: "old-driver", requested_at: "2026-10-03T12:59:59.999Z" },
     ];
-    from.mockImplementation(() => {
+    from.mockImplementation((table: string) => {
+      if (table === "drivers") {
+        const driver = { maybeSingle: async () => ({ data: { is_recovery: false }, error: null }) };
+        return { select: () => ({ eq: () => driver }) };
+      }
       let minimum = "";
       let activeOnly = false;
       const query: any = {

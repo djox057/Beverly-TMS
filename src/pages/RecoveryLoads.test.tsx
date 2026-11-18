@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import RecoveryLoads from "./RecoveryLoads";
 const access = vi.hoisted(() => ({ role: "dispatch" }));
@@ -19,6 +19,22 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => ({ up
   { id: "available", broker_load_number: "AVAILABLE-1", prebook: true, canceled: false, p_status: "Available", order_files: [] },
   { id: "covered", broker_load_number: "COVERED-1", prebook: true, canceled: false, p_status: "Covered", order_files: [] },
 ] }) }) }) }) } }));
+const originalScrollIntoView = Object.getOwnPropertyDescriptor(Element.prototype, "scrollIntoView");
+beforeAll(() => {
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+  Element.prototype.scrollIntoView = vi.fn();
+});
+afterAll(() => {
+  vi.unstubAllGlobals();
+  if (originalScrollIntoView) Object.defineProperty(Element.prototype, "scrollIntoView", originalScrollIntoView);
+  else Reflect.deleteProperty(Element.prototype, "scrollIntoView");
+});
+async function showAllStatuses() {
+  await screen.findByText("AVAILABLE-1");
+  expect(screen.queryByText("COVERED-1")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("combobox"));
+  fireEvent.click(await screen.findByRole("option", { name: "All statuses" }));
+}
 afterEach(() => { cleanup(); access.role = "dispatch"; saveNote.mockClear(); });
 it.each(['admin','manager'])('shows manager performance only to admin, checking %s',async role=>{
   access.role=role;
@@ -31,6 +47,7 @@ it.each(['admin','manager'])('shows manager performance only to admin, checking 
 });
 it("opens Prebook first, keeping recovery separate and archiving canceled prebooks", async () => {
   render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
+  await showAllStatuses();
   expect(screen.getByRole("heading", { name: "Recovery Loads & Prebook" })).toBeInTheDocument();
   expect(await screen.findByText("PREBOOK-1")).toBeInTheDocument();
   expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
@@ -73,6 +90,7 @@ it.each(["admin", "manager"])("allows %s to edit a note in the popup", async rol
 
 it("shows assignment details to dispatchers without status editing", async () => {
   render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
+  await showAllStatuses();
   fireEvent.click(await screen.findByRole("button", { name: "View status for PREBOOK-1" }));
   expect(screen.getByRole("dialog")).toHaveTextContent("123");
   expect(screen.getByRole("dialog")).toHaveTextContent("456");
@@ -109,6 +127,7 @@ it("shows all prebooks in Statistics, including canceled and POD-completed loads
 });
 it("colors Available green and Covered red", async () => {
   render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
+  await showAllStatuses();
   expect(await screen.findByRole("button", { name: "View status for AVAILABLE-1" })).toHaveClass("text-green-700");
   expect(screen.getByRole("button", { name: "View status for COVERED-1" })).toHaveClass("text-red-700");
 });
@@ -121,12 +140,14 @@ it("lets managers revert the assignment and reset availability", async () => {
 });
 it("does not offer revert assignment to dispatchers", async () => {
   render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
+  await showAllStatuses();
   await screen.findByText("PREBOOK-1");
   expect(screen.queryByRole("button", { name: "Revert assign" })).not.toBeInTheDocument();
 });
 
 it("marks only counted available prebooks for dispatchers", async () => {
   render(<QueryClientProvider client={new QueryClient()}><RecoveryLoads /></QueryClientProvider>);
+  await showAllStatuses();
   const available = await screen.findByText("AVAILABLE-1");
   expect(within(available.closest("tr")!).getByLabelText("Available for your trucks")).toBeInTheDocument();
   expect(within(screen.getByText("COVERED-1").closest("tr")!).queryByLabelText("Available for your trucks")).not.toBeInTheDocument();

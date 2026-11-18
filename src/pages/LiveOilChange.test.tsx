@@ -3,6 +3,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import LiveOilChange from "./LiveOilChange";
+
+// The 499-truck fixture exercises paging, filters and remounts in jsdom.
+vi.setConfig({ testTimeout: 20_000 });
+
 HTMLElement.prototype.hasPointerCapture = () => false;
 HTMLElement.prototype.setPointerCapture = () => {};
 HTMLElement.prototype.releasePointerCapture = () => {};

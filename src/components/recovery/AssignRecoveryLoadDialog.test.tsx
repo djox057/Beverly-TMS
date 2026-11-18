@@ -153,7 +153,7 @@ it('blocks saving if the booking company changes after a truck was selected', as
   await waitFor(()=>expect(screen.getByRole('button', {name:'Assign'})).toBeDisabled());
 });
 
-it('directly reassigns with optional Driver 2 cleared, preserving pricing and skipping emails and route calls', async () => {
+it('directly reassigns with optional Driver 2 cleared, preserving pricing, saving routed deadhead mileage and skipping emails', async () => {
   const onAssigned = vi.fn();
   const onOpenChange = vi.fn();
   openDialog(false, true, onAssigned, onOpenChange);
@@ -166,15 +166,16 @@ it('directly reassigns with optional Driver 2 cleared, preserving pricing and sk
   expect(screen.getByRole('combobox', { name: 'Select Driver 2 (optional)' })).toHaveValue('driver-2');
   expect(screen.getByRole('combobox', { name: 'Select trailer' })).toHaveValue('trailer-1');
   fireEvent.change(screen.getByRole('combobox', { name: 'Select Driver 2 (optional)' }), { target: { value: '' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled());
   fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
   await waitFor(() => expect(onAssigned).toHaveBeenCalledOnce());
   expect(onOpenChange).toHaveBeenCalledWith(false);
   expect(fixture.update).toHaveBeenCalledWith({
-    booked_by: 'Dispatcher One', truck_id: 'truck-157', trailer_id: 'trailer-1', driver1_id: 'driver-1', driver2_id: null,
+    dh_miles: 120, booked_by: 'Dispatcher One', truck_id: 'truck-157', trailer_id: 'trailer-1', driver1_id: 'driver-1', driver2_id: null,
     retrieval: false, recovery_assigned: true, recovery_auto_cancel_at: null, recovery_cancel_payload: null,
   });
   expect(fixture.invoke).not.toHaveBeenCalled();
-  expect(fixture.route).not.toHaveBeenCalled();
+  expect(fixture.route).toHaveBeenCalled();
 });
 
 it('saves the selected team rather than silently reusing the truck secondary driver, and blocks duplicates', async () => {
@@ -185,6 +186,7 @@ it('saves the selected team rather than silently reusing the truck secondary dri
   fireEvent.change(screen.getByRole('combobox', { name: 'Select Driver 1' }), { target: { value: 'driver-2' } });
   expect(screen.getByRole('button', { name: 'Assign' })).toBeDisabled();
   fireEvent.change(screen.getByRole('combobox', { name: 'Select Driver 2 (optional)' }), { target: { value: 'driver-1' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled());
   fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
   await waitFor(() => expect(onAssigned).toHaveBeenCalledOnce());
   expect(fixture.update).toHaveBeenCalledWith(expect.objectContaining({ driver1_id: 'driver-2', driver2_id: 'driver-1', booked_by: 'Dispatcher Two' }));
@@ -197,7 +199,7 @@ it('requires truck, trailer and primary driver when directly assigning', async (
   fireEvent.change(screen.getByRole('combobox', { name: 'Select Driver 1' }), { target: { value: 'driver-1' } });
   expect(screen.getByRole('button', { name: 'Assign' })).toBeDisabled();
   fireEvent.change(screen.getByRole('combobox', { name: 'Select trailer' }), { target: { value: 'trailer-1' } });
-  expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled());
   fireEvent.change(screen.getByRole('combobox', { name: 'Select truck' }), { target: { value: '' } });
   expect(screen.getByRole('button', { name: 'Assign' })).toBeDisabled();
   expect(fixture.update).not.toHaveBeenCalled();
@@ -211,11 +213,12 @@ it.each(['permission error', 'zero updated rows'])('keeps direct assignment open
   openDialog(false, true, onAssigned, onOpenChange);
   await screen.findByRole('option', { name: 'BFP 157 - Driver One / Driver Two' });
   fireEvent.change(screen.getByRole('combobox', { name: 'Select truck' }), { target: { value: 'truck-157' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled());
   fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
   await waitFor(() => expect(fixture.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Assignment failed' })));
   expect(onAssigned).not.toHaveBeenCalled();
   expect(onOpenChange).not.toHaveBeenCalled();
-  expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled());
   expect(fixture.invoke).not.toHaveBeenCalled();
 });
 
@@ -224,8 +227,9 @@ it.each(['permission error', 'zero updated rows'])('keeps direct assignment open
   openDialog(false, true);
   await screen.findByRole('option', { name: 'BFP 157 - Driver One / Driver Two' });
   fireEvent.change(screen.getByRole('combobox', { name: 'Select truck' }), { target: { value: 'truck-157' } });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled());
   fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
   await waitFor(() => expect(fixture.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Driver has no dispatcher' })));
   expect(fixture.update).not.toHaveBeenCalled();
-  expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Assign' })).toBeEnabled());
 });
