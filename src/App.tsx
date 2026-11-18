@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { useEffect } from "react";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ChatbotProvider } from "./contexts/ChatbotContext";
 import { ChatbotPanel } from "./components/ChatbotPanel";
@@ -12,66 +11,66 @@ import { IndividualModeProvider } from "./contexts/IndividualModeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { PageTitle } from "./components/PageTitle";
-import { supabase } from "./integrations/supabase/client";
+import { lazyPage } from "./components/lazyPage";
 import { useRealtimeTokenRefresh } from "./hooks/useRealtimeTokenRefresh";
 import { useReportsRealtime } from "./hooks/useReportsRealtime";
 import { useTruckSalesRealtime } from "./hooks/useTruckSalesRealtime";
-import Index from "./pages/Index";
 import Login from "./pages/Login";
-import ResetPassword from "./pages/ResetPassword";
-import AdminUsers from "./pages/AdminUsers";
-import NewOrder from "./pages/NewOrder";
-import EditOrder from "./pages/EditOrder";
-import Orders from "./pages/Orders";
-import BgLoads from "./pages/BgLoads";
-import LaleLoads from "./pages/LaleLoads";
-import UesLoads from "./pages/UesLoads";
-import ApsLoads from "./pages/ApsLoads";
-import YardLoads from "./pages/YardLoads";
-import Trucks from "./pages/Trucks";
-import Trailers from "./pages/Trailers";
-import Drivers from "./pages/Drivers";
-import UpcomingDrivers from "./pages/UpcomingDrivers";
 import { UPCOMING_DRIVERS_ROLES } from "./lib/upcomingDriversAccess";
-import DriverExpenses from "./pages/DriverExpenses";
 import { DRIVER_EXPENSES_ROLES } from "./lib/driverExpensesAccess";
-import Brokers from "./pages/Brokers";
-import Fleets from "./pages/Fleets";
-import Reports from "./pages/Reports";
-import RecoveryLoads from "./pages/RecoveryLoads";
-import YardArrivals from "./pages/YardArrivals";
-import Analytics from "./pages/Analytics";
-import DispatcherTier from "./pages/DispatcherTier";
-import DispatcherTierDetail from "./pages/DispatcherTierDetail";
-import DriversComplaints from "./pages/DriversComplaints";
-import Alerts from "./pages/Alerts";
-import Trips from "./pages/Trips";
-import TrucksMap from "./pages/TrucksMap";
-import BeverlyHeatmap from "./pages/BeverlyHeatmap";
-
-import Repairs from "./pages/Repairs";
-import MandatoryYardRepair from "./pages/MandatoryYardRepair";
 import { YARD_REPAIR_VIEW_ROLES } from "@/hooks/useMandatoryYardRepairs";
-import FuelReports from "./pages/FuelReports";
-import EfsRequests from "./pages/EfsRequests";
-import Stuff from "./pages/Stuff";
-import NotFound from "./pages/NotFound";
-import Problems from "./pages/Problems";
-import DailyReport from "./pages/DailyReport";
-import Christmas from "./pages/Christmas";
-import Holidays from "./pages/Holidays";
 import { HOLIDAYS_ROLES } from "./lib/holidays";
-import Billboard from "./pages/Billboard";
-import TransferList from "./pages/TransferList";
-import TurnoverList from "./pages/TurnoverList";
-import RoadsideInspection from "./pages/RoadsideInspection";
-import LiveOilChange from "./pages/LiveOilChange";
-import Eld from "./pages/Eld";
-import TruckServiceLog from "./pages/TruckServiceLog";
-import PreTripInspection from "./pages/PreTripInspection";
-import TruckSales from "./pages/TruckSales";
-import Info from "./pages/Info";
-import OAuthConsent from "./pages/OAuthConsent";
+
+const Index = lazyPage(() => import("./pages/Index"));
+const ResetPassword = lazyPage(() => import("./pages/ResetPassword"));
+const AdminUsers = lazyPage(() => import("./pages/AdminUsers"));
+const NewOrder = lazyPage(() => import("./pages/NewOrder"));
+const EditOrder = lazyPage(() => import("./pages/EditOrder"));
+const Orders = lazyPage(() => import("./pages/Orders"));
+const BgLoads = lazyPage(() => import("./pages/BgLoads"));
+const LaleLoads = lazyPage(() => import("./pages/LaleLoads"));
+const UesLoads = lazyPage(() => import("./pages/UesLoads"));
+const ApsLoads = lazyPage(() => import("./pages/ApsLoads"));
+const YardLoads = lazyPage(() => import("./pages/YardLoads"));
+const Trucks = lazyPage(() => import("./pages/Trucks"));
+const Trailers = lazyPage(() => import("./pages/Trailers"));
+const Drivers = lazyPage(() => import("./pages/Drivers"));
+const UpcomingDrivers = lazyPage(() => import("./pages/UpcomingDrivers"));
+const DriverExpenses = lazyPage(() => import("./pages/DriverExpenses"));
+const Brokers = lazyPage(() => import("./pages/Brokers"));
+const Fleets = lazyPage(() => import("./pages/Fleets"));
+const Reports = lazyPage(() => import("./pages/Reports"));
+const RecoveryLoads = lazyPage(() => import("./pages/RecoveryLoads"));
+const YardArrivals = lazyPage(() => import("./pages/YardArrivals"));
+const Analytics = lazyPage(() => import("./pages/Analytics"));
+const DispatcherTier = lazyPage(() => import("./pages/DispatcherTier"));
+const DispatcherTierDetail = lazyPage(() => import("./pages/DispatcherTierDetail"));
+const DriversComplaints = lazyPage(() => import("./pages/DriversComplaints"));
+const Alerts = lazyPage(() => import("./pages/Alerts"));
+const Trips = lazyPage(() => import("./pages/Trips"));
+const TrucksMap = lazyPage(() => import("./pages/TrucksMap"));
+const BeverlyHeatmap = lazyPage(() => import("./pages/BeverlyHeatmap"));
+const Repairs = lazyPage(() => import("./pages/Repairs"));
+const MandatoryYardRepair = lazyPage(() => import("./pages/MandatoryYardRepair"));
+const FuelReports = lazyPage(() => import("./pages/FuelReports"));
+const EfsRequests = lazyPage(() => import("./pages/EfsRequests"));
+const Stuff = lazyPage(() => import("./pages/Stuff"));
+const NotFound = lazyPage(() => import("./pages/NotFound"));
+const Problems = lazyPage(() => import("./pages/Problems"));
+const DailyReport = lazyPage(() => import("./pages/DailyReport"));
+const Christmas = lazyPage(() => import("./pages/Christmas"));
+const Holidays = lazyPage(() => import("./pages/Holidays"));
+const Billboard = lazyPage(() => import("./pages/Billboard"));
+const TransferList = lazyPage(() => import("./pages/TransferList"));
+const TurnoverList = lazyPage(() => import("./pages/TurnoverList"));
+const RoadsideInspection = lazyPage(() => import("./pages/RoadsideInspection"));
+const LiveOilChange = lazyPage(() => import("./pages/LiveOilChange"));
+const Eld = lazyPage(() => import("./pages/Eld"));
+const TruckServiceLog = lazyPage(() => import("./pages/TruckServiceLog"));
+const PreTripInspection = lazyPage(() => import("./pages/PreTripInspection"));
+const TruckSales = lazyPage(() => import("./pages/TruckSales"));
+const Info = lazyPage(() => import("./pages/Info"));
+const OAuthConsent = lazyPage(() => import("./pages/OAuthConsent"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,44 +82,10 @@ const queryClient = new QueryClient({
   },
 });
 
-// Prefetch common data on app load
-const prefetchData = async () => {
-  const prefetchPromises = [
-    // Note: trucks/trailers/drivers prefetches removed - their hooks use enriched queryFns
-    // that don't match the simple select('*') used here, causing wasted double-fetches
-    queryClient.prefetchQuery({
-      queryKey: ['brokers'],
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('brokers')
-          .select('*')
-          .order('name');
-        return data || [];
-      },
-    }),
-    queryClient.prefetchQuery({
-      queryKey: ['companies'],
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('companies')
-          .select('*')
-          .order('name');
-        return data || [];
-      },
-    }),
-  ];
-
-  await Promise.allSettled(prefetchPromises);
-};
-
 const AppContent = () => {
   useRealtimeTokenRefresh();
   useReportsRealtime();
   useTruckSalesRealtime();
-
-  useEffect(() => {
-    prefetchData();
-  }, []);
 
   return (
     <TooltipProvider>
