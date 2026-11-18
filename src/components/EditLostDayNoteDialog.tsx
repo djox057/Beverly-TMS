@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,9 @@ interface EditLostDayNoteDialogProps {
   truckNumber: string;
   date: string;
   currentNote: string;
-  onSave: (note: string, isHomeTime: boolean) => void;
+  currentComment: string;
+  isSaving: boolean;
+  onSave: (note: string, isHomeTime: boolean, comment?: string | null) => void;
 }
 
 export function EditLostDayNoteDialog({
@@ -21,28 +23,33 @@ export function EditLostDayNoteDialog({
   truckNumber,
   date,
   currentNote,
+  currentComment,
+  isSaving,
   onSave,
 }: EditLostDayNoteDialogProps) {
   const [note, setNote] = useState(currentNote);
+  const [comment, setComment] = useState(currentComment);
   const [isHomeTime, setIsHomeTime] = useState(false);
 
   useEffect(() => {
     if (open) {
       setNote(currentNote);
+      setComment(currentComment);
       setIsHomeTime(currentNote === "Home Time");
     }
-  }, [open, currentNote]);
+  }, [open, currentNote, currentComment]);
 
   const handleSave = () => {
-    onSave(note, isHomeTime);
-    onOpenChange(false);
+    const updatedComment = comment.trim() || null;
+    onSave(note, isHomeTime, comment === currentComment ? undefined : updatedComment);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Lost Day Note</DialogTitle>
+          <DialogDescription className="sr-only">Edit the note and comment for this truck and date.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -62,7 +69,17 @@ export function EditLostDayNoteDialog({
               onChange={(e) => setNote(e.target.value)}
               placeholder="Enter note"
               className="min-h-[80px]"
-              disabled={isHomeTime}
+              disabled={isHomeTime || isSaving}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="red-cell-comment">Comment</Label>
+            <Textarea
+              id="red-cell-comment"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              disabled={isSaving}
             />
           </div>
 
@@ -71,6 +88,7 @@ export function EditLostDayNoteDialog({
               id="home-time-toggle"
               checked={isHomeTime}
               onCheckedChange={setIsHomeTime}
+              disabled={isSaving}
             />
             <Label htmlFor="home-time-toggle" className="cursor-pointer">
               Mark as Home Time
@@ -78,11 +96,11 @@ export function EditLostDayNoteDialog({
           </div>
 
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              Save
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "Saving…" : "Save"}
             </Button>
           </div>
         </div>

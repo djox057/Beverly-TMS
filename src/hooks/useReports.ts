@@ -502,11 +502,13 @@ export const useReports = (options?: UseReportsOptions) => {
       date,
       note,
       noteType,
+      comment,
     }: {
       driverId: string;
       date: string;
       note: string | null;
       noteType?: string | null;
+      comment?: string | null;
     }) => {
       const userId = (await supabase.auth.getUser()).data.user?.id;
 
@@ -515,10 +517,11 @@ export const useReports = (options?: UseReportsOptions) => {
         date: date,
         note: note,
         note_type: noteType,
+        ...(comment !== undefined && { comment }),
         updated_by: userId,
       };
 
-      const { data, error: upsertError } = await supabase
+      const { error: upsertError } = await supabase
         .from("lost_day_notes")
         .upsert(upsertData, {
           onConflict: "driver_id,date",
@@ -529,7 +532,7 @@ export const useReports = (options?: UseReportsOptions) => {
         throw upsertError;
       }
     },
-    onMutate: async ({ driverId, date, note, noteType }) => {
+    onMutate: async ({ driverId, date, note, noteType, comment }) => {
       // Cancel any outgoing refetches for relevant query keys
       await queryClient.cancelQueries({ queryKey: ["reports", "priority"] });
       await queryClient.cancelQueries({ queryKey: ["reports", "full"] });
@@ -546,7 +549,14 @@ export const useReports = (options?: UseReportsOptions) => {
       const editDate = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
       // New note object for cache patch
-      const newNote = { date, note, note_type: noteType, driver_id: driverId, updated_at: nowIso };
+      const newNote = {
+        date,
+        note,
+        note_type: noteType,
+        driver_id: driverId,
+        updated_at: nowIso,
+        ...(comment !== undefined && { comment }),
+      };
 
       // Mirror the change into the module-scope accumulator so it survives a
       // page refresh and shows up immediately when the carousel scrolls.
@@ -560,10 +570,11 @@ export const useReports = (options?: UseReportsOptions) => {
         }
         return null;
       })();
-      if (note === null && noteType == null) {
+      const accumulatorNote = { ...previousAccumulatorNote, ...newNote };
+      if (note === null && noteType == null && accumulatorNote.comment == null) {
         removeLostDayNoteFromAccumulator(driverId, date);
       } else {
-        upsertLostDayNoteInAccumulator({ ...(previousAccumulatorNote || {}), ...newNote });
+        upsertLostDayNoteInAccumulator(accumulatorNote);
       }
 
       // Helper to update lost day note in legacy reports data structure
@@ -577,7 +588,7 @@ export const useReports = (options?: UseReportsOptions) => {
             const existingNotes = truck.lost_day_notes || [];
             const noteIndex = existingNotes.findIndex((n: any) => n.date === date);
             const updatedNotes = noteIndex >= 0
-              ? existingNotes.map((n: any, i: number) => i === noteIndex ? newNote : n)
+              ? existingNotes.map((n: any, i: number) => i === noteIndex ? { ...n, ...newNote } : n)
               : [...existingNotes, newNote];
             // Update lastEdit and editDate to show the new timestamp
             return { 

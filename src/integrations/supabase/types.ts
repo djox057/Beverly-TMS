@@ -4067,6 +4067,7 @@ export type Database = {
       }
       lost_day_notes: {
         Row: {
+          comment: string | null
           created_at: string
           date: string
           driver_id: string
@@ -4077,6 +4078,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          comment?: string | null
           created_at?: string
           date: string
           driver_id: string
@@ -4087,6 +4089,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          comment?: string | null
           created_at?: string
           date?: string
           driver_id?: string

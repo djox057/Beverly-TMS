@@ -1483,14 +1483,12 @@ const Reports = () => {
   } | null>(null);
 
   const [redCellDialog, setRedCellDialog] = useState<{
-    truckId: string;
     truckNumber: string;
     driverId: string;
     date: string;
     currentNote: string;
+    currentComment: string;
   } | null>(null);
-  const [redCellNote, setRedCellNote] = useState("");
-  const [redCellIsHomeTime, setRedCellIsHomeTime] = useState(false);
 
   // Helper function to check if 5 seconds have passed since button click
   const has5SecondsPassed = (timestamp: string | null | undefined): boolean => {
@@ -3614,19 +3612,13 @@ const Reports = () => {
                                 const lostDayNoteData = allLostDayNotes.find(
                                   (note: any) => String(note?.date || "").slice(0, 10) === dateStr,
                                 );
-                                const isCurrentlyHomeTime = lostDayNoteData?.note_type === "home_time";
-                                const actualNoteValue = lostDayNoteData?.note || "";
-
                                 setRedCellDialog({
-                                  truckId: truck.id,
                                   truckNumber: truck.truckNumber || truck.truck_number || "Unknown",
                                   driverId: truck.driverId,
                                   date: dateStr,
-                                  currentNote: currentNote,
+                                  currentNote: lostDayNoteData?.note || currentNote,
+                                  currentComment: lostDayNoteData?.comment ?? "",
                                 });
-                                // Show display text if no database value exists
-                                setRedCellNote(actualNoteValue || currentNote);
-                                setRedCellIsHomeTime(isCurrentlyHomeTime);
                               } else if (!isInTransit && !shouldShowPickupInTransit) {
                                 // Open home time dialog for empty cells
                                 setHomeTimeDialog({
@@ -8894,26 +8886,28 @@ const Reports = () => {
       <EditLostDayNoteDialog
         open={!!redCellDialog}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !updateLostDayNote.isPending) {
             setRedCellDialog(null);
-            setRedCellNote("");
-            setRedCellIsHomeTime(false);
           }
         }}
         truckNumber={redCellDialog?.truckNumber || ""}
         date={redCellDialog?.date || ""}
-        currentNote={redCellNote}
-        onSave={(note, isHomeTime) => {
+        currentNote={redCellDialog?.currentNote ?? ""}
+        currentComment={redCellDialog?.currentComment ?? ""}
+        isSaving={updateLostDayNote.isPending}
+        onSave={(note, isHomeTime, comment) => {
           if (redCellDialog) {
             const mutationData = {
               driverId: redCellDialog.driverId,
               date: redCellDialog.date,
               note: isHomeTime ? "Home Time" : note,
               noteType: isHomeTime ? "home_time" : null,
+              comment,
             };
 
             updateLostDayNote.mutate(mutationData, {
               onSuccess: () => {
+                setRedCellDialog(null);
                 toast({
                   title: "Note updated",
                   description: `${redCellDialog.truckNumber} - ${formatDateTime(redCellDialog.date, "MM/dd/yyyy")}`,
@@ -8922,15 +8916,11 @@ const Reports = () => {
               onError: (error) => {
                 toast({
                   title: "Error updating note",
-                  description: error instanceof Error ? error.message : "Unknown error",
+                  description: error.message,
                   variant: "destructive",
                 });
               },
             });
-
-            setRedCellDialog(null);
-            setRedCellNote("");
-            setRedCellIsHomeTime(false);
           }
         }}
       />
