@@ -32,12 +32,13 @@ function StopPreview({
 
   return (
     <TooltipContent
+      animation="pop"
       side={kind === "delivery" ? "top" : "bottom"}
       sideOffset={4}
       collisionPadding={8}
       aria-label={multiple ? `${stops.length} ${plural}. ${stops.map((stop) => `${stop.location} ${stop.time}`).join("; ")}` : heading}
       className={cn(
-        "max-w-[calc(100vw-1rem)] select-none p-2 shadow-lg duration-150 motion-reduce:animate-none",
+        "max-w-[calc(100vw-1rem)] select-none p-2 shadow-lg",
         multiple ? "w-64" : "w-52",
       )}
       onClick={(event) => event.stopPropagation()}
