@@ -533,7 +533,7 @@ export const StatementPreviewDialog: React.FC<StatementPreviewDialogProps> = ({
             <div role="menu" aria-label="Statement companies" className="max-h-48 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-1">
               {[
                 "AP Silver Trans LLC", "Beverly Freight Inc", "BF Prime LLC", "BF Prime United LLC",
-                "BG Prime Inc", "Hart Freight Solutions LLC", "Jones Freight Lines LLC",
+                "BG Prime Inc", "GD Trucking Solutions LLC", "Hart Freight Solutions LLC", "Jones Freight Lines LLC",
                 "Lale Transport LLC", "United Enterprise Solutions INC",
               ].map(company => (
                 <Button key={company} type="button" variant="ghost" role="menuitem"

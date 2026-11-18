@@ -58,7 +58,7 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fillHartStatement } from "@/utils/excel/hartStatement";
+import { fillGdStatement, fillHartStatement } from "@/utils/excel/hartStatement";
 import { rebuildWorkbookClean } from "@/utils/excel/rebuildWorkbookClean";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuth } from "@/hooks/useAuth";
@@ -1769,8 +1769,8 @@ const Trips = () => {
         await exportAPSilverTransTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else if (resolvedCompanyName === "Lale Transport LLC") {
         await exportLaleTransportTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
-      } else if (resolvedCompanyName === "Hart Freight Solutions LLC") {
-        await exportHartFreightTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
+      } else if (resolvedCompanyName === "Hart Freight Solutions LLC" || resolvedCompanyName === "GD Trucking Solutions LLC") {
+        await exportOwnerOperatorStatement(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions, resolvedCompanyName);
       } else if (resolvedCompanyName === "Jones Freight Lines LLC") {
         await exportJonesFreightTemplate(week, weekStartDate, weekEndDate, firstOrder, driver, scheduledDeductions);
       } else {
@@ -1816,6 +1816,7 @@ const Trips = () => {
         "BF Prime United LLC": new URL("../assets/templates/BF_Prime_United.xlsx", import.meta.url).toString(),
         "United Enterprise Solutions INC": new URL("../assets/templates/United_Enterprise_Solutions.xlsx", import.meta.url).toString(),
         "Lale Transport LLC": new URL("../assets/templates/Lale_Transport.xlsx", import.meta.url).toString(),
+        "GD Trucking Solutions LLC": new URL("../assets/templates/GD_Trucking_Solutions.xlsx", import.meta.url).toString(),
         "Hart Freight Solutions LLC": new URL("../assets/templates/Hart_Freight.xlsx", import.meta.url).toString(),
         "Jones Freight Lines LLC": new URL("../assets/templates/Jones_Freight.xlsx", import.meta.url).toString(),
       };
@@ -4486,16 +4487,21 @@ const Trips = () => {
     }
   };
 
-  const exportHartFreightTemplate = async (
+  const exportOwnerOperatorStatement = async (
     week: any, weekStartDate: Date, weekEndDate: Date, firstOrder: any, driver: any,
-    scheduledDeductions: ScheduledDeduction[] = [],
+    scheduledDeductions: ScheduledDeduction[],
+    company: "Hart Freight Solutions LLC" | "GD Trucking Solutions LLC",
   ) => {
-    const response = await fetch(new URL("../assets/templates/Hart_Freight.xlsx", import.meta.url).toString());
-    if (!response.ok) throw new Error("Unable to load Hart Freight statement template");
+    const isGd = company === "GD Trucking Solutions LLC";
+    const templateUrl = isGd
+      ? new URL("../assets/templates/GD_Trucking_Solutions.xlsx", import.meta.url)
+      : new URL("../assets/templates/Hart_Freight.xlsx", import.meta.url);
+    const response = await fetch(templateUrl);
+    if (!response.ok) throw new Error(`Unable to load ${company} statement template`);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(await response.arrayBuffer());
     const worksheet = workbook.getWorksheet(1);
-    if (!worksheet) throw new Error("Hart Freight template worksheet not found");
+    if (!worksheet) throw new Error(`${company} template worksheet not found`);
     const orders = sortOrdersAscending(week.orders);
     const date = format(weekEndDate, "MM/dd/yyyy");
     const deductions = [
@@ -4507,6 +4513,7 @@ const Trips = () => {
       { description: "Truck Insurance", date, amount: 195 },
     ];
     const credits: typeof deductions = [];
+    const includeDeduction = (description: string) => isGd || !description.toLowerCase().includes("fridge");
     for (const order of orders) {
       for (const [field, label] of [
         ["detentionDriver", "Detention"], ["layoverDriver", "Layover"], ["tonuDriver", "TONU"],
@@ -4521,21 +4528,22 @@ const Trips = () => {
         ["wrongAddressFeeDriver", "Wrong Address Fee"], ["otherChargesDriver", order.otherChargesReason || "Other Charges"],
       ]) {
         const amount = Math.abs(Number(order[field]) || 0);
-        if (amount > 0 && !label.toLowerCase().includes("fridge")) deductions.push({ description: `${order.internalLoadNumber || ""} ${label}`.trim(), date: formatDateDisplay(order.deliveryDate), amount });
+        if (amount > 0 && includeDeduction(label)) deductions.push({ description: `${order.internalLoadNumber || ""} ${label}`.trim(), date: formatDateDisplay(order.deliveryDate), amount });
       }
     }
     const efs = await fetchEfsDeductionsForStatement(firstOrder.driver1Id || "", weekStartDate, weekEndDate);
-    deductions.push(...efs.filter(e => !e.description.toLowerCase().includes("fridge")));
+    deductions.push(...efs.filter(e => includeDeduction(e.description)));
     for (const entry of scheduledDeductions) {
-      if ((entry.explanation || "").toLowerCase().includes("fridge")) continue;
+      if (!includeDeduction(entry.explanation || "")) continue;
       (entry.expenseType === "credit" ? credits : deductions).push({ description: entry.explanation, date, amount: entry.deductionAmount });
     }
     const fuel = await fetchFuelTransactionsForStatement(firstOrder.truckNumber || "", firstOrder.truckId || "", week.orders, weekStartDate);
-    fillHartStatement(worksheet, {
+    const fillStatement = isGd ? fillGdStatement : fillHartStatement;
+    fillStatement(worksheet, {
       issueDate: format(addDays(weekStartDate, 16), "MM/dd/yyyy"),
       payPeriod: `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`,
       invoice: format(startOfWeek(weekStartDate, { weekStartsOn: 1 }), "yyyyMMdd"),
-      driver: driver?.name || firstOrder.driverName || "", company: driver?.company_name || "Hart Freight Solutions LLC",
+      driver: driver?.name || firstOrder.driverName || "", company: driver?.company_name || company,
       agreementStart: driver?.agreement_start_date ? format(new Date(driver.agreement_start_date), "M/d/yyyy") : "",
       truck: firstOrder.truckNumber || "",
       agreementTerms: driver?.weekly_payment && driver?.weeks_count ? `$${driver.weekly_payment}/${driver.weeks_count}weeks` : "",
@@ -4553,7 +4561,8 @@ const Trips = () => {
     const url = window.URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
     const link = document.createElement("a");
     link.href = url;
-    link.download = `Hart_Freight_${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}_${(driver?.name || firstOrder.driverName || "").replace(/\s+/g, "-")}.xlsx`;
+    const filePrefix = isGd ? "GD_Trucking_Solutions" : "Hart_Freight";
+    link.download = `${filePrefix}_${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}_${(driver?.name || firstOrder.driverName || "").replace(/\s+/g, "-")}.xlsx`;
     link.click();
     window.URL.revokeObjectURL(url);
     toast.success(`Exported ${orders.length} trips to Excel`);
@@ -5472,8 +5481,8 @@ const Trips = () => {
         await exportFinalAPSilverTransTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
       } else if (companyName === "Lale Transport LLC") {
         await exportLaleTransportTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
-      } else if (companyName === "Hart Freight Solutions LLC") {
-        await exportHartFreightTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
+      } else if (companyName === "Hart Freight Solutions LLC" || companyName === "GD Trucking Solutions LLC") {
+        await exportOwnerOperatorStatement(weekData, earliestDate, latestDate, firstOrder, driver, [], companyName);
       } else if (companyName === "Jones Freight Lines LLC") {
         await exportJonesFreightTemplate(weekData, earliestDate, latestDate, firstOrder, driver);
       } else {
