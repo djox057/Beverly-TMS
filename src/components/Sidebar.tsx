@@ -94,7 +94,7 @@ const HIDDEN_NAVIGATION_PATHS = new Set([
   "/fuel-reports",
 ]);
 
-const LOAD_NAVIGATION_PATHS = new Set(["/orders", "/bg-loads", "/lale-loads", "/ues-loads"]);
+const LOAD_NAVIGATION_PATHS = new Set(["/orders", "/bg-loads", "/lale-loads", "/ues-loads", "/aps-loads"]);
 
 const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
@@ -102,6 +102,7 @@ const navigation = [
   { name: "BG Loads", href: "/bg-loads", icon: FileText },
   { name: "LALE Loads", href: "/lale-loads", icon: FileText },
   { name: "UES Loads", href: "/ues-loads", icon: FileText },
+  { name: "APS Loads", href: "/aps-loads", icon: FileText },
   {
     name: "Loads at the Yard",
     href: "/yard-loads",

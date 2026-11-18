@@ -26,6 +26,7 @@ import Orders from "./pages/Orders";
 import BgLoads from "./pages/BgLoads";
 import LaleLoads from "./pages/LaleLoads";
 import UesLoads from "./pages/UesLoads";
+import ApsLoads from "./pages/ApsLoads";
 import YardLoads from "./pages/YardLoads";
 import Trucks from "./pages/Trucks";
 import Trailers from "./pages/Trailers";
@@ -168,6 +169,11 @@ const AppContent = () => {
         <Route path="/ues-loads" element={
           <ProtectedRoute>
             <Layout><UesLoads /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/aps-loads" element={
+          <ProtectedRoute>
+            <Layout><ApsLoads /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/yard-loads" element={

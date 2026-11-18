@@ -17,6 +17,7 @@ const pageTitles: Record<string, string> = {
   "/bg-loads": "BG Loads",
   "/lale-loads": "LALE Loads",
   "/ues-loads": "UES Loads",
+  "/aps-loads": "APS Loads",
   "/yard-loads": "Loads at the Yard",
   "/trucks": "Trucks",
   "/trailers": "Trailers",
