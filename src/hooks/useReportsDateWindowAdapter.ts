@@ -11,10 +11,9 @@ import { useMemo, useCallback, useEffect, useRef, useReducer } from "react";
 import { isValidUUID } from "@/utils/validation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders, fetchOrderTransfersForOrders, patchOrderInGlobalStore, removeOrderFromGlobalStore, flushGlobalStoreNotifications, hasOrderInGlobalStore } from "./useReportsDateWindow";
+import { currentWindowFileSnapshot, invalidateWindowFileSnapshots, offDutyStatusQuery, useReportsDateWindow, useOrderFilesOnDemand, fetchPickupDropsForOrders, fetchOrderTransfersForOrders, patchOrderInGlobalStore, removeOrderFromGlobalStore, flushGlobalStoreNotifications, hasOrderInGlobalStore } from "./useReportsDateWindow";
 import { useReports } from "./useReports";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
-import { mergeTruckTelemetry } from "@/utils/truckTelemetry";
 import { getReportOilService } from "@/lib/fleetServiceSnapshot";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -192,12 +191,14 @@ export const ensureLostDayNotesForDateRange = async (startDate: Date, endDate: D
 };
 
 const clearOrderFilesCache = () => {
+  invalidateWindowFileSnapshots();
   orderFilesCacheByOrderId.clear();
   orderFilesLoadedOrderIds.clear();
 };
 
 export const invalidateOrderFilesCacheForOrder = (orderId: string | null | undefined) => {
   if (!orderId) return;
+  invalidateWindowFileSnapshots();
   orderFilesCacheByOrderId.delete(orderId);
   orderFilesLoadedOrderIds.delete(orderId);
 };
@@ -546,11 +547,11 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       console.time('[perf] adapter-trucks');
       const { data, error } = await supabase
         .from("trucks")
-        .select("*")
+        .select("*, truck_telemetry(fuel_level, miles_away, eta_minutes, miles_away_updated_at)")
         .eq("is_active", true);
       console.timeEnd('[perf] adapter-trucks');
       if (error) throw error;
-      return await mergeTruckTelemetry(data || []);
+      return (data ?? []).map(({ truck_telemetry, ...truck }) => ({ ...truck, ...truck_telemetry }));
     },
     staleTime: 60000,
     refetchOnWindowFocus: true,
@@ -662,23 +663,12 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       return data || [];
     },
     staleTime: 600000,
-    enabled: scopeEnabled,
+    enabled: globalEnabled,
   });
 
   // Fetch off-duty dispatcher statuses (inactive dispatchers with stored driver snapshots)
   const { data: offDutyStatuses } = useQuery({
-    queryKey: ["adapter-off-duty-statuses"],
-    queryFn: async () => {
-      console.time('[perf] adapter-off-duty-statuses');
-      const { data, error } = await supabase
-        .from("dispatcher_status")
-        .select("dispatcher_id, inactive_trucks")
-        .eq("is_active", false);
-      console.timeEnd('[perf] adapter-off-duty-statuses');
-      if (error) throw error;
-      return data || [];
-    },
-    staleTime: 300000,
+    ...offDutyStatusQuery(dispatcherId),
     enabled: globalEnabled,
   });
 
@@ -803,6 +793,14 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
     queryFn: async () => {
       if (windowOrderIds.length === 0) return [];
       console.time('[perf] adapter-order-files');
+      for (const order of dateWindowHook.orders) {
+        if (orderFilesLoadedOrderIds.has(order.id)) continue;
+        const files = currentWindowFileSnapshot(order) as OrderFileLite[] | undefined;
+        if (files) {
+          orderFilesCacheByOrderId.set(order.id, [...files].sort((a, b) => a.id.localeCompare(b.id)));
+          orderFilesLoadedOrderIds.add(order.id);
+        }
+      }
       await fetchAndCacheOrderFilesForOrders(windowOrderIds);
       const result = getCachedOrderFilesFlat(windowOrderIds);
       console.timeEnd('[perf] adapter-order-files');
@@ -964,7 +962,7 @@ export const useReportsDateWindowAdapter = (options: UseReportsDateWindowAdapter
       return { orders: enrichedOrders, files };
     },
     staleTime: 60000,
-    enabled: scopeEnabled && driversNeedingLastLoad.length > 0,
+    enabled: scopeEnabled && !dateWindowHook.isFetching && driversNeedingLastLoad.length > 0,
   });
 
   // P2: Subscribe to order_files realtime changes to invalidate adapter cache
