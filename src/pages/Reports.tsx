@@ -39,14 +39,13 @@ import { ServiceRequestDialog } from "@/components/reports/ServiceRequestDialog"
 import { HosRequestDialog } from "@/components/HosRequestDialog";
 import { DriverComplaintDialog } from "@/components/complaints/DriverComplaintDialog";
 import { AllProblemsDialog } from "@/components/AllProblemsDialog";
-import { EditDriverDialog } from "@/components/EditDriverDialog";
+import type { EditDriverDialog as DriverEditor } from "@/components/EditDriverDialog";
 import { AddOrderSalaryChargeDialog } from "@/components/AddOrderSalaryChargeDialog";
 import { useDriverProblems } from "@/hooks/useDriverProblems";
 import { useDriverComplaintIndicators } from "@/hooks/useDriverComplaintIndicators";
 import { COMPLAINT_TYPE_LABELS, type ComplaintTypeKey } from "@/components/complaints/complaintTypes";
 import { useDriverById } from "@/hooks/useDriverById";
 import { useCompanies } from "@/hooks/useCompanies";
-import { useBrokers } from "@/hooks/useBrokers";
 import { Combobox } from "@/components/ui/combobox";
 import {
   MapPin,
@@ -153,8 +152,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { startOfWeek, addDays, isSameDay, format, parseISO } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { cn, formatDateNoTimezone } from "@/lib/utils";
-import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
-import { DispatcherFleetMapView } from "@/components/DispatcherFleetMapDialog";
+import type ReportMapComponent from "@/components/reports/ReportMap";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useIndividualMode } from "@/contexts/IndividualModeContext";
 import { useTruckInsurance } from "@/hooks/useTruckInsurance";
@@ -498,6 +496,48 @@ const getOrderPickupDateForCarousel = (order: any): Date | null => {
   return new Date(parsed.year, parsed.month - 1, parsed.day);
 };
 
+function DriverEditorPlaceholder({ onOpenChange, failed }: {
+  onOpenChange: (open: boolean) => void;
+  failed?: boolean;
+}) {
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Driver</DialogTitle>
+          <DialogDescription role={failed ? "alert" : "status"}>
+            {failed ? "The driver editor could not load. Refresh the page to try again." : "Loading driver editor…"}
+          </DialogDescription>
+        </DialogHeader>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const EditDriverDialog = React.lazy<typeof DriverEditor>(() =>
+  import("@/components/EditDriverDialog")
+    .then(({ EditDriverDialog }) => ({ default: EditDriverDialog }))
+    .catch((error: unknown) => {
+      console.error("Could not load the Reports driver editor", error);
+      return { default: ({ onOpenChange }) => <DriverEditorPlaceholder onOpenChange={onOpenChange} failed /> };
+    }),
+);
+
+const LazyReportMap = React.lazy<typeof ReportMapComponent>(() =>
+  import("@/components/reports/ReportMap").catch((error: unknown) => {
+    console.error("Could not load the Reports map", error);
+    return { default: () => <p role="alert">The map could not load. Refresh the page to try again.</p> };
+  }),
+);
+
+function ReportMap(props: React.ComponentProps<typeof ReportMapComponent>) {
+  return (
+    <React.Suspense fallback={<p role="status">Loading map…</p>}>
+      <LazyReportMap {...props} />
+    </React.Suspense>
+  );
+}
+
 const Reports = () => {
   const { profile, hasRole, roles, getPrimaryRole } = useAuthContext();
   const { byTruck: yardRepairsByTruck } = useMandatoryYardRepairs(true);
@@ -604,7 +644,6 @@ const Reports = () => {
   // Use consolidated dialog hook
   const dialogs = useReportsDialogs();
   const { data: companiesList = [] } = useCompanies();
-  const { data: brokersList = [] } = useBrokers();
 
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
   const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
@@ -1111,9 +1150,22 @@ const Reports = () => {
     bookedBy: string;
     bookedByCompanyName?: string | null;
     brokerName?: string | null;
+    brokerId?: string | null;
     weightRc?: number | null;
     weightBol?: number | null;
   } | null>(null);
+
+  const fallbackBrokerId = zoomedLoad?.brokerName ? null : zoomedLoad?.brokerId;
+  const { data: fallbackBrokerName } = useQuery({
+    queryKey: ["report-broker-name", fallbackBrokerId],
+    enabled: !!fallbackBrokerId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("brokers").select("name").eq("id", fallbackBrokerId!).maybeSingle();
+      if (error) throw error;
+      return data?.name ?? null;
+    },
+  });
+  const zoomedBrokerName = zoomedLoad?.brokerName || fallbackBrokerName;
 
   const loadFinancialsQuery = useQuery({
     queryKey: ["report-load-financials", zoomedLoad?.orderId],
@@ -1676,18 +1728,15 @@ const Reports = () => {
           companiesList.find((c: any) => c.id === order.booked_by_company_id)?.name ||
           getCompanyNameFromSuffix(order.internal_load_number) ||
           null,
-        brokerName:
-          order.brokerName ||
-          order.broker?.name ||
-          brokersList.find((b: any) => b.id === order.broker_id)?.name ||
-          null,
+        brokerId: order.broker_id,
+        brokerName: order.brokerName || order.broker?.name || null,
         bolForceComplete: order.bol_force_complete || order.order?.bol_force_complete || false,
         podForceComplete: order.pod_force_complete || order.order?.pod_force_complete || false,
         weightRc: order.weight_rc ?? order.weightRc ?? null,
         weightBol: order.weight_bol ?? order.weightBol ?? null,
       };
     },
-    [companiesList, brokersList],
+    [companiesList],
   );
 
   // Force complete handler
@@ -4878,7 +4927,8 @@ const Reports = () => {
                                   <tr>
                                     <th colSpan={15} className="p-0 border-b-[3px] border-border bg-card">
                                       <div style={{ height: "600px" }}>
-                                        <DispatcherFleetMapView
+                                        <ReportMap
+                                          kind="fleet"
                                           trucks={group.trucks.map((truck: any) => {
                                             // Build truck data with current order info
                                             const allSortedOrders =
@@ -6609,81 +6659,21 @@ const Reports = () => {
                                                 alignItems: "center",
                                               }}
                                             >
-                                              {!truck.home || truck.home === "—" ? (
-                                                <TruckMapDialog
-                                                  truckNumber={truck.truckNumber}
-                                                  truckId={truck.id}
-                                                  pickupAddress={
-                                                    currentOrder?.pickupStop
-                                                      ? `${currentOrder.pickupStop.address || ""}, ${currentOrder.pickupStop.city || ""}, ${currentOrder.pickupStop.state || ""} ${currentOrder.pickupStop.zip_code || ""}`.trim()
-                                                      : undefined
-                                                  }
-                                                  deliveryAddress={
-                                                    currentOrder?.deliveryStop
-                                                      ? `${currentOrder.deliveryStop.address || ""}, ${currentOrder.deliveryStop.city || ""}, ${currentOrder.deliveryStop.state || ""} ${currentOrder.deliveryStop.zip_code || ""}`.trim()
-                                                      : undefined
-                                                  }
-                                                  pickupDate={truck.pickup?.date}
-                                                  pickupTime={truck.pickup?.time}
-                                                  deliveryDate={truck.delivery?.date}
-                                                  deliveryTime={truck.delivery?.time}
-                                                  loadNumber={currentOrder?.load_number}
-                                                  brokerLoadNumber={currentOrder?.broker_load_number}
-                                                  hasBOL={hasBOL}
-                                                  hasPOD={hasPOD}
-                                                  pickupArrived={pickupArrived}
-                                                  isOpen={isMapExpanded}
-                                                  onOpenChange={(open) => setExpandedTruckMap(open ? truck.id : null)}
-                                                >
-                                                  <MapPin
-                                                    className="text-destructive cursor-pointer hover:text-destructive/80 transition-colors"
-                                                    style={{
-                                                      width: "12px",
-                                                      height: "12px",
-                                                      flexShrink: 0,
-                                                    }}
-                                                    size={12}
-                                                  />
-                                                </TruckMapDialog>
-                                              ) : (
-                                                <>
-                                                  <TruckMapDialog
-                                                    truckNumber={truck.truckNumber}
-                                                    truckId={truck.id}
-                                                    pickupAddress={
-                                                      currentOrder?.pickupStop
-                                                        ? `${currentOrder.pickupStop.address || ""}, ${currentOrder.pickupStop.city || ""}, ${currentOrder.pickupStop.state || ""} ${currentOrder.pickupStop.zip_code || ""}`.trim()
-                                                        : undefined
-                                                    }
-                                                    deliveryAddress={
-                                                      currentOrder?.deliveryStop
-                                                        ? `${currentOrder.deliveryStop.address || ""}, ${currentOrder.deliveryStop.city || ""}, ${currentOrder.deliveryStop.state || ""} ${currentOrder.deliveryStop.zip_code || ""}`.trim()
-                                                        : undefined
-                                                    }
-                                                    pickupDate={truck.pickup?.date}
-                                                    pickupTime={truck.pickup?.time}
-                                                    deliveryDate={truck.delivery?.date}
-                                                    deliveryTime={truck.delivery?.time}
-                                                    loadNumber={currentOrder?.load_number}
-                                                    brokerLoadNumber={currentOrder?.broker_load_number}
-                                                    hasBOL={hasBOL}
-                                                    hasPOD={hasPOD}
-                                                    pickupArrived={pickupArrived}
-                                                    isOpen={isMapExpanded}
-                                                    onOpenChange={(open) => setExpandedTruckMap(open ? truck.id : null)}
-                                                  >
-                                                    <MapPin
-                                                      className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-                                                      style={{
-                                                        width: "12px",
-                                                        height: "12px",
-                                                        flexShrink: 0,
-                                                      }}
-                                                      size={12}
-                                                    />
-                                                  </TruckMapDialog>
-                                                  <span className="text-[10px]">{truck.home}</span>
-                                                </>
+                                              <button
+                                                type="button"
+                                                aria-label={`Map for truck ${truck.truckNumber}`}
+                                                aria-expanded={isMapExpanded}
+                                                onClick={() => setExpandedTruckMap(isMapExpanded ? null : truck.id)}
+                                              >
+                                                <MapPin
+                                                  className={truck.home && truck.home !== "—"
+                                                    ? "text-muted-foreground hover:text-foreground transition-colors"
+                                                    : "text-destructive hover:text-destructive/80 transition-colors"}
+                                                  size={12}
+                                                />
+                                              </button>
+                                              {truck.home && truck.home !== "—" && (
+                                                <span className="text-[10px]">{truck.home}</span>
                                               )}
                                             </div>
                                           </td>
@@ -6999,7 +6989,8 @@ const Reports = () => {
                                         {isMapExpanded && (
                                           <tr key={`${truck.id}-map`}>
                                             <td colSpan={13} className="p-4 border-b-[3px] border-border">
-                                              <TruckMapView
+                                              <ReportMap
+                                                kind="truck"
                                                 truckNumber={truck.truckNumber}
                                                 truckId={truck.id}
                                                 pickupAddresses={currentOrder?.pickupStops
@@ -7555,8 +7546,8 @@ const Reports = () => {
                     Booked by: {zoomedLoad.bookedByCompanyName}
                   </div>
                 )}
-                {zoomedLoad?.brokerName && (
-                  <div className="text-sm text-muted-foreground font-normal">Broker: {zoomedLoad.brokerName}</div>
+                {zoomedBrokerName && (
+                  <div className="text-sm text-muted-foreground font-normal">Broker: {zoomedBrokerName}</div>
                 )}
               </div>
               <div className="flex flex-col gap-2 shrink-0">
@@ -9088,17 +9079,21 @@ const Reports = () => {
       />
 
       {/* Edit Driver Dialog */}
-      <EditDriverDialog
-        open={!!editingDriverId}
-        onOpenChange={(open) => {
-          if (!open) setEditingDriverId(null);
-        }}
-        driver={editingDriver || null}
-        onSuccess={() => {
-          if (editingDriverId) queryClient.invalidateQueries({ queryKey: ["driver", editingDriverId] });
-          queryClient.invalidateQueries({ queryKey: ["reports"] });
-        }}
-      />
+      {editingDriverId && (
+        <React.Suspense fallback={<DriverEditorPlaceholder onOpenChange={() => setEditingDriverId(null)} />}>
+          <EditDriverDialog
+            open
+            onOpenChange={(open) => {
+              if (!open) setEditingDriverId(null);
+            }}
+            driver={editingDriver || null}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ["driver", editingDriverId] });
+              queryClient.invalidateQueries({ queryKey: ["reports"] });
+            }}
+          />
+        </React.Suspense>
+      )}
 
       {/* Force Complete Confirmation Dialog */}
       <AlertDialog open={!!forceCompleteConfirm} onOpenChange={(open) => !open && setForceCompleteConfirm(null)}>

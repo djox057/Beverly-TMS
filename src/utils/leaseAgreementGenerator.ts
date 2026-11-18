@@ -1,4 +1,3 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import apsAsset from "@/assets/APS_lease.pdf.asset.json";
 import uesAsset from "@/assets/UES_lease.pdf.asset.json";
 import jonesAsset from "@/assets/Jones_lease.pdf.asset.json";
@@ -80,7 +79,10 @@ export async function generateLeaseAgreementPdf(
     JONES: jonesAsset.url,
     HART: `${import.meta.env.BASE_URL}templates/Hart_Freight_lease.pdf`,
   };
-  const res = await fetch(templateUrls[template]);
+  const [{ PDFDocument, StandardFonts, rgb }, res] = await Promise.all([
+    import("pdf-lib"),
+    fetch(templateUrls[template]),
+  ]);
   if (!res.ok) throw new Error(`Failed to fetch lease agreement template: ${res.status}`);
   const bytes = new Uint8Array(await res.arrayBuffer());
 
