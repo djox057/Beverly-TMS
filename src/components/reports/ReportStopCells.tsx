@@ -29,8 +29,8 @@ export function ReportStopCells({ kind, stops, isToday, onOpenLoad }: ReportStop
           key={stop.key}
           type="button"
           className={cn(
-            "relative flex h-full min-w-0 cursor-pointer flex-col items-stretch overflow-hidden rounded border px-1 py-0.5 text-left",
-            "transition-transform duration-150 ease-out motion-reduce:duration-0",
+            "relative z-0 flex h-full min-w-0 cursor-pointer flex-col items-stretch overflow-hidden rounded border px-1 py-0.5 text-left",
+            "transition-[transform,z-index] [transition-duration:150ms,0ms] ease-out motion-reduce:[transition-duration:0ms]",
             "[@media(hover:hover)]:hover:z-[101] [@media(hover:hover)]:hover:scale-150 [@media(hover:hover)]:hover:delay-500",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current",
             stop.color,
