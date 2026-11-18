@@ -14,6 +14,22 @@ beforeEach(()=>{
 const mount=()=>render(<MemoryRouter><ChatbotPanel /></MemoryRouter>);
 describe('TMS assistant panel',()=>{
  it('hides entirely without the access toggle',()=>{mocks.state.enabled=false;mount();expect(screen.queryByRole('dialog')).toBeNull();});
+ it.each([false, true])('hides until remount when the panel is open=%s', (open) => {
+  mocks.state.open = open;
+  const assistantRole = open ? 'dialog' : 'button';
+  const assistantName = open ? 'TMS assistant' : 'Open TMS assistant';
+  const assistant = mount();
+  expect(screen.getByRole(assistantRole, { name: assistantName })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Hide assistant until refresh' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Open TMS assistant' })).toBeNull();
+
+  assistant.unmount();
+  mocks.state.open = false;
+  mount();
+  expect(screen.getByRole('button', { name: 'Open TMS assistant' })).toBeInTheDocument();
+ });
  it('shows current context and sends a question',()=>{mount();expect(screen.getByText(/truck · 6270/)).toBeInTheDocument();fireEvent.change(screen.getByLabelText('Message'),{target:{value:'Cab card please'}});fireEvent.click(screen.getByRole('button',{name:'Send'}));expect(mocks.state.send).toHaveBeenCalledWith('Cab card please');expect(screen.getByLabelText('Message')).toHaveValue('');});
  it('renders saved fields, expired labels, file actions, manual steps and real record link',()=>{
   mocks.state.messages=[{id:'answer',role:'assistant',text:'Files',reply:{record:{kind:'driver',id:'d',label:'Test Driver'},facts:[{label:'CDL expiration',value:'2025-01-01',expired:true}],files:[{id:'f',kind:'driver',recordId:'d',name:'CDL.pdf'}],links:[{label:'Open in TMS',href:'/drivers?record=d&tab=files'}],steps:['Drivers','Driver Files','CDL']}}];mount();

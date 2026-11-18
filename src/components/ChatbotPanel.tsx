@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bot, Download, ExternalLink, Loader2, Send, Trash2, X } from "lucide-react";
+import { Bot, Download, ExternalLink, Loader2, Minus, Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useChatbot } from "@/contexts/ChatbotContext";
@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export function ChatbotPanel() {
   const chat = useChatbot();
+  const [hidden, setHidden] = useState(false);
   const [draft,setDraft] = useState("");
   const [opening,setOpening] = useState<string | null>(null);
   const [visibleFiles,setVisibleFiles] = useState<Record<string,number>>({});
@@ -34,10 +35,43 @@ export function ChatbotPanel() {
     } catch (error) { target?.close(); toast({ title: "Could not open file",description: error instanceof Error ? error.message : "Please try again.",variant: "destructive" }); }
     finally { setOpening(null); }
   }
-  if (!chat.enabled) return null;
-  if (!chat.open) return <Button className="fixed bottom-5 right-5 z-[100] rounded-full shadow-lg h-12 gap-2" onClick={() => chat.setOpen(true)} aria-label="Open TMS assistant"><Bot className="h-5 w-5" />Assistant</Button>;
+  if (!chat.enabled || hidden) return null;
+
+  const hideLabel = "Hide assistant until refresh";
+  if (!chat.open) {
+    return (
+      <div className="fixed bottom-5 right-5 z-[100]">
+        <Button className="h-12 gap-2 rounded-full shadow-lg" onClick={() => chat.setOpen(true)} aria-label="Open TMS assistant">
+          <Bot className="h-5 w-5" />Assistant
+        </Button>
+        <Button
+          size="icon"
+          variant="outline"
+          className="absolute -right-2 -top-2 h-6 w-6 rounded-full shadow-sm"
+          aria-label={hideLabel}
+          title={hideLabel}
+          onClick={() => setHidden(true)}
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
+
   return <section role="dialog" aria-label="TMS assistant" className="fixed bottom-4 right-4 z-[100] flex max-h-[min(720px,90dvh)] w-[420px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border bg-background text-foreground shadow-2xl">
-    <header className="flex items-center gap-2 border-b p-3"><Bot className="h-5 w-5" /><h2 className="flex-1 font-semibold">TMS Assistant</h2><Button size="icon" variant="ghost" title={lastUi.clear || "Clear chat"} aria-label="Clear chat" onClick={() => { chat.clear(); setDraft(""); setVisibleFiles({}); }}><Trash2 className="h-4 w-4" /></Button><Button size="icon" variant="ghost" aria-label="Close assistant" onClick={() => chat.setOpen(false)}><X className="h-4 w-4" /></Button></header>
+    <header className="flex items-center gap-2 border-b p-3">
+      <Bot className="h-5 w-5" />
+      <h2 className="flex-1 font-semibold">TMS Assistant</h2>
+      <Button size="icon" variant="ghost" title={lastUi.clear || "Clear chat"} aria-label="Clear chat" onClick={() => { chat.clear(); setDraft(""); setVisibleFiles({}); }}>
+        <Trash2 className="h-4 w-4" />
+      </Button>
+      <Button size="icon" variant="ghost" title="Minimize assistant" aria-label="Minimize assistant" onClick={() => chat.setOpen(false)}>
+        <Minus className="h-4 w-4" />
+      </Button>
+      <Button size="icon" variant="ghost" title={hideLabel} aria-label={hideLabel} onClick={() => setHidden(true)}>
+        <X className="h-4 w-4" />
+      </Button>
+    </header>
     <div className="border-b bg-muted/40 px-3 py-2 text-xs text-muted-foreground">{chat.context ? `${lastUi.current || "Current record"}: ${chat.context.kind} · ${chat.context.label}` : "No record selected"}</div>
     <div className="min-h-[220px] flex-1 space-y-3 overflow-y-auto p-3" aria-live="polite">
       {!chat.messages.length && <div className="space-y-3 py-3 text-sm"><p className="text-muted-foreground">Find details and documents. Answers include a TMS link and where to find them manually.</p>{["What is the yard address?","Give me this truck’s cab card","Where can I find a driver’s CDL?"].map(q => <button key={q} className="block w-full rounded-lg border p-2 text-left hover:bg-muted" onClick={() => chat.send(q)}>{q}</button>)}</div>}
