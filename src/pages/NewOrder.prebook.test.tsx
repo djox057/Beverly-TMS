@@ -5,12 +5,13 @@ import { MemoryRouter } from "react-router-dom";
 import NewOrder from "./NewOrder";
 const state = vi.hoisted(() => ({
   role: "manager",
+  fleetLoading: false,
   companies: [{ id: "company", name: "BF Prime LLC" }],
   trucks: [], drivers: [], brokers: [],
 }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ hasRole: (role: string) => role === state.role, roles: [state.role], profile: { full_name: "Test", office: "CACAK" } }) }));
 vi.mock("@/hooks/useCompanies", () => ({ useCompanies: () => ({ data: state.companies, isLoading: false }) }));
-vi.mock("@/hooks/useTrucks", () => ({ useTrucks: () => ({ data: state.trucks, isLoading: false }) }));
+vi.mock("@/hooks/useTrucks", () => ({ useTrucks: () => ({ data: state.trucks, isLoading: state.fleetLoading }) }));
 vi.mock("@/hooks/useDrivers", () => ({ useDrivers: () => ({ data: state.drivers, isLoading: false }) }));
 vi.mock("@/hooks/useBrokers", () => ({ useBrokers: () => ({ data: state.brokers, isLoading: false }) }));
 vi.mock("@/hooks/useNextInternalLoadNumber", () => ({ useNextInternalLoadNumber: () => ({ data: "1019001", isLoading: false }) }));
@@ -20,7 +21,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: { getSessio
 vi.mock("@/components/ui/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 const mount = () => render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><NewOrder /></MemoryRouter></QueryClientProvider>);
 beforeEach(() => { vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} }); });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { state.fleetLoading = false; cleanup(); vi.unstubAllGlobals(); });
 it.each(["manager", "admin"])("shows Prebook without Multi load for %s", role => {
   state.role = role; mount();
   expect(screen.getByRole("switch", { name: "Prebook" })).toBeInTheDocument();
@@ -45,4 +46,17 @@ it("keeps Prebook unassigned and RC extraction manual", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Extract with AI" }));
   await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(screen.getByLabelText("Broker Load #")).toHaveValue("EXTRACTED"));
+});
+
+it("keeps typed load details while fleet data arrives", () => {
+  state.fleetLoading = true;
+  const client = new QueryClient();
+  const form = () => <QueryClientProvider client={client}><MemoryRouter><NewOrder /></MemoryRouter></QueryClientProvider>;
+  const view = render(form());
+  fireEvent.change(screen.getByLabelText("Broker Load #"), { target: { value: "LOAD-123" } });
+  expect(view.container.querySelector('button[type="submit"]')).toBeDisabled();
+  state.fleetLoading = false;
+  view.rerender(form());
+  expect(screen.getByLabelText("Broker Load #")).toHaveValue("LOAD-123");
+  expect(view.container.querySelector('button[type="submit"]')).toBeEnabled();
 });

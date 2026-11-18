@@ -29,7 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { uploadOrderFilePreserveName } from "@/utils/orderFilesUpload";
-import { downloadRc, type RcOrder } from "@/utils/rcGenerator";
+import type { RcOrder } from "@/utils/rcGenerator";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -290,7 +290,7 @@ const NewOrder = () => {
       latitude: stop.latitude ?? null, longitude: stop.longitude ?? null,
     })),
   });
-  const { data: allBrokers } = useBrokers();
+  const { data: allBrokers, isLoading: brokersLoading } = useBrokers();
 
   // Filter trucks by dispatcher for dispatch role - check driver dispatcher
   // First, get the list of driver IDs assigned to this dispatcher
@@ -440,6 +440,10 @@ const NewOrder = () => {
     driverCompanyName,
   );
 
+  const listsLoading = companiesLoading || trucksLoading || driversLoading;
+  const extractionWaiting = listsLoading || brokersLoading;
+  const submissionWaiting = listsLoading || loadingNextNumber;
+
   // Get the first pickup datetime for DH miles calculation
   const firstPickupDatetime = pickupsDrops.find((item) => item.type === "pickup")?.datetime || null;
   const { data: lastDelivery, isFetching: loadingLastDelivery, error: lastDeliveryError } = useTruckLastDelivery(driver1 || null, firstPickupDatetime);
@@ -457,14 +461,14 @@ const NewOrder = () => {
       return;
     }
 
-    if (!hasAutoExtracted && !isExtracting) {
+    if (!extractionWaiting && !hasAutoExtracted && !isExtracting) {
       const pdfFile = rcFiles.find((file) => file.type === "application/pdf");
       if (pdfFile) {
         setHasAutoExtracted(true);
         handleExtractWithAI();
       }
     }
-  }, [rcFiles, isPartial, isPrebook]);
+  }, [rcFiles, isPartial, isPrebook, extractionWaiting]);
 
   // Pre-select BF Prime company as default
   useEffect(() => {
@@ -1525,6 +1529,7 @@ const NewOrder = () => {
         })),
       };
 
+      const { downloadRc } = await import("@/utils/rcGenerator");
       await downloadRc(order, `rc_${order.load.load_number || "load"}.pdf`);
       toast({ title: "RC PDF generated", description: "Editable PDF downloaded." });
     } catch (err: any) {
@@ -1886,6 +1891,8 @@ const NewOrder = () => {
 
   const handleSubmit = async (e: React.FormEvent, skipDuplicateCheck = false, skipDuplicateStopsCheck = false) => {
     e.preventDefault();
+
+    if (submissionWaiting) return;
 
     // CRITICAL: Prevent duplicate submissions with debouncing
     if (isSubmitting) {
@@ -2821,15 +2828,6 @@ const NewOrder = () => {
     // Call handleSubmit directly instead of dispatching synthetic event
     handleSubmit(e as any);
   };
-  const isLoading = companiesLoading || trucksLoading || driversLoading || loadingNextNumber;
-  if (isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading...</span>
-      </div>
-    );
-  }
   return (
     <div className="max-w-4xl mx-auto">
       <Card>
@@ -2839,12 +2837,13 @@ const NewOrder = () => {
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
               <div className="text-lg font-medium">
-                {formatInternalLoadNumber(nextInternalLoadNumber, driverCompanyName)}
+                {loadingNextNumber ? "Loading…" : formatInternalLoadNumber(nextInternalLoadNumber, driverCompanyName)}
               </div>
             </div>
           </div>
         </CardHeader>
         <CardContent>
+          {listsLoading && <p role="status" className="mb-3 text-sm text-muted-foreground">Loading company and fleet details…</p>}
           <form onSubmit={handleSubmit}>
             <fieldset disabled={isSubmitting} className="space-y-6">
             {canCreatePrebook && (
@@ -2886,7 +2885,7 @@ const NewOrder = () => {
                           handleExtractWithAI();
                         }}
                         disabled={
-                          isExtracting ||
+                          extractionWaiting || isExtracting ||
                           !rcFiles ||
                           rcFiles.length === 0 ||
                           !Array.from(rcFiles || []).some((f) => f.type === "application/pdf")
@@ -3080,6 +3079,7 @@ const NewOrder = () => {
                           <div className="space-y-1">
                             <Label className="text-xs">Company</Label>
                             <Combobox
+                              disabled={companiesLoading}
                               options={companyOptions}
                               value={bookedByCompanies[index]}
                               onValueChange={(val) => {
@@ -3117,7 +3117,7 @@ const NewOrder = () => {
                   <Button
                     type="button"
                     onClick={() => handleExtractWithAI()}
-                    disabled={isExtracting}
+                    disabled={extractionWaiting || isExtracting}
                     variant="outline"
                     className="w-full border-blue-500 text-blue-700 hover:bg-blue-50"
                   >
@@ -3166,6 +3166,7 @@ const NewOrder = () => {
                 <div className="space-y-2">
                   <Label htmlFor="company">Booked by Company</Label>
                   <Combobox
+                    disabled={companiesLoading}
                     options={companyOptions}
                     value={bookedByCompany}
                     onValueChange={setBookedByCompany}
@@ -3224,6 +3225,7 @@ const NewOrder = () => {
               <div className="space-y-2">
                 <Label htmlFor="truck">Truck #</Label>
                 <Combobox
+                  disabled={trucksLoading || driversLoading}
                   options={truckOptions}
                   value={truck}
                   onValueChange={setTruck}
@@ -3252,6 +3254,7 @@ const NewOrder = () => {
               <div className="space-y-2">
                 <Label htmlFor="driver1">Driver 1 (Auto-filled)</Label>
                 <Combobox
+                  disabled={trucksLoading || driversLoading}
                   options={driverOptions}
                   value={driver1}
                   onValueChange={setDriver1}
@@ -3270,6 +3273,7 @@ const NewOrder = () => {
                     },
                     ...driverOptions,
                   ]}
+                  disabled={trucksLoading || driversLoading}
                   value={driver2}
                   onValueChange={setDriver2}
                   placeholder="Select second driver"
@@ -3886,7 +3890,7 @@ const NewOrder = () => {
               <HosLoadLight {...hos} loading={hos.loading || isCalculatingMiles || isCalculatingDhMiles} />
               <Button
                 type="submit"
-                disabled={isSubmitting || isExtracting || isCalculatingMiles}
+                disabled={submissionWaiting || isSubmitting || isExtracting || isCalculatingMiles}
                 className={cn(isSubmitting && "opacity-50 cursor-not-allowed")}
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
