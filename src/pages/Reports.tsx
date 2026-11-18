@@ -11,6 +11,7 @@ import { TruckRepairDeadlines } from "@/components/reports/TruckRepairDeadlines"
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { CoiRequestDialog } from "@/components/reports/CoiRequestDialog";
 import { LoadAdditionals } from "@/components/reports/LoadAdditionals";
+import { ReportStopCells } from "@/components/reports/ReportStopCells";
 import { getReportLoadFinancials, REPORT_LOAD_FINANCIAL_COLUMNS } from "@/lib/reportLoadFinancials";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -3144,6 +3145,37 @@ const Reports = () => {
       const pickupLoadMatchSlots = buildLoadMatchSlots([sameDayOrders, allPickupOrders], "pickupStops");
       const hasHighlightedLoadSlot =
         deliveryLoadMatchSlots.some((slot) => slot.matched) || pickupLoadMatchSlots.some((slot) => slot.matched);
+      const buildStopCells = (orders: typeof allDayOrders, kind: "pickup" | "delivery") =>
+        orders.flatMap((order) => {
+          const stops = kind === "pickup" ? order.pickupStops : order.deliveryStops;
+          const previousComplete = kind === "pickup" && getPreviousLoadDeliveryStatus(order);
+          const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+
+          return (stops || [])
+            .filter((stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr)
+            .map((stop: any, stopIndex: number) => ({
+              key: `${order.id}-stop-${stop.id || stopIndex}`,
+              orderId: order.id,
+              location: `${stop.city}, ${stop.state}`,
+              time: formatTimeRange(stop.datetime, stop.end_datetime),
+              color:
+                kind === "pickup"
+                  ? getPickupCellColor(order, previousComplete, latePickups, stop)
+                  : getDeliveryCellColor(order, stop, lateDeliveries),
+              scaleTicketRequired:
+                !!stops?.[0] &&
+                stop.id === stops[0].id &&
+                !hasPOD &&
+                needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files),
+            }));
+        });
+      const deliveryCells = buildStopCells([...allDeliveryOrders, ...sameDayOrders], "delivery");
+      const pickupCells = buildStopCells([...sameDayOrders, ...allPickupOrders], "pickup");
+      const openStopLoad = (orderId: string) => {
+        if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
+        const loadDetails = getLoadDetailsForZoom(orderId, truck);
+        if (loadDetails) setZoomedLoad(loadDetails);
+      };
       // Apply left border to all cells except the first
       const showLeftBorder = index > 0;
       // Apply right border to the last day (5th day, index 4)
@@ -3218,150 +3250,12 @@ const Reports = () => {
                 }}
               >
                 {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? (
-                  <div className="flex-1 p-0 overflow-hidden flex flex-row">
-                    {allDeliveryOrders.flatMap((order) => {
-                      // Get all delivery stops for this day
-                      const dayStr = format(day, "yyyy-MM-dd");
-                      const deliveryStopsForDay =
-                        order.deliveryStops?.filter(
-                          (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
-                        ) || [];
-
-                      // Render a separate cell for each delivery stop
-                      return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
-                        const cellColor = getDeliveryCellColor(order, stop, lateDeliveries);
-                        const totalCellsOnDay =
-                          allDeliveryOrders.reduce(
-                            (sum, o) =>
-                              sum +
-                              (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
-                                .length || 0),
-                            0,
-                          ) +
-                          sameDayOrders.reduce(
-                            (sum, o) =>
-                              sum +
-                              (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
-                                .length || 0),
-                            0,
-                          );
-                        const isFirstDeliveryOfOrder =
-                          !!order.deliveryStops?.[0] && stop.id === order.deliveryStops[0].id;
-                        const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-                        const showScaleTicketWarning =
-                          isFirstDeliveryOfOrder &&
-                          !hasPOD &&
-                          needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
-                        return (
-                          <div
-                            key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
-                            className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
-                            style={{
-                              ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
-                              const loadDetails = getLoadDetailsForZoom(order.id, truck);
-                              if (loadDetails) setZoomedLoad(loadDetails);
-                            }}
-                          >
-                            {showScaleTicketWarning && (
-                              <div
-                                className={`absolute top-0 ${isToday ? "right-1" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
-                                style={{ width: 12, height: 12 }}
-                                title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
-                              >
-                                <AlertTriangle className="h-2.5 w-2.5" strokeWidth={3} />
-                              </div>
-                            )}
-                            <div
-                              className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                            >
-                              {stop.city}, {stop.state}
-                            </div>
-                            <div
-                              className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                            >
-                              {formatTimeRange(stop.datetime, stop.end_datetime)}
-                            </div>
-                          </div>
-                        );
-                      });
-                    })}
-                    {sameDayOrders.flatMap((order) => {
-                      // Get all delivery stops for this day
-                      const dayStr = format(day, "yyyy-MM-dd");
-                      const deliveryStopsForDay =
-                        order.deliveryStops?.filter(
-                          (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
-                        ) || [];
-
-                      // Render a separate cell for each delivery stop
-                      return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
-                        const cellColor = getDeliveryCellColor(order, stop, lateDeliveries);
-                        const totalCellsOnDay =
-                          allDeliveryOrders.reduce(
-                            (sum, o) =>
-                              sum +
-                              (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
-                                .length || 0),
-                            0,
-                          ) +
-                          sameDayOrders.reduce(
-                            (sum, o) =>
-                              sum +
-                              (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
-                                .length || 0),
-                            0,
-                          );
-                        const isFirstDeliveryOfOrder =
-                          !!order.deliveryStops?.[0] && stop.id === order.deliveryStops[0].id;
-                        const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-                        const showScaleTicketWarning =
-                          isFirstDeliveryOfOrder &&
-                          !hasPOD &&
-                          needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
-                        return (
-                          <div
-                            key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`}
-                            className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
-                            style={{
-                              ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
-                              const loadDetails = getLoadDetailsForZoom(order.id, truck);
-                              if (loadDetails) setZoomedLoad(loadDetails);
-                            }}
-                          >
-                            {showScaleTicketWarning && (
-                              <div
-                                className={`absolute top-0 ${isToday ? "right-1" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
-                                style={{ width: 12, height: 12 }}
-                                title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
-                              >
-                                <AlertTriangle className="h-2.5 w-2.5" strokeWidth={3} />
-                              </div>
-                            )}
-                            <div
-                              className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                            >
-                              {stop.city}, {stop.state}
-                            </div>
-                            <div
-                              className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                            >
-                              {formatTimeRange(stop.datetime, stop.end_datetime)}
-                            </div>
-                          </div>
-                        );
-                      });
-                    })}
-                  </div>
+                  <ReportStopCells
+                    kind="delivery"
+                    stops={deliveryCells}
+                    isToday={isToday}
+                    onOpenLoad={openStopLoad}
+                  />
                 ) : (
                   (() => {
                     const dayStr = format(day, "yyyy-MM-dd");
@@ -3427,156 +3321,12 @@ const Reports = () => {
                     }}
                   >
                     {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
-                      <div className="flex-1 p-0 overflow-hidden flex flex-row" onClick={(e) => e.stopPropagation()}>
-                        {sameDayOrders.flatMap((order) => {
-                          const previousComplete = getPreviousLoadDeliveryStatus(order);
-                          // Get all pickup stops for this day
-                          const dayStr = format(day, "yyyy-MM-dd");
-                          const pickupStopsForDay =
-                            order.pickupStops?.filter(
-                              (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
-                            ) || [];
-
-                          // Render a separate cell for each pickup stop
-                          return pickupStopsForDay.map((stop: any, stopIdx: number) => {
-                            const cellColor = getPickupCellColor(order, previousComplete, latePickups, stop);
-                            const totalCellsOnDay =
-                              allPickupOrders.reduce(
-                                (sum, o) =>
-                                  sum +
-                                  (o.pickupStops?.filter(
-                                    (s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr,
-                                  ).length || 0),
-                                0,
-                              ) +
-                              sameDayOrders.reduce(
-                                (sum, o) =>
-                                  sum +
-                                  (o.pickupStops?.filter(
-                                    (s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr,
-                                  ).length || 0),
-                                0,
-                              );
-                            const isFirstPickupOfOrder =
-                              !!order.pickupStops?.[0] && stop.id === order.pickupStops[0].id;
-                            const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-                            const showScaleTicketWarning =
-                              isFirstPickupOfOrder &&
-                              !hasPOD &&
-                              needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
-                            return (
-                              <div
-                                key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`}
-                                className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
-                                style={{
-                                  ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
-                                  const loadDetails = getLoadDetailsForZoom(order.id, truck);
-                                  if (loadDetails) setZoomedLoad(loadDetails);
-                                }}
-                              >
-                                {showScaleTicketWarning && (
-                                  <div
-                                    className={`absolute top-0 ${isToday ? "right-1" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
-                                    style={{ width: 12, height: 12 }}
-                                    title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
-                                  >
-                                    <AlertTriangle className="h-2.5 w-2.5" strokeWidth={3} />
-                                  </div>
-                                )}
-                                <div
-                                  className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                                >
-                                  {stop.city}, {stop.state}
-                                </div>
-                                <div
-                                  className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                                >
-                                  {formatTimeRange(stop.datetime, stop.end_datetime)}
-                                </div>
-                              </div>
-                            );
-                          });
-                        })}
-                        {allPickupOrders.flatMap((order) => {
-                          const previousComplete = getPreviousLoadDeliveryStatus(order);
-                          // Get all pickup stops for this day
-                          const dayStr = format(day, "yyyy-MM-dd");
-                          const pickupStopsForDay =
-                            order.pickupStops?.filter(
-                              (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
-                            ) || [];
-
-                          // Render a separate cell for each pickup stop
-                          return pickupStopsForDay.map((stop: any, stopIdx: number) => {
-                            const cellColor = getPickupCellColor(order, previousComplete, latePickups, stop);
-                            const totalCellsOnDay =
-                              allPickupOrders.reduce(
-                                (sum, o) =>
-                                  sum +
-                                  (o.pickupStops?.filter(
-                                    (s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr,
-                                  ).length || 0),
-                                0,
-                              ) +
-                              sameDayOrders.reduce(
-                                (sum, o) =>
-                                  sum +
-                                  (o.pickupStops?.filter(
-                                    (s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr,
-                                  ).length || 0),
-                                0,
-                              );
-                            const isFirstPickupOfOrder =
-                              !!order.pickupStops?.[0] && stop.id === order.pickupStops[0].id;
-                            const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-                            const showScaleTicketWarning =
-                              isFirstPickupOfOrder &&
-                              !hasPOD &&
-                              needsScaleTicket(order.weightBol ?? order.weight_bol, order.order_files);
-                            return (
-                              <div
-                                key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
-                                className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`}
-                                style={{
-                                  ...(totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}),
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  if (Date.now() - lastZoomedLoadCloseTime.current < 100) return;
-                                  const loadDetails = getLoadDetailsForZoom(order.id, truck);
-                                  if (loadDetails) setZoomedLoad(loadDetails);
-                                }}
-                              >
-                                {showScaleTicketWarning && (
-                                  <div
-                                    className={`absolute top-0 ${isToday ? "right-1" : "right-0"} z-20 flex items-center justify-center bg-yellow-400 text-black rounded-bl rounded-tr leading-none`}
-                                    style={{ width: 12, height: 12 }}
-                                    title="Scale ticket required (BOL weight ≥ 30,000 lbs)"
-                                  >
-                                    <AlertTriangle className="h-2.5 w-2.5" strokeWidth={3} />
-                                  </div>
-                                )}
-                                <div
-                                  className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                                >
-                                  {stop.city}, {stop.state}
-                                </div>
-                                <div
-                                  className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
-                                >
-                                  {formatTimeRange(stop.datetime, stop.end_datetime)}
-                                </div>
-                              </div>
-                            );
-                          });
-                        })}
-                      </div>
+                      <ReportStopCells
+                        kind="pickup"
+                        stops={pickupCells}
+                        isToday={isToday}
+                        onOpenLoad={openStopLoad}
+                      />
                     ) : (
                       (() => {
                         const dateStr = format(day, "yyyy-MM-dd");
