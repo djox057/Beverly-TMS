@@ -27,15 +27,15 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => ({ se
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 function navigation() { return <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><SidebarProvider><Sidebar /></SidebarProvider></MemoryRouter>; }
 
-it("replaces the legacy counter only for dispatch and works with Individual mode off", async () => {
-  mocks.role = "dispatch"; await act(async () => { render(navigation()); });
+it.each(["dispatch", "supervisor"] as const)("shows dispatcher opportunities for %s with Individual mode off", async role => {
+  mocks.role = role; await act(async () => { render(navigation()); });
   expect(screen.getByLabelText(/^Prebook: 3/)).toBeInTheDocument();
   expect(screen.getByLabelText(/^Recovery: 2/)).toBeInTheDocument();
   expect(mocks.legacy).toHaveBeenCalledWith({ enabled: false });
-  expect(mocks.opportunities).toHaveBeenCalledWith("dispatcher", "dispatch");
+  expect(mocks.opportunities).toHaveBeenCalledWith("dispatcher", role);
   expect(screen.queryByText("99")).not.toBeInTheDocument();
 });
-it.each(["admin", "manager", "supervisor"] as const)("preserves the legacy badge for %s", async role => {
+it.each(["admin", "manager"] as const)("preserves the legacy badge for %s", async role => {
   mocks.role = role; await act(async () => { render(navigation()); });
   expect(screen.queryByLabelText(/^Prebook:/)).not.toBeInTheDocument();
   expect(screen.queryByLabelText(/^Recovery:/)).not.toBeInTheDocument();

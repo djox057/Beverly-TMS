@@ -39,6 +39,7 @@ vi.mock("@/contexts/IndividualModeContext", () => ({
   useIndividualMode: () => ({ individualMode: false, canUseIndividualMode: false, setIndividualMode: vi.fn() }),
 }));
 vi.mock("next-themes", () => ({ useTheme: () => ({ theme: "light", setTheme: vi.fn() }) }));
+vi.mock("@/hooks/useDispatcherLoadOpportunities", () => ({ useDispatcherLoadOpportunities: () => ({ data: undefined }) }));
 vi.mock("@/hooks/usePretripMissingCount", () => ({ usePretripMissingCount: () => ({ data: 0 }) }));
 vi.mock("@/hooks/useYardLoadsCount", () => ({ useYardLoadsCount: () => ({ data: 0 }) }));
 vi.mock("@/hooks/useRecoveryLoadsCount", () => ({ useRecoveryLoadsCount: () => ({ data: { count: 0 } }) }));
@@ -141,10 +142,10 @@ describe("Upcoming Drivers direct URL access", () => {
 
 describe('ELD navigation access', () => {
   it.each(['admin', 'maintenance', 'manager', 'supervisor', 'safety', 'accounting', 'dispatch', 'afterhours'])(
-    'shows ELD only to exact admin/maintenance roles: %s', role => {
+    'shows ELD for the supported roles: %s', role => {
       auth.primaryRole = role;
       render(<MemoryRouter><Sidebar /></MemoryRouter>);
-      if (role === 'admin' || role === 'maintenance') {
+      if (role === 'admin' || role === 'maintenance' || role === 'manager') {
         expect(screen.getByRole('link', { name: 'ELD' })).toHaveAttribute('href', '/eld');
       } else {
         expect(screen.queryByRole('link', { name: 'ELD' })).not.toBeInTheDocument();

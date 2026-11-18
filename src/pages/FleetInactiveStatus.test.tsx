@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import Trucks from "./Trucks";
 import Trailers from "./Trailers";
 
@@ -44,7 +45,11 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: (table: str
 } } }));
 
 const unit = (id: string, is_active: boolean, is_temporary_inactive = false) => ({ id, truck_number: id, trailer_number: id, is_active, is_temporary_inactive });
-const mount = (Component: typeof Trucks) => render(<QueryClientProvider client={new QueryClient()}><Component /></QueryClientProvider>);
+const mount = (Component: typeof Trucks) => render(
+  <QueryClientProvider client={new QueryClient()}>
+    <MemoryRouter><Component /></MemoryRouter>
+  </QueryClientProvider>,
+);
 const filter = (value: string) => {
   const control = screen.getAllByRole("combobox").find(el => within(el).queryByRole("option", { name: "All Status" }));
   fireEvent.change(control!, { target: { value } });
