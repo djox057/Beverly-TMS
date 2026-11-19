@@ -423,7 +423,6 @@ export const Sidebar = () => {
         "/trips",
         "/fleets",
         "/transfer-list",
-        "/roadsides",
         "/roadside-inspection",
         "/pretrip-inspection",
       ];

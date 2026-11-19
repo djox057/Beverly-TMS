@@ -2,10 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { RoadRecord } from "@/lib/roadsides";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { roadReaders, type RoadRecord } from "@/lib/roadsides";
 import Roadsides from "./Roadsides";
 
-const mock = vi.hoisted(() => ({ role: "safety", update: vi.fn(), records: [] as RoadRecord[] }));
+const mock = vi.hoisted(() => ({ role: "maintenance", update: vi.fn(), records: [] as RoadRecord[] }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ user: { id: "u" }, getPrimaryRole: () => mock.role }) }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { from: () => {
@@ -28,17 +29,32 @@ const base: RoadRecord = {
 
 function show(path = "/roadsides") {
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <MemoryRouter initialEntries={[path]}><Roadsides /></MemoryRouter>
+    <MemoryRouter initialEntries={[path]}><ProtectedRoute strictAllowedRoles={roadReaders}><Roadsides /></ProtectedRoute></MemoryRouter>
   </QueryClientProvider>);
 }
 
 beforeEach(() => {
   mock.update.mockClear();
-  mock.role = "safety";
+  mock.role = "maintenance";
   mock.records = [base, { ...base, id: "l1", sheet: "Lawyers", fields: { driver: "Case Driver", court: "Continued to March", extra: "Extra cell" } }];
 });
 
 describe("Roadsides workbook", () => {
+  it.each(["safety", "chicago_management", "dispatch", "supervisor", "accounting", "afterhours", "claims", "yard", "recruiting", "driver"])(
+    "denies direct Roadsides access to %s", role => {
+      mock.role = role;
+      show("/roadsides?tab=lawyers");
+      expect(screen.getByText("Access Denied")).toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: "Lawyers" })).toBeNull();
+    },
+  );
+
+  it("allows an admin to add inspections", async () => {
+    mock.role = "admin";
+    show();
+    expect(await screen.findByRole("button", { name: "Add inspection" })).toBeInTheDocument();
+  });
+
   it("preserves truck links, date display and searchable cell notes", async () => {
     show();
     expect(await screen.findByRole("link", { name: "0012" })).toHaveAttribute("href", "https://example.com/inspection");
