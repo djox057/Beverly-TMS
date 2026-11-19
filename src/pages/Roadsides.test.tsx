@@ -1,21 +1,28 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { roadReaders, type RoadRecord } from "@/lib/roadsides";
 import Roadsides from "./Roadsides";
 
-const mock = vi.hoisted(() => ({ role: "maintenance", update: vi.fn(), records: [] as RoadRecord[] }));
+const mock = vi.hoisted(() => ({ role: "maintenance", update: vi.fn(), conflict: false, records: [] as RoadRecord[] }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ user: { id: "u" }, getPrimaryRole: () => mock.role }) }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { from: () => {
     const filters: Record<string, string> = {};
+    let patch: Partial<RoadRecord>;
     const query = {
       select: () => query, order: () => query, limit: () => query,
       eq: (key: string, value: string) => { filters[key] = value; return query; },
-      update: (payload: unknown) => { mock.update(payload); return query; },
-      maybeSingle: () => ({ data: { id: filters.id }, error: null }),
+      update: (payload: Partial<RoadRecord>) => { patch = payload; mock.update(payload); return query; },
+      maybeSingle: () => {
+        const row = mock.records.find(r => r.id === filters.id && r.updated_at === filters.updated_at);
+        if (!row || mock.conflict) return { data: null, error: null };
+        const saved = { ...row, ...patch, updated_at: "t2" };
+        mock.records = mock.records.map(r => r.id === row.id ? saved : r);
+        return { data: saved, error: null };
+      },
       abortSignal: () => ({ data: mock.records.filter(r => r.sheet === filters.sheet), error: null }),
     };
     return query;
@@ -35,8 +42,9 @@ function show(path = "/roadsides") {
 
 beforeEach(() => {
   mock.update.mockClear();
+  mock.conflict = false;
   mock.role = "maintenance";
-  mock.records = [base, { ...base, id: "l1", sheet: "Lawyers", fields: { driver: "Case Driver", court: "Continued to March", extra: "Extra cell" } }];
+  mock.records = [{ ...base }, { ...base, id: "l1", sheet: "Lawyers", fields: { driver: "Case Driver", court: "Continued to March", extra: "Extra cell" } }];
 });
 
 describe("Roadsides workbook", () => {
@@ -72,6 +80,35 @@ describe("Roadsides workbook", () => {
     expect(screen.getByText("Extra cell")).toBeInTheDocument();
     expect(screen.queryByText("Test Driver")).toBeNull();
     expect(screen.queryByRole("button", { name: "Add case" })).toBeNull();
+  });
+
+  it("edits a workbook dropdown in place and keeps all other fields and links", async () => {
+    show();
+    fireEvent.click(await screen.findByRole("button", { name: "Edit OOS · 0012" }));
+    const cell = screen.getByRole("combobox", { name: "OOS · 0012" });
+    expect(cell).toHaveValue("historic value");
+    fireEvent.change(cell, { target: { value: "NO" } });
+    fireEvent.keyDown(cell, { key: "Enter" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Edit OOS · 0012" })).toHaveTextContent("NO"));
+    expect(mock.update).toHaveBeenCalledWith({ fields: { ...base.fields, oos: "NO" } });
+    expect(screen.getByRole("link", { name: "0012" })).toHaveAttribute("href", base.links.truck);
+  });
+
+  it("cancels a Lawyers cell with Escape and reports conflicting saves", async () => {
+    show("/roadsides?tab=lawyers");
+    const edit = await screen.findByRole("button", { name: "Edit Court date · Case Driver" });
+    fireEvent.click(edit);
+    const input = screen.getByLabelText("Court date · Case Driver");
+    fireEvent.change(input, { target: { value: "Next month" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(mock.update).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Court date · Case Driver" }));
+    const retry = screen.getByLabelText("Court date · Case Driver");
+    expect(retry).toHaveValue("Continued to March");
+    mock.conflict = true;
+    fireEvent.change(retry, { target: { value: "Next month" } });
+    fireEvent.blur(retry);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Row changed");
   });
 
   it("retains legacy dropdown values and document links when another field changes", async () => {
