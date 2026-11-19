@@ -591,7 +591,6 @@ export const CompanyLoads = ({ companyId, companyName, title, storagePrefix }: C
   // When server-side filtering is active, skip most client-side filters
   const filteredOrders = useMemo(() => {
     return dataSource?.filter((order) => {
-      if (supervisorTeam.isSupervisor && !supervisorTeam.includesOrder(order)) return false;
       const isServerSearch = searchTerm && searchTerm.trim().length >= 2;
       const isServerFiltered = hasActiveFilter && filteredServerOrders && filteredServerOrders.length > 0;
 
