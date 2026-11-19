@@ -52,6 +52,7 @@ const pageTitles: Record<string, string> = {
   "/billboard": "Billboard",
   "/transfer-list": "Transfer List",
   "/turnover-list": "Turnover List",
+  "/roadsides": "Roadsides",
   "/roadside-inspection": "Roadside Inspection",
   "/eld": "ELD",
   "/live-oil-change": "Live Oil Change",
