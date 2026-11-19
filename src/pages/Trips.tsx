@@ -1,6 +1,6 @@
 import { BulkTripStatementImport } from "@/components/trips/BulkTripStatementImport";
 import { TripPaidHeader } from "@/components/trips/TripPaidHistory";
-import { TripStatementDialog, StatementTarget } from "@/components/trips/TripStatementDialog";
+import { TripStatementDialog, type StatementTarget, type TripStatement } from "@/components/trips/TripStatementDialog";
 import { driverWeekStatementKey, statementKey } from "@/lib/tripStatement";
 import { fetchActiveEfsRows } from "@/lib/activeEfsRequests";
 import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
@@ -47,12 +47,14 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import moneyStackIcon from "@/assets/money-stack.png";
 import { useTripsLazyOrders } from "@/hooks/useTripsLazyOrders";
+import { useDebounce } from "@/hooks/useDebounce";
 import { StatementPreviewDialog, ScheduledDeduction } from "@/components/StatementPreviewDialog";
 import { CellSelectionSummary } from "@/components/CellSelectionSummary";
 import { useCellSelection } from "@/hooks/useCellSelection";
 import { useState, useMemo, useEffect, Fragment, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfWeek, endOfWeek, getDay, addDays } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import { toast } from "sonner";
@@ -110,6 +112,13 @@ const parseDateNoTimezoneToDate = (dateStr: string): Date | null => {
   } catch (e) {
     return null;
   }
+};
+
+const tripWeekStart = (date: string | null | undefined): string | null => {
+  const day = date ? parseDateNoTimezoneToDate(date) : null;
+  return day && Number.isFinite(day.getTime())
+    ? format(startOfWeek(day, { weekStartsOn: 2 }), "yyyy-MM-dd")
+    : null;
 };
 
 // Helper to find the last delivery date from a list of orders
@@ -456,7 +465,7 @@ const Trips = () => {
     ? { bookedBy: profile?.full_name || null, dispatcherUserId: profile?.user_id || null }
     : { bookedBy: null, dispatcherUserId: null };
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const [requestedPage, setCurrentPage] = useState(1);
   const [searchFilter, setSearchFilter] = useState(() => {
     return localStorage.getItem("trips_searchFilter") || "";
   });
@@ -1214,6 +1223,58 @@ const Trips = () => {
     return { filterType: null, entityId: null, companyName: null };
   }, [searchFilter, filteredOrders]);
 
+  const driverSearch = useDebounce(searchFilter.trim(), 350);
+  const isDriverPaySearch = canReadStatements && driverSearch === searchFilter.trim() && driverSearch.length >= 2 &&
+    !/^\d+$/.test(driverSearch) && filterInfo.filterType !== "truck" && !loadNumberSearch.trim() && !invoicedDateFilter;
+  const { data: matchedPayDriver } = useQuery({
+    queryKey: ["trips-pay-driver", profile?.user_id, primaryRole, supervisorTeam.cacheScope, driverSearch],
+    enabled: isDriverPaySearch,
+    queryFn: async ({ signal }) => {
+      const name = driverSearch.replace(/[\\%_]/g, "\\$&");
+      const find = (pattern: string) => supabase.from("drivers")
+        .select("id, name, hire_date, created_at, termination_date, is_active")
+        .ilike("name", pattern).limit(2).abortSignal(signal);
+      const exact = await find(name);
+      if (exact.error) throw exact.error;
+      const result = exact.data.length ? exact : await find(`%${name}%`);
+      if (result.error) throw result.error;
+      const [driver] = result.data;
+      return result.data.length === 1 && driver.name ? { ...driver, name: driver.name } : null;
+    },
+  });
+  const canUsePayDriver = matchedPayDriver && (
+    !supervisorTeam.isSupervisor || supervisorTeam.driverIds.has(matchedPayDriver.id) ||
+    filteredOrders.some(order => order.driver1Id === matchedPayDriver.id)
+  );
+  const payrollDriver = isDriverPaySearch && canUsePayDriver &&
+    filteredOrders.every(order => order.driver1Id === matchedPayDriver.id)
+    ? matchedPayDriver : null;
+
+  const { data: driverStatements, isPending: driverStatementsLoading, isError: driverStatementsError } = useQuery({
+    queryKey: ["trip-week-statements", "driver-weeks", profile?.user_id, primaryRole, supervisorTeam.cacheScope, payrollDriver?.id],
+    enabled: !!payrollDriver,
+    queryFn: async ({ signal }) => {
+      const fetchStatements = async (legacy: boolean) => {
+        const rows: TripStatement[] = [];
+        const pageSize = 500;
+        for (let offset = 0; ; offset += pageSize) {
+          const query = supabase.from("trip_week_statements").select("*");
+          const scoped = legacy
+            ? query.is("driver_id", null).eq("driver_name", payrollDriver!.name)
+            : query.eq("driver_id", payrollDriver!.id);
+          const { data, error } = await scoped.order("week_start").order("id")
+            .range(offset, offset + pageSize - 1).abortSignal(signal);
+          if (error) throw error;
+          rows.push(...data);
+          if (data.length < pageSize) return rows;
+        }
+      };
+
+      const [linked, legacy] = await Promise.all([fetchStatements(false), fetchStatements(true)]);
+      return [...linked, ...legacy];
+    },
+  });
+
   // Fetch assignment history based on filter type
   const { data: assignmentHistory = [] } = useAssignmentHistory(
     filterInfo.filterType === "truck" ? "truck" : "driver",
@@ -1370,128 +1431,80 @@ const Trips = () => {
     return byWeek;
   }, [filterInfo.filterType, terminatedDrivers]);
 
-  // Pagination - paginate by whole weeks so a week is never split across pages
-  // (pages may therefore contain slightly more/fewer rows than itemsPerPage)
-  const weekPages = useMemo(() => {
-    const parseDate = (dateStr: string): Date | null => {
-      try {
-        const datePart = String(dateStr).replace(" ", "T").split("T")[0];
-        if (!datePart) return null;
-        const [year, month, day] = datePart.split("-").map(Number);
-        if (!year || !month || !day) return null;
-        return new Date(year, month - 1, day, 12, 0, 0);
-      } catch {
-        return null;
-      }
-    };
-
-    // Group all filtered orders by their (possibly overridden) week key
+  const orderWeeks = useMemo(() => {
     const byWeek = new Map<string, any[]>();
-    const noWeek: any[] = [];
-    filteredOrders.forEach((order: any) => {
-      const d = order.deliveryDate ? parseDate(String(order.deliveryDate)) : null;
-      if (!d || isNaN(d.getTime())) {
-        noWeek.push(order);
-        return;
+    let undatedCount = 0;
+
+    for (const order of filteredOrders) {
+      const originalWeek = tripWeekStart(order.deliveryDate);
+      if (!originalWeek) {
+        undatedCount++;
+        continue;
       }
-      const originalWeekKey = format(startOfWeek(d, { weekStartsOn: 2 }), "yyyy-MM-dd");
-      const weekKey = weekOverrides?.[order.id] || originalWeekKey;
-      if (!byWeek.has(weekKey)) byWeek.set(weekKey, []);
-      byWeek.get(weekKey)!.push(order);
-    });
+      const week = weekOverrides?.[order.id] || originalWeek;
+      if (!byWeek.has(week)) byWeek.set(week, []);
+      byWeek.get(week)!.push(order);
+    }
+    return { byWeek, undatedCount };
+  }, [filteredOrders, weekOverrides]);
 
-    const sortedKeys = Array.from(byWeek.keys()).sort((a, b) => b.localeCompare(a));
-
-    // Pack whole weeks into pages without splitting a week
-    const pages: any[][] = [];
-    let current: any[] = [];
-    sortedKeys.forEach((key) => {
-      const chunk = byWeek.get(key)!;
-      if (current.length > 0 && current.length + chunk.length > itemsPerPage) {
-        pages.push(current);
-        current = [];
-      }
-      current = current.concat(chunk);
-    });
-    if (noWeek.length > 0) current = current.concat(noWeek);
-    if (current.length > 0) pages.push(current);
-
-    return pages;
-  }, [filteredOrders, weekOverrides, itemsPerPage]);
-
-  const totalPages = Math.max(1, weekPages.length);
-  const paginatedOrders = useMemo(() => weekPages[currentPage - 1] || [], [weekPages, currentPage]);
-
-  // Group paginated orders by week (Monday-Sunday), respecting week overrides
-  const groupedByWeek = useMemo(() => {
-    const groups: { [key: string]: any[] } = {};
-
-    // Helper to parse date string without timezone conversion
-    const parseDateNoTimezone = (dateStr: string): Date | null => {
-      try {
-        // Normalize the string - replace space with T for consistent parsing
-        const normalizedStr = String(dateStr).replace(" ", "T");
-        const datePart = normalizedStr.split("T")[0];
-        if (!datePart) return null;
-
-        const [year, month, day] = datePart.split("-").map(Number);
-        if (!year || !month || !day) return null;
-
-        // Create date at noon to avoid any DST edge cases
-        return new Date(year, month - 1, day, 12, 0, 0);
-      } catch (e) {
-        return null;
-      }
+  const chicagoToday = formatInTimeZone(new Date(), "America/Chicago", "yyyy-MM-dd");
+  const weekPages = useMemo(() => {
+    const byWeek = new Map(orderWeeks.byWeek);
+    const includeWeek = (week: string) => {
+      if (!byWeek.has(week)) byWeek.set(week, []);
     };
+    Object.keys(historyEntriesByWeek).forEach(includeWeek);
+    Object.keys(terminationsByWeek).forEach(includeWeek);
 
-    paginatedOrders.forEach((order) => {
-      if (order.deliveryDate) {
-        try {
-          const deliveryDate = parseDateNoTimezone(String(order.deliveryDate));
+    if (payrollDriver) {
+      driverStatements?.forEach(statement => includeWeek(statement.week_start));
 
-          if (!deliveryDate || isNaN(deliveryDate.getTime())) {
-            console.error("Invalid date:", order.deliveryDate);
-            return;
-          }
-
-          // Calculate original week
-          const originalWeekStart = startOfWeek(deliveryDate, { weekStartsOn: 2 }); // Tuesday
-          const originalWeekKey = format(originalWeekStart, "yyyy-MM-dd");
-
-          // Check if this order has a week override
-          const overrideWeekKey = weekOverrides?.[order.id];
-          const weekKey = overrideWeekKey || originalWeekKey;
-
-          // Store original week info on order for undo functionality
-          const orderWithMeta = {
-            ...order,
-            _originalWeekKey: originalWeekKey,
-            _hasWeekOverride: !!overrideWeekKey,
-          };
-
-          if (!groups[weekKey]) {
-            groups[weekKey] = [];
-          }
-          groups[weekKey].push(orderWithMeta);
-        } catch (e) {
-          console.error("Error parsing date:", e, "for order:", order.deliveryDate);
+      // Employment dates fill gaps, and existing orders and statements can extend either bound.
+      let firstWeek = tripWeekStart(payrollDriver.hire_date ?? payrollDriver.created_at);
+      let lastWeek = tripWeekStart(
+        (!payrollDriver.is_active && payrollDriver.termination_date) || chicagoToday,
+      );
+      for (const week of byWeek.keys()) {
+        if (!firstWeek || week < firstWeek) firstWeek = week;
+        if (!lastWeek || week > lastWeek) lastWeek = week;
+      }
+      if (firstWeek && lastWeek) {
+        const end = new Date(`${lastWeek}T12:00:00`);
+        for (let date = new Date(`${firstWeek}T12:00:00`); date <= end; date = addDays(date, 7)) {
+          includeWeek(format(date, "yyyy-MM-dd"));
         }
       }
-    });
+    }
 
-    // Include week keys that only contain history or termination entries
-    // (otherwise weeks where the only order was filtered out — e.g. $0 freight —
-    // would silently drop the termination/history rows).
-    const allWeekKeys = new Set<string>([
-      ...Object.keys(groups),
-      ...Object.keys(historyEntriesByWeek || {}),
-      ...Object.keys(terminationsByWeek || {}),
-    ]);
+    // Keep each week together, counting a week with no loads as one row.
+    type Week = { start: string; orders: any[] };
+    const pages: { weeks: Week[]; orderCount: number }[] = [];
+    let page = { weeks: [] as Week[], orderCount: 0 };
+    let pageSize = 0;
+    for (const [start, orders] of [...byWeek].sort(([a], [b]) => b.localeCompare(a))) {
+      const size = Math.max(1, orders.length);
+      if (pageSize && pageSize + size > itemsPerPage) {
+        pages.push(page);
+        page = { weeks: [], orderCount: 0 };
+        pageSize = 0;
+      }
+      page.weeks.push({ start, orders });
+      page.orderCount += orders.length;
+      pageSize += size;
+    }
+    page.orderCount += orderWeeks.undatedCount;
+    pages.push(page);
+    return pages;
+  }, [orderWeeks, historyEntriesByWeek, terminationsByWeek, payrollDriver, driverStatements, chicagoToday, itemsPerPage]);
 
-    const weekGroups = Array.from(allWeekKeys)
-      .sort((a, b) => b.localeCompare(a))
-      .map((weekKey) => {
-        if (!groups[weekKey]) groups[weekKey] = [];
+  const totalPages = weekPages.length;
+  const currentPage = Math.min(requestedPage, totalPages);
+  const currentWeekPage = weekPages[currentPage - 1];
+
+  const groupedByWeek = useMemo(() => {
+    return currentWeekPage.weeks
+      .map(({ start: weekKey, orders: weekOrders }) => {
         // Get tenure entries for this week (already consolidated like truck history dialog)
         const weekTenures = historyEntriesByWeek[weekKey] || [];
 
@@ -1563,7 +1576,12 @@ const Trips = () => {
         });
 
         // Merge orders, history entries, and termination entries
-        const allItems = [...groups[weekKey], ...historyAsItems, ...terminationAsItems];
+        const ordersWithWeekMetadata = weekOrders.map(order => ({
+          ...order,
+          _originalWeekKey: weekOverrides?.[order.id] ? tripWeekStart(order.deliveryDate) : weekKey,
+          _hasWeekOverride: !!weekOverrides?.[order.id],
+        }));
+        const allItems = [...ordersWithWeekMetadata, ...historyAsItems, ...terminationAsItems];
 
         // HARDENED: Sort by date (newest first) with secondary sort for stability
         // - Primary: Date (descending)
@@ -1630,16 +1648,7 @@ const Trips = () => {
           weekTotal,
         };
       });
-
-    return weekGroups;
-  }, [
-    paginatedOrders,
-    weekOverrides,
-    historyEntriesByWeek,
-    terminationsByWeek,
-    filterInfo.filterType,
-    terminationNotesByDriverId,
-  ]);
+  }, [currentWeekPage, weekOverrides, historyEntriesByWeek, terminationsByWeek, filterInfo.filterType, terminationNotesByDriverId]);
 
   // Handle drag end for moving loads between weeks
   const handleDragEnd = useCallback(
@@ -6108,11 +6117,13 @@ const Trips = () => {
 
   const statementWeeks = groupedByWeek.map(week => week.weekStart).sort();
   const statementOrders = groupedByWeek.flatMap(week => week.actualOrders);
-  const statementDrivers = [...new Set<string>(statementOrders.map(order => order.driver1Id).filter(Boolean))].sort();
-  const statementTrucks = [...new Set<string>(statementOrders.map(order => order.truckNumber).filter(Boolean))].sort();
-  const { data: weekStatements, isError: statementsError, isPending: statementsLoading } = useQuery({
+  const statementDrivers = payrollDriver ? [] : [...new Set<string>(statementOrders.map(order => order.driver1Id).filter(Boolean))].sort();
+  const statementTrucks = payrollDriver ? [] : [...new Set<string>(statementOrders.map(order => order.truckNumber).filter(Boolean))].sort();
+  const fetchWeekStatements = canReadStatements && statementWeeks.length > 0 &&
+    (statementDrivers.length > 0 || statementTrucks.length > 0);
+  const { data: weekStatements, isError: weekStatementsError, isPending: weekStatementsLoading } = useQuery({
     queryKey: ["trip-week-statements", profile?.user_id, primaryRole, supervisorTeam.cacheScope, statementWeeks, statementDrivers, statementTrucks],
-    enabled: canReadStatements && statementWeeks.length > 0,
+    enabled: fetchWeekStatements,
     queryFn: async () => {
       const [driverStatements, legacyStatements] = await Promise.all([
         statementDrivers.length ? supabase.from("trip_week_statements").select("*").in("week_start", statementWeeks)
@@ -6130,6 +6141,19 @@ const Trips = () => {
       ]));
     },
   });
+  const driverStatementsByWeek = useMemo(() => {
+    const byWeek = new Map<string, TripStatement[]>();
+    for (const statement of driverStatements ?? []) {
+      if (!byWeek.has(statement.week_start)) byWeek.set(statement.week_start, []);
+      byWeek.get(statement.week_start)!.push(statement);
+    }
+    return byWeek;
+  }, [driverStatements]);
+  const statementsError = weekStatementsError || (!!payrollDriver && driverStatementsError);
+  const statementsLoading = (fetchWeekStatements && weekStatementsLoading) || (!!payrollDriver && driverStatementsLoading);
+  const payHistoryTrips = payrollDriver
+    ? [{ driver1Id: payrollDriver.id, driverName: payrollDriver.name }]
+    : filteredOrders;
 
   if (showEmptyPrompt) {
     return (
@@ -6255,7 +6279,7 @@ const Trips = () => {
       <Card className="w-full min-w-0">
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-4 md:p-6">
           <CardTitle className="text-base md:text-lg">
-            Trips ({filteredOrders.length} total, showing {paginatedOrders.length} on page {currentPage} of {totalPages}
+            Trips ({filteredOrders.length} total, showing {currentWeekPage.orderCount} on page {currentPage} of {totalPages}
             )
             {filterInfo.companyName && searchFilter && (
               <span className="ml-2 text-sm font-normal text-muted-foreground">— {filterInfo.companyName}</span>
@@ -6352,7 +6376,7 @@ const Trips = () => {
                     </TableHead>
                     {canSeePaidColumn && (
                       canReadStatements ? (
-                        <TripPaidHeader trips={filteredOrders} viewerScope={[profile?.user_id, primaryRole, supervisorTeam.cacheScope]} />
+                        <TripPaidHeader trips={payHistoryTrips} viewerScope={[profile?.user_id, primaryRole, supervisorTeam.cacheScope]} />
                       ) : (
                         <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">
                           Paid
@@ -6384,19 +6408,28 @@ const Trips = () => {
                       // Get truck/driver info from first actual order (not history entry) for paid status
                       const firstActualOrder = week.actualOrders[0];
                       const weekTruckNumber = firstActualOrder?.truckNumber || "";
-                      const weekDriverName = firstActualOrder?.driverName || "";
-                      const weekDriverId = firstActualOrder?.driver1Id || "";
+                      const weekDriverName = payrollDriver?.name || firstActualOrder?.driverName || "";
+                      const weekDriverId = payrollDriver?.id || firstActualOrder?.driver1Id || "";
                       const weekIsPaid = isWeekPaid(weekTruckNumber, weekDriverName, week.weekStart);
                       const singleStatementOwner = !!weekDriverName && week.actualOrders.every(order =>
                         weekDriverId ? order.driver1Id === weekDriverId : !order.driver1Id && order.driverName === weekDriverName);
                       const singleStatementTruck = singleStatementOwner && !!weekTruckNumber &&
                         week.actualOrders.every(order => order.truckNumber === weekTruckNumber);
-                      const driverStatement = singleStatementOwner && weekDriverId
-                        ? weekStatements?.get(driverWeekStatementKey(weekDriverId, week.weekStart)) : undefined;
-                      const uploadedStatement = driverStatement ?? (singleStatementTruck
-                        ? weekStatements?.get(statementKey(weekTruckNumber, weekDriverName, week.weekStart)) : undefined);
+                      const selectedDriverStatements = driverStatementsByWeek.get(week.weekStart);
+                      const driverStatement = payrollDriver
+                        ? selectedDriverStatements?.find(row => row.driver_id === weekDriverId)
+                        : singleStatementOwner && weekDriverId
+                          ? weekStatements?.get(driverWeekStatementKey(weekDriverId, week.weekStart)) : undefined;
+                      const existingStatements = payrollDriver ? selectedDriverStatements ?? [] : [];
+                      const legacyStatement = singleStatementTruck
+                        ? weekStatements?.get(statementKey(weekTruckNumber, weekDriverName, week.weekStart))
+                        : undefined;
+                      const uploadedStatement = driverStatement ?? legacyStatement ?? (existingStatements.length === 1 ? existingStatements[0] : undefined);
+                      const legacyTotal = !uploadedStatement && existingStatements.length > 1
+                        ? existingStatements.reduce((sum, row) => sum + Math.round(row.paid_amount * 100), 0) / 100
+                        : null;
                       const openStatement = (mode: "view" | "upload") => setStatementTarget({
-                        truckNumber: singleStatementTruck ? weekTruckNumber : "", driverId: weekDriverId,
+                        truckNumber: singleStatementTruck ? weekTruckNumber : null, driverId: weekDriverId,
                         driverName: weekDriverName, weekStart: week.weekStart,
                         statement: uploadedStatement, mode,
                       });
@@ -6410,7 +6443,8 @@ const Trips = () => {
                                 <span>
                                   Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}
                                 </span>
-                                {canSeePaidColumn && (
+                                {!firstActualOrder && <span className="text-sm text-muted-foreground">No loads</span>}
+                                {canSeePaidColumn && firstActualOrder && (
                                   <div className="flex items-center gap-2">
                                     {canTogglePaid ? (
                                       <>
@@ -6509,24 +6543,18 @@ const Trips = () => {
                                   </button>
                                   {canEditStatements && <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" aria-label="Replace weekly statement" onClick={() => openStatement("upload")}><Edit className="h-3 w-3" /></Button>}
                                 </div>
-                              ) : canEditStatements && singleStatementTruck ? (
+                              ) : legacyTotal !== null ? (
+                                <span className="font-semibold whitespace-nowrap" title="Total of multiple weekly statements">{formatCurrency(legacyTotal)}</span>
+                              ) : canEditStatements && (weekDriverId || singleStatementTruck) ? (
                                 <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" aria-label="Add statement" onClick={() => openStatement("upload")}>Add</Button>
                               ) : null)}
                             </TableCell>}
                             <TableCell className="py-3">
-                              {canSeePaidColumn && !isDispatcherRole(primaryRole) && !isMaintenanceReadOnly && (
+                              {firstActualOrder && canSeePaidColumn && !isDispatcherRole(primaryRole) && !isMaintenanceReadOnly && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => {
-                                    // Get the first actual order (not history/termination entries)
-                                    const firstActualOrder = week.actualOrders.find(
-                                      (o: any) => !o._isHistoryEntry && !o._isTerminationEntry,
-                                    );
-                                    if (!firstActualOrder) {
-                                      toast.error("No orders to export");
-                                      return;
-                                    }
                                     setStatementDialogData({
                                       week: { ...week, orders: week.actualOrders },
                                       weekStartDate,
@@ -7273,14 +7301,14 @@ const Trips = () => {
                 <PaginationContent>
                   <PaginationItem>
                     <PaginationPrevious
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                       className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     />
                   </PaginationItem>
                   {renderPaginationItems()}
                   <PaginationItem>
                     <PaginationNext
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                       className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     />
                   </PaginationItem>

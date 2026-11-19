@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type TripStatement = Tables<"trip_week_statements">;
-export type StatementTarget = { truckNumber: string; driverId?: string; driverName: string; weekStart: string; statement?: TripStatement; mode: "view" | "upload" };
+export type StatementTarget = { truckNumber: string | null; driverId?: string; driverName: string; weekStart: string; statement?: TripStatement; mode: "view" | "upload" };
 
 export function TripStatementDialog({ target, canEdit, onClose }: { target: StatementTarget; canEdit: boolean; onClose: () => void }) {
   const client = useQueryClient();
@@ -93,7 +93,7 @@ export function TripStatementDialog({ target, canEdit, onClose }: { target: Stat
       const result = target.statement
         ? await supabase.from("trip_week_statements").update(payload).eq("id", target.statement.id).eq("file_path", target.statement.file_path).select("id").single()
         : await supabase.from("trip_week_statements").insert({
-          ...payload, driver_id: target.driverId || null, truck_number: target.truckNumber,
+          ...payload, driver_id: target.driverId || null, truck_number: target.truckNumber || null,
           driver_name: target.driverName, week_start: target.weekStart,
         }).select("id").single();
       if (result.error) {

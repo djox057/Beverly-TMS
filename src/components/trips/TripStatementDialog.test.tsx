@@ -48,14 +48,18 @@ describe("weekly statement upload", () => {
     expect(close).not.toHaveBeenCalled();
     expect(mocks.error).toHaveBeenCalled();
   });
-  it("allows correction of an unrecognized total, including zero", async () => {
+  it.each([["0.00", 0], ["-125.50", -125.5]])("saves %s in a driver week with no truck", async (input, paidAmount) => {
     mocks.read.mockResolvedValue({ amount: null });
-    setup();
+    const close = setup(true, { ...target, truckNumber: null, driverId: "driver-1" });
     fireEvent.change(screen.getByLabelText("Statement (PDF or XLSX)"), { target: { files: [new File(["x"], "weekly.pdf")] } });
     await screen.findByRole("alert");
     expect(screen.getByRole("button", { name: "Save statement" })).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Paid amount"), { target: { value: "0.00" } });
-    expect(screen.getByRole("button", { name: "Save statement" })).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Paid amount"), { target: { value: input } });
+    fireEvent.click(screen.getByRole("button", { name: "Save statement" }));
+    await waitFor(() => expect(close).toHaveBeenCalledOnce());
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({
+      driver_id: "driver-1", truck_number: null, week_start: target.weekStart, paid_amount: paidAmount,
+    }));
   });
   it("never enables uploads for a reader", async () => {
     setup(false);
