@@ -33,7 +33,7 @@ function HolidayRow({ initial, index, year, holidaySlug, truckQuery, updateColor
   const role = getPrimaryRole();
   const canEdit = ['admin', 'manager', 'supervisor', 'dispatch'].includes(role ?? '');
   const canEditBonus = role === 'admin' || role === 'manager';
-  const canEditAmount = canEditBonus || role === 'accounting';
+  const canEditAmount = canEditBonus || role === 'accounting' || role === 'dispatch';
   const [value, setValue] = useState(initial);
   const latest = useRef(initial);
   const saved = useRef(initial);

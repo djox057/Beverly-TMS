@@ -85,7 +85,7 @@ it.each(['admin', 'manager', 'accounting', 'supervisor', 'dispatch'])('limits am
   const amount = await screen.findByRole('button', { name: 'Bonus amount for truck 03212' });
   expect(amount).toHaveTextContent('$100');
   expect(screen.getByRole('button', { name: 'Bonus amount for truck 3212' })).toBeDisabled();
-  if (['admin', 'manager', 'accounting'].includes(role)) {
+  if (['admin', 'manager', 'accounting', 'dispatch'].includes(role)) {
     expect(amount).toBeEnabled();
     fireEvent.click(amount);
     fireEvent.change(screen.getByRole('textbox', { name: 'Bonus amount', exact: true }), { target: { value: '125.50' } });
