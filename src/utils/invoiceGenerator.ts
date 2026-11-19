@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
+import { UES_BOOKED_BY_COMPANY_ID } from "@/lib/constants";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import ExcelJS from "exceljs";
 import { removeInvoiceCoverPage } from "@/utils/removeInvoiceCoverPage";
@@ -74,7 +75,8 @@ interface Order {
   otherAdditionalsReason?: string;
   lateFee?: number;
   companyName: string;
-  bookedByCompanyName?: string;
+  bookedByCompanyId?: string | null;
+  bookedByCompanyName?: string | null;
   driverName: string;
   mileage: number;
   rcFiles?: OrderFile[];
@@ -564,10 +566,13 @@ export const generateInvoicePDF = async (
       safePdfText(doc, "TOTAL:", 164, yPosition + 5);
       safePdfText(doc, formatPdfCurrency(finalTotal), 184, yPosition + 5);
 
-      // Notice section — skipped for BG Prime Inc and LALE Transport loads
+      // Skip the notice for BG Prime, LALE Transport, and loads booked by UES.
       const isBgPrime = derivedCompany === "BG Prime Inc";
       const isLaleTrans = getCompanySuffix(derivedCompany) === "LT";
-      if (!isBgPrime && !isLaleTrans) {
+      const isBookedByUes = order.bookedByCompanyId
+        ? order.bookedByCompanyId === UES_BOOKED_BY_COMPANY_ID
+        : getCompanySuffix(order.bookedByCompanyName) === "UE";
+      if (!isBgPrime && !isLaleTrans && !isBookedByUes) {
         yPosition += 30;
         const isBeverlyFreight = derivedCompany === "Beverly Freight Inc";
         if (isBeverlyFreight) {
