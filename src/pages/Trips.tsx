@@ -444,6 +444,7 @@ const Trips = () => {
   const { roles, getPrimaryRole, profile, hasRole } = useAuth();
   const primaryRole = getPrimaryRole();
   const isMaintenanceReadOnly = primaryRole === "maintenance";
+  const canUseTripExports = primaryRole !== "dispatch" && primaryRole !== "afterhours";
 
   // For dispatch users, filter to only show their booked orders and orders for drivers assigned to them
   const supervisorTeam = useSupervisorTeam();
@@ -474,7 +475,8 @@ const Trips = () => {
   const itemsPerPage = 50;
 
   // Audit mode: lets user select orders and export them as a simple xlsx
-  const [auditMode, setAuditMode] = useState(false);
+  const [auditModeEnabled, setAuditMode] = useState(false);
+  const auditMode = canUseTripExports && auditModeEnabled;
   const [auditSelected, setAuditSelected] = useState<Set<string>>(new Set());
   const toggleAuditSelection = useCallback((key: string) => {
     setAuditSelected((prev) => {
@@ -6287,7 +6289,7 @@ const Trips = () => {
               <span className="ml-2 text-sm font-normal text-muted-foreground">— {filterInfo.companyName}</span>
             )}
           </CardTitle>
-          <div className="flex items-center gap-2">
+          {canUseTripExports && <div className="flex items-center gap-2">
             {!isMaintenanceReadOnly && <Button
               variant="outline"
               size="sm"
@@ -6325,7 +6327,7 @@ const Trips = () => {
                 Export Selected ({auditSelected.size})
               </Button>
             )}
-          </div>
+          </div>}
         </CardHeader>
         <CardContent className="p-0">
           <DragDropContext onDragEnd={handleDragEnd}>

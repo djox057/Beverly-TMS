@@ -102,6 +102,8 @@ it.each(["dispatch", "afterhours"])("lets %s open a Paid statement without offer
   expect(screen.queryByRole("button", { name: /Add statement|Replace weekly statement/ })).not.toBeInTheDocument();
   expect(screen.queryByRole("checkbox", { name: /Paid|Mark load/i })).not.toBeInTheDocument();
   expect(screen.queryByTitle("Export week to Excel")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Final" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Audit" })).not.toBeInTheDocument();
 });
 it("shows the imported weekly statement for a driver who used two trucks", () => {
   mocks.role = "admin";
@@ -111,6 +113,8 @@ it("shows the imported weekly statement for a driver who used two trucks", () =>
   expect(screen.getByText("9999")).toBeInTheDocument();
   expect(screen.getByText("1111")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "$1,234.56" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Final" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Audit" })).toBeInTheDocument();
 });
 
 function searchPayDriver(hireDate = "2026-11-03") {
