@@ -81,7 +81,7 @@ export function ReportLostDayCell({ note, comment, onOpenNote }: ReportLostDayCe
       type="button"
       className={cn(
         CALENDAR_CELL_HOVER,
-        "group/lost-day flex min-h-0 min-w-0 flex-1 cursor-pointer items-center justify-center overflow-hidden",
+        "group/lost-day flex min-h-0 min-w-0 flex-1 cursor-pointer items-center justify-center",
         "bg-[hsl(0_72%_53%)] text-xs font-semibold text-white dark:bg-[hsl(var(--destructive-light))] dark:text-[hsl(var(--destructive-light-foreground))]",
       )}
       aria-label={savedComment ? `Edit Lost Day Note. ${note}. Comment: ${savedComment}` : `Edit Lost Day Note. ${note}`}
@@ -93,12 +93,20 @@ export function ReportLostDayCell({ note, comment, onOpenNote }: ReportLostDayCe
       <span className="line-clamp-2 px-0.5 text-center">{note}</span>
       <span
         aria-hidden="true"
-        className="invisible absolute inset-0 overflow-y-auto break-words bg-inherit px-1 py-0.5 text-left leading-tight transition-[visibility] duration-0 [@media(hover:hover)]:group-hover/lost-day:visible [@media(hover:hover)]:group-hover/lost-day:delay-500"
-      >
-        <span className="block whitespace-pre-wrap text-[9px]">{note}</span>
-        {savedComment && (
-          <span className="block whitespace-pre-wrap text-[8px] font-normal">Comment: {savedComment}</span>
+        className={cn(
+          "invisible absolute inset-x-0 top-1/2 grid min-h-full -translate-y-1/2 grid-rows-[0fr] bg-inherit text-left leading-tight",
+          "transition-[visibility,grid-template-rows] duration-0",
+          "[@media(hover:hover)]:group-hover/lost-day:visible [@media(hover:hover)]:group-hover/lost-day:grid-rows-[1fr] [@media(hover:hover)]:group-hover/lost-day:delay-500",
         )}
+      >
+        <span className="min-h-0 overflow-hidden whitespace-pre-wrap [overflow-wrap:anywhere]">
+          <span className="block px-1 py-0.5">
+            <span className="block text-[9px]">{note}</span>
+            {savedComment && (
+              <span className="block text-[8px] font-normal">Comment: {savedComment}</span>
+            )}
+          </span>
+        </span>
       </span>
     </button>
   );
