@@ -1,7 +1,7 @@
 import type { UserRole } from "@/hooks/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
 
-export const roadEditors: UserRole[] = ["admin", "maintenance"];
+export const roadEditors: UserRole[] = ["admin", "maintenance", "safety"];
 export const roadReaders: UserRole[] = [...roadEditors, "manager"];
 
 export type Sheet = "ALL" | "Lawyers";

@@ -48,7 +48,7 @@ beforeEach(() => {
 });
 
 describe("Roadsides workbook", () => {
-  it.each(["safety", "chicago_management", "dispatch", "supervisor", "accounting", "afterhours", "claims", "yard", "recruiting", "driver"])(
+  it.each(["chicago_management", "dispatch", "supervisor", "accounting", "afterhours", "claims", "yard", "recruiting", "driver"])(
     "denies direct Roadsides access to %s", role => {
       mock.role = role;
       show("/roadsides?tab=lawyers");
@@ -56,6 +56,22 @@ describe("Roadsides workbook", () => {
       expect(screen.queryByRole("tab", { name: "Lawyers" })).toBeNull();
     },
   );
+
+  it.each([
+    ["/roadsides", "Add inspection", "Driver name · 0012"],
+    ["/roadsides?tab=lawyers", "Add case", "Driver name · Case Driver"],
+  ])("allows Safety to open, add and edit records on %s", async (path, add, label) => {
+    mock.role = "safety";
+    show(path);
+    expect(await screen.findByRole("button", { name: add })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Edit " + label }));
+    const cell = screen.getByRole("textbox", { name: label });
+    fireEvent.change(cell, { target: { value: "Updated driver" } });
+    fireEvent.keyDown(cell, { key: "Enter" });
+    await waitFor(() => expect(mock.update).toHaveBeenCalledWith({
+      fields: expect.objectContaining({ driver: "Updated driver" }),
+    }));
+  });
 
   it("allows an admin to add inspections", async () => {
     mock.role = "admin";

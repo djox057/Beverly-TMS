@@ -424,6 +424,7 @@ export const Sidebar = () => {
         "/fleets",
         "/transfer-list",
         "/roadside-inspection",
+        "/roadsides",
         "/pretrip-inspection",
       ];
       return [
