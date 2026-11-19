@@ -1,3 +1,4 @@
+import { roadReaders } from "@/lib/roadsides";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -63,6 +64,7 @@ const Holidays = lazyPage(() => import("./pages/Holidays"));
 const Billboard = lazyPage(() => import("./pages/Billboard"));
 const TransferList = lazyPage(() => import("./pages/TransferList"));
 const TurnoverList = lazyPage(() => import("./pages/TurnoverList"));
+const Roadsides = lazyPage(() => import("./pages/Roadsides"));
 const RoadsideInspection = lazyPage(() => import("./pages/RoadsideInspection"));
 const LiveOilChange = lazyPage(() => import("./pages/LiveOilChange"));
 const Eld = lazyPage(() => import("./pages/Eld"));
@@ -297,6 +299,11 @@ const AppContent = () => {
         <Route path="/turnover-list" element={
           <ProtectedRoute requiredRole="admin">
             <Layout><TurnoverList /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/roadsides" element={
+          <ProtectedRoute strictAllowedRoles={roadReaders}>
+            <Layout><Roadsides /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/roadside-inspection" element={

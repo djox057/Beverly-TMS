@@ -1,3 +1,4 @@
+import { roadReaders } from "@/lib/roadsides";
 import { YARD_REPAIR_VIEW_ROLES } from "@/hooks/useMandatoryYardRepairs";
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { NavLink, useLocation } from "react-router-dom";
@@ -171,6 +172,7 @@ const navigation = [
   { name: "Turnover List", href: "/turnover-list", icon: RefreshCw, roles: ["admin"] },
   { name: "Roadside Inspection", href: "/roadside-inspection", icon: AlertTriangle },
   { name: "ELD", href: "/eld", icon: ClipboardCheck, roles: ["admin", "maintenance", "manager"], strict: true },
+  { name: "Roadsides", href: "/roadsides", icon: ClipboardCheck, roles: roadReaders, strict: true },
   { name: "Live Oil Change", href: "/live-oil-change", icon: Droplet },
   {
     name: "Pre Trip Inspection",
@@ -421,6 +423,7 @@ export const Sidebar = () => {
         "/trips",
         "/fleets",
         "/transfer-list",
+        "/roadsides",
         "/roadside-inspection",
         "/pretrip-inspection",
       ];
@@ -443,6 +446,7 @@ export const Sidebar = () => {
         "/reports",
         "/yard-arrivals",
         "/transfer-list",
+        "/roadsides",
         "/roadside-inspection",
         "/live-oil-change",
         "/eld",

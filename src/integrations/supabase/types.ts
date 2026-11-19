@@ -6233,6 +6233,32 @@ export type Database = {
         }
         Relationships: []
       }
+      roadside_records: {
+        Row: {
+          id: string
+          sheet: "ALL" | "Lawyers"
+          source_row: number | null
+          fields: Record<string, string>
+          links: Record<string, string>
+          notes: Record<string, string>
+          highlights: Record<string, string>
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          sheet: "ALL" | "Lawyers"
+          fields: Record<string, string>
+          links?: Record<string, string>
+          highlights?: Record<string, string>
+        }
+        Update: {
+          fields?: Record<string, string>
+          links?: Record<string, string>
+          highlights?: Record<string, string>
+        }
+        Relationships: []
+      }
       roadside_inspections: {
         Row: {
           created_at: string
