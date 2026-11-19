@@ -197,3 +197,27 @@ test('cab card selects registration, not a newer registration affirmation',async
  cabCardFixture();db.truck_files.unshift({id:ids.order,truck_id:ids.other,file_name:'Registration Affirmation.pdf',file_path:`${ids.other}/affirmation.pdf`,keywords:['registration_affirmation','registration'],created_at:'2026-11-09'});
  const reply=await request({message:`Find cab card Test Driver ${++serial}`});assert.equal(reply.data.files.length,1);assert.equal(reply.data.files[0].name,'Cab card.pdf');
 });
+
+test('recent questions are bounded and cannot include assistant results or restricted questions',async()=>{
+ const history=['old question', 'x'.repeat(700), {role:'assistant',text:'PRIVATE RESULT'}, 'Show passwords', 'Give me Test Driver CDL', 'and medical card?', 'same driver'];
+ await request({message:message(),history});
+ const payload=JSON.parse(prompts[0].contents[0].parts[0].text);
+ assert.deepEqual(payload.recentUserQuestions,['x'.repeat(500),'Give me Test Driver CDL','and medical card?','same driver']);
+ assert.ok(!JSON.stringify(prompts).includes('PRIVATE RESULT'));
+});
+test('intent cache separates follow-ups with different recent questions',async()=>{
+ const msg=message();
+ await request({message:msg,history:['Find Test Driver CDL']});
+ await request({message:msg,history:['Find Other Driver CDL']});
+ assert.equal(fetchCount,2);
+});
+test('current record resolves a cab-card request without repeating the truck number',async()=>{
+ db.trucks=[{id:ids.other,truck_number:'8761'}];
+ db.truck_files=[];
+ model={...model,task:'files',kind:'truck',query:'',fields:[],document:'registration'};
+ const reply=await request({message:message(),context:{kind:'truck',id:ids.other},history:['Find truck 8761']});
+ assert.equal(reply.status,200);
+ assert.equal(reply.data.record.id,ids.other);
+ const payload=JSON.parse(prompts[0].contents[0].parts[0].text);
+ assert.deepEqual(payload.context,{kind:'truck',id:ids.other});
+});

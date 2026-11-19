@@ -41,8 +41,9 @@ export function ChatbotProvider({ children }: { children: ReactNode }) {
     const userId = user?.id;
     setMessages(old => [...old.slice(-39), { id: crypto.randomUUID(),role: "user",text }]);
     try {
-      // No conversation transcripts or previous amounts go to the model/backend.
-      const reply = await chatbotRequest<ChatReply>({ message: text,context: context || lastRecord,selection: selected });
+      // Recent user questions support follow-ups; assistant data stays out of the request.
+      const history = messages.filter(m => m.role === "user").slice(-6).map(m => m.text.slice(0,500));
+      const reply = await chatbotRequest<ChatReply>({ message: text,history,context: context || lastRecord,selection: selected });
       if (generation.current !== token || owner.current !== userId) return;
       if (reply.record) setLastRecord(reply.record);
       setMessages(old => [...old,{ id: crypto.randomUUID(),role: "assistant",text: reply.message,reply }]);
