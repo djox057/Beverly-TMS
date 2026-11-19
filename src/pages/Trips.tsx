@@ -1,4 +1,5 @@
 import { BulkTripStatementImport } from "@/components/trips/BulkTripStatementImport";
+import { TripPaidHeader } from "@/components/trips/TripPaidHistory";
 import { TripStatementDialog, StatementTarget } from "@/components/trips/TripStatementDialog";
 import { driverWeekStatementKey, statementKey } from "@/lib/tripStatement";
 import { fetchActiveEfsRows } from "@/lib/activeEfsRequests";
@@ -6350,9 +6351,13 @@ const Trips = () => {
                       Freight Amt
                     </TableHead>
                     {canSeePaidColumn && (
-                      <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">
-                        Paid
-                      </TableHead>
+                      canReadStatements ? (
+                        <TripPaidHeader trips={filteredOrders} viewerScope={[profile?.user_id, primaryRole, supervisorTeam.cacheScope]} />
+                      ) : (
+                        <TableHead className="w-[120px] min-w-[120px] max-w-[120px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap text-center">
+                          Paid
+                        </TableHead>
+                      )
                     )}
                     <TableHead className="w-[110px] min-w-[110px] max-w-[110px] bg-yellow-200 dark:bg-yellow-800 whitespace-nowrap">
                       Actions
