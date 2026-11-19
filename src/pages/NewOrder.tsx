@@ -1,3 +1,4 @@
+import { formOrderSchedule } from "@/utils/orderSchedule";
 import { requiresLowStopAmountApproval } from "@/lib/dispatchAccess";
 import { canBookLoads } from "@/lib/companyBooking";
 import { HosLoadLight } from "@/components/HosLoadLight";
@@ -2242,6 +2243,8 @@ const NewOrder = () => {
       const bfPrimeCompany = companies?.find((c) => c.name === "BF Prime");
       const finalBookedByCompany = bookedByCompany || bfPrimeCompany?.id || null;
 
+      const { pickupDatetime, deliveryDatetime } = formOrderSchedule(pickupsDrops);
+
       // Create order data object for the atomic function
       const orderData = {
         load_number: isPartial
@@ -2268,14 +2271,7 @@ const NewOrder = () => {
         partial_booked_by_companies: isPartial
           ? JSON.stringify(bookedByCompanies.slice(0, partialCount).filter(Boolean))
           : null,
-        pickup_datetime: (() => {
-          const allPickups = pickupsDrops.filter((item) => item.type === "pickup");
-          const firstPickup = allPickups[0];
-          if (firstPickup?.dateRange?.from && firstPickup?.startTime) {
-            return combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime);
-          }
-          return null;
-        })(),
+        pickup_datetime: pickupDatetime,
         pickup_end_datetime: (() => {
           const allPickups = pickupsDrops.filter((item) => item.type === "pickup");
           const lastPickup = allPickups[allPickups.length - 1];
@@ -2284,14 +2280,7 @@ const NewOrder = () => {
           }
           return null;
         })(),
-        delivery_datetime: (() => {
-          const allDeliveries = pickupsDrops.filter((item) => item.type === "delivery");
-          const firstDelivery = allDeliveries[0];
-          if (firstDelivery?.dateRange?.from && firstDelivery?.startTime) {
-            return combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime);
-          }
-          return null;
-        })(),
+        delivery_datetime: deliveryDatetime,
         delivery_end_datetime: (() => {
           const allDeliveries = pickupsDrops.filter((item) => item.type === "delivery");
           const lastDelivery = allDeliveries[allDeliveries.length - 1];

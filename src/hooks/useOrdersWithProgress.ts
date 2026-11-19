@@ -1,3 +1,5 @@
+import { useAuthContext } from "@/contexts/AuthContext";
+import { readArchivePage, readOrderRows, type CachedArchiveBlock } from "../../supabase/functions/_shared/analyticsOrderColumns";
 import { useSupervisorTeam } from "./useSupervisorTeam";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
@@ -22,6 +24,9 @@ interface UseOrdersWithProgressOptions {
   requireAllOrders?: boolean;
 }
 
+// Entries expire with their React Query owner and are never persisted across browser sessions.
+const archiveSnapshots = new WeakMap<object, Map<number, CachedArchiveBlock[]>>();
+const MAX_ARCHIVE_CACHE_CHARS = 16 * 1024 * 1024;
 const LOCKED_BATCH_SIZE = 1000;
 const LOCKED_FETCH_CONCURRENCY = 4;
 
@@ -41,6 +46,7 @@ const plog = (...args: unknown[]) => {
  */
 export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
   const queryClient = useQueryClient();
+  const { user, roles } = useAuthContext();
   const { cacheScope: supervisorCacheScope } = useSupervisorTeam(false);
 
   // Feature flag: skip locked orders when precomputed aggregates are available
@@ -64,11 +70,8 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
 
   const bookedBy = options?.bookedBy ?? null;
   const dispatcherUserId = options?.dispatcherUserId ?? null;
-  const hasFilters = Boolean(bookedBy || dispatcherUserId);
-
-  const queryKey = hasFilters
-    ? ["orders", "analytics-full", bookedBy, dispatcherUserId, supervisorCacheScope, usePrecomputed ? "precomputed" : "raw"]
-    : ["orders", "analytics-full", supervisorCacheScope, usePrecomputed ? "precomputed" : "raw"];
+  const queryKey = ["orders", "analytics-full", user?.id, [...roles].sort(), bookedBy, dispatcherUserId,
+    supervisorCacheScope, usePrecomputed ? "precomputed" : "raw"];
 
   useOrdersRealtime();
 
@@ -88,7 +91,8 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
 
   const query = useQuery({
     queryKey,
-    queryFn: async () => {
+    enabled: !!user,
+    queryFn: async ({ signal }) => {
       const startTime = Date.now();
       console.log(`[OrdersWithProgress] Starting fetch (precomputed=${usePrecomputed})...`);
       const tFetchStart = performance.now();
@@ -105,33 +109,32 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
       });
 
       const dispatcherDriverIds = await fetchDispatcherDriverIds();
+      signal.throwIfAborted();
 
       // Phase 1: Fetch ALL unlocked orders (always)
       const tUnlockedStart = performance.now();
       const { data: unlockedResponse, error: unlockedError } = await supabase.functions.invoke(
         "get-all-unlocked-orders",
         {
+          signal,
           body: {
             bookedBy,
             dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
             fields: "analytics",
+            orderFormat: "columns-v1",
+            compactChildren: true,
           },
         }
       );
 
+      signal.throwIfAborted();
       if (unlockedError) {
         console.error("[OrdersWithProgress] Unlocked Edge Function error:", unlockedError);
         throw unlockedError;
       }
 
-      let allUnlockedOrders: any[] = [];
-      let totalUnlockedCount: number | null = null;
-
-      if (unlockedResponse?.orders) {
-        allUnlockedOrders = unlockedResponse.orders;
-        totalUnlockedCount = unlockedResponse.count;
-        console.log(`[OrdersWithProgress] ✅ Fetched ${allUnlockedOrders.length} unlocked orders in ${unlockedResponse.fetchTimeMs}ms`);
-      }
+      const allUnlockedOrders = readOrderRows(unlockedResponse);
+      const totalUnlockedCount = unlockedResponse.count ?? null;
       plog(`unlocked fetch: ${allUnlockedOrders.length} rows in ${(performance.now() - tUnlockedStart).toFixed(0)}ms (server reported ${unlockedResponse?.fetchTimeMs}ms)`);
 
       // Transform unlocked immediately so the cost overlaps with locked-batch network time.
@@ -177,18 +180,45 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
       let lockedRowsFetched = 0;
       let totalLockedCount: number | null = null;
 
+      const owner = queryClient.getQueryCache().find({ queryKey, exact: true });
+      const previousArchive = owner && archiveSnapshots.get(owner);
+      const nextArchive = new Map<number, CachedArchiveBlock[]>();
+      let retainedChars = 0;
+
       const fetchLockedBatch = async (offset: number) => {
+        const previous = previousArchive?.get(offset) ?? [];
+        const body = {
+          bookedBy,
+          dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
+          offset,
+          limit: LOCKED_BATCH_SIZE,
+          fields: "analytics",
+          orderFormat: "columns-v1",
+        };
         const { data: resp, error } = await supabase.functions.invoke("get-all-locked-orders", {
-          body: {
-            bookedBy,
-            dispatcherDriverIds: dispatcherUserId ? dispatcherDriverIds : [],
-            offset,
-            limit: LOCKED_BATCH_SIZE,
-            fields: "analytics",
-          },
+          signal,
+          body: { ...body, knownArchiveTags: previous.map(block => block.tag) },
         });
+        signal.throwIfAborted();
         if (error) throw error;
-        return resp;
+        let page: ReturnType<typeof readArchivePage>;
+        try {
+          page = readArchivePage(resp, previous);
+        } catch (decodeError) {
+          if (!previous.length || !resp?.archiveTags) throw decodeError;
+          // Recover this page with a complete response if the manifest cannot be reconstructed.
+          const full = await supabase.functions.invoke("get-all-locked-orders", { body, signal });
+          signal.throwIfAborted();
+          if (full.error) throw full.error;
+          return { ...full.data, orders: readOrderRows(full.data) };
+        }
+        const { orders, blocks } = page;
+        const chars = blocks.reduce((sum, block) => sum + block.json.length, 0);
+        if (blocks.length && retainedChars + chars <= MAX_ARCHIVE_CACHE_CHARS) {
+          nextArchive.set(offset, blocks);
+          retainedChars += chars;
+        }
+        return { ...resp, orders };
       };
 
       // Bootstrap with first batch to learn totalCount.
@@ -271,6 +301,7 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
 
       plog(`locked total: ${lockedRowsFetched} rows in ${(performance.now() - tLockedStart).toFixed(0)}ms`);
 
+      signal.throwIfAborted();
       // Dedupe: unlocked always wins. Build a set of unlocked ids and drop locked dupes.
       const unlockedIds = new Set(transformedUnlocked.map((o: any) => o.id));
       const dedupedLocked = transformedLocked.filter((o: any) => !unlockedIds.has(o.id));
@@ -294,6 +325,7 @@ export function useOrdersWithProgress(options?: UseOrdersWithProgressOptions) {
       }
 
       const mergedOrders = [...transformedUnlocked, ...dedupedLocked];
+      if (owner) archiveSnapshots.set(owner, nextArchive);
       plog(`pipeline total: fetch+transform=${(performance.now() - tFetchStart).toFixed(0)}ms, transform-only=${tTransformMs.toFixed(0)}ms, merged=${mergedOrders.length}`);
       console.log(`[OrdersWithProgress] ✅ COMPLETE: ${transformedUnlocked.length} unlocked + ${dedupedLocked.length} locked = ${mergedOrders.length} total in ${totalTime}ms`);
 

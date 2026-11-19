@@ -3,10 +3,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useOrdersWithProgress } from "./useOrdersWithProgress";
 
-const { invoke, from, team } = vi.hoisted(() => ({
-  invoke: vi.fn(), from: vi.fn(), team: { cacheScope: null as string | null },
+const { invoke, from, team, identity } = vi.hoisted(() => ({
+  invoke: vi.fn(), from: vi.fn(), identity: { user: { id: "user" }, roles: ["dispatch"] }, team: { cacheScope: null as string | null },
 }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { functions: { invoke }, from } }));
+vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => identity }));
 vi.mock("./useSupervisorTeam", () => ({ useSupervisorTeam: () => team }));
 vi.mock("./useOrdersRealtime", () => ({ useOrdersRealtime: vi.fn() }));
 vi.mock("@/utils/fetchTrace", () => ({ traceFetch: vi.fn() }));
@@ -41,7 +42,7 @@ function setup(options = {}) {
   return { ...hook, client };
 }
 beforeEach(() => {
-  invoke.mockReset(); from.mockReset(); localStorage.clear(); team.cacheScope = null;
+  invoke.mockReset(); from.mockReset(); localStorage.clear(); team.cacheScope = null; identity.user.id = "user"; identity.roles = ["dispatch"];
 });
 
 describe("Analytics raw order loading", () => {
@@ -147,7 +148,7 @@ describe("Analytics raw order loading", () => {
     team.cacheScope = "team-A"; invoke.mockResolvedValue(response([]));
     const { result, client } = setup();
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(client.getQueryData(["orders", "analytics-full", "team-A", "raw"])).toEqual([]);
+    expect(client.getQueryData(["orders", "analytics-full", "user", ["dispatch"], null, null, "team-A", "raw"])).toEqual([]);
   });
 
   it("does not add archived reads to opted-in precomputed mode", async () => {
@@ -167,4 +168,100 @@ describe("Analytics raw order loading", () => {
     expect(invoke.mock.calls.map(([name]) => name)).toEqual(["get-all-unlocked-orders", "get-all-locked-orders"]);
     expect(result.current.progress).toMatchObject({ usePrecomputed: false, isComplete: true });
   });
+});
+
+it("combines compact and legacy pages during a rolling deployment", async () => {
+  invoke.mockImplementation(async name => name === "get-all-unlocked-orders"
+    ? { data: { count: 2, orderColumns: { keys: ["id", "freight", "locked"], values: [["a", "b"], [0, 12.5], [false, false]] } }, error: null }
+    : response([{ id: "c", locked: true }]));
+  const { result } = setup();
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  expect(result.current.data).toEqual([{ id: "a", freight: 0, locked: false }, { id: "b", freight: 12.5, locked: false }, { id: "c", locked: true }]);
+  for (const [, { body }] of invoke.mock.calls) expect(body.orderFormat).toBe("columns-v1");
+});
+
+it("does not publish an incomplete compact archive page", async () => {
+  invoke.mockImplementation(async name => name === "get-all-unlocked-orders" ? response([{ id: "active" }])
+    : { data: { orderColumns: { keys: ["id", "freight"], values: [["a", "b"], [1250]] } }, error: null });
+  const { result, client } = setup();
+  await waitFor(() => expect(result.current.isError).toBe(true));
+  expect(client.getQueryData(["orders"])).toBeUndefined();
+});
+
+it("revalidates archived blocks on refetch and retains the last complete snapshot after a failed page", async () => {
+  const tag = "a".repeat(64);
+  let attempt = 0;
+  const offers: string[][] = [];
+  invoke.mockImplementation(async (name, { body }) => {
+    if (name === "get-all-unlocked-orders") return response([{ id: "active" }]);
+    offers.push(body.knownArchiveTags);
+    if (attempt === 1) return { error: new Error("temporary archive failure") };
+    return { data: { orders: body.knownArchiveTags.includes(tag) ? [] : [{ id: "old", freight: 1200 }],
+      archiveTags: [tag], count: 1, totalCount: 1 }, error: null };
+  });
+  const { result } = setup();
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  expect(offers).toEqual([[]]);
+  attempt = 1;
+  await act(async () => { await result.current.refetch(); });
+  expect(result.current.isError).toBe(true);
+  attempt = 2;
+  await act(async () => { await result.current.refetch(); });
+  expect(offers.slice(1)).toEqual([[tag], [tag], [tag]]);
+  expect(result.current.data).toEqual([{ id: "active" }, { id: "old", freight: 1200 }]);
+});
+
+it("recovers an unusable manifest with one complete read of the same archived page", async () => {
+  const first = "a".repeat(64);
+  const later = "b".repeat(64);
+  invoke.mockImplementation(async (name, { body }) => {
+    if (name === "get-all-unlocked-orders") return response([]);
+    if (!body.knownArchiveTags) return response([{ id: "old", freight: 2 }]);
+    const warm = body.knownArchiveTags.length > 0;
+    return { data: { count: 1, totalCount: 1, archiveTags: [warm ? later : first],
+      orders: warm ? [] : [{ id: "old", freight: 1 }] }, error: null };
+  });
+  const { result } = setup();
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  await act(async () => { await result.current.refetch(); });
+  expect(result.current.data).toEqual([{ id: "old", freight: 2 }]);
+  const requests = invoke.mock.calls.filter(([name]) => name === "get-all-locked-orders").map(([, {body}]) => body);
+  expect(requests).toHaveLength(3);
+  const { knownArchiveTags, ...samePage } = requests[1];
+  expect(knownArchiveTags).toEqual([first]);
+  expect(requests[2]).toEqual(samePage);
+});
+
+it("starts fresh when the account or roles change", async () => {
+  const tag = "c".repeat(64);
+  invoke.mockImplementation(async (name, { body }) => name === "get-all-unlocked-orders" ? response([])
+    : { data: { count: 1, totalCount: 1, archiveTags: [tag], orders: [{ id: identity.user.id }] }, error: null });
+  const { result, rerender } = setup();
+  await waitFor(() => expect(result.current.data).toEqual([{ id: "user" }]));
+  identity.user.id = "second";
+  rerender();
+  await waitFor(() => expect(result.current.data).toEqual([{ id: "second" }]));
+  identity.roles = ["manager"];
+  rerender();
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  const requests = invoke.mock.calls.filter(([name]) => name === "get-all-locked-orders");
+  expect(requests.map(([, { body }]) => body.knownArchiveTags)).toEqual([[], [], []]);
+});
+
+it("a late response from a previous account cannot replace the current result", async () => {
+  const late = deferred();
+  const signals: AbortSignal[] = [];
+  invoke.mockImplementation(async (name, options) => {
+    if (name === "get-all-unlocked-orders") return response([]);
+    signals.push(options.signal);
+    return identity.user.id === "user" ? late.promise : response([{ id: "second" }]);
+  });
+  const { result, client, rerender } = setup();
+  await waitFor(() => expect(signals.length).toBe(1));
+  identity.user.id = "second";
+  rerender();
+  await waitFor(() => expect(result.current.data).toEqual([{ id: "second" }]));
+  expect(signals[0].aborted).toBe(true);
+  await act(async () => { late.resolve(response([{ id: "previous-user" }])); });
+  expect(client.getQueryData(["orders"])).toEqual([{ id: "second" }]);
 });

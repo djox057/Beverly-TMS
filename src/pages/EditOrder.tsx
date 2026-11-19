@@ -1,3 +1,4 @@
+import { formOrderSchedule, orderSchedule } from "@/utils/orderSchedule";
 import { useChatRecord } from "@/hooks/useChatRecord";
 import { busChannel, type BusChannel } from "@/hooks/realtimeBus";
 import { canBookLoads } from "@/lib/companyBooking";
@@ -1058,9 +1059,11 @@ const EditOrderForm = () => {
 
         // Load date change notes and original delivery date for tracking changes
         setDateChangeNotes((orderData as any).date_change_notes || "");
-        if (orderData.delivery_datetime) {
+        const schedule = orderSchedule(orderData.pickup_drops || []);
+        const savedDelivery = schedule.deliveryDatetime ?? orderData.delivery_datetime;
+        if (savedDelivery) {
           // Parse without timezone conversion to match how we handle dates in the form
-          const parsed = parseSimpleDateTime(orderData.delivery_datetime);
+          const parsed = parseSimpleDateTime(savedDelivery);
           const dateObj = new Date(parsed.year, parsed.month - 1, parsed.day);
           setOriginalDeliveryDate(dateObj);
         }
@@ -1198,8 +1201,8 @@ const EditOrderForm = () => {
           deliveryAddress: firstDeliveryDrop?.address,
           deliveryCity: firstDeliveryDrop?.city,
           deliveryState: firstDeliveryDrop?.state,
-          pickupDatetime: orderData.pickup_datetime,
-          deliveryDatetime: orderData.delivery_datetime,
+          pickupDatetime: schedule.pickupDatetime ?? orderData.pickup_datetime,
+          deliveryDatetime: savedDelivery,
         });
 
         console.log("Data loading completed successfully");
@@ -2522,14 +2525,7 @@ const EditOrderForm = () => {
       deliveryAddress: firstDelivery?.address,
       deliveryCity: firstDelivery?.city,
       deliveryState: firstDelivery?.state,
-      pickupDatetime:
-        firstPickup?.dateRange?.from && firstPickup?.startTime
-          ? combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime)
-          : null,
-      deliveryDatetime:
-        firstDelivery?.dateRange?.from && firstDelivery?.startTime
-          ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime)
-          : null,
+      ...formOrderSchedule(pickupsDrops),
     };
   }, [
     freightAmount,
@@ -2619,16 +2615,9 @@ const EditOrderForm = () => {
       // Update order - Calculate pickup/delivery datetimes from stops
       const allPickups = pickupsDrops.filter((item) => item.type === "pickup");
       const allDeliveries = pickupsDrops.filter((item) => item.type === "delivery");
-      const firstPickup = allPickups[0];
       const lastPickup = allPickups[allPickups.length - 1];
-      const firstDelivery = allDeliveries[0];
       const lastDelivery = allDeliveries[allDeliveries.length - 1];
-
-      // Calculate new delivery datetime for comparison
-      const newDeliveryDatetime =
-        firstDelivery?.dateRange?.from && firstDelivery?.startTime
-          ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime)
-          : null;
+      const { pickupDatetime, deliveryDatetime: newDeliveryDatetime } = formOrderSchedule(pickupsDrops);
 
       // Check if delivery date changed (date only, not time) and append to date change notes
       let updatedDateChangeNotes = dateChangeNotes;
@@ -2689,18 +2678,12 @@ const EditOrderForm = () => {
         trailer_id: trailerId || null,
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
-        pickup_datetime:
-          firstPickup?.dateRange?.from && firstPickup?.startTime
-            ? combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime)
-            : null,
+        pickup_datetime: pickupDatetime,
         pickup_end_datetime:
           lastPickup?.dateRange?.from && lastPickup?.endTime
             ? combineDateAndTime(lastPickup.dateRange.from, lastPickup.endTime)
             : null,
-        delivery_datetime:
-          firstDelivery?.dateRange?.from && firstDelivery?.startTime
-            ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime)
-            : null,
+        delivery_datetime: newDeliveryDatetime,
         delivery_end_datetime:
           lastDelivery?.dateRange?.from && lastDelivery?.endTime
             ? combineDateAndTime(lastDelivery.dateRange.from, lastDelivery.endTime)
@@ -2868,26 +2851,14 @@ const EditOrderForm = () => {
 
       // Smart UPDATE/INSERT/DELETE to avoid unique constraint violations
       if (pickupsDrops.length > 0) {
-        // Get existing pickup_drops with all details
-        const { data: existingPickupDrops } = await supabase
-          .from("pickup_drops")
-          .select("id, sequence_number")
-          .eq("order_id", id)
-          .order("sequence_number");
-        const existing = existingPickupDrops || [];
-
         // Prepare pickup_drop data with proper sequence numbers (async for geocoding)
         const formPickupDrops = await Promise.all(
           pickupsDrops
-            .filter((item) => item.address)
+            .filter((item) => item.address?.trim())
             .map(async (item, index) => {
-              let datetime = null;
+              const datetime = item.dateRange?.from && item.startTime
+                ? combineDateAndTime(item.dateRange.from, item.startTime) : null;
               let endDatetime = null;
-              if (item.dateRange?.from && item.startTime) {
-                const [hours, minutes] = item.startTime.split(":");
-                datetime = new Date(item.dateRange.from);
-                datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-              }
 
               // Also save end time if provided
               if (item.dateRange?.from && item.endTime) {
@@ -2935,9 +2906,7 @@ const EditOrderForm = () => {
                 state: item.state || null,
                 zip_code: item.zipCode || null,
                 company_name: (item as any).companyName || null,
-                datetime: datetime
-                  ? `${datetime.getFullYear()}-${String(datetime.getMonth() + 1).padStart(2, "0")}-${String(datetime.getDate()).padStart(2, "0")} ${String(datetime.getHours()).padStart(2, "0")}:${String(datetime.getMinutes()).padStart(2, "0")}:00`
-                  : null,
+                datetime,
                 end_datetime: endDatetime
                   ? `${endDatetime.getFullYear()}-${String(endDatetime.getMonth() + 1).padStart(2, "0")}-${String(endDatetime.getDate()).padStart(2, "0")} ${String(endDatetime.getHours()).padStart(2, "0")}:${String(endDatetime.getMinutes()).padStart(2, "0")}:00`
                   : null,
@@ -2951,36 +2920,53 @@ const EditOrderForm = () => {
             }),
         );
 
-        // Step 1: Temporarily set all existing sequence numbers to negative to avoid conflicts
-        for (let i = 0; i < existing.length; i++) {
-          const { error: tempError } = await supabase
+        // Commit the complete stop list together so intermediate dates never enter reschedule history.
+        const { error: stopError } = await supabase.rpc("save_order_stop_list", {
+          p_order_id: id!,
+          p_stops: formPickupDrops,
+        });
+        // Keep the previous save path available until PostgREST exposes the migration.
+        if (stopError?.code === "PGRST202") {
+          const { data: existing, error: readError } = await supabase
             .from("pickup_drops")
-            .update({ sequence_number: -(i + 1000) })
-            .eq("id", existing[i].id);
-          if (tempError) throw tempError;
-        }
+            .select("id, sequence_number")
+            .eq("order_id", id)
+            .order("sequence_number");
+          if (readError) throw readError;
 
-        // Step 2: Update existing pickup_drops with new data
-        for (let i = 0; i < Math.min(existing.length, formPickupDrops.length); i++) {
-          const { error: updateError } = await supabase
-            .from("pickup_drops")
-            .update(formPickupDrops[i])
-            .eq("id", existing[i].id);
-          if (updateError) throw updateError;
-        }
+          // Step 1: Temporarily set all existing sequence numbers to negative to avoid conflicts
+          for (let i = 0; i < existing.length; i++) {
+            const { error: tempError } = await supabase
+              .from("pickup_drops")
+              .update({ sequence_number: -(i + 1000) })
+              .eq("id", existing[i].id);
+            if (tempError) throw tempError;
+          }
 
-        // Step 3: Insert new pickup_drops if form has more than existing
-        if (formPickupDrops.length > existing.length) {
-          const newPickupDrops = formPickupDrops.slice(existing.length);
-          const { error: insertError } = await supabase.from("pickup_drops").insert(newPickupDrops);
-          if (insertError) throw insertError;
-        }
+          // Step 2: Update existing pickup_drops with new data
+          for (let i = 0; i < Math.min(existing.length, formPickupDrops.length); i++) {
+            const { error: updateError } = await supabase
+              .from("pickup_drops")
+              .update(formPickupDrops[i])
+              .eq("id", existing[i].id);
+            if (updateError) throw updateError;
+          }
 
-        // Step 4: Delete extra pickup_drops if existing has more than form
-        if (existing.length > formPickupDrops.length) {
-          const idsToDelete = existing.slice(formPickupDrops.length).map((pd) => pd.id);
-          const { error: deleteError } = await supabase.from("pickup_drops").delete().in("id", idsToDelete);
-          if (deleteError) throw deleteError;
+          // Step 3: Insert new pickup_drops if form has more than existing
+          if (formPickupDrops.length > existing.length) {
+            const newPickupDrops = formPickupDrops.slice(existing.length);
+            const { error: insertError } = await supabase.from("pickup_drops").insert(newPickupDrops);
+            if (insertError) throw insertError;
+          }
+
+          // Step 4: Delete extra pickup_drops if existing has more than form
+          if (existing.length > formPickupDrops.length) {
+            const idsToDelete = existing.slice(formPickupDrops.length).map((pd) => pd.id);
+            const { error: deleteError } = await supabase.from("pickup_drops").delete().in("id", idsToDelete);
+            if (deleteError) throw deleteError;
+          }
+        } else if (stopError) {
+          throw stopError;
         }
       }
 

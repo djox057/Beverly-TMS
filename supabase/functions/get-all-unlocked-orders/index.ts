@@ -1,3 +1,4 @@
+import { packAnalyticsPage, packOrderRows } from "../_shared/analyticsOrderColumns.ts";
 import { supervisorScopedClient } from "../_shared/supervisorAccess.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
@@ -134,6 +135,8 @@ Deno.serve(async (req) => {
     let dispatcherDriverIds: string[] = [];
     let limit: number | null = null;
     let offset: number = 0;
+    let compactAnalytics = false;
+    let compactChildren = false;
     let fields: "full" | "analytics" = "full";
     let excludeBookedByCompanyId: string | null = null;
     let bookedByCompanyId: string | null = null;
@@ -145,7 +148,11 @@ Deno.serve(async (req) => {
         dispatcherDriverIds = body.dispatcherDriverIds || [];
         limit = body.limit || null;
         offset = body.offset || 0;
-        if (body.fields === "analytics") fields = "analytics";
+        if (body.fields === "analytics") {
+          fields = "analytics";
+          compactAnalytics = body.orderFormat === "columns-v1";
+          compactChildren = compactAnalytics && body.compactChildren === true;
+        }
         excludeBookedByCompanyId = body.excludeBookedByCompanyId || null;
         bookedByCompanyId = body.bookedByCompanyId || null;
       } catch {
@@ -155,21 +162,6 @@ Deno.serve(async (req) => {
 
     console.log(`[get-all-unlocked-orders] limit=${limit}, offset=${offset}, fields=${fields}`);
 
-    // Step 1: Total count
-    let countQuery = supabase
-      .from("orders")
-      .select("*", { count: "exact", head: true })
-      .eq("locked", false);
-
-    if (bookedBy && dispatcherDriverIds.length > 0) {
-      countQuery = countQuery.or(
-        `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
-      );
-    } else if (bookedBy) {
-      countQuery = countQuery.eq("booked_by", bookedBy);
-    } else if (dispatcherDriverIds.length > 0) {
-      countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
-    }
     const excludedCompanyIds = (excludeBookedByCompanyId || "")
       .split(",").map((s: string) => s.trim()).filter(Boolean);
     // Multiple `neq`s OR-ed together are always true (x != A OR x != B) —
@@ -177,20 +169,37 @@ Deno.serve(async (req) => {
     const exclusionFilter = excludedCompanyIds.length > 0
       ? `booked_by_company_id.is.null,booked_by_company_id.not.in.(${excludedCompanyIds.join(",")})`
       : null;
-    if (exclusionFilter) {
-      countQuery = countQuery.or(exclusionFilter);
-    }
-    if (bookedByCompanyId) {
-      countQuery = countQuery.eq("booked_by_company_id", bookedByCompanyId);
-    }
+    let totalCount: number | null = null;
+    if (!compactAnalytics) {
+      let countQuery = supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("locked", false);
 
-    const { count: totalCount, error: countError } = await countQuery;
-    if (countError) {
-      console.error("[get-all-unlocked-orders] Count error:", countError);
-      throw countError;
-    }
+      if (bookedBy && dispatcherDriverIds.length > 0) {
+        countQuery = countQuery.or(
+          `booked_by.eq.${bookedBy},driver1_id.in.(${dispatcherDriverIds.join(",")})`
+        );
+      } else if (bookedBy) {
+        countQuery = countQuery.eq("booked_by", bookedBy);
+      } else if (dispatcherDriverIds.length > 0) {
+        countQuery = countQuery.in("driver1_id", dispatcherDriverIds);
+      }
+      if (exclusionFilter) {
+        countQuery = countQuery.or(exclusionFilter);
+      }
+      if (bookedByCompanyId) {
+        countQuery = countQuery.eq("booked_by_company_id", bookedByCompanyId);
+      }
 
-    console.log(`[get-all-unlocked-orders] Total unlocked orders: ${totalCount}`);
+      const { count, error: countError } = await countQuery;
+      if (countError) {
+        console.error("[get-all-unlocked-orders] Count error:", countError);
+        throw countError;
+      }
+
+      totalCount = count;
+    }
 
     // Step 2: Fetch FLAT orders in batches (no joins)
     const BATCH_SIZE = limit ?? 1000;
@@ -201,9 +210,11 @@ Deno.serve(async (req) => {
     const orderColumns = fields === "analytics" ? ORDER_COLUMNS_ANALYTICS : ORDER_COLUMNS;
 
     while (true) {
-      let query = supabase
-        .from("orders")
-        .select(orderColumns)
+      const table = supabase.from("orders");
+      const rows = compactAnalytics && currentOffset === offset
+        ? table.select(orderColumns, { count: "exact" })
+        : table.select(orderColumns);
+      let query = rows
         .eq("locked", false)
         .order("created_at", { ascending: false })
         .range(currentOffset, currentOffset + BATCH_SIZE - 1);
@@ -224,13 +235,14 @@ Deno.serve(async (req) => {
         query = query.eq("booked_by_company_id", bookedByCompanyId);
       }
 
-      const { data: batch, error: batchError } = await query;
+      const { data: batch, count, error: batchError } = await query;
 
       if (batchError) {
         console.error(`[get-all-unlocked-orders] Batch error at offset ${currentOffset}:`, batchError);
         throw batchError;
       }
 
+      if (compactAnalytics && currentOffset === offset) totalCount = count ?? null;
       if (!batch || batch.length === 0) break;
 
       allOrders = allOrders.concat(batch);
@@ -391,7 +403,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        orders: allOrders,
+        ...(compactChildren ? packAnalyticsPage(allOrders) : compactAnalytics ? packOrderRows(allOrders) : { orders: allOrders }),
         count: allOrders.length,
         expectedCount: totalCount,
         fetchTimeMs: fetchTime,

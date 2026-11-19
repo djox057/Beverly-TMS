@@ -76,3 +76,110 @@ test('archived count-only requests do not fetch relations or rows', async () => 
   assert.equal(body.totalCount, 1); assert.equal(body.orders.length, 0);
   assert(app.reads.every(q => ['user_roles', 'orders'].includes(q.table)));
 });
+
+for (const locked of [false, true]) {
+  const slug = locked ? 'get-all-locked-orders' : 'get-all-unlocked-orders';
+  test(`${slug}: compact pages preserve rows and counts using one orders read per page`, async () => {
+    const seed = tables => {
+      const original = tables.orders.find(row => row.locked === locked);
+      tables.orders.push({ ...original, id: 'extra', paid_at: null });
+      original.paid_at = '2026-11-02T12:00:00Z';
+    };
+    const app = harness(slug, { seed, roles: ['supervisor', 'dispatch'] });
+    const legacy = await harness(slug, { seed }).run({ fields: 'analytics' });
+    const { status, body } = await app.run({ fields: 'analytics', orderFormat: 'columns-v1' });
+    assert.equal(status, 200);
+    const { keys, values } = body.orderColumns;
+    const orders = Array.from({ length: body.count }, (_, i) => Object.fromEntries(keys.map((key, col) => [key, values[col][i]])));
+    const { orderColumns, ...metadata } = body;
+    assert.deepEqual({ ...metadata, orders }, legacy.body);
+    const reads = app.reads.filter(q => q.table === 'orders');
+    assert.equal(reads.length, 1);
+    assert.equal(reads[0].identity, 'user');
+    assert(reads[0].operations.some(([op, , options]) => op === 'select' && options?.count === 'exact' && !options.head));
+    const next = await app.run({ fields: 'analytics', orderFormat: 'columns-v1', limit: 1, offset: 1 });
+    assert.equal(next.body.count, 1);
+    assert.equal(next.body.orders[0].id, 'extra');
+    if (locked) assert.equal(next.body.totalCount, null);
+    else assert.equal(next.body.expectedCount, 2);
+    const failure = await harness(slug, { failCount: true }).run({ fields: 'analytics', orderFormat: 'columns-v1' });
+    assert.equal(failure.status, 500);
+  });
+}
+
+test('compact active orders count once across multiple pages', async () => {
+  const app = harness('get-all-unlocked-orders', { seed: tables => {
+    const active = tables.orders.find(row => !row.locked);
+    tables.orders = Array.from({ length: 1001 }, (_, i) => ({ ...active, id: String(i) }));
+  } });
+  const { body } = await app.run({ fields: 'analytics', orderFormat: 'columns-v1' });
+  assert.equal(body.count, 1001);
+  assert.equal(body.expectedCount, 1001);
+  const { keys, values } = body.orderColumns;
+  assert.equal(new Set(values[keys.indexOf('id')]).size, 1001);
+  const pages = app.reads.filter(query => query.table === 'orders');
+  assert.equal(pages.length, 2);
+  assert.equal(pages.filter(q => q.operations.some(([m, , o]) => m === 'select' && o?.count)).length, 1);
+});
+
+test('verified archive blocks reconstruct exact fresh rows across edits, deletion, and scope changes', async () => {
+  const { readArchivePage } = await import('../../supabase/functions/_shared/analyticsOrderColumns.ts');
+  const slug = 'get-all-locked-orders';
+  const seed = tables => {
+    const template = tables.orders[0];
+    tables.orders = Array.from({ length: 205 }, (_, i) => ({ ...template, id: String(i), freight_amount: i }));
+    tables.pickup_drops = [{ ...tables.pickup_drops[0], order_id: '154' }];
+    tables.order_files = [{ ...tables.order_files[0], order_id: '154' }];
+  };
+  const request = async (previous = [], mutate = () => {}, userId = 'user') => {
+    const options = { userId, seed: tables => { seed(tables); mutate(tables); } };
+    const { body, status } = await harness(slug, options).run({
+      fields: 'analytics', orderFormat: 'columns-v1', knownArchiveTags: previous.map(block => block.tag),
+    });
+    assert.equal(status, 200);
+    const fresh = await harness(slug, options).run({ fields: 'analytics' });
+    const { orders, blocks } = readArchivePage(body, previous);
+    assert.deepEqual(JSON.parse(JSON.stringify(orders)), fresh.body.orders);
+    return { body, blocks };
+  };
+  const cold = await request();
+  assert.equal(cold.blocks.length, 3);
+  const warm = await request(cold.blocks);
+  assert.deepEqual(warm.body.orders, []);
+  assert.deepEqual(warm.body.archiveTags, cold.body.archiveTags);
+  for (const change of [
+    t => { t.orders[154].paid = true; },
+    t => { t.pickup_drops[0].city = 'Detroit'; },
+    t => { t.order_files = []; },
+    t => { t.orders[154].locked = false; },
+    t => { t.orders.splice(154, 1); },
+    t => { t.orders.push({ ...t.orders[0], id: 'new' }); },
+    t => { t.drivers[0].name = 'Updated name'; },
+  ]) {
+    const result = await request(cold.blocks, change);
+    assert.notDeepEqual(result.body.archiveTags, cold.body.archiveTags);
+  }
+  const edited = await request(cold.blocks, t => { t.orders[154].freight_amount = 123.45; });
+  assert.equal(edited.body.orderColumns.values[0].length, 100);
+  assert.equal(edited.blocks[0], cold.blocks[0]);
+  assert.equal(edited.blocks[2], cold.blocks[2]);
+  const switched = await request(cold.blocks, undefined, 'other-user');
+  assert(switched.body.archiveTags.every(tag => !cold.body.archiveTags.includes(tag)));
+  const empty = await request(cold.blocks, t => { t.orders = []; });
+  assert.equal(empty.blocks.length, 0);
+  assert.throws(() => readArchivePage(warm.body, []), /Incomplete/);
+});
+
+test('compact children preserve multiple stops, multiple PODs, nulls, and future columns', async () => {
+  const { packAnalyticsPage, readOrderRows } = await import('../../supabase/functions/_shared/analyticsOrderColumns.ts');
+  const row = { id: 'o', pickup_drops: ['pickup', 'delivery'].map(type => ({ order_id: 'o', type, city: null, state: '', datetime: null })),
+    order_files: Array.from({length: 2}, () => ({order_id: 'o', file_category: 'POD'})) };
+  const other = { id: 'p', pickup_drops: [], order_files: [] };
+  const payload = packAnalyticsPage([row, other]);
+  assert.equal(payload.compactChildren, true);
+  assert.deepEqual(readOrderRows(payload), [row, other]);
+  row.pickup_drops[0].extra = 'preserve';
+  const future = packAnalyticsPage([row]);
+  assert.equal(future.compactChildren, undefined);
+  assert.deepEqual(readOrderRows(future), [row]);
+});

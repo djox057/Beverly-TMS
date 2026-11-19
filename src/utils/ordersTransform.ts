@@ -1,3 +1,4 @@
+import { orderSchedule } from "./orderSchedule";
 // Shared transformation for Orders data used across the app.
 // This is the single source of truth for the shape stored in React Query.
 
@@ -20,6 +21,7 @@ export function transformOrders(allOrders: any[]) {
     const orderFiles = Array.isArray(order.order_files) ? [...order.order_files] : [];
 
     // Extract pickup and delivery information
+    const schedule = orderSchedule(pickupDrops);
     const firstPickup = pickupDrops.find((pd: any) => pd.type === "pickup");
     const lastDelivery = pickupDrops.filter((pd: any) => pd.type === "delivery").pop();
 
@@ -183,14 +185,10 @@ export function transformOrders(allOrders: any[]) {
       // Pickup/Delivery extracted info - use ISO date strings for consistent parsing
       // CRITICAL: Cached orders don't have pickup_drops array, so fallback to order fields
       // Normalize date format: CSV dates use space separator, convert to ISO format with 'T'
-      pickupDate: firstPickup?.datetime
-        ? firstPickup.datetime
-        : (order.pickup_datetime || order.pickupDatetime || "").replace(" ", "T"),
+      pickupDate: schedule.pickupDatetime ?? (order.pickup_datetime || order.pickupDatetime || "").replace(" ", "T"),
       pickupCity: firstPickup?.city || "",
       pickupState: firstPickup?.state || "",
-      deliveryDate: lastDelivery?.datetime
-        ? lastDelivery.datetime
-        : (order.delivery_datetime || order.deliveryDatetime || "").replace(" ", "T"),
+      deliveryDate: schedule.deliveryDatetime ?? (order.delivery_datetime || order.deliveryDatetime || "").replace(" ", "T"),
       deliveryCity: lastDelivery?.city || "",
       deliveryState: lastDelivery?.state || "",
 

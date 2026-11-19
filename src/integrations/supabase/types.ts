@@ -8040,6 +8040,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      save_order_stop_list: { Args: { p_order_id: string; p_stops: Json }; Returns: undefined }
       add_truck_yard_arrival: {
         Args: {
           p_action_type: string

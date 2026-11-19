@@ -1,3 +1,4 @@
+import { packArchivePage, packOrderRows } from "../_shared/analyticsOrderColumns.ts";
 import { supervisorScopedClient } from "../_shared/supervisorAccess.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 
@@ -135,6 +136,8 @@ Deno.serve(async (req) => {
     let dispatcherDriverIds: string[] = [];
     let offset = 0;
     let limit = 1000;
+    let compactAnalytics = false;
+    let knownArchiveTags: string[] | null = null;
     let fields: "full" | "analytics" = "full";
     let excludeBookedByCompanyId: string | null = null;
     let bookedByCompanyId: string | null = null;
@@ -149,7 +152,14 @@ Deno.serve(async (req) => {
         // PostgREST caps responses at 1000 rows by default in this project,
         // so requesting more silently returns 1000 and breaks pagination.
         limit = Math.min(body.limit || 1000, 1000);
-        if (body.fields === "analytics") fields = "analytics";
+        if (body.fields === "analytics") {
+          fields = "analytics";
+          compactAnalytics = body.orderFormat === "columns-v1";
+          if (compactAnalytics && Array.isArray(body.knownArchiveTags) && body.knownArchiveTags.length <= 10 &&
+              body.knownArchiveTags.every((tag: unknown) => typeof tag === "string" && /^[0-9a-f]{64}$/.test(tag))) {
+            knownArchiveTags = body.knownArchiveTags;
+          }
+        }
         excludeBookedByCompanyId = body.excludeBookedByCompanyId || null;
         bookedByCompanyId = body.bookedByCompanyId || null;
         countOnly = Boolean(body.countOnly);
@@ -164,7 +174,7 @@ Deno.serve(async (req) => {
     // or for explicit count-only calls). The browser/RLS count path can time out,
     // but the indexed service-role count is fast and keeps pagination accurate.
     let totalCount: number | null = null;
-    if (offset === 0 || countOnly) {
+    if ((offset === 0 && !compactAnalytics) || countOnly) {
       let countQuery = supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
@@ -223,9 +233,11 @@ Deno.serve(async (req) => {
     // Stage 1: Fetch FLAT order columns only (no joins)
     const stage1Start = Date.now();
     const orderColumns = fields === "analytics" ? ORDER_COLUMNS_ANALYTICS : ORDER_COLUMNS;
-    let query = supabase
-      .from("orders")
-      .select(orderColumns)
+    const table = supabase.from("orders");
+    const rows = compactAnalytics && offset === 0
+      ? table.select(orderColumns, { count: "exact" })
+      : table.select(orderColumns);
+    let query = rows
       .eq("locked", true)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
@@ -251,12 +263,14 @@ Deno.serve(async (req) => {
       query = query.eq("booked_by_company_id", bookedByCompanyId);
     }
 
-    const { data: orders, error: fetchError } = await query;
+    const { data: orders, count, error: fetchError } = await query;
 
     if (fetchError) {
       console.error(`[get-all-locked-orders] Fetch error:`, fetchError);
       throw fetchError;
     }
+
+    if (compactAnalytics && offset === 0) totalCount = count ?? null;
 
     const stage1Time = Date.now() - stage1Start;
     console.log(`[get-all-locked-orders] Stage 1 (flat orders): ${orders?.length || 0} in ${stage1Time}ms`);
@@ -416,9 +430,12 @@ Deno.serve(async (req) => {
       ? offset + returned < totalCount
       : returned === limit;
 
+    const payload = knownArchiveTags !== null
+      ? await packArchivePage(orders || [], userData.user.id, knownArchiveTags)
+      : compactAnalytics ? packOrderRows(orders || []) : { orders: orders || [] };
     return new Response(
       JSON.stringify({
-        orders: orders || [],
+        ...payload,
         count: orders?.length || 0,
         totalCount,
         offset,

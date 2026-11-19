@@ -2964,39 +2964,28 @@ const Analytics = () => {
 
   // Filter loads booked today with rate <= custom low threshold, respecting role permissions
   const { qualifyingLoads, highRateLoads, highCutLoads } = useMemo(() => {
-    const qualifyingLoads = filteredOrders.filter((order) => {
+    const qualifyingLoads: typeof filteredOrders = [];
+    const highRateLoads: typeof filteredOrders = [];
+    const highCutLoads: typeof filteredOrders = [];
+
+    for (const order of filteredOrders) {
       const createdAt = new Date(order.createdAt);
       const isToday = createdAt >= today && createdAt <= todayEnd;
-      const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
-      const meetsRateThreshold = ratePerMile <= lowRateThreshold;
-      return isToday && meetsRateThreshold;
-    });
+      const inLoadsWeek = activeTab === "loads" && createdAt >= weekStart && createdAt <= weekEnd;
+      if (!isToday && !inLoadsWeek) continue;
 
-    // Filter loads booked this week with rate >= custom high threshold (Chicago time, Monday reset)
-    const highRateLoads = filteredOrders.filter((order) => {
-      const createdAt = new Date(order.createdAt);
-      const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
       const ratePerMile = order.mileage > 0 ? order.totalFreightAmountNoLumper / order.mileage : 0;
-      const meetsRateThreshold = ratePerMile >= highRateThreshold;
-      return isThisWeek && meetsRateThreshold;
-    });
-
-    // Filter loads with 50%+ cut booked this week (Chicago time, Monday reset)
-    // Company driver orders are excluded since their effective driver pay = freight (0% cut)
-    const highCutLoads = filteredOrders.filter((order) => {
-      const createdAt = new Date(order.createdAt);
-      const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
-      if (!isThisWeek) return false;
-      const freightAmount = Number(order.totalFreightAmountNoLumper) || 0;
-      const driverPay = getEffectiveDriverPay(order);
-      if (freightAmount <= 0) return false;
-      const cutPercent = ((freightAmount - driverPay) / freightAmount) * 100;
-      return cutPercent >= 50;
-    });
+      if (isToday && ratePerMile <= lowRateThreshold) qualifyingLoads.push(order);
+      if (!inLoadsWeek) continue;
+      if (ratePerMile >= highRateThreshold) highRateLoads.push(order);
+      const freight = Number(order.totalFreightAmountNoLumper) || 0;
+      if (freight > 0 && ((freight - getEffectiveDriverPay(order)) / freight) * 100 >= 50) highCutLoads.push(order);
+    }
 
     return { qualifyingLoads, highRateLoads, highCutLoads };
   }, [
     filteredOrders,
+    activeTab,
     today,
     todayEnd,
     weekStart,

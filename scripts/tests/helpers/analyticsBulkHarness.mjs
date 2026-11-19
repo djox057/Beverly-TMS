@@ -44,13 +44,17 @@ const fixture = () => ({
   trailers: [{ id: 'tr1', trailer_number: '200' }],
 });
 
-export function harness(slug, { roles = ['admin'], authenticated = true, childGate, onRead, failCount = false, readSource = read } = {}) {
+export function harness(slug, { roles = ['admin'], userId = 'user', authenticated = true, childGate, onRead, failCount = false, seed, readSource = read } = {}) {
   const scopedSource = strip(readSource('supabase/functions/_shared/supervisorAccess.ts'));
+  const endpointSource = readSource(`supabase/functions/${slug}/index.ts`);
+  const columnSource = endpointSource.includes('_shared/analyticsOrderColumns.ts')
+    ? strip(readSource('supabase/functions/_shared/analyticsOrderColumns.ts')) : '';
   let handler;
   const reads = [];
   const tables = fixture();
+  seed?.(tables);
   const makeClient = identity => ({
-    auth: { getUser: async () => ({ data: { user: authenticated ? { id: 'user' } : null }, error: null }) },
+    auth: { getUser: async () => ({ data: { user: authenticated ? { id: userId } : null }, error: null }) },
     from(table) {
       const operations = [];
       const query = { table, identity, operations };
@@ -63,7 +67,7 @@ export function harness(slug, { roles = ['admin'], authenticated = true, childGa
         if (childGate && table === 'pickup_drops') await childGate.promise;
         if (table === 'user_roles') return { data: roles.map(role => ({ role })), error: null };
         const countOnly = operations.some(([m, , options]) => m === 'select' && options?.head);
-        if (failCount && countOnly) return { data: null, count: null, error: new Error('count failed') };
+        if (failCount && operations.some(([m, , options]) => m === 'select' && options?.count)) return { data: null, count: null, error: new Error('count failed') };
         let data = structuredClone(tables[table] || []);
         for (const [method, column, value] of operations) {
           if (method === 'eq') data = data.filter(row => row[column] === value);
@@ -75,17 +79,17 @@ export function harness(slug, { roles = ['admin'], authenticated = true, childGa
         if (range) data = data.slice(range[1], range[2] + 1);
         const columns = operations.find(([m]) => m === 'select')?.[1];
         if (columns && columns !== '*') data = data.map(row => Object.fromEntries(columns.split(',').map(c => c.trim()).filter(c => c in row).map(c => [c, row[c]])));
-        return { data: countOnly ? null : data, count, error: null };
+        return { data: countOnly ? null : data, count: operations.some(([m, , o]) => m === 'select' && o?.count) ? count : null, error: null };
       })().then(resolve, reject);
       return chain;
     },
   });
   const service = makeClient('service'); const user = makeClient('user');
-  const source = strip(readSource(`supabase/functions/${slug}/index.ts`));
-  vm.runInNewContext(`${scopedSource}\n${source}`, {
+  const source = strip(endpointSource);
+  vm.runInNewContext(`${scopedSource}\n${columnSource}\n${source}`, {
     createClient: (_url, key) => key === 'service' ? service : user,
     Deno: { env: { get: key => key === 'SUPABASE_SERVICE_ROLE_KEY' ? 'service' : 'anon' }, serve: fn => { handler = fn; } },
-    Response, console: { log() {}, error() {} },
+    Response, crypto, TextEncoder, console: { log() {}, error() {} },
   });
   return {
     reads,
