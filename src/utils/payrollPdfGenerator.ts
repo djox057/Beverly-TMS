@@ -1,4 +1,3 @@
-import jsPDF from "jspdf";
 
 // Export the adjustment type for use in other components
 export interface PayrollAdjustment {
@@ -108,6 +107,7 @@ export const generatePayrollPdf = async (
     ? nonSickDaysOffDates.join(", ") 
     : "";
 
+  const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",

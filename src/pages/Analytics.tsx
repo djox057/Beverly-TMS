@@ -37,10 +37,6 @@ import { useDailyDriverStatsByDispatcher } from "@/hooks/useDailyDriverStats";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import * as XLSX from "xlsx";
-import { generateInvoicePDF } from "@/utils/invoiceGenerator";
-import { downloadPayrollDoc, generatePayrollDocument } from "@/utils/payrollDocGenerator";
-import { generatePayrollPdf } from "@/utils/payrollPdfGenerator";
 import { PayrollPreviewDialog } from "@/components/PayrollPreviewDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -50,8 +46,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { format, startOfWeek } from "date-fns";
 import { useDispatcherNotes } from "@/hooks/useDispatcherNotes";
 import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
-import { AnalyticsTrendCharts } from "@/components/AnalyticsTrendCharts";
-import { DispatcherSalaryChart } from "@/components/DispatcherSalaryChart";
 import { DriverNoticeDialog } from "@/components/DriverNoticeDialog";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { DispatcherBonusesDialog } from "@/components/DispatcherBonusesDialog";
@@ -60,6 +54,21 @@ import MissingPodTab from "@/components/MissingPodTab";
 import { orderHasPOD } from "@/pages/Reports/helpers";
 import { DayInput } from "@/components/DayInput";
 import crownImage from "@/assets/crown.png";
+
+function lazyChart<Props extends object>(load: () => Promise<React.ComponentType<Props>>) {
+  return React.lazy<React.ComponentType<Props>>(async () => {
+    try {
+      return { default: await load() };
+    } catch (error) {
+      console.error("Could not load Analytics chart", error);
+      return { default: () => <p role="alert">The chart could not load. Refresh the page to try again.</p> };
+    }
+  });
+}
+
+const AnalyticsTrendCharts = lazyChart(async () => (await import("@/components/AnalyticsTrendCharts")).AnalyticsTrendCharts);
+const DispatcherSalaryChart = lazyChart(async () => (await import("@/components/DispatcherSalaryChart")).DispatcherSalaryChart);
+
 const isWeekday = (date: Date) => {
   const day = date.getDay();
   return day !== 0 && day !== 6;
@@ -483,7 +492,9 @@ const Analytics = () => {
   });
   const { data: companies } = useCompanies();
   const { data: drivers } = useDrivers();
-  const { data: driverDebts = {} } = useAllDriverDebts();
+  const showDriverRankings = activeTab === "driver-gross-rankings";
+  const showDriverPerformance = activeTab === "driver-performance";
+  const { data: driverDebts = {}, isLoading: debtsLoading } = useAllDriverDebts(showDriverRankings);
   const { performanceData, updatePerformance } = useDriverPerformance();
 
   // --- Precomputed analytics aggregates ---
@@ -504,10 +515,10 @@ const Analytics = () => {
     aggDateType as "pickup" | "delivery",
     aggStartDate,
     aggEndDate,
-    isPrecomputed,
+    isPrecomputed && showDriverPerformance,
   );
-  const { data: allTimeDriverData } = useAnalyticsAggregatesAllTime("driver", "pickup", isPrecomputed);
-  const { data: allTimeDailyRows } = useAnalyticsAggregatesDailyRows("driver", "delivery", isPrecomputed);
+  const { data: allTimeDriverData } = useAnalyticsAggregatesAllTime("driver", "pickup", isPrecomputed && showDriverPerformance);
+  const { data: allTimeDailyRows, isLoading: dailyRowsLoading } = useAnalyticsAggregatesDailyRows("driver", "delivery", isPrecomputed && showDriverRankings);
   const [isRecomputing, setIsRecomputing] = useState(false);
 
   // Fetch terminated drivers for turnover column
@@ -2333,6 +2344,7 @@ const Analytics = () => {
   // Use ALL orders (not filtered by date) for gross tier calculation
   const driverAnalyticsAllTime = useMemo(() => {
     const acc: Record<string, { totalGross: number; firstPickupDate: string | null }> = {};
+    if (!showDriverPerformance) return acc;
 
     // Reduce unlocked orders
     (orders || []).forEach((order) => {
@@ -2372,11 +2384,12 @@ const Analytics = () => {
     }
 
     return acc;
-  }, [orders, isPrecomputed, allTimeDriverData]);
+  }, [orders, isPrecomputed, allTimeDriverData, showDriverPerformance]);
 
   // Calculate driver analytics (filtered by date range for display)
   const driverAnalytics = useMemo(() => {
     const acc: Record<string, { totalDriverRate: number; totalMiles: number; orderCount: number }> = {};
+    if (!showDriverPerformance) return acc;
 
     filteredOrders.forEach((order) => {
       const driverName = order.driverName;
@@ -2404,7 +2417,7 @@ const Analytics = () => {
     }
 
     return acc;
-  }, [filteredOrders, isPrecomputed, driverAggregates]);
+  }, [filteredOrders, isPrecomputed, driverAggregates, showDriverPerformance]);
 
   const driverStats = useMemo(() => {
     const calculateGrossTier = (driverName: string): string => {
@@ -2664,7 +2677,7 @@ const Analytics = () => {
 
   // Calculate Driver Gross Rankings - weekly averages from 2nd week to 2nd-to-last week
   const driverGrossRankings = useMemo(() => {
-    if (!orders || orders.length === 0) return [];
+    if (!showDriverRankings || !orders || orders.length === 0) return [];
 
     // Build a map from driver name to current truck number from drivers data
     const driverNameToCurrentTruck: Record<string, string> = {};
@@ -2821,7 +2834,7 @@ const Analytics = () => {
       };
     });
     return rankings;
-  }, [orders, drivers, isPrecomputed, allTimeDailyRows]);
+  }, [orders, drivers, isPrecomputed, allTimeDailyRows, showDriverRankings]);
 
   // State for expanded team driver rows
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
@@ -2833,6 +2846,7 @@ const Analytics = () => {
 
   // Filter and sort Driver Gross Rankings
   const filteredAndSortedRankings = useMemo(() => {
+    if (!showDriverRankings) return [];
     // Build driver name -> dispatcher user_id map for office/supervisor filtering
     const driverNameToDispatcherId: Record<string, string> = {};
     (drivers || []).forEach((d) => {
@@ -2893,6 +2907,7 @@ const Analytics = () => {
         return 0;
       });
   }, [
+    showDriverRankings,
     driverGrossRankings,
     activeDriverNames,
     recoveryDriverNames,
@@ -3453,11 +3468,13 @@ const Analytics = () => {
 
                 {showCharts && (
                   <div className="mb-6">
-                    <AnalyticsTrendCharts
-                      orders={ordersForTotals}
-                      filterType={filterType}
-                      getEffectiveDriverPay={getEffectiveDriverPay}
-                    />
+                    <React.Suspense fallback={<p role="status">Loading chart…</p>}>
+                      <AnalyticsTrendCharts
+                        orders={ordersForTotals}
+                        filterType={filterType}
+                        getEffectiveDriverPay={getEffectiveDriverPay}
+                      />
+                    </React.Suspense>
                   </div>
                 )}
 
@@ -3468,24 +3485,30 @@ const Analytics = () => {
                        <Button
                          variant="outline"
                          size="sm"
-                         onClick={() => {
-                           const rows = dispatcherStats.map((s) => {
-                             const twelvePct = s.totalDriverRate * 0.12;
-                             return {
-                               Dispatcher: s.name,
-                               "Total Freight": Number(s.totalFreight.toFixed(2)),
-                               "Total Miles": Number(s.totalMiles.toFixed(0)),
-                               RPM: Number(s.ratePerMile.toFixed(3)),
-                               "Comm.": Number(s.cut.toFixed(2)),
-                               "Total Loads": s.orderCount,
-                               "Driver Pay": Number(s.totalDriverRate.toFixed(2)),
-                               "12% of Driver Pay": Number(twelvePct.toFixed(2)),
-                             };
-                           });
-                           const ws = XLSX.utils.json_to_sheet(rows);
-                           const wb = XLSX.utils.book_new();
-                           XLSX.utils.book_append_sheet(wb, ws, "Dispatchers");
-                           XLSX.writeFile(wb, `dispatchers-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+                         onClick={async () => {
+                           try {
+                             const XLSX = await import("xlsx");
+                             const rows = dispatcherStats.map((s) => {
+                               const twelvePct = s.totalDriverRate * 0.12;
+                               return {
+                                 Dispatcher: s.name,
+                                 "Total Freight": Number(s.totalFreight.toFixed(2)),
+                                 "Total Miles": Number(s.totalMiles.toFixed(0)),
+                                 RPM: Number(s.ratePerMile.toFixed(3)),
+                                 "Comm.": Number(s.cut.toFixed(2)),
+                                 "Total Loads": s.orderCount,
+                                 "Driver Pay": Number(s.totalDriverRate.toFixed(2)),
+                                 "12% of Driver Pay": Number(twelvePct.toFixed(2)),
+                               };
+                             });
+                             const ws = XLSX.utils.json_to_sheet(rows);
+                             const wb = XLSX.utils.book_new();
+                             XLSX.utils.book_append_sheet(wb, ws, "Dispatchers");
+                             XLSX.writeFile(wb, `dispatchers-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+                           } catch (error) {
+                             console.error("Dispatcher export failed", error);
+                             toast.error("Could not export dispatchers. Please try again.");
+                           }
                          }}
                        >
                          <Download className="h-4 w-4 mr-2" />
@@ -3838,10 +3861,10 @@ const Analytics = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredAndSortedRankings.length === 0 ? (
+                      {dailyRowsLoading || filteredAndSortedRankings.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
-                            No data available
+                            {dailyRowsLoading ? "Loading rankings…" : "No data available"}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -3919,14 +3942,14 @@ const Analytics = () => {
                               <TableCell
                                 className={`text-right ${driver.currentDebt > 0 ? "text-destructive font-medium" : "text-muted-foreground"}`}
                               >
-                                {driver.currentDebt > 0
+                                {debtsLoading ? "…" : driver.currentDebt > 0
                                   ? `$${driver.currentDebt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                   : "-"}
                               </TableCell>
                               <TableCell
                                 className={`text-right ${driver.totalDebt > 0 ? "text-amber-600 font-medium" : "text-muted-foreground"}`}
                               >
-                                {driver.totalDebt > 0
+                                {debtsLoading ? "…" : driver.totalDebt > 0
                                   ? `$${driver.totalDebt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                   : "-"}
                               </TableCell>
@@ -4365,7 +4388,9 @@ const Analytics = () => {
             <TabsContent value="salaries" className="space-y-6">
               {isAdmin && hasOpenedCharts && (
                 <div className={showCharts ? undefined : "hidden"}>
-                  <DispatcherSalaryChart orders={orders || []} companyDriverIds={companyDriverIds} />
+                  <React.Suspense fallback={<p role="status">Loading chart…</p>}>
+                    <DispatcherSalaryChart orders={orders || []} companyDriverIds={companyDriverIds} />
+                  </React.Suspense>
                 </div>
               )}
               <Card>
@@ -4664,7 +4689,7 @@ const Analytics = () => {
                                               variant="ghost"
                                               size="sm"
                                               className="h-6 w-6 p-0"
-                                              onClick={(e) => {
+                                              onClick={async (e) => {
                                                 e.stopPropagation();
 
                                                 // Get pay period label from selectedMonth
@@ -4699,27 +4724,33 @@ const Analytics = () => {
                                                 // Determine food allowance based on office
                                                 const hasFoodAllowance = hasFoodOffice(stat.office);
                                                 const foodAllowanceAmount = getFoodAllowance(stat.office, stat.userId);
-                                                downloadPayrollDoc(
-                                                  {
-                                                    employeeName: stat.name,
-                                                    payPeriod,
-                                                    salary1Percent: stat.totalFreight * rGross,
-                                                    bonus5Percent: stat.cut * rCut,
-                                                    salary1Label: rSalLabel,
-                                                    bonus5Label: rBonLabel,
-                                                    foodAllowance: foodAllowanceAmount,
-                                                    extraDays,
-                                                    lostDays,
-                                                    extraDayDates,
-                                                    lostDayDates,
-                                                    extraDaysAmount: Math.max(0, extraDaysAmount),
-                                                    dispatcherBonus: bonusAmount,
-                                                    perDayRate,
-                                                    office: stat.office,
-                                                  },
-                                                  `${stat.name}.docx`,
-                                                );
-                                                toast.success(`Payroll document generated for ${stat.name}`);
+                                                try {
+                                                  const { downloadPayrollDoc } = await import("@/utils/payrollDocGenerator");
+                                                  await downloadPayrollDoc(
+                                                    {
+                                                      employeeName: stat.name,
+                                                      payPeriod,
+                                                      salary1Percent: stat.totalFreight * rGross,
+                                                      bonus5Percent: stat.cut * rCut,
+                                                      salary1Label: rSalLabel,
+                                                      bonus5Label: rBonLabel,
+                                                      foodAllowance: foodAllowanceAmount,
+                                                      extraDays,
+                                                      lostDays,
+                                                      extraDayDates,
+                                                      lostDayDates,
+                                                      extraDaysAmount: Math.max(0, extraDaysAmount),
+                                                      dispatcherBonus: bonusAmount,
+                                                      perDayRate,
+                                                      office: stat.office,
+                                                    },
+                                                    `${stat.name}.docx`,
+                                                  );
+                                                  toast.success(`Payroll document generated for ${stat.name}`);
+                                                } catch (error) {
+                                                  console.error("Payroll document download failed", error);
+                                                  toast.error("Could not download the payroll document. Please try again.");
+                                                }
                                               }}
                                             >
                                               <FileDown className="h-4 w-4 text-muted-foreground hover:text-primary" />

@@ -6,8 +6,9 @@ interface DriverDebtData {
   totalDebt: number;   // Includes everything
 }
 
-export function useAllDriverDebts() {
+export function useAllDriverDebts(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: ["all-driver-debts"],
     queryFn: async () => {
       // Fetch all unpaid/partial expenses (now includes cash advances)
