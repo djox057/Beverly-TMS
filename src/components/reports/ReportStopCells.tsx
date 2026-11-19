@@ -2,6 +2,12 @@ import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SCALE_TICKET_LABEL = "Scale ticket required (BOL weight ≥ 30,000 lbs)";
+const CALENDAR_CELL_HOVER = cn(
+  "relative z-0",
+  "transition-[transform,z-index] [transition-duration:150ms,0ms] ease-out motion-reduce:[transition-duration:0ms]",
+  "[@media(hover:hover)]:hover:z-[101] [@media(hover:hover)]:hover:scale-150 [@media(hover:hover)]:hover:delay-500",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current",
+);
 
 interface ReportStopCell {
   key: string;
@@ -29,10 +35,8 @@ export function ReportStopCells({ kind, stops, isToday, onOpenLoad }: ReportStop
           key={stop.key}
           type="button"
           className={cn(
-            "relative z-0 flex h-full min-w-0 cursor-pointer flex-col items-stretch overflow-hidden rounded border px-1 py-0.5 text-left",
-            "transition-[transform,z-index] [transition-duration:150ms,0ms] ease-out motion-reduce:[transition-duration:0ms]",
-            "[@media(hover:hover)]:hover:z-[101] [@media(hover:hover)]:hover:scale-150 [@media(hover:hover)]:hover:delay-500",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current",
+            CALENDAR_CELL_HOVER,
+            "flex h-full min-w-0 cursor-pointer flex-col items-stretch overflow-hidden rounded border px-1 py-0.5 text-left",
             stop.color,
             multiple ? "shrink-0" : "flex-1",
           )}
@@ -60,5 +64,42 @@ export function ReportStopCells({ kind, stops, isToday, onOpenLoad }: ReportStop
         </button>
       ))}
     </div>
+  );
+}
+
+interface ReportLostDayCellProps {
+  note: string;
+  comment?: string | null;
+  onOpenNote: () => void;
+}
+
+export function ReportLostDayCell({ note, comment, onOpenNote }: ReportLostDayCellProps) {
+  const savedComment = comment?.trim();
+
+  return (
+    <button
+      type="button"
+      className={cn(
+        CALENDAR_CELL_HOVER,
+        "group/lost-day flex min-h-0 min-w-0 flex-1 cursor-pointer items-center justify-center overflow-hidden",
+        "bg-[hsl(0_72%_53%)] text-xs font-semibold text-white dark:bg-[hsl(var(--destructive-light))] dark:text-[hsl(var(--destructive-light-foreground))]",
+      )}
+      aria-label={savedComment ? `Edit Lost Day Note. ${note}. Comment: ${savedComment}` : `Edit Lost Day Note. ${note}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpenNote();
+      }}
+    >
+      <span className="line-clamp-2 px-0.5 text-center">{note}</span>
+      <span
+        aria-hidden="true"
+        className="invisible absolute inset-0 overflow-y-auto break-words bg-inherit px-1 py-0.5 text-left leading-tight transition-[visibility] duration-0 [@media(hover:hover)]:group-hover/lost-day:visible [@media(hover:hover)]:group-hover/lost-day:delay-500"
+      >
+        <span className="block whitespace-pre-wrap text-[9px]">{note}</span>
+        {savedComment && (
+          <span className="block whitespace-pre-wrap text-[8px] font-normal">Comment: {savedComment}</span>
+        )}
+      </span>
+    </button>
   );
 }

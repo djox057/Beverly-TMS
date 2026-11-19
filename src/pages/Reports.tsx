@@ -11,7 +11,7 @@ import { TruckRepairDeadlines } from "@/components/reports/TruckRepairDeadlines"
 import { isDispatcherRole } from "@/lib/dispatchAccess";
 import { CoiRequestDialog } from "@/components/reports/CoiRequestDialog";
 import { LoadAdditionals } from "@/components/reports/LoadAdditionals";
-import { ReportStopCells } from "@/components/reports/ReportStopCells";
+import { ReportLostDayCell, ReportStopCells } from "@/components/reports/ReportStopCells";
 import { getReportLoadFinancials, REPORT_LOAD_FINANCIAL_COLUMNS } from "@/lib/reportLoadFinancials";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2670,40 +2670,6 @@ const Reports = () => {
     // Pickup/delivery cell colors use the imported helpers from helpers.ts
     // which handle force-complete via synthetic files in order_files.
 
-    // Helper function to get lost day note for a specific date
-    // NOTE: Some code paths (legacy vs date-window adapter) may provide notes under
-    // `lost_day_notes` (snake_case) or `lostDayNotes` (camelCase). Always check both.
-    const getLostDayNote = (date: Date): string => {
-      const dateStr = format(date, "yyyy-MM-dd");
-      const allLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
-      // NOTE: Some code paths may provide `date` as an ISO timestamp string; normalize to YYYY-MM-DD.
-      const lostDayNote = allLostDayNotes.find((note: any) => String(note?.date || "").slice(0, 10) === dateStr);
-
-      // If no existing note, check if this is 1 day in future
-      if (!lostDayNote) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const checkDate = new Date(date);
-        checkDate.setHours(0, 0, 0, 0);
-        const oneDayFuture = addDays(today, 1);
-        if (isSameDay(checkDate, oneDayFuture)) {
-          return "No pre-book 🥺?";
-        }
-        // Show "Empty" for current day, "Lost day" for other days
-        if (isSameDay(checkDate, today)) {
-          return "Empty";
-        }
-        return "Lost day";
-      }
-
-      // If note_type is home_time, return "Home Time" regardless of note value
-      if (lostDayNote.note_type === "home_time") {
-        return "Home Time";
-      }
-
-      return lostDayNote.note || "Lost day";
-    };
-
     // Helper function to check if a date has "game over" note (any type)
     const isGameOverDay = (
       date: Date,
@@ -3155,10 +3121,9 @@ const Reports = () => {
       // Rule: place on the first empty pickup cell that is today or newer.
       // For a red "Empty" cell that falls on today, the `+` overwrites it
       // rather than skipping to the next day.
-      const _plusDateStr = format(day, "yyyy-MM-dd");
-      const _plusLostDayNotes: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
-      const _plusHasHomeTime = _plusLostDayNotes.some(
-        (n: any) => String(n?.date || "").slice(0, 10) === _plusDateStr && n.note_type === "home_time",
+      const lostDayNotes: any[] = truck.lost_day_notes ?? truck.lostDayNotes ?? [];
+      const hasHomeTime = lostDayNotes.some(
+        (note) => String(note?.date || "").slice(0, 10) === dayStr && note.note_type === "home_time",
       );
       const _plusIsOwnDispatcherTruck =
         hasRole("admin") || (!!profile?.user_id && truck.dispatcherId === profile.user_id);
@@ -3170,7 +3135,7 @@ const Reports = () => {
         _plusIsTodayOrLater &&
         !suggestionsState.plusPlaced &&
         isEmptyPickup &&
-        !_plusHasHomeTime &&
+        !hasHomeTime &&
         !isInTransit &&
         !shouldShowPickupInTransit &&
         !hasLateIncompleteDelivery;
@@ -3349,131 +3314,101 @@ const Reports = () => {
 
               {/* Pickup cell (bottom half) - includes same-day orders */}
               {(() => {
-                const dayStrPickup = format(day, "yyyy-MM-dd");
-                const allLostDayNotesPickupBg: any[] = (truck.lost_day_notes ?? truck.lostDayNotes ?? []) as any[];
-                const hasHomeTimePickup = allLostDayNotesPickupBg.some(
-                  (note: any) =>
-                    String(note?.date || "").slice(0, 10) === dayStrPickup && note.note_type === "home_time",
-                );
-                const pickupBgClass =
-                  allPickupOrders.length > 0 || sameDayOrders.length > 0
-                    ? ""
-                    : isMissingPickup && !hasLateIncompleteDelivery && !hasHomeTimePickup && !showSuggestionPlus
-                      ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]"
-                      : "bg-muted";
+                const hasPickupOrders = allPickupOrders.length > 0 || sameDayOrders.length > 0;
+                const isLostDayCell = isMissingPickup && !hasLateIncompleteDelivery && !hasHomeTime && !showSuggestionPlus;
+                const lostDayNoteData = isMissingPickup
+                  ? lostDayNotes.find((note) => String(note?.date || "").slice(0, 10) === dayStr)
+                  : undefined;
+                const openLostDayNote = () => {
+                  setRedCellDialog({
+                    truckNumber: truck.truckNumber || truck.truck_number || "Unknown",
+                    driverId: truck.driverId,
+                    date: dayStr,
+                    currentNote: lostDayNoteData?.note || getLostDayNote(truck, day),
+                    currentComment: lostDayNoteData?.comment ?? "",
+                  });
+                };
+
                 return (
                   <div
-                    className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col flex-1 ${pickupBgClass} ${allPickupOrders.length > 0 || sameDayOrders.length > 0 ? "" : "overflow-hidden"}`}
-                    style={{
-                      minHeight: "32px",
-                      flexBasis: "50%",
-                    }}
+                    className={cn(
+                      "flex flex-1 flex-col border-gray-400",
+                      !isToday && index > 0 && "border-l",
+                      !isToday && "border-r",
+                      !hasPickupOrders && !isLostDayCell && "overflow-hidden bg-muted",
+                    )}
+                    style={{ minHeight: "32px", flexBasis: "50%" }}
                   >
-                    {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
+                    {hasPickupOrders ? (
                       <ReportStopCells
                         kind="pickup"
                         stops={pickupCells}
                         isToday={isToday}
                         onOpenLoad={openStopLoad}
                       />
+                    ) : isLostDayCell ? (
+                      <ReportLostDayCell
+                        note={getLostDayNote(truck, day)}
+                        comment={lostDayNoteData?.comment}
+                        onOpenNote={openLostDayNote}
+                      />
                     ) : (
-                      (() => {
-                        const dateStr = format(day, "yyyy-MM-dd");
-                        const allLostDayNotesPickup: any[] = (truck.lost_day_notes ??
-                          truck.lostDayNotes ??
-                          []) as any[];
-                        const homeTimeNote = allLostDayNotesPickup.find(
-                          (note: any) =>
-                            String(note?.date || "").slice(0, 10) === dateStr && note.note_type === "home_time",
-                        );
-                        const hasHomeTime = !!homeTimeNote;
-                        const hasDeliveryThisDay = allDeliveryOrders.length > 0;
+                      <div
+                        className={cn(
+                          "flex h-full items-center justify-center text-xs",
+                          hasLateIncompleteDelivery
+                            ? "font-semibold text-muted-foreground"
+                            : showSuggestionPlus
+                              ? "cursor-pointer"
+                              : isInTransit || shouldShowPickupInTransit
+                                ? hasRescheduledOrders
+                                  ? "bg-orange-500 font-semibold text-black"
+                                  : "font-semibold text-foreground"
+                                : "cursor-pointer text-muted-foreground",
+                        )}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (hasLateIncompleteDelivery || showSuggestionPlus) return;
 
-                        // showSuggestionPlus is computed at the outer scope so
-                        // it can also drive pickup-cell background (overwriting
-                        // the red "Empty" block for today).
-
-                        return (
-                          <div
-                            className={`text-xs h-full flex items-center justify-center ${hasLateIncompleteDelivery ? "text-muted-foreground font-semibold" : showSuggestionPlus ? "cursor-pointer" : isMissingPickup && !hasHomeTime ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-
-                              if (hasLateIncompleteDelivery) {
-                                // Do nothing — late delivery indicator is not clickable
-                              } else if (showSuggestionPlus) {
-                                // Clicks handled by the `+` button below.
-                              } else if (isMissingPickup) {
-                                const currentNote = getLostDayNote(day);
-                                const allLostDayNotes: any[] = (truck.lost_day_notes ??
-                                  truck.lostDayNotes ??
-                                  []) as any[];
-                                const lostDayNoteData = allLostDayNotes.find(
-                                  (note: any) => String(note?.date || "").slice(0, 10) === dateStr,
-                                );
-                                setRedCellDialog({
-                                  truckNumber: truck.truckNumber || truck.truck_number || "Unknown",
-                                  driverId: truck.driverId,
-                                  date: dateStr,
-                                  currentNote: lostDayNoteData?.note || currentNote,
-                                  currentComment: lostDayNoteData?.comment ?? "",
-                                });
-                              } else if (!isInTransit && !shouldShowPickupInTransit) {
-                                // Open home time dialog for empty cells
-                                setHomeTimeDialog({
-                                  truckId: truck.id,
-                                  truckNumber: truck.truckNumber || truck.truck_number || "Unknown",
-                                  driverId: truck.driverId,
-                                  date: dateStr,
-                                  isCurrentlyHomeTime: hasHomeTime,
-                                });
-                              }
+                          if (isMissingPickup) {
+                            openLostDayNote();
+                          } else if (!isInTransit && !shouldShowPickupInTransit) {
+                            setHomeTimeDialog({
+                              truckId: truck.id,
+                              truckNumber: truck.truckNumber || truck.truck_number || "Unknown",
+                              driverId: truck.driverId,
+                              date: dayStr,
+                              isCurrentlyHomeTime: hasHomeTime,
+                            });
+                          }
+                        }}
+                      >
+                        {hasLateIncompleteDelivery ? (
+                          <span className="text-center">&gt;&gt;LATE DEL&lt;&lt;</span>
+                        ) : showSuggestionPlus ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSuggestionsDialog({
+                                truckId: truck.id,
+                                truckNumber: truck.truckNumber || truck.truck_number || null,
+                                driverName: truck.driverName || truck.driver_name || null,
+                              });
                             }}
+                            className="inline-flex h-5 w-5 animate-pulse items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90"
+                            title="Suggested loads"
                           >
-                            {hasLateIncompleteDelivery ? (
-                              <span className="text-center">
-                                {">>"}
-                                <span>LATE DEL</span>
-                                {"<<"}
-                              </span>
-                            ) : showSuggestionPlus ? (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSuggestionsDialog({
-                                    truckId: truck.id,
-                                    truckNumber: truck.truckNumber || truck.truck_number || null,
-                                    driverName: truck.driverName || truck.driver_name || null,
-                                  });
-                                }}
-                                className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground w-5 h-5 animate-pulse hover:opacity-90"
-                                title="Suggested loads"
-                              >
-                                <Plus className="h-3 w-3" strokeWidth={3} />
-                              </button>
-                            ) : isMissingPickup ? (
-                              hasHomeTime ? (
-                                <Home className="h-4 w-4" />
-                              ) : (
-                                <span className="line-clamp-2 text-center px-0.5" title={getLostDayNote(day)}>
-                                  {getLostDayNote(day)}
-                                </span>
-                              )
-                            ) : isInTransit || shouldShowPickupInTransit ? (
-                              hasRescheduledOrders ? (
-                                "RESCHEDULED"
-                              ) : (
-                                ">>>"
-                              )
-                            ) : hasHomeTime ? (
-                              <Home className="h-4 w-4" />
-                            ) : (
-                              "—"
-                            )}
-                          </div>
-                        );
-                      })()
+                            <Plus className="h-3 w-3" strokeWidth={3} />
+                          </button>
+                        ) : isInTransit || shouldShowPickupInTransit ? (
+                          hasRescheduledOrders ? "RESCHEDULED" : ">>>"
+                        ) : hasHomeTime ? (
+                          <Home className="h-4 w-4" />
+                        ) : (
+                          "—"
+                        )}
+                      </div>
                     )}
                   </div>
                 );
