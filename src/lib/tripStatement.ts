@@ -3,6 +3,7 @@ import type { WorkBook, WorkSheet } from "xlsx";
 export const STATEMENT_MAX_BYTES = 20 * 1024 * 1024;
 export const STATEMENT_BUCKET = "trip-statements";
 export const statementKey = (truck: string, driver: string, week: string) => JSON.stringify([truck, driver, week]);
+export const driverWeekStatementKey = (driver: string, week: string) => JSON.stringify([driver, week]);
 
 export function parseStatementAmount(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? Math.round(value * 100) / 100 : null;

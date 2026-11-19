@@ -6,14 +6,14 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   from: () => ({ insert: (payload: unknown) => { mocks.insert(payload); return { select: () => ({ single: mocks.single }) }; } }),
 } }));
 const file = new File(["x"], "salary.pdf");
-const target = { truckNumber: "03212", driverName: "Edward Butcher", weekStart: "2026-10-20", amount: -50 };
+const target = { driverId: "d1", truckNumber: null, driverName: "Edward Butcher", weekStart: "2026-10-20", amount: -50 };
 beforeEach(() => {
   vi.resetAllMocks(); mocks.upload.mockResolvedValue({ error: null }); mocks.remove.mockResolvedValue({ error: null }); mocks.single.mockResolvedValue({ data: { id: "s1" }, error: null });
 });
 describe("bulk statement persistence", () => {
   it("inserts the original PDF and final amount without changing paid flags", async () => {
     await insertTripStatement(file, target);
-    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ truck_number: "03212", driver_name: "Edward Butcher", week_start: "2026-10-20", paid_amount: -50, file_name: "salary.pdf" }));
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ driver_id: "d1", truck_number: null, driver_name: "Edward Butcher", week_start: "2026-10-20", paid_amount: -50, file_name: "salary.pdf" }));
     expect(mocks.remove).not.toHaveBeenCalled();
   });
   it("cleans up a failed insert and reports a concurrent duplicate without overwriting", async () => {

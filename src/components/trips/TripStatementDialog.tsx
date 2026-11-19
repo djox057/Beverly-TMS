@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type TripStatement = Tables<"trip_week_statements">;
-export type StatementTarget = { truckNumber: string; driverName: string; weekStart: string; statement?: TripStatement; mode: "view" | "upload" };
+export type StatementTarget = { truckNumber: string; driverId?: string; driverName: string; weekStart: string; statement?: TripStatement; mode: "view" | "upload" };
 
 export function TripStatementDialog({ target, canEdit, onClose }: { target: StatementTarget; canEdit: boolean; onClose: () => void }) {
   const client = useQueryClient();
@@ -88,12 +88,14 @@ export function TripStatementDialog({ target, canEdit, onClose }: { target: Stat
         contentType: extension === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       if (uploadError) throw uploadError;
-      const payload = { truck_number: target.truckNumber, driver_name: target.driverName, week_start: target.weekStart,
-        paid_amount: paidAmount, file_name: file.name, file_path: path };
+      const payload = { paid_amount: paidAmount, file_name: file.name, file_path: path };
       // Insert vs compare-and-swap update prevents silently overwriting another accountant's upload.
       const result = target.statement
         ? await supabase.from("trip_week_statements").update(payload).eq("id", target.statement.id).eq("file_path", target.statement.file_path).select("id").single()
-        : await supabase.from("trip_week_statements").insert(payload).select("id").single();
+        : await supabase.from("trip_week_statements").insert({
+          ...payload, driver_id: target.driverId || null, truck_number: target.truckNumber,
+          driver_name: target.driverName, week_start: target.weekStart,
+        }).select("id").single();
       if (result.error) {
         await supabase.storage.from(STATEMENT_BUCKET).remove([path]);
         throw new Error("Could not save statement. Refresh Trips and try again.");
@@ -115,7 +117,7 @@ export function TripStatementDialog({ target, canEdit, onClose }: { target: Stat
     <DialogContent className={mode === "view" ? "max-w-6xl max-h-[90vh] overflow-auto" : "max-w-lg"}>
       <DialogHeader>
         <DialogTitle>{mode === "upload" ? (target.statement ? "Replace statement" : "Add statement") : "Weekly statement"}</DialogTitle>
-        <DialogDescription>#{target.truckNumber} · {target.driverName} · Week starting {target.weekStart}</DialogDescription>
+        <DialogDescription>{target.truckNumber && `#${target.truckNumber} · `}{target.driverName} · Week starting {target.weekStart}</DialogDescription>
       </DialogHeader>
       {mode === "upload" ? <>
         <label className="space-y-2">Statement (PDF or XLSX)

@@ -25,11 +25,11 @@ beforeEach(() => {
   URL.revokeObjectURL = vi.fn();
   mocks.read.mockResolvedValue(result());
   mocks.save.mockResolvedValue(undefined);
-  mocks.range.mockImplementation((table: string) => Promise.resolve({ data: table === "drivers" ? [{ id: "1", name: "Edward Butcher", company_name: "UES" }, { id: "2", name: "Donald Young", company_name: "BF" }] : table === "trucks" ? [{ truck_number: "3135" }, { truck_number: "5931" }] : [], error: null }));
+  mocks.range.mockImplementation((table: string) => Promise.resolve({ data: table === "drivers" ? [{ id: "1", name: "Edward Butcher", company_name: "UES" }, { id: "2", name: "Donald Young", company_name: "BF" }] : [], error: null }));
 });
 describe("bulk salary folder import", () => {
-  it("previews mixed companies and saves both PDFs to their actual pay week", async () => {
-    mocks.read.mockResolvedValueOnce(result()).mockResolvedValueOnce(result("Donald Young", "5931", 0));
+  it("imports mixed companies even with unknown or missing truck numbers", async () => {
+    mocks.read.mockResolvedValueOnce(result()).mockResolvedValueOnce(result("Donald Young", "", 0));
     setup();
     select([new File(["x"], "Edward.pdf"), new File(["x"], "Donald.PDF"), new File(["x"], "readme.txt")], true);
     const button = await screen.findByRole("button", { name: "Import 2 statements" });
@@ -40,8 +40,9 @@ describe("bulk salary folder import", () => {
     expect(mocks.save).not.toHaveBeenCalled();
     fireEvent.click(button);
     await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2));
-    expect(mocks.save).toHaveBeenNthCalledWith(1, expect.any(File), expect.objectContaining({ driverName: "Edward Butcher", truckNumber: "3135", weekStart: "2026-10-20", amount: 1294.03 }));
-    expect(mocks.save).toHaveBeenNthCalledWith(2, expect.any(File), expect.objectContaining({ driverName: "Donald Young", truckNumber: "5931", amount: 0 }));
+    expect(mocks.save).toHaveBeenNthCalledWith(1, expect.any(File), expect.objectContaining({ driverId: "1", driverName: "Edward Butcher", truckNumber: "3135", weekStart: "2026-10-20", amount: 1294.03 }));
+    expect(mocks.save).toHaveBeenNthCalledWith(2, expect.any(File), expect.objectContaining({ driverId: "2", driverName: "Donald Young", truckNumber: null, amount: 0 }));
+    expect(mocks.range.mock.calls.map(([table]) => table)).not.toContain("trucks");
     await waitFor(() => expect(screen.getAllByText("Imported")).toHaveLength(2));
   });
   it("blocks duplicates until one copy is unchecked", async () => {
@@ -52,9 +53,9 @@ describe("bulk salary folder import", () => {
     fireEvent.click(screen.getByLabelText("Import two.pdf"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Import 1 statement" })).toBeEnabled());
   });
-  it("skips an existing statement instead of replacing it", async () => {
+  it.each([null, "1"])("skips an existing statement for the driver and week on another truck (driver ID %s)", async (driverId) => {
     const original = mocks.range.getMockImplementation()!;
-    mocks.range.mockImplementation((table: string) => table === "trip_week_statements" ? Promise.resolve({ data: [{ truck_number: "3135", driver_name: "Edward Butcher", week_start: "2026-10-20" }], error: null }) : original(table));
+    mocks.range.mockImplementation((table: string) => table === "trip_week_statements" ? Promise.resolve({ data: [{ driver_id: driverId, truck_number: "5931", driver_name: driverId ? "Former Driver Name" : "EDWARD BUTCHER", week_start: "2026-10-20" }], error: null }) : original(table));
     setup(); select();
     await screen.findByText("Statement already exists — skipped");
     expect(screen.getByRole("button", { name: "Import 0 statements" })).toBeDisabled();

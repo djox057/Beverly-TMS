@@ -1,6 +1,6 @@
 import { BulkTripStatementImport } from "@/components/trips/BulkTripStatementImport";
 import { TripStatementDialog, StatementTarget } from "@/components/trips/TripStatementDialog";
-import { statementKey } from "@/lib/tripStatement";
+import { driverWeekStatementKey, statementKey } from "@/lib/tripStatement";
 import { fetchActiveEfsRows } from "@/lib/activeEfsRequests";
 import { useSupervisorTeam } from "@/hooks/useSupervisorTeam";
 import { getTripPermissions, isDispatcherRole } from "@/lib/dispatchAccess";
@@ -6106,14 +6106,27 @@ const Trips = () => {
   const showEmptyPrompt = isLazyMode && !hasActiveSearch && (!orders || orders.length === 0);
 
   const statementWeeks = groupedByWeek.map(week => week.weekStart).sort();
-  const statementTrucks = [...new Set(groupedByWeek.flatMap(week => week.actualOrders.map(order => order.truckNumber || "")))].sort();
+  const statementOrders = groupedByWeek.flatMap(week => week.actualOrders);
+  const statementDrivers = [...new Set<string>(statementOrders.map(order => order.driver1Id).filter(Boolean))].sort();
+  const statementTrucks = [...new Set<string>(statementOrders.map(order => order.truckNumber).filter(Boolean))].sort();
   const { data: weekStatements, isError: statementsError, isPending: statementsLoading } = useQuery({
-    queryKey: ["trip-week-statements", profile?.user_id, primaryRole, supervisorTeam.cacheScope, statementWeeks, statementTrucks],
+    queryKey: ["trip-week-statements", profile?.user_id, primaryRole, supervisorTeam.cacheScope, statementWeeks, statementDrivers, statementTrucks],
     enabled: canReadStatements && statementWeeks.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from("trip_week_statements").select("*").in("week_start", statementWeeks).in("truck_number", statementTrucks);
-      if (error) throw error;
-      return new Map(data.map(row => [statementKey(row.truck_number, row.driver_name, row.week_start), row]));
+      const [driverStatements, legacyStatements] = await Promise.all([
+        statementDrivers.length ? supabase.from("trip_week_statements").select("*").in("week_start", statementWeeks)
+          .in("driver_id", statementDrivers) : { data: [], error: null },
+        statementTrucks.length ? supabase.from("trip_week_statements").select("*").in("week_start", statementWeeks)
+          .is("driver_id", null).in("truck_number", statementTrucks) : { data: [], error: null },
+      ]);
+      if (driverStatements.error) throw driverStatements.error;
+      if (legacyStatements.error) throw legacyStatements.error;
+      return new Map([...driverStatements.data, ...legacyStatements.data].map(row => [
+        row.driver_id
+          ? driverWeekStatementKey(row.driver_id, row.week_start)
+          : statementKey(row.truck_number ?? "", row.driver_name, row.week_start),
+        row,
+      ]));
     },
   });
 
@@ -6367,12 +6380,19 @@ const Trips = () => {
                       const firstActualOrder = week.actualOrders[0];
                       const weekTruckNumber = firstActualOrder?.truckNumber || "";
                       const weekDriverName = firstActualOrder?.driverName || "";
+                      const weekDriverId = firstActualOrder?.driver1Id || "";
                       const weekIsPaid = isWeekPaid(weekTruckNumber, weekDriverName, week.weekStart);
-                      const singleStatementOwner = week.actualOrders.length > 0 && week.actualOrders.every(order =>
-                        order.truckNumber === weekTruckNumber && order.driverName === weekDriverName);
-                      const uploadedStatement = singleStatementOwner ? weekStatements?.get(statementKey(weekTruckNumber, weekDriverName, week.weekStart)) : undefined;
+                      const singleStatementOwner = !!weekDriverName && week.actualOrders.every(order =>
+                        weekDriverId ? order.driver1Id === weekDriverId : !order.driver1Id && order.driverName === weekDriverName);
+                      const singleStatementTruck = singleStatementOwner && !!weekTruckNumber &&
+                        week.actualOrders.every(order => order.truckNumber === weekTruckNumber);
+                      const driverStatement = singleStatementOwner && weekDriverId
+                        ? weekStatements?.get(driverWeekStatementKey(weekDriverId, week.weekStart)) : undefined;
+                      const uploadedStatement = driverStatement ?? (singleStatementTruck
+                        ? weekStatements?.get(statementKey(weekTruckNumber, weekDriverName, week.weekStart)) : undefined);
                       const openStatement = (mode: "view" | "upload") => setStatementTarget({
-                        truckNumber: weekTruckNumber, driverName: weekDriverName, weekStart: week.weekStart,
+                        truckNumber: singleStatementTruck ? weekTruckNumber : "", driverId: weekDriverId,
+                        driverName: weekDriverName, weekStart: week.weekStart,
                         statement: uploadedStatement, mode,
                       });
 
@@ -6477,14 +6497,14 @@ const Trips = () => {
                               </div>
                             </TableCell>
                             {canSeePaidColumn && <TableCell className="py-3 px-2 text-center">
-                              {canReadStatements && (!singleStatementOwner ? <span className="text-xs text-muted-foreground">Filter by truck / driver</span> : statementsError ? <span className="text-xs text-destructive">Statements unavailable</span> : statementsLoading ? <span className="text-xs text-muted-foreground">Loading…</span> : uploadedStatement ? (
+                              {canReadStatements && (!singleStatementOwner ? <span className="text-xs text-muted-foreground">Filter by driver</span> : statementsError ? <span className="text-xs text-destructive">Statements unavailable</span> : statementsLoading ? <span className="text-xs text-muted-foreground">Loading…</span> : uploadedStatement ? (
                                 <div className="flex items-center justify-center gap-1">
                                   <button type="button" className="font-semibold text-green-600 dark:text-green-400 underline underline-offset-4 whitespace-nowrap" onClick={() => openStatement("view")} title="View statement">
                                     {formatCurrency(uploadedStatement.paid_amount)}
                                   </button>
                                   {canEditStatements && <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" aria-label="Replace weekly statement" onClick={() => openStatement("upload")}><Edit className="h-3 w-3" /></Button>}
                                 </div>
-                              ) : canEditStatements && weekTruckNumber && weekDriverName ? (
+                              ) : canEditStatements && singleStatementTruck ? (
                                 <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" aria-label="Add statement" onClick={() => openStatement("upload")}>Add</Button>
                               ) : null)}
                             </TableCell>}

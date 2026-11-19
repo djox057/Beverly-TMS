@@ -5,7 +5,6 @@ import { BulkStatementRow, duplicateStatementKeys, extractPdfStatementDetails, r
 import { extractPdfStatementAmount } from "./tripStatement";
 
 const drivers = [{ id: "d1", name: "Edward Butcher", company_name: "UES" }, { id: "d2", name: "Donald Young", company_name: "BF" }];
-const trucks = [{ truck_number: "3135" }, { truck_number: "03212" }, { truck_number: "3212" }];
 const row = (patch: Partial<BulkStatementRow> = {}): BulkStatementRow => ({ id: "r1", file: new File(["x"], "3135 Edward Butcher 11-5-2026.pdf"), driverName: "Edward Butcher", truckNumber: "3135", weekStart: "2026-10-20", weekEnd: "2026-10-26", amount: "1294.03", companyName: "", selected: true, ...patch });
 
 describe("bulk salary statement matching", () => {
@@ -43,19 +42,19 @@ describe("bulk salary statement matching", () => {
   it("rejects impossible dates and requires the actual Tuesday–Monday week", () => {
     expect(extractPdfStatementDetails(["Pay Period 2/30/2026-3/8/2026"], 1).weekStart).toBe("");
     expect(statementWeekEnd("2026-02-30")).toBe("");
-    expect(resolveStatementTarget(row({ weekStart: "2026-10-19", weekEnd: "2026-10-25" }), drivers, trucks).issues).toContain("Week must start on Tuesday");
-    expect(resolveStatementTarget(row({ weekEnd: "2026-11-02" }), drivers, trucks).issues).toContain("Pay period must end on the following Monday");
+    expect(resolveStatementTarget(row({ weekStart: "2026-10-19", weekEnd: "2026-10-25" }), drivers).issues).toContain("Week must start on Tuesday");
+    expect(resolveStatementTarget(row({ weekEnd: "2026-11-02" }), drivers).issues).toContain("Pay period must end on the following Monday");
   });
-  it("matches all companies case-insensitively while preserving exact truck identity", () => {
-    expect(resolveStatementTarget(row({ driverName: " edward  butcher ", truckNumber: "03212", amount: "(125.00)" }), drivers, trucks)).toMatchObject({ driverName: "Edward Butcher", truckNumber: "03212", amount: -125, issues: [] });
-    expect(resolveStatementTarget(row({ driverName: "Ed Butcher" }), drivers, trucks).issues).toContain("Choose a matching driver");
-    expect(resolveStatementTarget(row({ truckNumber: "003212" }), drivers, trucks).issues.length).toBeGreaterThan(0);
-    expect(resolveStatementTarget(row(), [...drivers, { ...drivers[0], id: "d3" }], trucks).issues).toContain("Driver name is ambiguous");
+  it("matches drivers by name with optional truck metadata", () => {
+    expect(resolveStatementTarget(row({ driverName: " edward  butcher ", truckNumber: "03212", amount: "(125.00)" }), drivers)).toMatchObject({ driverId: "d1", driverName: "Edward Butcher", truckNumber: "03212", amount: -125, issues: [] });
+    expect(resolveStatementTarget(row({ driverName: "Ed Butcher" }), drivers).issues).toContain("Choose a matching driver");
+    expect(resolveStatementTarget(row({ truckNumber: "" }), drivers)).toMatchObject({ driverId: "d1", truckNumber: null, issues: [] });
+    expect(resolveStatementTarget(row(), [...drivers, { ...drivers[0], id: "d3" }]).issues).toContain("Driver name is ambiguous");
   });
   it("blocks all selected duplicate targets and permits deliberate choice of one file", () => {
-    const first = row(), second = row({ id: "r2", driverName: "EDWARD BUTCHER" });
-    expect(duplicateStatementKeys([first, second], drivers, trucks).size).toBe(1);
-    expect(duplicateStatementKeys([first, { ...second, selected: false }], drivers, trucks).size).toBe(0);
-    expect(duplicateStatementKeys([first, { ...second, saved: true }], drivers, trucks).size).toBe(0);
+    const first = row(), second = row({ id: "r2", driverName: "EDWARD BUTCHER", truckNumber: "03212" });
+    expect(duplicateStatementKeys([first, second], drivers).size).toBe(1);
+    expect(duplicateStatementKeys([first, { ...second, selected: false }], drivers).size).toBe(0);
+    expect(duplicateStatementKeys([first, { ...second, saved: true }], drivers).size).toBe(0);
   });
 });

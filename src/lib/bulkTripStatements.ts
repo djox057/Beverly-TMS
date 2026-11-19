@@ -1,4 +1,4 @@
-import { parseStatementAmount, statementKey } from "./tripStatement";
+import { driverWeekStatementKey, parseStatementAmount } from "./tripStatement";
 
 export type StatementDetails = {
   driverName: string;
@@ -11,8 +11,8 @@ export type StatementDetails = {
 
 const datePattern = String.raw`\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2})`;
 const metadataLabel = /\b(?:driver\s+name\s*:?|driver\s*:|(?:truck|unit)\s*(?:number|no\.?|#)\s*:?|(?:company|compny|comapny)\s+name\s*:?|company\s*:|agreement\s*(?:start(?:\s*date)?|terms)\s*:?|issue\s*date\s*:?|pay\s*period\s*:?|invoice\s*:?|statement\s*#\s*:?)/i;
-const normalizeName = (value: string) => value.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-export const normalizeStatementDriver = normalizeName;
+export const normalizeStatementDriver = (value: string) =>
+  value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
 function parseDate(value: string): string | null {
   const match = value.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})$/);
@@ -49,7 +49,7 @@ export function extractPdfStatementDetails(lines: string[], amount: number | nul
     const keys = new Set(values.map(normalize));
     return keys.size === 1 ? values[0] : "";
   };
-  const driverName = unique(collect(/\b(?:Driver\s+name\s*:?\s*|Driver\s*:\s*)/i), normalizeName);
+  const driverName = unique(collect(/\b(?:Driver\s+name\s*:?\s*|Driver\s*:\s*)/i), normalizeStatementDriver);
   // Capture only the identifier; retain leading zeroes and don't interpret truck history in filenames.
   const truckNumber = unique(collect(/\b(?:Truck\s*(?:number|no\.?|#)|Unit\s*(?:number|no\.?|#))\s*:?\s*/i).map(v => v.match(/^#?\s*([\p{L}\p{N}][\p{L}\p{N}-]*)/u)?.[1] || "").filter(Boolean));
   const companyName = unique(collect(/\b(?:(?:Company|Compny|Comapny)\s+name\s*:?\s*|Company\s*:\s*)/i));
@@ -65,7 +65,6 @@ export function extractPdfStatementDetails(lines: string[], amount: number | nul
 }
 
 export type ImportDriver = { id: string; name: string | null; company_name: string | null };
-export type ImportTruck = { truck_number: string };
 export type BulkStatementRow = {
   id: string;
   file: File;
@@ -81,30 +80,31 @@ export type BulkStatementRow = {
   saved?: boolean;
 };
 
-export function resolveStatementTarget(row: BulkStatementRow, drivers: ImportDriver[], trucks: ImportTruck[]) {
-  const matches = drivers.filter(d => d.name && normalizeName(d.name) === normalizeName(row.driverName));
-  const truckMatches = trucks.filter(t => t.truck_number.toLowerCase() === row.truckNumber.trim().toLowerCase());
+export function resolveStatementTarget(row: BulkStatementRow, drivers: ImportDriver[]) {
+  const name = normalizeStatementDriver(row.driverName);
+  const matches = drivers.filter(d => name && d.name && normalizeStatementDriver(d.name) === name);
+  const driver = matches.length === 1 ? matches[0] : undefined;
   const issues: string[] = [];
   if (row.readError) issues.push(row.readError);
   if (matches.length !== 1) issues.push(matches.length > 1 ? "Driver name is ambiguous" : "Choose a matching driver");
-  if (truckMatches.length !== 1) issues.push("Choose a matching truck (keep leading zeroes)");
   const weekEnd = statementWeekEnd(row.weekStart);
   if (!weekEnd || new Date(`${row.weekStart}T12:00:00Z`).getUTCDay() !== 2) issues.push("Week must start on Tuesday");
   if (row.weekEnd !== weekEnd) issues.push("Pay period must end on the following Monday");
   const amount = parseStatementAmount(row.amount);
   if (amount === null) issues.push("Enter the final paid amount");
-  const driverName = matches.length === 1 ? matches[0].name! : row.driverName;
-  const truckNumber = truckMatches.length === 1 ? truckMatches[0].truck_number : row.truckNumber;
-  return { issues, driverName, truckNumber, weekStart: row.weekStart, amount,
-    key: statementKey(truckNumber, driverName, row.weekStart) };
+  return {
+    issues, driverId: driver?.id, driverName: driver?.name ?? row.driverName,
+    truckNumber: row.truckNumber.trim() || null, weekStart: row.weekStart, amount,
+    key: driverWeekStatementKey(driver?.id ?? "", row.weekStart),
+  };
 }
 
 /** All copies of a duplicate stay blocked until the user selects just one. */
-export function duplicateStatementKeys(rows: BulkStatementRow[], drivers: ImportDriver[], trucks: ImportTruck[]): Set<string> {
+export function duplicateStatementKeys(rows: BulkStatementRow[], drivers: ImportDriver[]): Set<string> {
   const counts = new Map<string, number>();
   for (const row of rows) {
     if (!row.selected || row.saved) continue;
-    const target = resolveStatementTarget(row, drivers, trucks);
+    const target = resolveStatementTarget(row, drivers);
     if (!target.issues.length) counts.set(target.key, (counts.get(target.key) || 0) + 1);
   }
   return new Set([...counts].filter(([, count]) => count > 1).map(([key]) => key));
