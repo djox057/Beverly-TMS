@@ -62,8 +62,10 @@ describe("trip financial display permissions", () => {
   it("lets supervisors read paid amounts and statements without editing them", () => {
     expect(getTripPermissions("supervisor")).toEqual({ canSeePaidColumn: true, canReadStatements: true, canEditStatements: false, canTogglePaid: false });
   });
-  it("preserves dispatcher restrictions and exact financial writer roles", () => {
-    expect(getTripPermissions("dispatch")).toEqual({ canSeePaidColumn: false, canReadStatements: false, canEditStatements: false, canTogglePaid: false });
+  it.each(["dispatch", "afterhours"] as const)("lets %s read Paid and attached statements", role => {
+    expect(getTripPermissions(role)).toEqual({ canSeePaidColumn: true, canReadStatements: true, canEditStatements: false, canTogglePaid: false });
+  });
+  it("preserves the existing financial writer roles", () => {
     for (const role of ["safety", "claims", "maintenance", "afterhours", null] as const) expect(getTripPermissions(role).canEditStatements).toBe(false);
     for (const role of ["admin", "accounting"] as const) expect(getTripPermissions(role).canEditStatements).toBe(true);
     expect(getTripPermissions("manager").canReadStatements).toBe(true);

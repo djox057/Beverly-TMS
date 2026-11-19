@@ -567,6 +567,7 @@ const Trips = () => {
     (roles?.some((role) => ["manager", "admin", "accounting"].includes(role)) ?? false);
 
   const { canSeePaidColumn, canTogglePaid, canEditStatements, canReadStatements } = getTripPermissions(primaryRole);
+  const canExportWeeklyPayroll = canSeePaidColumn && !isDispatcherRole(primaryRole) && primaryRole !== "afterhours" && !isMaintenanceReadOnly;
   const [statementTarget, setStatementTarget] = useState<StatementTarget | null>(null);
 
   // Fetch week overrides
@@ -1242,10 +1243,11 @@ const Trips = () => {
       return result.data.length === 1 && driver.name ? { ...driver, name: driver.name } : null;
     },
   });
-  const canUsePayDriver = matchedPayDriver && (
-    !supervisorTeam.isSupervisor || supervisorTeam.driverIds.has(matchedPayDriver.id) ||
-    filteredOrders.some(order => order.driver1Id === matchedPayDriver.id)
-  );
+  const hasVisibleDriverTrips = matchedPayDriver && filteredOrders.some(order => order.driver1Id === matchedPayDriver.id);
+  const canUsePayDriver = matchedPayDriver && (hasVisibleDriverTrips || (
+    (!supervisorTeam.isSupervisor || supervisorTeam.driverIds.has(matchedPayDriver.id)) &&
+    (primaryRole !== "dispatch" || dispatchAssignedDriverIds?.includes(matchedPayDriver.id))
+  ));
   const payrollDriver = isDriverPaySearch && canUsePayDriver &&
     filteredOrders.every(order => order.driver1Id === matchedPayDriver.id)
     ? matchedPayDriver : null;
@@ -6550,7 +6552,7 @@ const Trips = () => {
                               ) : null)}
                             </TableCell>}
                             <TableCell className="py-3">
-                              {firstActualOrder && canSeePaidColumn && !isDispatcherRole(primaryRole) && !isMaintenanceReadOnly && (
+                              {firstActualOrder && canExportWeeklyPayroll && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -7393,7 +7395,7 @@ const Trips = () => {
       </AlertDialog>
 
       {/* Statement Preview Dialog */}
-      {statementDialogData && (
+      {canExportWeeklyPayroll && statementDialogData && (
         <StatementPreviewDialog
           open={statementDialogOpen}
           onOpenChange={(open) => {

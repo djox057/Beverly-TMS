@@ -30,8 +30,8 @@ export function getTripPermissions(role: UserRole | null) {
   const canEditStatements = role === "admin" || role === "accounting";
   return {
     canEditStatements,
-    canReadStatements: canEditStatements || role === "manager" || role === "supervisor",
-    canSeePaidColumn: role !== null && role !== "dispatch",
-    canTogglePaid: role !== null && !isDispatcherRole(role) && role !== "manager" && role !== "maintenance",
+    canReadStatements: canEditStatements || role === "manager" || isDispatcherRole(role) || role === "afterhours",
+    canSeePaidColumn: role !== null,
+    canTogglePaid: role !== null && !isDispatcherRole(role) && role !== "afterhours" && role !== "manager" && role !== "maintenance",
   };
 }

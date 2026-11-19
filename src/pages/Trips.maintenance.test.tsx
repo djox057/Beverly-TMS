@@ -8,6 +8,7 @@ import { driverWeekStatementKey } from "@/lib/tripStatement";
 const mocks = vi.hoisted(() => ({
   role: "maintenance",
   assignedQuery: vi.fn(),
+  assignedDriverIds: [] as string[],
   secondTruck: false,
   noTrips: false,
   payDriver: undefined as { id: string; name: string; hire_date: string; created_at: string; is_active: boolean; termination_date: string | null } | undefined,
@@ -38,7 +39,10 @@ vi.mock("@/hooks/useAssignmentHistory", () => ({
 vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({}), useMutation: () => ({ mutate: vi.fn() }),
   useQuery: (options: any) => {
-    if (options.queryKey[0] === "trips-dispatch-assigned-drivers") mocks.assignedQuery(options.enabled);
+    if (options.queryKey[0] === "trips-dispatch-assigned-drivers") {
+      mocks.assignedQuery(options.enabled);
+      if (options.enabled) return { data: mocks.assignedDriverIds };
+    }
     if (options.queryKey[0] === "trips-pay-driver" && options.enabled) return { data: mocks.payDriver };
     if (options.queryKey[0] === "trip-week-statements" && options.queryKey[1] === "driver-weeks" && options.enabled) {
       return { data: mocks.driverStatements };
@@ -60,6 +64,7 @@ afterEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
   vi.useRealTimers();
+  mocks.assignedDriverIds = [];
   mocks.secondTruck = false;
   mocks.noTrips = false;
   mocks.payDriver = undefined;
@@ -82,6 +87,21 @@ it("keeps dispatchers limited to their own assignments", () => {
   render(<MemoryRouter><Trips /></MemoryRouter>);
   expect(mocks.assignedQuery).toHaveBeenCalledWith(true);
   expect(screen.queryByText("Other Dispatcher Driver")).not.toBeInTheDocument();
+});
+
+it.each(["dispatch", "afterhours"])("lets %s open a Paid statement without offering payment edits", (role) => {
+  mocks.role = role;
+  mocks.assignedDriverIds = ["other-driver"];
+  const statement = { paid_amount: -42.5, truck_number: null };
+  mocks.statements = new Map([[driverWeekStatementKey("other-driver", "2026-11-17"), statement]]);
+  render(<MemoryRouter><Trips /></MemoryRouter>);
+
+  expect(screen.getByRole("columnheader", { name: "Paid" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "$-42.50" }));
+  expect(mocks.statementDialog).toHaveBeenCalledWith(expect.objectContaining({ mode: "view", statement }));
+  expect(screen.queryByRole("button", { name: /Add statement|Replace weekly statement/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("checkbox", { name: /Paid|Mark load/i })).not.toBeInTheDocument();
+  expect(screen.queryByTitle("Export week to Excel")).not.toBeInTheDocument();
 });
 it("shows the imported weekly statement for a driver who used two trucks", () => {
   mocks.role = "admin";
