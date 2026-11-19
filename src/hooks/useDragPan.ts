@@ -17,12 +17,19 @@ export const useDragPan = (containerOnly = false) => {
     const previousUserSelect = surface.style.userSelect;
     surface.style.cursor = 'grab';
 
+    let startedOnCellButton = false;
+    let suppressCellClick = false;
+
     const handleMouseDown = (e: MouseEvent) => {
+      suppressCellClick = false;
       // Don't pan if clicking on interactive elements
       const target = e.target as HTMLElement;
       const isInteractive = target.closest('button, a, input, select, textarea, [role="button"], [role="link"]');
       
-      if (isInteractive) return;
+      // A worksheet cell button supports both click-to-edit and drag-to-pan.
+      startedOnCellButton = containerOnly && !!isInteractive?.matches('button')
+        && !!isInteractive.closest('[data-drag-pan-cell]');
+      if (isInteractive && !startedOnCellButton) return;
 
       // Only pan on left mouse button
       if (e.button !== 0) return;
@@ -62,6 +69,7 @@ export const useDragPan = (containerOnly = false) => {
 
     const handleMouseUp = () => {
       if (isDraggingRef.current) {
+        suppressCellClick = startedOnCellButton && hasMovedRef.current;
         isDraggingRef.current = false;
         hasMovedRef.current = false;
         surface.style.cursor = 'grab';
@@ -69,14 +77,24 @@ export const useDragPan = (containerOnly = false) => {
       }
     };
 
+    const handleClick = (e: MouseEvent) => {
+      if (suppressCellClick && e.detail > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      suppressCellClick = false;
+    };
+
     const eventTarget = containerOnly ? surface : window;
     eventTarget.addEventListener('mousedown', handleMouseDown as EventListener);
+    if (containerOnly) surface.addEventListener('click', handleClick, true);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('blur', handleMouseUp);
 
     return () => {
       eventTarget.removeEventListener('mousedown', handleMouseDown as EventListener);
+      if (containerOnly) surface.removeEventListener('click', handleClick, true);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('blur', handleMouseUp);

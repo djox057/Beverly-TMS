@@ -63,6 +63,30 @@ describe("Roadsides workbook", () => {
     expect(await screen.findByRole("button", { name: "Add inspection" })).toBeInTheDocument();
   });
 
+  it.each([
+    ["/roadsides", "Edit Driver name · 0012"],
+    ["/roadsides?tab=lawyers", "Edit Driver name · Case Driver"],
+  ])("drags the worksheet horizontally while keeping click-to-edit on %s", async (path, label) => {
+    show(path);
+    const cell = await screen.findByRole("button", { name: label });
+    const surface = screen.getByRole("table").parentElement!;
+    fireEvent.mouseDown(cell, { button: 0, clientX: 150 });
+    fireEvent.mouseMove(window, { clientX: 90 });
+    fireEvent.mouseUp(cell);
+    fireEvent.click(cell, { detail: 1 });
+    expect(surface.scrollLeft).toBe(60);
+    expect(cell).toBeInTheDocument();
+
+    fireEvent.mouseDown(cell, { button: 0, clientX: 90 });
+    fireEvent.mouseUp(cell);
+    fireEvent.click(cell, { detail: 1 });
+    const input = screen.getByRole("textbox", { name: label.slice(5) });
+    fireEvent.mouseDown(input, { button: 0, clientX: 90 });
+    fireEvent.mouseMove(window, { clientX: 50 });
+    fireEvent.mouseUp(input);
+    expect(surface.scrollLeft).toBe(60);
+  });
+
   it("preserves truck links, date display and searchable cell notes", async () => {
     show();
     expect(await screen.findByRole("link", { name: "0012" })).toHaveAttribute("href", "https://example.com/inspection");
