@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { MessageSquare, Pencil } from "lucide-react";
 import { useDragPan } from "@/hooks/useDragPan";
 import { ServiceLogCell } from "@/components/ServiceLogCell";
@@ -13,15 +14,26 @@ const widths: Record<Sheet, number[]> = {
   Lawyers: [184, 92, 64, 104, 192, 76, 144, 144, 128, 148, 124, 284, 130, 180],
 };
 
-export function RoadsideGrid({ sheet, rows, editable, editRow, saveCell, emptyMessage }: {
+export function RoadsideGrid({ sheet, rows, editable, editRow, saveCell, emptyMessage, onNearEnd }: {
   sheet: Sheet;
   rows: RoadRecord[];
   editable: boolean;
   editRow: (row: RoadRecord) => void;
   saveCell: (row: RoadRecord, key: string, value: string) => Promise<void>;
   emptyMessage: string;
+  onNearEnd?: () => void;
 }) {
   const { containerRef } = useDragPan(true);
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!onNearEnd || !endRef.current || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) onNearEnd();
+    }, { root: containerRef.current, rootMargin: "0px 0px 180px 0px" });
+    observer.observe(endRef.current);
+    return () => observer.disconnect();
+  }, [onNearEnd, containerRef]);
+
   const schema = columns[sheet];
   const sizes = widths[sheet];
   return <div className="service-log-sheet min-w-0 rounded-sm border-2 border-[#233c85] bg-white text-slate-900 shadow-sm">
@@ -67,6 +79,9 @@ export function RoadsideGrid({ sheet, rows, editable, editRow, saveCell, emptyMe
         </tr>)}
           {!rows.length && <tr><td colSpan={schema.length + Number(editable)} className="p-5 text-center">{emptyMessage}</td></tr>}
         </tbody>
+        {onNearEnd && <tfoot aria-hidden="true"><tr><td colSpan={schema.length + Number(editable)} className="p-0">
+          <div ref={endRef} className="h-px" />
+        </td></tr></tfoot>}
       </table>
     </div>
   </div>;

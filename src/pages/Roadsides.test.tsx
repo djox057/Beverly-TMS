@@ -1,19 +1,22 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { roadReaders, type RoadRecord } from "@/lib/roadsides";
 import Roadsides from "./Roadsides";
 
-const mock = vi.hoisted(() => ({ role: "maintenance", update: vi.fn(), conflict: false, records: [] as RoadRecord[] }));
+const mock = vi.hoisted(() => ({ role: "maintenance", update: vi.fn(), conflict: false, batches: [] as string[][], records: [] as RoadRecord[] }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ user: { id: "u" }, getPrimaryRole: () => mock.role }) }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { from: () => {
     const filters: Record<string, string> = {};
     let patch: Partial<RoadRecord>;
+    let ids: string[] | undefined;
+    let projection = "*";
     const query = {
-      select: () => query, order: () => query, limit: () => query,
+      select: (columns: string) => { projection = columns; return query; },
+      in: (_key: string, batch: string[]) => { ids = batch; mock.batches.push(batch); return query; }, order: () => query, limit: () => query,
       eq: (key: string, value: string) => { filters[key] = value; return query; },
       update: (payload: Partial<RoadRecord>) => { patch = payload; mock.update(payload); return query; },
       maybeSingle: () => {
@@ -23,7 +26,13 @@ vi.mock("@/integrations/supabase/client", () => ({
         mock.records = mock.records.map(r => r.id === row.id ? saved : r);
         return { data: saved, error: null };
       },
-      abortSignal: () => ({ data: mock.records.filter(r => r.sheet === filters.sheet), error: null }),
+      abortSignal: () => {
+        const rows = mock.records.filter(r => r.sheet === filters.sheet && (!ids || ids.includes(r.id)));
+        const data = projection.includes("company:") ? rows.map(r => ({
+          id: r.id, source_row: r.source_row, created_at: r.created_at, company: r.fields.company, oos: r.fields.oos,
+        })) : rows;
+        return { data, error: null };
+      },
     };
     return query;
   } },
@@ -43,11 +52,58 @@ function show(path = "/roadsides") {
 beforeEach(() => {
   mock.update.mockClear();
   mock.conflict = false;
+  mock.batches = [];
   mock.role = "maintenance";
   mock.records = [{ ...base }, { ...base, id: "l1", sheet: "Lawyers", fields: { driver: "Case Driver", court: "Continued to March", extra: "Extra cell" } }];
 });
 
 describe("Roadsides workbook", () => {
+  it("appends Lawyers batches on scroll without pagination controls", async () => {
+    mock.role = "manager";
+    mock.records = Array.from({ length: 102 }, (_, i) => ({
+      ...base, id: String(i), source_row: i + 2, sheet: "Lawyers", fields: { driver: `Case ${i + 1}` },
+    }));
+    let enter: () => void;
+    vi.stubGlobal("IntersectionObserver", class {
+      constructor(callback: (entries: { isIntersecting: boolean }[]) => void) {
+        enter = () => callback([{ isIntersecting: true }]);
+      }
+      observe() {}
+      disconnect() {}
+    });
+    try {
+      show("/roadsides?tab=lawyers");
+      expect(await screen.findByText("50 of 102 cases")).toBeInTheDocument();
+      expect(mock.batches.map(batch => batch.length)).toEqual([50]);
+      expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+      act(() => enter());
+      expect(await screen.findByText("100 of 102 cases")).toBeInTheDocument();
+      expect(screen.getByText("Case 1")).toBeInTheDocument();
+      expect(screen.queryByText("Case 102")).toBeNull();
+      act(() => enter());
+      expect(await screen.findByText("102 of 102 cases")).toBeInTheDocument();
+      expect(mock.batches.map(batch => batch.length)).toEqual([50, 50, 2]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("finds a case on an unloaded batch and includes its company in the filter", async () => {
+    mock.role = "manager";
+    mock.records = Array.from({ length: 51 }, (_, i) => ({
+      ...base, id: String(i), source_row: i + 2, sheet: "Lawyers",
+      fields: { driver: `Driver ${i}`, company: i === 50 ? "Other company" : "First company" },
+      notes: i === 50 ? { court: "Unfiled citation" } : {},
+    }));
+    show("/roadsides?tab=lawyers");
+    expect(await screen.findByText("50 of 51 cases")).toBeInTheDocument();
+    expect(screen.queryByText("Driver 50")).toBeNull();
+    expect(screen.getByRole("option", { name: "Other company" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search records"), { target: { value: "unfiled citation" } });
+    expect(await screen.findByText("Driver 50")).toBeInTheDocument();
+    expect(mock.batches[mock.batches.length - 1]).toEqual(["50"]);
+  });
+
   it.each(["chicago_management", "dispatch", "supervisor", "accounting", "afterhours", "claims", "yard", "recruiting", "driver"])(
     "denies direct Roadsides access to %s", role => {
       mock.role = role;

@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useLawyerRegister } from "@/hooks/useLawyerRegister";
 import { RoadsideGrid } from "@/components/roadsides/RoadsideGrid";
 import "./TruckServiceLog.css";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ function Register({ sheet }: { sheet: Sheet }) {
   const queryKey = ["roadsides", sheet, user?.id];
   const query = useQuery({
     queryKey,
+    enabled: sheet === "ALL",
     queryFn: ({ signal }) => loadSheet(sheet, signal),
   });
   const [search, setSearch] = useState("");
@@ -46,7 +48,9 @@ function Register({ sheet }: { sheet: Sheet }) {
   const [oos, setOos] = useState("");
   const [page, setPage] = useState(0);
   const [editor, setEditor] = useState<RoadRecord | "new" | null>(null);
-  const options = useMemo(() => {
+  const continuous = sheet === "Lawyers";
+  const lawyers = useLawyerRegister(continuous, user?.id, search, company, oos);
+  const inspectionOptions = useMemo(() => {
     const values = (key: string) => Array.from(new Set((query.data ?? []).map(r => r.fields[key]?.trim()).filter(Boolean))).sort();
     return { companies: values("company"), statuses: values("oos") };
   }, [query.data]);
@@ -60,7 +64,9 @@ function Register({ sheet }: { sheet: Sheet }) {
   const size = 50;
   const pages = Math.max(1, Math.ceil(filtered.length / size));
   const current = Math.min(page, pages - 1);
-  const shown = filtered.slice(current * size, (current + 1) * size);
+  const options = continuous ? lawyers.options : inspectionOptions;
+  const error = continuous ? lawyers.error : query.error;
+  const shown = continuous ? lawyers.rows : filtered.slice(current * size, (current + 1) * size);
   async function saveCell(row: RoadRecord, key: string, value: string) {
     const fields = { ...row.fields, [key]: value };
     if (!value) delete fields[key];
@@ -71,6 +77,10 @@ function Register({ sheet }: { sheet: Sheet }) {
     if (!data) {
       await cache.invalidateQueries({ queryKey });
       throw new Error("Row changed. Press Escape to review the latest value.");
+    }
+    if (continuous) {
+      await cache.invalidateQueries({ queryKey });
+      return;
     }
     await cache.cancelQueries({ queryKey });
     cache.setQueryData<RoadRecord[]>(queryKey, rows => rows?.map(item => item.id === data.id ? data : item));
@@ -93,14 +103,17 @@ function Register({ sheet }: { sheet: Sheet }) {
       </select>
       {editable && <Button onClick={() => setEditor("new")}><Plus className="mr-2 h-4 w-4" />{sheet === "ALL" ? "Add inspection" : "Add case"}</Button>}
     </div>
-      {query.isError ? <div role="alert" className="space-y-2"><p>Could not load records. {query.error.message}</p>
-        <Button variant="outline" onClick={() => void query.refetch()}>Retry</Button></div>
-      : query.isPending ? <p role="status" className="py-6 text-muted-foreground">Loading records…</p> : <>
-        <RoadsideGrid sheet={sheet} rows={shown} editable={editable} editRow={setEditor} saveCell={saveCell}
-          emptyMessage={query.data?.length ? "No matching records." : "No records yet."} />
+      {error ? <div role="alert" className="space-y-2"><p>Could not load records. {error.message}</p>
+        <Button variant="outline" onClick={() => void (continuous ? lawyers.retry() : query.refetch())}>Retry</Button></div>
+      : (continuous ? lawyers.loading : query.isPending) ? <p role="status" className="py-6 text-muted-foreground">Loading records…</p> : <>
+        <RoadsideGrid key={continuous ? JSON.stringify([search, company, oos]) : sheet} sheet={sheet} rows={shown} editable={editable} editRow={setEditor} saveCell={saveCell}
+          onNearEnd={continuous && !lawyers.nextError ? lawyers.loadMore : undefined}
+          emptyMessage={(continuous ? search || company || oos : query.data?.length) ? "No matching records." : "No records yet."} />
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-          <span>{filtered.length ? `${current * size + 1}–${current * size + shown.length} of ${filtered.length}` : "0 records"}</span>
-          {pages > 1 && <div className="flex gap-2">
+          <span>{continuous ? `${shown.length} of ${lawyers.total} cases` : filtered.length ? `${current * size + 1}–${current * size + shown.length} of ${filtered.length}` : "0 records"}</span>
+          {continuous && lawyers.loadingMore && <span role="status">Loading more cases…</span>}
+          {continuous && lawyers.nextError && <div role="alert">Could not load more cases. <Button size="sm" variant="outline" onClick={lawyers.loadMore}>Retry</Button></div>}
+          {!continuous && pages > 1 && <div className="flex gap-2">
             <Button size="sm" variant="outline" disabled={!current} onClick={() => setPage(current - 1)}>Previous</Button>
             <Button size="sm" variant="outline" disabled={current + 1 === pages} onClick={() => setPage(current + 1)}>Next</Button>
           </div>}
