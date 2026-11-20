@@ -11,6 +11,7 @@ const corsHeaders = {
 };
 
 const BodySchema = z.object({ orderId: z.string().uuid() });
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const RADIUS_MILES = 150;
 const ROAD_FACTOR = 1.3;
@@ -380,10 +381,32 @@ serve(async (req) => {
       });
     }
 
-    const { data: profiles } = await db
-      .from("profiles")
-      .select("user_id, email, full_name, is_recovery")
-      .in("user_id", [...groups.keys()]);
+    const bookedBy = (order.booked_by as string | null)?.trim();
+    const bookedByUserId = bookedBy && UUID_PATTERN.test(bookedBy) ? bookedBy : null;
+    const [{ data: profiles }, { data: booker, error: bookerError }] = await Promise.all([
+      db.from("profiles").select("user_id, email, full_name, is_recovery").in("user_id", [...groups.keys()]),
+      bookedBy
+        ? db.from("profiles")
+          .select("user_id, full_name, ext")
+          .eq(bookedByUserId ? "user_id" : "full_name", bookedBy)
+          .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    if (bookerError) console.warn("recovery-alert: booking dispatcher lookup failed", bookerError.code);
+
+    let bookingExtension = booker?.ext?.trim();
+    if (booker && order.booked_by_company_id) {
+      const { data: companyExtension, error: extensionError } = await db
+        .from("user_extensions")
+        .select("extension")
+        .eq("user_id", booker.user_id)
+        .eq("company_id", order.booked_by_company_id)
+        .maybeSingle();
+      if (extensionError) console.warn("recovery-alert: booking dispatcher extension lookup failed", extensionError.code);
+      bookingExtension = companyExtension?.extension?.trim() || bookingExtension;
+    }
+    const bookingDispatcher = booker?.full_name?.trim() || (!bookedByUserId ? bookedBy : null) || "Unavailable";
+
     // Recovery-tagged dispatchers are excluded from all reminder/alert emails.
     const profileMap = new Map(
       (profiles || []).filter((p: any) => !p.is_recovery).map((p: any) => [p.user_id, p]),
@@ -425,12 +448,15 @@ serve(async (req) => {
         <div style="color:#ffffff;font-size:18px;font-weight:700;margin-bottom:6px">
           Load #${esc(loadNumber)} &bull; Broker #${esc(brokerLoad)}
         </div>
+        <div style="color:#ffffff;font-size:22px;line-height:1.35;font-weight:700;margin-bottom:10px">
+          Booking dispatcher: ${esc(bookingDispatcher)}${bookingExtension ? ` &bull; Ext. ${esc(bookingExtension)}` : ""}
+        </div>
         <div style="color:#cbd5e1;font-size:13px;margin-bottom:12px">
           ${money(order.freight_amount)} freight${rpm ? ` (${rpm}/mi RPM)` : ""} &nbsp;|&nbsp;
           ${money(order.driver_price)} driver pay${driverRpm ? ` (${driverRpm}/mi RPM)` : ""} &nbsp;|&nbsp;
           ${order.loaded_miles ?? "—"} mi &nbsp;|&nbsp; ${order.weight ? `${Number(order.weight).toLocaleString("en-US")} lbs` : "— lbs"}
         </div>
-        <div style="color:#94a3b8;font-size:13px">Booked by: ${esc(companyName || order.booked_by || "—")}</div>
+        <div style="color:#94a3b8;font-size:13px">Booked by company: ${esc(companyName || "—")}</div>
         <div style="color:#94a3b8;font-size:13px;margin-bottom:16px">Broker: ${esc(brokerName)}</div>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
           ${stopBlock("PICKUP STOPS", pickups)}
