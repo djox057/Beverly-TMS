@@ -9,9 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { columns, highlightStyles, webLink, type Column, type RoadRecord, type Sheet } from "@/lib/roadsides";
+import { US_STATES } from "@/lib/constants";
+import { columns, displayValue, highlightStyles, webLink, type Column, type RoadRecord, type Sheet } from "@/lib/roadsides";
 
 const selectClass = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
+
+const searchableCaseFields = new Set(["driver", "company", "truck", "state"]);
 
 const caseSections = [
   { title: "Driver and equipment", keys: ["driver", "company", "truck"] },
@@ -23,6 +26,7 @@ const caseSections = [
 export function RoadsideEditor({ sheet, record, onClose }: { sheet: Sheet; record?: RoadRecord; onClose: () => void }) {
   const [fields, setFields] = useState(record?.fields ?? {});
   const [links, setLinks] = useState(record?.links ?? {});
+  const [courtAsText, setCourtAsText] = useState(false);
   const [color, setColor] = useState("preserve");
   const [id] = useState(() => record?.id ?? crypto.randomUUID());
   const cache = useQueryClient();
@@ -35,7 +39,7 @@ export function RoadsideEditor({ sheet, record, onClose }: { sheet: Sheet; recor
     queryFn: ({ signal }) => loadLawyerFields(signal),
   });
   const choices = useMemo(() => {
-    return Object.fromEntries(schema.map(col => {
+    return Object.fromEntries(schema.filter(col => searchableCaseFields.has(col.key)).map(col => {
       const unique = new Map<string, string>();
       for (const entry of [...(col.options ?? []), ...(priorCases.data ?? []).map(row => row.fields[col.key])]) {
         const value = entry?.trim();
@@ -54,7 +58,8 @@ export function RoadsideEditor({ sheet, record, onClose }: { sheet: Sheet; recor
       }
       const values = {
         fields: Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== "").map(([key, value]) => {
-          if (addCase && (key === "company" || key === "oos")) {
+          if (addCase && key === "court" && !courtAsText) return [key, displayValue("court", value)];
+          if (addCase && key === "company") {
             return [key, choices[key].find(choice => choice.toLowerCase() === value.trim().toLowerCase()) ?? value.trim()];
           }
           return [key, value];
@@ -88,7 +93,7 @@ export function RoadsideEditor({ sheet, record, onClose }: { sheet: Sheet; recor
     const value = fields[col.key] ?? "";
     const set = (next: string) => setFields(prev => ({ ...prev, [col.key]: next }));
     const inputId = "road-" + col.key;
-    if (addCase) {
+    if (addCase && searchableCaseFields.has(col.key)) {
       return <div key={col.key} className={`min-w-0 space-y-1 ${col.multiline || col.key === "address" ? "sm:col-span-full" : ""}`}>
         <Label>{col.label}</Label>
         <Combobox
@@ -96,7 +101,9 @@ export function RoadsideEditor({ sheet, record, onClose }: { sheet: Sheet; recor
           value={value}
           options={[
             ...(value ? [{ value: "", label: "Clear answer" }] : []),
-            ...choices[col.key].map(option => ({ value: option, label: option })),
+            ...(col.key === "state" ? US_STATES.map(state => ({
+              ...state, searchText: `${state.label} ${state.value}`,
+            })) : choices[col.key].map(option => ({ value: option, label: option }))),
           ]}
           selectedLabel={value}
           onValueChange={set}
@@ -107,16 +114,27 @@ export function RoadsideEditor({ sheet, record, onClose }: { sheet: Sheet; recor
         />
       </div>;
     }
+    if (addCase && col.key === "court") {
+      return <div key={col.key} className="min-w-0 space-y-1">
+        <Label htmlFor={inputId}>{col.label}</Label>
+        <Input id={inputId} type={courtAsText ? "text" : "date"} value={value}
+          placeholder={courtAsText ? "Date, time, or status" : undefined} onChange={event => set(event.target.value)} />
+        <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => {
+          set(courtAsText && !/^\d{4}-\d{2}-\d{2}$/.test(value) ? "" : value);
+          setCourtAsText(!courtAsText);
+        }}>{courtAsText ? "Use date picker" : "Enter date, time, or status as text"}</Button>
+      </div>;
+    }
     const legacyDate = col.key === "inspection_date" && record?.fields.inspection_date &&
       !/^\d{4}-\d{2}-\d{2}$/.test(record.fields.inspection_date);
-    return <div key={col.key} className="space-y-1">
+    return <div key={col.key} className={`min-w-0 space-y-1 ${addCase && col.multiline ? "sm:col-span-full" : ""}`}>
         <Label htmlFor={inputId}>{col.label}</Label>
         {col.options ? <select className={selectClass} id={inputId} value={value} onChange={e => set(e.target.value)}>
           <option value="">—</option>
           {value && !col.options.includes(value) && <option value={value}>{value}</option>}
           {col.options.map(option => <option key={option}>{option}</option>)}
         </select> : col.multiline ? <Textarea id={inputId} value={value} onChange={e => set(e.target.value)} /> :
-          <Input id={inputId} type={col.key === "inspection_date" && !legacyDate ? "date" : "text"}
+          <Input id={inputId} type={col.key === "inspection_date" && !legacyDate ? "date" : col.key === "phone" ? "tel" : "text"}
             value={value} onChange={e => set(e.target.value)} />}
         {legacyDate && <p className="text-xs text-muted-foreground">Original workbook value. Use YYYY-MM-DD for a correction.</p>}
         {record?.notes[col.key] && <p className="whitespace-pre-line text-xs text-muted-foreground">{record.notes[col.key]}</p>}
@@ -128,7 +146,6 @@ export function RoadsideEditor({ sheet, record, onClose }: { sheet: Sheet; recor
       <DialogHeader><DialogTitle>{record ? "Edit" : "Add"} {sheet === "ALL" ? "inspection" : "lawyer case"}</DialogTitle></DialogHeader>
       <form onSubmit={submit} className="space-y-4">
         {addCase && <>
-          <p className="text-sm text-muted-foreground">Type to search previous answers or enter your own.</p>
           {caseSections.map(section => <fieldset key={section.title} className="min-w-0 rounded-md border px-3 pb-3 pt-1">
             <legend className="px-1 text-sm font-semibold">{section.title}</legend>
             <div className="grid gap-3 sm:grid-cols-3">

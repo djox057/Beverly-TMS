@@ -126,6 +126,15 @@ describe("Roadsides workbook", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Add case" }));
     const dialog = within(screen.getByRole("dialog"));
     expect(dialog.getByRole("group", { name: "Legal contacts and court" })).toBeInTheDocument();
+    expect(dialog.getByRole("combobox", { name: "State" })).toBeInTheDocument();
+    expect(dialog.getByRole("textbox", { name: "City" })).toBeInTheDocument();
+    expect(dialog.getByLabelText("Phone")).toHaveAttribute("type", "tel");
+    expect(dialog.getByLabelText("Court date")).toHaveAttribute("type", "date");
+    expect(dialog.getByLabelText("Convictions").tagName).toBe("TEXTAREA");
+    expect(dialog.getByLabelText("Address").tagName).toBe("TEXTAREA");
+    expect(dialog.getByLabelText("Additional notes").tagName).toBe("TEXTAREA");
+    fireEvent.change(dialog.getByLabelText("Court date"), { target: { value: "2026-12-01" } });
+    fireEvent.change(dialog.getByLabelText("OOS"), { target: { value: "Not sure" } });
     const driverTrigger = dialog.getByRole("combobox", { name: "Driver name" });
     fireEvent.click(driverTrigger);
     expect(await screen.findByRole("option", { name: "Case Driver" })).toBeInTheDocument();
@@ -139,7 +148,7 @@ describe("Roadsides workbook", () => {
     expect(dialog.getByRole("combobox", { name: "Company" })).toHaveTextContent("Custom Carrier");
     fireEvent.click(dialog.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(mock.insert).toHaveBeenCalledWith(expect.objectContaining({
-      sheet: "Lawyers", fields: { driver: "New driver", company: "Custom Carrier" },
+      sheet: "Lawyers", fields: { driver: "New driver", company: "Custom Carrier", court: "12/01/2026", oos: "Not sure" },
     })));
   });
 
