@@ -6,7 +6,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { roadReaders, type RoadRecord } from "@/lib/roadsides";
 import Roadsides from "./Roadsides";
 
-const mock = vi.hoisted(() => ({ role: "maintenance", update: vi.fn(), conflict: false, batches: [] as string[][], records: [] as RoadRecord[] }));
+const mock = vi.hoisted(() => ({ role: "maintenance", update: vi.fn(), insert: vi.fn(), conflict: false, batches: [] as string[][], records: [] as RoadRecord[] }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuthContext: () => ({ user: { id: "u" }, getPrimaryRole: () => mock.role }) }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { from: () => {
@@ -19,6 +19,8 @@ vi.mock("@/integrations/supabase/client", () => ({
       in: (_key: string, batch: string[]) => { ids = batch; mock.batches.push(batch); return query; }, order: () => query, limit: () => query,
       eq: (key: string, value: string) => { filters[key] = value; return query; },
       update: (payload: Partial<RoadRecord>) => { patch = payload; mock.update(payload); return query; },
+      insert: (payload: unknown) => { mock.insert(payload); return query; },
+      single: () => ({ data: { id: "new-case" }, error: null }),
       maybeSingle: () => {
         const row = mock.records.find(r => r.id === filters.id && r.updated_at === filters.updated_at);
         if (!row || mock.conflict) return { data: null, error: null };
@@ -51,6 +53,7 @@ function show(path = "/roadsides") {
 
 beforeEach(() => {
   mock.update.mockClear();
+  mock.insert.mockClear();
   mock.conflict = false;
   mock.batches = [];
   mock.role = "maintenance";
@@ -102,6 +105,23 @@ describe("Roadsides workbook", () => {
     fireEvent.change(screen.getByLabelText("Search records"), { target: { value: "unfiled citation" } });
     expect(await screen.findByText("Driver 50")).toBeInTheDocument();
     expect(mock.batches[mock.batches.length - 1]).toEqual(["50"]);
+  });
+
+  it("suggests prior answers in the grouped Add Case form and saves custom values", async () => {
+    show("/roadsides?tab=lawyers");
+    fireEvent.click(await screen.findByRole("button", { name: "Add case" }));
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByRole("group", { name: "Legal contacts and court" })).toBeInTheDocument();
+    const driver = dialog.getByLabelText("Driver name");
+    const company = dialog.getByLabelText("Company");
+    await waitFor(() => expect(document.querySelector("#road-driver-options option[value='Case Driver']")).toBeTruthy());
+    expect(company).toHaveAttribute("list", "road-company-options");
+    fireEvent.change(driver, { target: { value: "New driver" } });
+    fireEvent.change(company, { target: { value: "Custom Carrier" } });
+    fireEvent.click(dialog.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mock.insert).toHaveBeenCalledWith(expect.objectContaining({
+      sheet: "Lawyers", fields: { driver: "New driver", company: "Custom Carrier" },
+    })));
   });
 
   it("uses standardized OOS and company dropdowns in Lawyers", async () => {

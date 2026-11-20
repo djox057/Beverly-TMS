@@ -24,25 +24,28 @@ async function loadIndex(signal: AbortSignal) {
     || b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id));
 }
 
-async function loadSearchText(signal: AbortSignal) {
-  const text: Record<string, string[]> = {};
+export async function loadLawyerFields(signal: AbortSignal) {
+  const rows: { id: string; fields: Record<string, string>; notes: Record<string, string> }[] = [];
   let cursor: string | undefined;
   for (;;) {
     let q = supabase.from("roadside_records").select("id,fields,notes").eq("sheet", "Lawyers").order("id").limit(500);
     if (cursor) q = q.gt("id", cursor);
     const { data, error } = await q.abortSignal(signal);
     if (error) throw new Error(error.message);
-    for (const row of data) text[row.id] = [...Object.values(row.fields), ...Object.values(row.notes)].map(s => s.toLowerCase());
-    if (data.length < 500) return text;
+    rows.push(...data);
+    if (data.length < 500) return rows;
     cursor = data[data.length - 1].id;
   }
 }
+
+const searchById = (rows: Awaited<ReturnType<typeof loadLawyerFields>>) =>
+  Object.fromEntries(rows.map(row => [row.id, [...Object.values(row.fields), ...Object.values(row.notes)].map(s => s.toLowerCase())]));
 
 export function useLawyerRegister(enabled: boolean, userId: string | undefined, search: string, company: string, oos: string) {
   const key = ["roadsides", "Lawyers", userId];
   const term = search.toLowerCase().trim();
   const index = useQuery({ queryKey: [...key, "index"], enabled, queryFn: ({ signal }) => loadIndex(signal) });
-  const searchText = useQuery({ queryKey: [...key, "search"], enabled: enabled && !!term, queryFn: ({ signal }) => loadSearchText(signal) });
+  const searchText = useQuery({ queryKey: [...key, "search"], enabled: enabled && !!term, queryFn: ({ signal }) => loadLawyerFields(signal), select: searchById });
   const ids = useMemo(() => (index.data ?? []).filter(row =>
     (!company || row.company === company) && (!oos || row.oos === oos)
     && (!term || searchText.data?.[row.id]?.some(value => value.includes(term)))).map(row => row.id),
