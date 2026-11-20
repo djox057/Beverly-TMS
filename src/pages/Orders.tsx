@@ -56,7 +56,11 @@ import { useBrokers } from "@/hooks/useBrokers";
 import { useOrdersSearch } from "@/hooks/useOrdersSearch";
 import { useFilteredOrdersSearch } from "@/hooks/useFilteredOrdersSearch";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS, UES_BOOKED_BY_COMPANY_ID } from "@/lib/constants";
+import {
+  APS_BOOKED_BY_COMPANY_ID,
+  MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS,
+  UES_BOOKED_BY_COMPANY_ID,
+} from "@/lib/constants";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -86,7 +90,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { z } from "zod";
 import { useDragPan } from "@/hooks/useDragPan";
 import { formatCurrency, formatDateNoTimezone, cn } from "@/lib/utils";
-// OrdersCacheStatus removed - now using direct database queries
+// Canceled loads also include BG and LALE bookings.
+const excludedCanceledBookedByCompanyIds = new Set([UES_BOOKED_BY_COMPANY_ID, APS_BOOKED_BY_COMPANY_ID]);
+const CANCELED_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS = [...excludedCanceledBookedByCompanyIds].join(",");
 const excludedBookedByCompanyIds = new Set(
   MAIN_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS.split(",").map((id) => id.trim()).filter(Boolean),
 );
@@ -553,7 +559,7 @@ const Orders = () => {
       pickupDateTo: pickupDateRange?.to ? chicagoBoundary(pickupDateRange.to, true, 1) : undefined,
 
       excludeBookedByCompanyId: serverBackedStatusFilter === "canceled"
-        ? UES_BOOKED_BY_COMPANY_ID
+        ? CANCELED_LOADS_EXCLUDED_BOOKED_BY_COMPANY_IDS
         : EXCLUDED_BOOKED_BY_COMPANY_ID,
     };
   }, [
@@ -617,9 +623,8 @@ const Orders = () => {
       // changes. Keep dedicated-page loads out of every main Loads view.
       const mainLoads = rows.filter((o) => {
         const bookedByCompanyId = o.bookedByCompanyId ?? o.booked_by_company_id;
-        // Preserve the canceled view's existing BG/Lale scope.
         return serverBackedStatusFilter === "canceled"
-          ? bookedByCompanyId !== UES_BOOKED_BY_COMPANY_ID
+          ? !excludedCanceledBookedByCompanyIds.has(bookedByCompanyId)
           : !excludedBookedByCompanyIds.has(bookedByCompanyId);
       });
       const unlocked = mainLoads
