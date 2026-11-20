@@ -104,6 +104,22 @@ describe("Roadsides workbook", () => {
     expect(mock.batches[mock.batches.length - 1]).toEqual(["50"]);
   });
 
+  it("uses standardized OOS and company dropdowns in Lawyers", async () => {
+    show("/roadsides?tab=lawyers");
+    fireEvent.click(await screen.findByRole("button", { name: "Edit OOS · Case Driver" }));
+    const oos = screen.getByRole("combobox", { name: "OOS · Case Driver" });
+    expect(within(oos).getAllByRole("option").map(option => option.textContent)).toEqual(["", "Yes", "No", "Not sure"]);
+    fireEvent.keyDown(oos, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Company · Case Driver" }));
+    const company = screen.getByRole("combobox", { name: "Company · Case Driver" });
+    expect(within(company).getByRole("option", { name: "BF Prime United LLC" })).toBeInTheDocument();
+    fireEvent.change(company, { target: { value: "BF Prime LLC" } });
+    fireEvent.keyDown(company, { key: "Enter" });
+    await waitFor(() => expect(mock.update).toHaveBeenCalledWith({
+      fields: expect.objectContaining({ company: "BF Prime LLC" }),
+    }));
+  });
+
   it.each(["chicago_management", "dispatch", "supervisor", "accounting", "afterhours", "claims", "yard", "recruiting", "driver"])(
     "denies direct Roadsides access to %s", role => {
       mock.role = role;

@@ -11,6 +11,11 @@ export type Column = { key: string; label: string; options?: string[]; multiline
 const yesNo = ["Yes", "No"];
 const companies = ["Beverly Freight", "BF PRIME", "BF PRIME UNITED", "Beverly Group", "BG Prime",
   "United Enterprise Solutions", "AP Silver Trans LLC", "Jones Freight Lines LLC"];
+const lawyerCompanies = [
+  "AP Silver Trans LLC", "Beverly Freight Inc", "Beverly group", "BF Prime LLC",
+  "BF Prime United LLC", "BG Prime Inc", "GD Trucking Solutions LLC", "Hart Freight Solutions LLC",
+  "Jones Freight Lines LLC", "Lale Transport LLC", "United Enterprise Solutions INC",
+];
 const reasons = ["tires", "light", "brakes", "overweight", "unsafe driving", "HOS Violation", "HOS Forms",
   "other", "CLEAN INSPECTION", "Failed But Not OOS", "maintenance", "accident", "suspension-air deflation", "USDOT inactive"];
 
@@ -35,14 +40,14 @@ export const columns: Record<Sheet, Column[]> = {
     { key: "state", label: "State" },
     { key: "city", label: "City" },
     { key: "convictions", label: "Convictions", multiline: true },
-    { key: "oos", label: "OOS" },
+    { key: "oos", label: "OOS", options: [...yesNo, "Not sure"] },
     { key: "returned", label: "Returned to" },
     { key: "lawyer", label: "Lawyer" },
     { key: "phone", label: "Phone" },
     { key: "address", label: "Address", multiline: true },
     { key: "assistant", label: "Assistant name" },
     { key: "court", label: "Court date" },
-    { key: "company", label: "Company" },
+    { key: "company", label: "Company", options: lawyerCompanies },
     { key: "extra", label: "Additional notes", multiline: true },
   ],
 };
