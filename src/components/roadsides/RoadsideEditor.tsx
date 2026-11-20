@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { loadLawyerFields } from "@/hooks/useLawyerRegister";
 import { supabase } from "@/integrations/supabase/client";
+import { Combobox } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,12 +90,21 @@ export function RoadsideEditor({ sheet, record, onClose }: { sheet: Sheet; recor
     const inputId = "road-" + col.key;
     if (addCase) {
       return <div key={col.key} className={`min-w-0 space-y-1 ${col.multiline || col.key === "address" ? "sm:col-span-full" : ""}`}>
-        <Label htmlFor={inputId}>{col.label}</Label>
-        <Input id={inputId} list={inputId + "-options"} autoComplete="off"
-          value={value} onChange={event => set(event.target.value)} />
-        <datalist id={inputId + "-options"}>
-          {choices[col.key].map(option => <option key={option} value={option} />)}
-        </datalist>
+        <Label>{col.label}</Label>
+        <Combobox
+          ariaLabel={col.label}
+          value={value}
+          options={[
+            ...(value ? [{ value: "", label: "Clear answer" }] : []),
+            ...choices[col.key].map(option => ({ value: option, label: option })),
+          ]}
+          selectedLabel={value}
+          onValueChange={set}
+          placeholder="Select or enter a value"
+          searchPlaceholder={`Search ${col.label.toLowerCase()}...`}
+          className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
+          allowCustom
+        />
       </div>;
     }
     const legacyDate = col.key === "inspection_date" && record?.fields.inspection_date &&

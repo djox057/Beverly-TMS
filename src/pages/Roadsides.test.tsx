@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { roadReaders, type RoadRecord } from "@/lib/roadsides";
 import Roadsides from "./Roadsides";
@@ -50,6 +50,17 @@ function show(path = "/roadsides") {
     <MemoryRouter initialEntries={[path]}><ProtectedRoute strictAllowedRoles={roadReaders}><Roadsides /></ProtectedRoute></MemoryRouter>
   </QueryClientProvider>);
 }
+
+beforeAll(() => {
+  Element.prototype.scrollIntoView = () => {};
+  if (!globalThis.ResizeObserver) {
+    globalThis.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  }
+});
 
 beforeEach(() => {
   mock.update.mockClear();
@@ -101,7 +112,10 @@ describe("Roadsides workbook", () => {
     show("/roadsides?tab=lawyers");
     expect(await screen.findByText("50 of 51 cases")).toBeInTheDocument();
     expect(screen.queryByText("Driver 50")).toBeNull();
-    expect(screen.getByRole("option", { name: "Other company" })).toBeInTheDocument();
+    const companyFilter = screen.getByRole("combobox", { name: "Filter by company" });
+    fireEvent.click(companyFilter);
+    expect(await screen.findByRole("option", { name: "Other company" })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByPlaceholderText("Search company..."), { key: "Escape" });
     fireEvent.change(screen.getByLabelText("Search records"), { target: { value: "unfiled citation" } });
     expect(await screen.findByText("Driver 50")).toBeInTheDocument();
     expect(mock.batches[mock.batches.length - 1]).toEqual(["50"]);
@@ -112,12 +126,17 @@ describe("Roadsides workbook", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Add case" }));
     const dialog = within(screen.getByRole("dialog"));
     expect(dialog.getByRole("group", { name: "Legal contacts and court" })).toBeInTheDocument();
-    const driver = dialog.getByLabelText("Driver name");
-    const company = dialog.getByLabelText("Company");
-    await waitFor(() => expect(document.querySelector("#road-driver-options option[value='Case Driver']")).toBeTruthy());
-    expect(company).toHaveAttribute("list", "road-company-options");
-    fireEvent.change(driver, { target: { value: "New driver" } });
-    fireEvent.change(company, { target: { value: "Custom Carrier" } });
+    const driverTrigger = dialog.getByRole("combobox", { name: "Driver name" });
+    fireEvent.click(driverTrigger);
+    expect(await screen.findByRole("option", { name: "Case Driver" })).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Search driver name..."), { target: { value: "New driver" } });
+    fireEvent.click(await screen.findByRole("option", { name: "Use “New driver”" }));
+    await waitFor(() => expect(driverTrigger).toHaveFocus());
+    fireEvent.click(dialog.getByRole("combobox", { name: "Company" }));
+    fireEvent.change(screen.getByPlaceholderText("Search company..."), { target: { value: "Custom Carrier" } });
+    await screen.findByRole("option", { name: "Use “Custom Carrier”" });
+    fireEvent.click(screen.getByRole("option", { name: "Use “Custom Carrier”" }));
+    expect(dialog.getByRole("combobox", { name: "Company" })).toHaveTextContent("Custom Carrier");
     fireEvent.click(dialog.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(mock.insert).toHaveBeenCalledWith(expect.objectContaining({
       sheet: "Lawyers", fields: { driver: "New driver", company: "Custom Carrier" },

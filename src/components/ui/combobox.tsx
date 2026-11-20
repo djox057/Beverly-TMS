@@ -38,6 +38,7 @@ interface ComboboxProps {
   preserveOrder?: boolean;
   selectedLabel?: string;
   ariaLabel?: string;
+  allowCustom?: boolean;
 }
 
 export function Combobox({
@@ -55,15 +56,26 @@ export function Combobox({
   preserveOrder,
   selectedLabel,
   ariaLabel,
+  allowCustom = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+  const custom = search.trim();
+  const canAdd = allowCustom && !!custom && !options.some(option =>
+    option.label.toLowerCase() === custom.toLowerCase() || option.value.toLowerCase() === custom.toLowerCase());
+
+  function changeOpen(next: boolean) {
+    setOpen(next);
+    if (!next) setSearch("");
+  }
 
   const selectedOption = options.find((option) => option.value === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={modal}>
+    <Popover open={open} onOpenChange={changeOpen} modal={modal}>
       <PopoverTrigger asChild>
         <Button
+          type="button"
           variant="outline"
           role="combobox"
           aria-label={ariaLabel}
@@ -83,13 +95,13 @@ export function Combobox({
       >
         {dropdownHeader}
         <Command className="pointer-events-auto" filter={preserveOrder ? (value, search) => value.toLowerCase().includes(search.trim().toLowerCase()) ? 1 : 0 : undefined}>
-          <CommandInput placeholder={searchPlaceholder} />
+          <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
           <CommandList
             className="max-h-[240px] overscroll-contain"
             onWheel={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
           >
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            {!canAdd && <CommandEmpty>{emptyText}</CommandEmpty>}
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem
@@ -97,7 +109,7 @@ export function Combobox({
                   value={option.searchText || option.label}
                   onSelect={() => {
                     onValueChange?.(option.value === value ? "" : option.value);
-                    setOpen(false);
+                    changeOpen(false);
                   }}
                 >
                   <Check
@@ -109,6 +121,12 @@ export function Combobox({
                   <span className="truncate">{option.label}</span>
                 </CommandItem>
               ))}
+              {canAdd && <CommandItem value={custom} onSelect={() => {
+                onValueChange?.(custom);
+                changeOpen(false);
+              }}>
+                <span className="ml-6 truncate">Use “{custom}”</span>
+              </CommandItem>}
             </CommandGroup>
           </CommandList>
         </Command>

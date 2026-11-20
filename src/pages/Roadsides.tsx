@@ -4,6 +4,7 @@ import { ClipboardCheck, Plus, Search } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Combobox } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
 import { useLawyerRegister } from "@/hooks/useLawyerRegister";
 import { RoadsideGrid } from "@/components/roadsides/RoadsideGrid";
@@ -86,7 +87,7 @@ function Register({ sheet }: { sheet: Sheet }) {
     cache.setQueryData<RoadRecord[]>(queryKey, rows => rows?.map(item => item.id === data.id ? data : item));
   }
 
-  const selectClass = "h-10 max-w-full rounded-md border border-input bg-background px-3 text-sm";
+  const filterClass = "w-[180px] max-w-full data-[state=open]:bg-accent data-[state=open]:text-accent-foreground";
 
   return <div className="min-w-0 space-y-3">
     <div className="service-log-toolbar flex flex-wrap items-center gap-2">
@@ -95,12 +96,14 @@ function Register({ sheet }: { sheet: Sheet }) {
         <Input aria-label="Search records" placeholder="Search records…" className="pl-9" value={search}
           onChange={e => { setSearch(e.target.value); setPage(0); }} />
       </div>
-      <select aria-label="Filter by company" className={selectClass} value={company} onChange={e => { setCompany(e.target.value); setPage(0); }}>
-        <option value="">All companies</option>{options.companies.map(v => <option key={v}>{v}</option>)}
-      </select>
-      <select aria-label="Filter by OOS" className={selectClass} value={oos} onChange={e => { setOos(e.target.value); setPage(0); }}>
-        <option value="">All OOS statuses</option>{options.statuses.map(v => <option key={v}>{v}</option>)}
-      </select>
+      <Combobox ariaLabel="Filter by company" value={company} className={filterClass}
+        searchPlaceholder="Search company..."
+        options={[{ value: "", label: "All companies" }, ...options.companies.map(value => ({ value, label: value }))]}
+        onValueChange={value => { setCompany(value); setPage(0); }} />
+      <Combobox ariaLabel="Filter by OOS" value={oos} className={filterClass}
+        searchPlaceholder="Search OOS..."
+        options={[{ value: "", label: "All OOS statuses" }, ...options.statuses.map(value => ({ value, label: value }))]}
+        onValueChange={value => { setOos(value); setPage(0); }} />
       {editable && <Button onClick={() => setEditor("new")}><Plus className="mr-2 h-4 w-4" />{sheet === "ALL" ? "Add inspection" : "Add case"}</Button>}
     </div>
       {error ? <div role="alert" className="space-y-2"><p>Could not load records. {error.message}</p>
