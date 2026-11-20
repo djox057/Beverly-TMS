@@ -5,6 +5,12 @@ import { ServiceLogCell } from "@/components/ServiceLogCell";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { columns, displayValue, highlightStyles, webLink, type RoadRecord, type Sheet } from "@/lib/roadsides";
 
+const lawyerHighlightStyles: typeof highlightStyles = {
+  ...highlightStyles,
+  red: "bg-red-200 dark:bg-red-950",
+  green: "bg-green-200 dark:bg-green-950",
+};
+
 const gridBorder = "border border-[#dce3f3]";
 const action = "inline-flex items-center justify-center p-1 rounded-sm hover:bg-blue-100 dark:hover:bg-slate-700";
 
@@ -34,6 +40,7 @@ export function RoadsideGrid({ sheet, rows, editable, editRow, saveCell, emptyMe
     return () => observer.disconnect();
   }, [onNearEnd, containerRef]);
 
+  const highlights = sheet === "Lawyers" ? lawyerHighlightStyles : highlightStyles;
   const schema = columns[sheet];
   const sizes = widths[sheet];
   return <div className="service-log-sheet min-w-0 rounded-sm border-2 border-[#233c85] bg-white text-slate-900 shadow-sm">
@@ -56,7 +63,7 @@ export function RoadsideGrid({ sheet, rows, editable, editRow, saveCell, emptyMe
             const url = webLink(row.links[col.key]);
             const note = row.notes[col.key];
             const options = col.options && ["", ...col.options, ...(value && !col.options.includes(value) ? [value] : [])];
-            return <td key={col.key} className={`${gridBorder} h-7 p-0 text-center ${highlightStyles[row.highlights[col.key]] ?? ""}`}>
+            return <td key={col.key} className={`${gridBorder} h-7 p-0 text-center ${highlights[row.highlights[col.key]] ?? ""}`}>
               <div className="flex h-7 min-w-0 items-center [&:has([data-cell-editor])>a]:hidden">
                 {url && <a href={url} target="_blank" rel="noopener noreferrer" title={text || "Open document"}
                   className="min-w-0 flex-1 truncate px-1 text-blue-700 underline dark:text-blue-300">{text || "Open document"}</a>}
