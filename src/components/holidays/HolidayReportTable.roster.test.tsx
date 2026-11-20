@@ -47,7 +47,7 @@ it.each(['admin', 'manager', 'dispatch', 'supervisor', 'accounting'])('enforces 
   render(<HolidayReportTable year={2026} holidaySlug="christmas" />);
   const bonus = await screen.findByRole('combobox', { name: 'Bonus for truck 03212' });
   expect(bonus).toHaveValue('yes');
-  if (role === 'admin' || role === 'manager') {
+  if (role !== 'accounting') {
     expect(bonus).toBeEnabled();
     fireEvent.change(bonus, { target: { value: 'no' } });
     await waitFor(() => expect(api.calls.find(call => call.action === 'update')?.payload).toEqual({ bonus: false }));
@@ -64,7 +64,8 @@ it.each(['admin', 'manager', 'dispatch', 'supervisor', 'accounting'])('enforces 
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   } else expect(note).toBeEnabled();
 });
-it('persists a new bonus and keeps it when the row is filtered out and back', async () => {
+it.each(['admin', 'dispatch', 'supervisor'])('persists a new bonus for %s and keeps it after filtering', async role => {
+  auth.role = role;
   render(<HolidayReportTable year={2026} holidaySlug="christmas" />);
   const bonus = await screen.findByRole('combobox', { name: 'Bonus for truck 03212' });
   fireEvent.change(bonus, { target: { value: 'yes' } });
@@ -85,13 +86,11 @@ it.each(['admin', 'manager', 'accounting', 'supervisor', 'dispatch'])('limits am
   const amount = await screen.findByRole('button', { name: 'Bonus amount for truck 03212' });
   expect(amount).toHaveTextContent('$100');
   expect(screen.getByRole('button', { name: 'Bonus amount for truck 3212' })).toBeDisabled();
-  if (['admin', 'manager', 'accounting', 'dispatch'].includes(role)) {
-    expect(amount).toBeEnabled();
-    fireEvent.click(amount);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Bonus amount', exact: true }), { target: { value: '125.50' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
-    await waitFor(() => expect(api.calls.find(call => call.action === 'update')?.payload).toEqual({ bonus_amount: 125.5 }));
-  } else expect(amount).toBeDisabled();
+  expect(amount).toBeEnabled();
+  fireEvent.click(amount);
+  fireEvent.change(screen.getByRole('textbox', { name: 'Bonus amount', exact: true }), { target: { value: '125.50' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
+  await waitFor(() => expect(api.calls.find(call => call.action === 'update')?.payload).toEqual({ bonus_amount: 125.5 }));
 });
 it('cancels a new bonus, validates the amount, and clears the amount when set to No', async () => {
   render(<HolidayReportTable year={2026} holidaySlug="christmas" />);

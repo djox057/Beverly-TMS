@@ -14,6 +14,9 @@ begin
  end loop;
  if (select count(*) from holiday_permission_actors) <> 5 then raise exception 'Missing role fixtures'; end if;
 end $$;
+insert into public.holiday_report_entries(year,holiday_slug,truck,note)
+select 2099,'christmas',truck,'holiday-accounting-fixture'
+from holiday_permission_actors where role='accounting';
 create temporary table holiday_permission_counts as select count(*) total from public.holiday_report_entries;
 grant select on holiday_permission_actors, holiday_permission_counts to authenticated;
 set local role authenticated;
@@ -24,38 +27,33 @@ begin
   perform set_config('request.jwt.claim.sub',actor.id::text,true);
   if actor.role='accounting' then
    if (select count(*) from public.holiday_report_entries where note <> 'holiday-permission-test') <> (select total from holiday_permission_counts) then raise exception 'Accounting cannot read every row'; end if;
+   select id into row_id from public.holiday_report_entries
+   where year=2099 and holiday_slug='christmas' and truck=actor.truck and note='holiday-accounting-fixture';
+   if row_id is null then raise exception 'Accounting cannot read fixture'; end if;
    denied := false;
    begin
     insert into public.holiday_report_entries(year,holiday_slug,truck,note) values(2099,'christmas',actor.truck,'holiday-permission-test');
    exception when insufficient_privilege then denied := true; end;
    if not denied then raise exception 'Accounting can insert'; end if;
    denied := false;
-   begin update public.holiday_report_entries set note='forbidden-accounting-note' where truck=actor.truck;
+   begin update public.holiday_report_entries set note='forbidden-accounting-note' where id=row_id;
    exception when insufficient_privilege then denied := true; end;
    if not denied then raise exception 'Accounting can edit notes'; end if;
-   delete from public.holiday_report_entries where truck=actor.truck;
+   delete from public.holiday_report_entries where id=row_id;
    get diagnostics affected=row_count;
    if affected<>0 then raise exception 'Accounting can delete'; end if;
   else
    insert into public.holiday_report_entries(year,holiday_slug,truck,note) values(2099,'christmas',actor.truck,'holiday-permission-test') returning id into row_id;
    update public.holiday_report_entries set note='holiday-permission-test' where id=row_id;
-   if actor.role in ('admin','manager') then
-    update public.holiday_report_entries set bonus=true where id=row_id;
-    if not (select bonus from public.holiday_report_entries where id=row_id) then raise exception 'Bonus save failed'; end if;
-    update public.holiday_report_entries set bonus=false where id=row_id;
-   else
-    denied := false;
-    begin update public.holiday_report_entries set bonus=true where id=row_id;
-    exception when insufficient_privilege then denied := true; end;
-    if not denied then raise exception 'Unauthorized bonus update for %',actor.role; end if;
-    denied := false;
-    begin insert into public.holiday_report_entries(year,holiday_slug,truck,bonus) values(2099,'christmas',actor.truck,true);
-    exception when insufficient_privilege then denied := true; end;
-    if not denied then raise exception 'Unauthorized bonus insert for %',actor.role; end if;
-   end if;
+   update public.holiday_report_entries set bonus=true where id=row_id;
+   if (select bonus from public.holiday_report_entries where id=row_id) is distinct from true then raise exception 'Bonus save failed for %',actor.role; end if;
+   update public.holiday_report_entries set bonus=false where id=row_id;
+   insert into public.holiday_report_entries(year,holiday_slug,truck,note,bonus,bonus_amount)
+   values(2099,'christmas',actor.truck,'holiday-permission-test',true,100) returning id into row_id;
+   if (select bonus_amount from public.holiday_report_entries where id=row_id) is distinct from 100 then raise exception 'Bonus insert failed for %',actor.role; end if;
   end if;
  end loop;
 end $$;
 reset role;
-select 'Passed: Accounting read access with protected notes; admin/manager Bonus edits; dispatch/supervisor Bonus denied' result;
+select 'Passed: Accounting read access with protected notes; admin, manager, dispatch and supervisor Bonus edits' result;
 rollback;

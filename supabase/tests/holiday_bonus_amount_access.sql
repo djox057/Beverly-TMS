@@ -1,6 +1,6 @@
 begin;
 create temporary table holiday_amount_actors(id uuid, role text, truck text, row_id uuid);
-create temporary table holiday_amount_outside_dispatch_scope(row_id uuid);
+create temporary table holiday_bonus_outside_scope(role text, row_id uuid);
 do $$
 declare actor record; actor_role text; unit text; entry_id uuid;
 begin
@@ -16,35 +16,36 @@ begin
   end if;
  end loop;
  if (select count(*) from holiday_amount_actors)<>5 then raise exception 'Missing role fixtures'; end if;
- perform set_config('request.jwt.claim.sub',(select id::text from holiday_amount_actors where role='dispatch'),true);
- select t.truck_number into unit from public.trucks t
- where t.is_active and t.truck_number not in (select public.holiday_allowed_trucks()) limit 1;
- if unit is null then raise exception 'Missing truck outside dispatcher scope'; end if;
- insert into public.holiday_report_entries(year,holiday_slug,truck,bonus,bonus_amount)
- values(2099,'christmas',unit,true,100) returning id into entry_id;
- insert into holiday_amount_outside_dispatch_scope values(entry_id);
+ for actor in select * from holiday_amount_actors where role in ('dispatch','supervisor') loop
+  perform set_config('request.jwt.claim.sub',actor.id::text,true);
+  select t.truck_number into unit from public.trucks t
+  where t.is_active and t.truck_number not in (select public.holiday_allowed_trucks()) limit 1;
+  if unit is null then raise exception 'Missing truck outside scope for %',actor.role; end if;
+  insert into public.holiday_report_entries(year,holiday_slug,truck,bonus,bonus_amount)
+  values(2099,'christmas',unit,true,100) returning id into entry_id;
+  insert into holiday_bonus_outside_scope values(actor.role,entry_id);
+ end loop;
 end $$;
-grant select on holiday_amount_actors, holiday_amount_outside_dispatch_scope to authenticated;
+grant select on holiday_amount_actors, holiday_bonus_outside_scope to authenticated;
 set local role authenticated;
 do $$
 declare actor record; denied boolean; affected integer;
 begin
  for actor in select * from holiday_amount_actors loop
   perform set_config('request.jwt.claim.sub',actor.id::text,true);
-  denied := false;
-  begin update public.holiday_report_entries set bonus_amount=125.50 where id=actor.row_id;
-  exception when insufficient_privilege then denied := true; end;
-  if actor.role in ('admin','manager','accounting','dispatch') then
-   if denied or (select bonus_amount from public.holiday_report_entries where id=actor.row_id) is distinct from 125.50 then raise exception 'Amount edit failed for %',actor.role; end if;
-  elsif not denied then raise exception 'Unauthorized amount edit for %',actor.role; end if;
-  if actor.role='dispatch' then
-   update public.holiday_report_entries set bonus_amount=150 where id=(select row_id from holiday_amount_outside_dispatch_scope);
+  update public.holiday_report_entries set bonus_amount=125.50 where id=actor.row_id;
+  if (select bonus_amount from public.holiday_report_entries where id=actor.row_id) is distinct from 125.50 then
+   raise exception 'Amount edit failed for %',actor.role;
+  end if;
+  if actor.role in ('dispatch','supervisor') then
+   update public.holiday_report_entries set bonus_amount=150
+   where id=(select row_id from holiday_bonus_outside_scope where role=actor.role);
    get diagnostics affected=row_count;
-   if affected<>0 then raise exception 'Dispatcher changed amount on a truck outside their scope'; end if;
-   denied := false;
-   begin update public.holiday_report_entries set bonus=false where id=actor.row_id;
-   exception when insufficient_privilege then denied := true; end;
-   if not denied then raise exception 'Dispatcher changed Bonus'; end if;
+   if affected<>0 then raise exception '% changed amount on a truck outside their scope',actor.role; end if;
+   update public.holiday_report_entries set bonus=false
+   where id=(select row_id from holiday_bonus_outside_scope where role=actor.role);
+   get diagnostics affected=row_count;
+   if affected<>0 then raise exception '% changed Bonus on a truck outside their scope',actor.role; end if;
   end if;
   if actor.role='accounting' then
    denied := false;
@@ -59,7 +60,7 @@ begin
    get diagnostics affected=row_count;
    if affected<>0 then raise exception 'Accounting deleted entry'; end if;
   end if;
-  if actor.role in ('admin','manager') then
+  if actor.role <> 'accounting' then
    update public.holiday_report_entries set bonus=false where id=actor.row_id;
    if (select bonus_amount from public.holiday_report_entries where id=actor.row_id) is not null then raise exception 'No did not clear amount'; end if;
    denied := false;
@@ -70,5 +71,5 @@ begin
  end loop;
 end $$;
 reset role;
-select 'Passed: scoped dispatcher amount editing, admin/manager/accounting access, supervisor denied, No clears/rejects amount' result;
+select 'Passed: scoped dispatcher and supervisor edits, accounting amount-only access, No clears and rejects amounts' result;
 rollback;
